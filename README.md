@@ -118,7 +118,8 @@ Taille maximale : **20 Mo** (`PPAI_MAX_UPLOAD_BYTES`).
 curl.exe -F "image=@ma-piece.jpg" http://127.0.0.1:8000/v1/analyze-room
 ```
 
-Réponse, au LOT 0 :
+Réponse, au LOT 0 — la forme est exacte, les valeurs numériques sont là
+pour illustrer :
 
 ```json
 {
