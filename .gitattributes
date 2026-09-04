@@ -1,0 +1,13 @@
+# Fins de ligne en LF dans le dépôt ET dans la copie de travail.
+#
+# Le service tourne sous Linux (voir Dockerfile) et le développement se fait
+# sous Windows. Sans cette normalisation, un Dockerfile ou un script rapatrié
+# en CRLF casse à l'exécution dans le conteneur, avec un message qui ne parle
+# pas de fins de ligne.
+* text=auto eol=lf
+
+# Binaires : jamais touchés.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary

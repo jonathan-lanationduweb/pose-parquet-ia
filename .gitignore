@@ -1,0 +1,51 @@
+# Environnement
+.venv/
+venv/
+env/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+dist/
+build/
+
+# Secrets et configuration locale
+.env
+.env.local
+*.pem
+*.key
+
+# Poids de modèles : jamais dans Git (voir docs/architecture.md)
+models/
+*.onnx
+*.pt
+*.pth
+*.safetensors
+*.tflite
+
+# Corpus de test : les photos ne sont pas versionnées, seul le manifeste l'est.
+# Voir datasets/README.md.
+datasets/**/*.jpg
+datasets/**/*.jpeg
+datasets/**/*.png
+datasets/**/*.webp
+datasets/**/*.tif
+datasets/**/*.tiff
+datasets/synthetic/
+
+# Sorties de benchmark
+benchmarks/out/
+*.tmp
+
+# Éditeurs / OS
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+.DS_Store
