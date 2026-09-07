@@ -1,149 +1,209 @@
 # Corpus de test
 
-Ce dossier décrit un corpus de photos de pièces. **Les photos elles-mêmes ne
-sont pas versionnées** — seul `manifest.json` l'est.
+Trois régimes, et la distinction est **juridique avant d'être technique**.
 
-Deux raisons, et la seconde compte plus que la première :
+| dossier | contenu | dans Git |
+| --- | --- | --- |
+| `public/` | images dont la licence autorise la redistribution | **oui** |
+| `private-real/` | tout le reste : usage local d'évaluation seulement | **non** |
+| `synthetic/` | corpus généré, `scripts/build_corpus.py` | non, régénérable |
+| `annotations/` | relevés humains du sol : JSON + masques PNG | **oui** |
+| `manifest.json` | la description de tout, quel que soit le régime | **oui** |
 
-1. quelques dizaines de photos d'intérieur en résolution utile pèsent vite
-   plus lourd que tout le reste du dépôt, et Git ne sait pas les oublier ;
-2. **une photo n'appartient pas au dépôt.** Elle a un auteur, une licence, et
-   parfois une personne dessus ou derrière la fenêtre. Le manifeste, lui, dit
-   d'où vient chaque image et à quelles conditions on peut s'en servir. C'est
-   ce fichier qui rend le corpus partageable, pas les octets.
+Le manifeste référence une image privée **par chemin et par hash** sans que ses
+octets entrent jamais dans le dépôt. C'est ce qui permet d'évaluer sur des
+photos qu'on ne peut pas partager, tout en gardant un corpus décrit,
+vérifiable et reproductible.
+
+Deux garde-fous automatiques tiennent la frontière :
+
+* `scripts/add_photo.py` refuse `--redistributable` sur un fichier de
+  `private-real/` ;
+* `scripts/validate_dataset.py` refuse une image non redistribuable rangée
+  dans `public/` — puisque `public/` est versionné, donc redistribué de fait.
 
 ---
 
-## Les quatre bacs
+## La difficulté n'est pas dans le chemin
 
-Le classement décrit **ce que la photo demande à l'analyse**, pas sa qualité
-esthétique.
+Les bacs `easy/ medium/ hard/ rejected/` du LOT 0 ont disparu comme dossiers.
+La difficulté est une **métadonnée du manifeste**, pas une arborescence.
 
-| bac        | ce qu'on y met                                                                    |
-| ---------- | --------------------------------------------------------------------------------- |
-| `easy`     | sol dégagé, jonction mur/sol franche, perspective lisible                         |
-| `medium`   | quelques meubles, une ouverture, un contraste moyen                               |
-| `hard`     | les cas difficiles réellement rencontrés (voir plus bas)                          |
-| `rejected` | photo dont on **attend qu'elle soit refusée**                                      |
+La raison est pratique : la difficulté est un jugement, et un jugement se
+révise. Reclasser une photo de `medium` en `hard` après l'avoir annotée ne doit
+pas demander de déplacer un fichier, de corriger un chemin dans le manifeste et
+de casser au passage le lien avec ses masques. Le fichier ne bouge plus ; c'est
+l'étiquette qui change.
+
+| difficulté | ce qu'on y met |
+| --- | --- |
+| `easy` | sol dégagé, jonction mur/sol franche, perspective lisible |
+| `medium` | quelques meubles, une ouverture, un contraste moyen |
+| `hard` | les cas difficiles réellement rencontrés |
+| `rejected` | photo dont on **attend qu'elle soit refusée** |
 
 `rejected` n'est pas un rebut. C'est la seule catégorie qui vérifie que le
 service sait dire non, et elle a autant de valeur que les trois autres. Un
 analyseur qui accepte tout n'a pas 100 % de réussite : il n'a pas de garde-fou.
 
-### Ce qui rend une photo difficile
+Les scènes `rejected` sont **exclues des agrégats** du banc d'essai de
+segmentation : on n'attend pas qu'elles soient segmentables, et les compter
+tirerait une moyenne vers le bas sans rien apprendre.
 
-Ces catégories ne sont pas devinées : ce sont les cas que le Visualiseur a
-réellement rencontrés, et le dépôt du front en garde la trace scène par scène.
+---
 
-| défaut                     | ce qui casse                                                     |
-| -------------------------- | ---------------------------------------------------------------- |
-| faible contraste mur/sol   | la jonction n'offre aucune marche de teinte : rien à relever      |
-| coins occultés             | l'intersection des murs est cachée : pas de second point de fuite |
-| grand-angle                | les droites courbent, la perspective n'est plus projective        |
-| perspective peu observable | une seule direction mesurable, donc pas de quadrilatère prouvé    |
-| recadrage                  | le centre optique n'est plus le centre de l'image                 |
-| meubles devant les plinthes| la frontière du sol est masquée là où on voudrait la mesurer      |
+## Les traits de scène
 
-Voir `docs/dataset.md` pour la correspondance avec les scènes du front, qui
-documentent chacun de ces cas avec un relevé chiffré.
+Ce que la scène **contient**, par opposition à ce qu'elle vaut. Vocabulaire
+fermé (`SceneTrait`, 22 valeurs) : un trait libre en texte ne se compte pas, et
+une liste qu'on ne peut pas compter ne sert qu'à se rassurer.
+
+| famille | traits |
+| --- | --- |
+| contenu | `empty_room` `furnished` `rug` `thin_furniture_legs` `radiator` `doors` |
+| nature du sol | `existing_parquet` `tiles` `uniform_floor` `dark_floor` `reflective_floor` |
+| difficulté du relevé | `low_wall_floor_contrast` `hidden_corners` `cropped` `wide_angle` `easy_perspective` `hard_perspective` `blurry` |
+| géométrie | `corridor` `small_room` `large_room` |
+| hors sujet | `not_a_room` |
+
+Les séparer de la difficulté permet de répondre à la question qui décidera du
+modèle : **« échoue-t-il sur les tapis, ou sur les sols sombres ? »** Un corpus
+rangé seulement par difficulté ne peut pas y répondre. Le banc d'essai agrège
+par trait pour cette raison précise.
 
 ---
 
 ## Ajouter une photo
 
-1. Déposer le fichier dans le bac qui convient, par exemple
-   `datasets/hard/room-014.jpg`.
-2. Ajouter une entrée dans `manifest.json` :
-
-```json
-{
-  "id": "room-014",
-  "file": "hard/room-014.jpg",
-  "difficulty": "hard",
-  "source": "Pexels — https://www.pexels.com/photo/…",
-  "license": "Pexels License",
-  "credit": "Prénom Nom / Pexels",
-  "expectedIssues": ["wall_floor_contrast_low", "occlusion_complex"],
-  "groundTruth": { "available": false },
-  "notes": "Parquet clair sur murs clairs ; plinthes masquées par un buffet."
-}
-```
-
-3. Vérifier que le manifeste est valide et lancer le banc d'essai :
+Passez par le script plutôt que d'éditer le JSON : la provenance y devient
+obligatoire de fait, et le hash est calculé plutôt que saisi.
 
 ```bash
-python -m benchmarks.run_benchmark --dataset datasets
+python -m scripts.add_photo \
+    --file private-real/salon.jpg --id salon-01 --difficulty medium \
+    --source "photo personnelle" --license "propriétaire" \
+    --verified-on 2026-09-07 \
+    --traits furnished,rug,existing_parquet,easy_perspective
 ```
 
-`id` doit être stable : c'est la clé qui permet de comparer deux rapports de
-benchmark à des semaines d'intervalle. Le renommer, c'est perdre l'historique
-de cette photo.
+`--id` doit être **stable** : c'est la clé qui rattache une photo à ses
+annotations et qui permet de comparer deux rapports à des semaines
+d'intervalle. Le renommer, c'est perdre son historique.
 
-`expectedIssues` prend des **codes machine** de `app/core/warnings.py`, jamais
-des phrases, et seulement des codes de `warnings.SCORED` — hors de cette liste
-un code attendu serait invisible au comptage. C'est cette colonne qui
-transforme une image en test : le benchmark en déduit les faux négatifs (ce que
-le corpus annonçait et que l'analyse n'a pas vu) **et les faux positifs** (ce
-que l'analyse a signalé sans que le corpus l'annonce).
+Puis annoter — voir `docs/annotation-protocol.md` — et contrôler :
 
-`graded: false` marque une photo dont la bonne réponse est discutable. Elle est
-mesurée et rapportée, hors comptage. Mieux vaut une zone grise documentée qu'une
-vérité inventée pour gonfler un score.
+```bash
+python -m scripts.validate_dataset
+```
+
+---
+
+## Provenance : ce qui est exigé, et pourquoi
+
+| champ | rôle |
+| --- | --- |
+| `source` | d'où vient la photo. Obligatoire |
+| `sourceUrl` | l'adresse, quand il y en a une |
+| `author` | l'auteur, quand il est connu |
+| `license` | **nom exact**. Obligatoire |
+| `verifiedOn` | date à laquelle une personne a *regardé* les conditions |
+| `redistributable` | **faux par défaut** |
+| `usage` | `local_evaluation_only` ou `redistributable` |
+| `sha256` | empreinte du fichier local, calculée |
+
+**Une licence absente ne doit jamais devenir une licence supposée.**
+« inconnue » est une réponse acceptable ; l'inventer ne l'est pas. Le
+validateur refuse la combinaison « licence inconnue » + « redistribuable ».
+
+`verifiedOn` est la date de la vérification, pas celle du téléchargement. Sans
+elle, une licence recopiée il y a deux ans se lit comme une licence vérifiée
+aujourd'hui.
+
+`sha256` est ce qui permet à un rapport d'affirmer sur quels octets il a été
+calculé, **même pour une image absente du dépôt**. Si le fichier change, le
+validateur le dit.
+
+---
+
+## Les photos Pexels du front
+
+**Décision humaine déjà prise : elles ne constituent pas un corpus redistribué
+dans ce dépôt.** Aucune n'a été copiée, l'API Pexels n'est pas utilisée, et
+rien n'est présenté comme redistribuable.
+
+Elles peuvent servir de **tests privés locaux**, une entrée à la fois, avec
+provenance documentée : `private-real/`, licence nommée,
+`redistributable: false`, `usage: local_evaluation_only`.
+
+Deux scènes du front méritent d'y passer en priorité — voir
+`docs/annotation-protocol.md`, §9 : `entree-cadree` (recadrage, centre optique
+décentré) et `piece-arcades` (courbes architecturales réelles). Le LOT 1 a
+mesuré ces deux cas de figure sur des images **synthétiques** ; ce sont les
+seules photos réelles connues qui les portent.
 
 ---
 
 ## Vérité terrain
 
-Le bloc `groundTruth` est prévu pour recevoir un **relevé humain** :
+### Le sol
 
-| champ            | contenu                                                             |
-| ---------------- | ------------------------------------------------------------------- |
-| `floorMask`      | PNG binaire, même cadrage que la photo : le sol tel qu'un humain le voit |
-| `floorBoundary`  | polygone normalisé de la jonction mur/sol                            |
-| `occlusionMask`  | PNG binaire de ce qui doit rester devant le parquet                  |
-| `vanishingPoints`| points de fuite relevés, normalisés                                  |
-| `camera`         | `fovDeg`, `tiltDeg`, `heightM`, `focalPx` si connus                  |
-| `lens`           | coefficients radiaux, centre optique, **et leur provenance**         |
-| `notes`          | tout ce que les chiffres ne disent pas                               |
+Elle a son propre format depuis le préambule du LOT 2 :
+`app/schemas/annotation.py`, fichiers dans `annotations/`. Voir
+`docs/annotation-protocol.md` pour les définitions — et surtout pour la
+distinction entre **sol visible**, **étendue géométrique** et **incertain**,
+qu'il ne faut jamais confondre.
+
+### Le reste
+
+Le bloc `groundTruth` du manifeste ne porte plus que ce qui concerne la caméra
+et l'objectif : points de fuite, paramètres caméra, coefficients d'objectif et
+leur provenance. Il servira aux LOT 3 et 4.
 
 **Aucune de ces valeurs ne doit être générée automatiquement, estimée, ou
 remplie « pour faire complet ».** Une vérité terrain inventée transforme un
-banc d'essai en machine à valider ses propres erreurs : le modèle sera comparé
-à sa propre sortie et trouvera qu'il a raison. `available: false` est un état
+banc d'essai en machine à valider ses propres erreurs : le modèle est comparé à
+sa propre sortie et trouve qu'il a raison. `available: false` est un état
 parfaitement acceptable, et c'est celui de tout le corpus aujourd'hui.
 
-Pour la même raison, `lens` porte la provenance de ses coefficients —
-**mesurée**, **lue** dans les métadonnées, ou **supposée**. La distinction
-court dans tout le projet.
+---
+
+## Cible de composition
+
+Une vingtaine à une trentaine de scènes suffisent pour commencer à discriminer
+des modèles — et une trentaine bien choisies valent mieux que trois cents
+ramassées.
+
+| bac | cible | ce qu'on y cherche |
+| --- | --- | --- |
+| `easy` | ~6 | la référence : si un modèle échoue ici, il est hors course |
+| `medium` | ~8 | le cas courant, celui qui décidera du modèle retenu |
+| `hard` | ~8 | les traits difficiles, au moins un exemplaire chacun |
+| `rejected` | ~4 | vérifier que le service sait dire non |
+
+Deux règles de sélection :
+
+**Pas de photo sans licence claire.** Une photo sans provenance ne peut pas
+être partagée, donc pas servir de référence commune, donc ne sert à rien.
+
+**Pas de doublon de complaisance.** Une photo qui n'apporte aucun trait qu'une
+autre n'apporte déjà ne fait que rallonger le temps d'annotation et de
+benchmark. Le nombre est un objectif de couverture, pas un quota.
 
 ---
 
 ## Corpus synthétique
 
-`datasets/synthetic/` est autre chose, et ne doit pas être confondu avec ce
-qui précède. Ce sont des images fabriquées — scènes texturées, murs lisses,
-champs de lignes, damiers, aplats — puis dégradées par une transformation
-**dont le paramètre est connu** : sigma de flou, gain d'exposition, coefficient
-de distorsion radiale. Aucune ne contient de pièce, de sol ni de meuble.
+`synthetic/` est autre chose, et ne doit pas être confondu avec ce qui précède.
+Images fabriquées — scènes texturées, murs lisses, champs de lignes, damiers,
+aplats — puis dégradées par une transformation **dont le paramètre est connu**.
+Aucune ne contient de pièce, de sol ni de meuble.
 
-Elles servent de repère avant de s'attaquer à des photos réelles dont
-personne ne connaît la vérité : une droite y est droite au pixel près, et une
-mesure de flèche qui n'y renvoie pas zéro est un bug, pas un objectif.
-
-Il est déclaré une fois dans `corpus/catalogue.py`, avec pour chaque entrée la
-transformation appliquée, le paramètre **imposé** (sigma de flou, gain
-d'exposition, coefficient `k1`) et l'avertissement attendu. Le banc d'essai le
+Déclaré une fois dans `corpus/catalogue.py`. Le banc d'essai de qualité le
 construit en mémoire :
 
 ```bash
 python -m benchmarks.run_benchmark
-```
-
-Pour l'écrire sur le disque et **regarder les images** — un corpus qu'on ne
-peut pas ouvrir est un corpus qu'on croit sur parole :
-
-```bash
-python -m scripts.build_corpus
+python -m scripts.build_corpus      # pour l'écrire sur le disque et le regarder
 ```
 
 ### La vérité terrain synthétique, et sa limite
@@ -155,4 +215,5 @@ on lui applique une dégradation dont on connaît le paramètre exact.
 Elle ne remplace pas une photo réelle. Une distorsion polynomiale parfaite,
 sans vignettage, sans aberration chromatique et sans bruit de capteur, dit si
 un détecteur voit ce qui est indiscutablement là. Elle ne dit pas s'il marchera
-sur un téléphone.
+sur un téléphone. Et pour la segmentation du sol, elle ne dit **rien du tout** :
+aucune de ces images n'a de sol.

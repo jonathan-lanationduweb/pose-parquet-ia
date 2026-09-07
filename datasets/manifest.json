@@ -1,5 +1,5 @@
 {
-  "schema": "pose-parquet-ai/dataset@1",
-  "note": "Corpus de photos réelles. Les photos ne sont pas versionnées, ce manifeste l'est : voir datasets/README.md pour ajouter une entrée. Il est VIDE au terme du LOT IA 0, et c'est volontaire — la structure, le format et le banc d'essai sont en place, la constitution du corpus est un travail de sélection et de licences qui ne doit pas être bâclé pour faire nombre. Aucune vérité terrain ne doit être générée automatiquement : groundTruth.available reste false tant qu'un relevé humain n'existe pas.",
+  "schema": "pose-parquet-ai/dataset@2",
+  "note": "Corpus de photos réelles. VIDE au terme du préambule du LOT IA 2, et volontairement : le format, les contrôles, les métriques et le banc d'essai sont en place ; la collecte est un travail de sélection et de licences qui ne doit pas être bâclé pour faire nombre. Cible : 20 à 30 scènes couvrant les traits de SceneTrait. Les photos Pexels du front NE constituent pas un corpus redistribué ici (décision humaine) ; elles peuvent servir de tests privés locaux, une entrée à la fois, avec provenance documentée. Ajouter une photo : python -m scripts.add_photo. Voir datasets/README.md et docs/annotation-protocol.md.",
   "photos": []
 }

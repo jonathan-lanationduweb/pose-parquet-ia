@@ -1,0 +1,3 @@
+Images NON redistribuables, gardées hors de Git (dossier ignoré).
+Le manifeste peut les référencer par chemin et par hash sans que leur contenu
+n'entre jamais dans le dépôt. Voir ../README.md.

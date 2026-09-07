@@ -240,8 +240,10 @@ def test_le_manifeste_reel_est_valide():
     manifest = load_manifest(Path("datasets"))
     assert manifest.dataset_schema == DATASET_SCHEMA
     for photo in manifest.photos:
-        assert photo.source
-        assert photo.license
+        # La provenance est obligatoire par le schéma ; ce qui se vérifie ici
+        # est qu'aucune entrée n'a été ajoutée à la main sans licence nommée.
+        assert photo.provenance.source
+        assert photo.provenance.license
 
 
 def test_un_manifeste_absent_est_une_erreur_claire(tmp_path):

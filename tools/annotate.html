@@ -1,0 +1,310 @@
+<meta charset="utf-8" />
+<title>Relevé du sol — pose-parquet-ai</title>
+
+<!--
+  Outil de tracé minimal, volontairement.
+
+  Il ne fait qu'une chose : produire des polygones normalisés que
+  `scripts/import_annotation.py` rastérise. Le navigateur dessine, Python
+  possède le format — un tracé n'est qu'une entrée intermédiaire, et n'importe
+  quel autre outil peut produire le même JSON.
+
+  Aucun cadre, aucune dépendance, aucune étape de construction : un fichier
+  qu'on ouvre. Rien n'est envoyé nulle part, l'image ne quitte pas la machine.
+
+  ORIENTATION EXIF : l'image est décodée avec `imageOrientation: 'from-image'`,
+  donc redressée comme le fait le pipeline Python. Les dimensions écrites dans
+  le tracé sont celles d'après redressement, et l'import REFUSE le tracé si
+  elles ne correspondent pas à ce que charge `image_loader.load_image`. C'est
+  ce refus qui évite un masque silencieusement faux.
+-->
+
+<style>
+  :root { color-scheme: light dark; --ink: #222; --line: #bbb; }
+  body { margin: 0; font: 13px/1.5 system-ui, sans-serif; display: flex; height: 100vh; }
+  aside { width: 270px; flex: none; padding: 14px; overflow-y: auto;
+          border-right: 1px solid var(--line); }
+  main { flex: 1; overflow: auto; background: #666; display: grid; place-items: center; }
+  canvas { display: block; box-shadow: 0 0 0 1px #000; cursor: crosshair; }
+  h1 { font-size: 14px; margin: 0 0 12px; }
+  fieldset { border: 1px solid var(--line); margin: 0 0 12px; padding: 8px; }
+  legend { padding: 0 4px; font-weight: 600; }
+  label { display: block; margin: 3px 0; }
+  select, input[type=text], button { width: 100%; margin: 3px 0; font: inherit; padding: 3px; }
+  button { cursor: pointer; }
+  ul { margin: 4px 0; padding-left: 18px; }
+  li { cursor: pointer; }
+  li:hover { text-decoration: line-through; }
+  .hint { color: #888; font-size: 12px; }
+  .swatch { display: inline-block; width: 10px; height: 10px; margin-right: 4px;
+            vertical-align: middle; border: 1px solid #0006; }
+</style>
+
+<aside>
+  <h1>Relevé du sol</h1>
+
+  <fieldset>
+    <legend>1 · Image</legend>
+    <input type="file" id="file" accept="image/jpeg,image/png,image/webp" />
+    <label>Identifiant du manifeste<input type="text" id="photoId" placeholder="salon-01" /></label>
+    <p class="hint" id="dims">Aucune image chargée.</p>
+  </fieldset>
+
+  <fieldset>
+    <legend>2 · Ce que je trace</legend>
+    <select id="mode">
+      <option value="floor">Sol visible (contour)</option>
+      <option value="hole">Ce qui cache le sol (tapis, meuble)</option>
+      <option value="uncertain">Zone indécidable</option>
+      <option value="boundary">Contour repéré (polyligne)</option>
+    </select>
+    <label id="reasonRow">Raison de l'incertitude
+      <select id="reason">
+        <option value="hidden_corner">coin caché</option>
+        <option value="strong_shadow">ombre forte</option>
+        <option value="furniture_against_wall">meuble collé au mur</option>
+        <option value="low_contrast">faible contraste</option>
+        <option value="cut_by_frame">coupé par le cadre</option>
+        <option value="reflection">reflet</option>
+        <option value="motion_blur">flou de bougé</option>
+        <option value="other">autre</option>
+      </select>
+    </label>
+    <label id="kindRow">Nature du contour
+      <select id="kind">
+        <option value="wall_floor">jonction mur/sol</option>
+        <option value="baseboard">plinthe</option>
+        <option value="door_threshold">seuil de porte</option>
+        <option value="frame_cut">coupé par le cadre</option>
+        <option value="object_contact">contact d'objet</option>
+        <option value="other">autre</option>
+      </select>
+    </label>
+    <p class="hint">
+      Clic : ajouter un point · <b>Entrée</b> ou double-clic : terminer la forme ·
+      <b>Retour arrière</b> : défaire le dernier point · <b>Échap</b> : abandonner la forme.
+    </p>
+  </fieldset>
+
+  <fieldset>
+    <legend>3 · Formes tracées</legend>
+    <p><span class="swatch" style="background:#22cc7788"></span>Sol <ul id="listFloor"></ul></p>
+    <p><span class="swatch" style="background:#ff444488"></span>Cache le sol <ul id="listHole"></ul></p>
+    <p><span class="swatch" style="background:#ffcc0088"></span>Indécidable <ul id="listUncertain"></ul></p>
+    <p><span class="swatch" style="background:#3388ff"></span>Contours <ul id="listBoundary"></ul></p>
+    <p class="hint">Cliquez une entrée pour la supprimer.</p>
+  </fieldset>
+
+  <fieldset>
+    <legend>4 · Enregistrer</legend>
+    <label>Notes<input type="text" id="notes" placeholder="ce que les chiffres ne diront pas" /></label>
+    <button id="save">Télécharger le tracé (.draw.json)</button>
+    <input type="file" id="reload" accept=".json,application/json" />
+    <p class="hint">Puis : <code>python -m scripts.import_annotation --draw …</code></p>
+  </fieldset>
+</aside>
+
+<main><canvas id="canvas" width="640" height="400"></canvas></main>
+
+<script>
+  const DRAW_SCHEMA = 'pose-parquet-ai/floor-draw@1';
+  const COLOUR = { floor: '#22cc77', hole: '#ff4444', uncertain: '#ffcc00', boundary: '#3388ff' };
+
+  const canvas = document.getElementById('canvas');
+  const context = canvas.getContext('2d');
+
+  /** Tout l'état du tracé. Les points sont en pixels image, normalisés à l'export. */
+  const state = { bitmap: null, width: 0, height: 0, scale: 1, current: [], shapes: [] };
+
+  const $ = (id) => document.getElementById(id);
+  const mode = () => $('mode').value;
+
+  /* --- Chargement ----------------------------------------------------- */
+
+  $('file').addEventListener('change', async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    // `from-image` : le redressement EXIF est appliqué, comme côté Python.
+    state.bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+    state.width = state.bitmap.width;
+    state.height = state.bitmap.height;
+    // Une image de 4000 px ne tient pas à l'écran ; on l'affiche réduite et on
+    // ramène chaque clic aux pixels de l'image, jamais l'inverse.
+    state.scale = Math.min(1, 1100 / state.width, 780 / state.height);
+    canvas.width = Math.round(state.width * state.scale);
+    canvas.height = Math.round(state.height * state.scale);
+    state.current = [];
+    state.shapes = [];
+    if (!$('photoId').value) $('photoId').value = file.name.replace(/\.[^.]+$/, '');
+    $('dims').textContent =
+      `${state.width} × ${state.height} px (après EXIF) · affiché à ${Math.round(state.scale * 100)} %`;
+    redraw();
+  });
+
+  /* --- Saisie ---------------------------------------------------------- */
+
+  canvas.addEventListener('click', (event) => {
+    if (!state.bitmap) return;
+    const box = canvas.getBoundingClientRect();
+    state.current.push({
+      x: (event.clientX - box.left) / state.scale,
+      y: (event.clientY - box.top) / state.scale,
+    });
+    redraw();
+  });
+
+  canvas.addEventListener('dblclick', (event) => { event.preventDefault(); finish(); });
+
+  window.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') finish();
+    else if (event.key === 'Backspace') { event.preventDefault(); state.current.pop(); redraw(); }
+    else if (event.key === 'Escape') { state.current = []; redraw(); }
+  });
+
+  /** Une polyligne demande 2 points, une surface 3. */
+  function finish() {
+    const minimum = mode() === 'boundary' ? 2 : 3;
+    if (state.current.length < minimum) return;
+    const shape = { kind: mode(), points: state.current };
+    if (mode() === 'uncertain') shape.reason = $('reason').value;
+    if (mode() === 'boundary') shape.boundaryKind = $('kind').value;
+    state.shapes.push(shape);
+    state.current = [];
+    redraw();
+  }
+
+  /* --- Rendu ----------------------------------------------------------- */
+
+  function path(points) {
+    context.beginPath();
+    points.forEach((point, index) => {
+      const x = point.x * state.scale;
+      const y = point.y * state.scale;
+      index ? context.lineTo(x, y) : context.moveTo(x, y);
+    });
+  }
+
+  function redraw() {
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    if (state.bitmap) context.drawImage(state.bitmap, 0, 0, canvas.width, canvas.height);
+
+    for (const shape of state.shapes) {
+      context.strokeStyle = COLOUR[shape.kind];
+      context.lineWidth = 2;
+      path(shape.points);
+      if (shape.kind === 'boundary') {
+        context.stroke();
+      } else {
+        context.closePath();
+        context.fillStyle = COLOUR[shape.kind] + '55';
+        context.fill();
+        context.stroke();
+      }
+    }
+
+    if (state.current.length) {
+      context.strokeStyle = COLOUR[mode()];
+      context.lineWidth = 2;
+      context.setLineDash([5, 4]);
+      path(state.current);
+      context.stroke();
+      context.setLineDash([]);
+      for (const point of state.current) {
+        context.fillStyle = COLOUR[mode()];
+        context.fillRect(point.x * state.scale - 2, point.y * state.scale - 2, 5, 5);
+      }
+    }
+    refreshLists();
+  }
+
+  function refreshLists() {
+    const lists = {
+      floor: $('listFloor'), hole: $('listHole'),
+      uncertain: $('listUncertain'), boundary: $('listBoundary'),
+    };
+    Object.values(lists).forEach((list) => (list.innerHTML = ''));
+    state.shapes.forEach((shape, index) => {
+      const item = document.createElement('li');
+      const detail = shape.reason || shape.boundaryKind || '';
+      item.textContent = `${shape.points.length} pts${detail ? ' · ' + detail : ''}`;
+      item.onclick = () => { state.shapes.splice(index, 1); redraw(); };
+      lists[shape.kind].appendChild(item);
+    });
+    $('reasonRow').style.display = mode() === 'uncertain' ? 'block' : 'none';
+    $('kindRow').style.display = mode() === 'boundary' ? 'block' : 'none';
+  }
+
+  $('mode').addEventListener('change', () => { state.current = []; redraw(); });
+
+  /* --- Export / reprise ------------------------------------------------ */
+
+  /** Coordonnées normalisées 0 → 1 : elles survivent à un changement de résolution. */
+  const normalize = (points) => points.map((point) => ({
+    x: +(point.x / (state.width - 1)).toFixed(6),
+    y: +(point.y / (state.height - 1)).toFixed(6),
+  }));
+
+  const pick = (kind) => state.shapes.filter((shape) => shape.kind === kind);
+
+  $('save').addEventListener('click', () => {
+    if (!state.bitmap) return alert('Chargez une image.');
+    if (!$('photoId').value.trim()) return alert("L'identifiant du manifeste est obligatoire.");
+    if (!pick('floor').length) return alert('Aucun contour de sol tracé.');
+
+    const draw = {
+      schema: DRAW_SCHEMA,
+      photoId: $('photoId').value.trim(),
+      width: state.width,
+      height: state.height,
+      floorPolygons: pick('floor').map((shape) => normalize(shape.points)),
+      floorHoles: pick('hole').map((shape) => normalize(shape.points)),
+      uncertainZones: pick('uncertain').map((shape) => ({
+        reason: shape.reason, polygon: normalize(shape.points),
+      })),
+      boundary: pick('boundary').map((shape) => ({
+        kind: shape.boundaryKind, points: normalize(shape.points),
+      })),
+      notes: $('notes').value.trim() || null,
+    };
+
+    const url = URL.createObjectURL(
+      new Blob([JSON.stringify(draw, null, 2)], { type: 'application/json' })
+    );
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${draw.photoId}.draw.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  });
+
+  $('reload').addEventListener('change', async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    if (!state.bitmap) return alert("Chargez d'abord l'image correspondante.");
+    const draw = JSON.parse(await file.text());
+    if (draw.width !== state.width || draw.height !== state.height) {
+      return alert(
+        `Ce tracé a été fait sur ${draw.width} × ${draw.height}, ` +
+        `or l'image chargée fait ${state.width} × ${state.height}.`
+      );
+    }
+    const denormalize = (points) => points.map((point) => ({
+      x: point.x * (state.width - 1), y: point.y * (state.height - 1),
+    }));
+    $('photoId').value = draw.photoId || '';
+    $('notes').value = draw.notes || '';
+    state.shapes = [
+      ...(draw.floorPolygons || []).map((p) => ({ kind: 'floor', points: denormalize(p) })),
+      ...(draw.floorHoles || []).map((p) => ({ kind: 'hole', points: denormalize(p) })),
+      ...(draw.uncertainZones || []).map((z) => ({
+        kind: 'uncertain', reason: z.reason, points: denormalize(z.polygon),
+      })),
+      ...(draw.boundary || []).map((s) => ({
+        kind: 'boundary', boundaryKind: s.kind, points: denormalize(s.points),
+      })),
+    ];
+    redraw();
+  });
+
+  refreshLists();
+</script>

@@ -80,11 +80,43 @@ quand il ne sait pas.
 
 Le seul étage réellement indispensable.
 
+### Préambule ✅ — cadre, format d'annotation, métriques
+
+Livré. Voir `docs/annotation-protocol.md`. **Aucun modèle installé ni
+comparé** : c'est la balance qui a été construite, pas ce qu'on y pose.
+
+* format d'annotation humaine du sol, qui distingue **sol visible**,
+  **étendue géométrique** (réservée, non annotée) et **incertain** ;
+* zones incertaines exclues des métriques, avec leur raison enregistrée ;
+* statuts `draft` → `reviewed` → `approved`, et seul `approved` entre au banc
+  d'essai officiel — refus au niveau du schéma, pas seulement par convention ;
+* métriques IoU, Dice, précision, rappel, et **F-mesure de contour** à
+  tolérance relative à la diagonale. Mesuré : un masque décalé de 30 px garde
+  un IoU de 0,67 et voit sa F-mesure de contour tomber à 0,002 ;
+* contrôles automatiques : dimensions, valeurs de masque, hash d'image et de
+  masque, licence, provenance, taille des zones incertaines ;
+* séparation `public/` (versionné) et `private-real/` (hors de Git,
+  référencé par hash), avec garde-fous dans les deux sens ;
+* banc d'essai `run_segmentation` avec trois références triviales — masque
+  vide, masque plein, tiers bas — pour vérifier la balance ;
+* outil de tracé minimal (`tools/annotate.html`), sans dépendance, dont la
+  sortie réelle est figée en fixture de test.
+
+**Le corpus réel est vide.** Le blocage est documenté : voir
+`datasets/README.md`. Aucun seuil n'est validé sur photo réelle, y compris la
+tolérance de contour et la cible d'IoU.
+
+### Reste à faire
+
+* **constituer le corpus** : 20 à 30 scènes couvrant les traits de
+  `SceneTrait`, avec provenance vérifiée entrée par entrée ;
+* **annoter, et faire relire.** Les scènes `hard` méritent une double
+  annotation : le protocole dit comment mesurer le désaccord, le dispositif
+  n'est pas construit faute de données ;
 * masque du sol, et découpage en zones distinctes (une pièce vue à travers une
   ouverture est une zone de plus, pas un trou) ;
-* importer les masques calibrés du front comme vérité terrain, en convertissant
-  les polygones normalisés en PNG ;
-* critère de réussite, déjà écrit : **IoU > 0,92** contre le masque humain ;
+* critère de réussite hérité du front : **IoU > 0,92** contre le masque humain.
+  Écrit avant toute donnée, il reste la cible et rien ne le valide encore ;
 * benchmarker plusieurs approches sur le même corpus, avec le même rapport.
 
 Candidats à comparer, aucun n'étant retenu à ce stade : segmentation

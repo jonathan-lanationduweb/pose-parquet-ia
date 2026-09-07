@@ -1,0 +1,3 @@
+Annotations humaines : un JSON par scène, et ses masques dans masks/.
+Versionnées, y compris pour les images privées — un masque binaire est notre
+travail et ne contient aucun pixel de la photo. Voir docs/annotation-protocol.md.

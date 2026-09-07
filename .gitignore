@@ -29,14 +29,25 @@ models/
 *.safetensors
 *.tflite
 
-# Corpus de test : les photos ne sont pas versionnées, seul le manifeste l'est.
-# Voir datasets/README.md.
-datasets/**/*.jpg
-datasets/**/*.jpeg
-datasets/**/*.png
-datasets/**/*.webp
-datasets/**/*.tif
-datasets/**/*.tiff
+# Corpus de test. Trois régimes, et la distinction est juridique avant d'être
+# technique — voir datasets/README.md.
+#
+#   private-real/  images NON redistribuables : jamais dans Git, référencées
+#                  par chemin et par hash depuis le manifeste ;
+#   synthetic/     régénérable par scripts/build_corpus.py, donc inutile à
+#                  versionner ;
+#   public/        images dont la licence autorise la redistribution. Elles
+#                  SONT versionnées : c'est tout l'intérêt du bac, un corpus
+#                  qu'on peut partager.
+#
+# annotations/ est versionné, masques compris. Un masque binaire est notre
+# travail et ne contient aucun pixel de la photo (voir le protocole pour la
+# discussion, et la ligne à ajouter ici si l'on décide l'inverse).
+# Le CONTENU est exclu, pas le dossier : Git ne descend pas dans un dossier
+# exclu, donc y réinclure un fichier est impossible. Le dossier garde ainsi son
+# mot d'explication, sans lequel un clone frais n'aurait ni l'un ni l'autre.
+datasets/private-real/*
+!datasets/private-real/.gitkeep
 datasets/synthetic/
 
 # Sorties de benchmark
