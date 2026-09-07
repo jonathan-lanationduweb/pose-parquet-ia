@@ -86,6 +86,11 @@ class Photo(_Model):
     #: Défauts qu'on **sait** présents. Sert à mesurer si le service les
     #: repère, et à repérer ceux qu'il invente.
     expected_issues: list[Warn] = Field(default_factory=list)
+    #: Faux : la bonne réponse est discutable, la photo est mesurée mais pas
+    #: comptée dans la matrice de confusion. Même sens que dans
+    #: `corpus/catalogue.py` — une zone grise se documente, elle ne se grade
+    #: pas.
+    graded: bool = True
     ground_truth: GroundTruth = Field(default_factory=GroundTruth)
     notes: str | None = None
 

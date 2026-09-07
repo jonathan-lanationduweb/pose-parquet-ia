@@ -5,7 +5,7 @@ import pytest
 from app.core.config import ALLOWED_FORMATS
 from app.main import REQUEST_ID_HEADER
 from app.schemas.analysis import AnalysisStatus
-from tests import factories
+from corpus import patterns
 
 
 def _post(client, data: bytes, filename: str = "piece.jpg", content_type: str = "image/jpeg"):
@@ -30,7 +30,7 @@ def test_identifiant_de_requete_fourni_est_repris(client):
 
 @pytest.mark.parametrize("image_format", sorted(ALLOWED_FORMATS))
 def test_les_trois_formats_sont_acceptes(client, image_format):
-    data = factories.encode(factories.checkerboard(), image_format)
+    data = patterns.encode(patterns.checkerboard(), image_format)
     response = _post(client, data, f"piece.{image_format.lower()}")
     assert response.status_code == 200
     assert response.json()["image"]["format"] == image_format
@@ -38,7 +38,7 @@ def test_les_trois_formats_sont_acceptes(client, image_format):
 
 def test_le_format_est_lu_dans_le_contenu_pas_dans_le_content_type(client):
     """Un PNG annoncé comme JPEG reste un PNG : on ne croit pas le client."""
-    data = factories.encode(factories.checkerboard(), "PNG")
+    data = patterns.encode(patterns.checkerboard(), "PNG")
     response = _post(client, data, "menteur.jpg", "image/jpeg")
     assert response.status_code == 200
     assert response.json()["image"]["format"] == "PNG"
@@ -58,7 +58,7 @@ def test_fichier_indecodable_refuse(client):
 
 def test_format_non_pris_en_charge_refuse(client):
     """Un GIF est une image valide, mais hors contrat."""
-    data = factories.encode(factories.checkerboard(size=(320, 240)), "GIF")
+    data = patterns.encode(patterns.checkerboard(size=(320, 240)), "GIF")
     response = _post(client, data, "anim.gif", "image/gif")
     assert response.status_code == 415
     assert response.json()["detail"]["code"] == "unsupported_format"
@@ -69,7 +69,7 @@ def test_fichier_trop_gros_refuse(client, monkeypatch):
     from app.core.config import get_settings
 
     get_settings.cache_clear()
-    data = factories.encode(factories.noise(), "PNG")
+    data = patterns.encode(patterns.noise(), "PNG")
     assert len(data) > 2048
     response = _post(client, data, "grosse.png", "image/png")
     assert response.status_code == 413
@@ -82,7 +82,7 @@ def test_image_manquante_est_une_erreur_de_validation(client):
 
 def test_la_reponse_ne_pretend_pas_avoir_analyse_la_piece(client):
     """Le contrat du LOT 0 : des mesures, aucune scène, aucune confiance."""
-    data = factories.encode(factories.checkerboard(), "JPEG")
+    data = patterns.encode(patterns.checkerboard(), "JPEG")
     body = _post(client, data).json()
 
     assert body["status"] == AnalysisStatus.ANALYSIS_INCOMPLETE
@@ -93,10 +93,10 @@ def test_la_reponse_ne_pretend_pas_avoir_analyse_la_piece(client):
 
 def test_la_reponse_est_en_camel_case(client):
     """Le front lit du camelCase : le contrat est là, pas dans les noms Python."""
-    data = factories.encode(factories.checkerboard(), "JPEG")
+    data = patterns.encode(patterns.checkerboard(), "JPEG")
     body = _post(client, data).json()
 
-    assert body["schema"] == "pose-parquet/analysis@1"
+    assert body["schema"] == "pose-parquet/analysis@2"
     assert "aspectRatio" in body["image"]
     assert "exifOrientationApplied" in body["image"]
     assert "sceneData" in body
@@ -104,7 +104,7 @@ def test_la_reponse_est_en_camel_case(client):
 
 def test_les_timings_declarent_tous_les_etages(client):
     """Un étage non exécuté vaut `None`, pas 0 : la distinction se lit."""
-    data = factories.encode(factories.checkerboard(), "JPEG")
+    data = patterns.encode(patterns.checkerboard(), "JPEG")
     timings = _post(client, data).json()["timings"]
 
     assert timings["load_image_ms"] is not None

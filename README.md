@@ -10,16 +10,20 @@ PHOTO  →  pose-parquet-ai  →  SceneData  →  Visualiseur (JS/WebGL)
 Python **comprend la pièce**. Il ne dessine pas le parquet : le moteur de rendu
 existe déjà, il est éprouvé, et il n'a rien à apprendre de ce service.
 
-> ## État : LOT IA 0 — fondation, corpus, banc d'essai
+> ## État : LOT IA 1 — qualité image et distorsion
 >
 > Ce service **ne fait pas encore d'analyse de pièce.** Il valide et redresse
-> une photo, mesure sa netteté, son exposition et la courbure de ses arêtes
-> verticales, et renvoie ces mesures. Il ne cherche pas le sol, n'estime ni
-> profondeur ni perspective, et ne renvoie donc **jamais** de `sceneData`.
+> une photo, mesure sa netteté, son exposition et la courbure de ses arêtes, et
+> renvoie ces mesures. Il ne cherche pas le sol, n'estime ni profondeur ni
+> perspective, et ne renvoie donc **jamais** de `sceneData`.
 >
-> **Aucun modèle lourd n'est installé** — ni PyTorch, ni ONNX, ni poids. C'est
-> l'objet même de ce lot : rendre possible la comparaison de plusieurs
-> approches avant d'en choisir une. Voir [docs/roadmap.md](docs/roadmap.md).
+> Le LOT 1 a mis trois mesures de netteté et trois détecteurs de distorsion en
+> concurrence sur un corpus à vérité terrain imposée, et retenu ceux que la
+> mesure désigne. Résultats, limites et échecs :
+> [docs/quality-methodology.md](docs/quality-methodology.md).
+>
+> **Aucun modèle lourd n'est installé** — ni PyTorch, ni ONNX, ni poids. Voir
+> [docs/roadmap.md](docs/roadmap.md).
 
 ---
 
@@ -123,7 +127,7 @@ pour illustrer :
 
 ```json
 {
-  "schema": "pose-parquet/analysis@1",
+  "schema": "pose-parquet/analysis@2",
   "status": "analysis_incomplete",
   "confidence": null,
   "warnings": ["lens_analysis_undetermined", "stage_not_implemented"],
@@ -136,20 +140,44 @@ pour illustrer :
     "exifOrientationApplied": false
   },
   "quality": {
-    "blur": { "laplacianVariance": 284.7, "workingSide": 1024, "sharp": true },
+    "blur": {
+      "strongGradientRatio": 0.4057,
+      "laplacianVariance": 284.7,
+      "reblurRatio": 0.2427,
+      "edgeWidthPx": 7.0,
+      "edgeCount": 2905,
+      "workingSide": 1024,
+      "method": "reblur_ratio",
+      "sharp": true,
+      "lowTexture": false
+    },
     "exposure": {
       "lumaMean": 0.4831,
       "lumaMedian": 0.4712,
       "contrastStd": 0.1904,
+      "contrastRatio": 0.3941,
       "contrastP5P95": 0.6118,
       "darkPixelRatio": 0.0041,
-      "brightPixelRatio": 0.0009
+      "brightPixelRatio": 0.0009,
+      "clippedHighRatio": 0.0,
+      "clippedLowRatio": 0.0
     }
   },
   "lens": {
     "verdict": "undetermined",
-    "maxSagittaPx": null,
-    "usableEdges": 1,
+    "method": "k1_fit",
+    "suspectedSign": null,
+    "support": {
+      "usableEdges": 1,
+      "verticalEdges": 1,
+      "horizontalEdges": 0,
+      "totalTrackPx": 812.0,
+      "spatialCoverage": 0.25,
+      "signAgreement": 1.0,
+      "medianRadialBulgePx": 0.31
+    },
+    "k1": null,
+    "maxSagittaPx": 0.31,
     "suspectThresholdPx": 3.0,
     "correctionApplied": false
   },
@@ -174,6 +202,18 @@ charge, `422` fichier vide ou image indécodable.
 `None` dans `timings` veut dire **« étage pas exécuté »** ; `0.0` voudrait dire
 « instantané ». La distinction compte pour lire un benchmark.
 
+### Trois façons de dire « je ne sais pas »
+
+`quality.blur.sharp` vaut `null` quand l'image ne permet pas de conclure —
+support insuffisant, mesure dans la bande d'incertitude, ou résolution hors du
+domaine étalonné. **Ce n'est pas « floue ».** Un mur lisse parfaitement net
+reçoit `null` et `lowTexture: true`.
+
+`lens.verdict` vaut `undetermined` quand il n'y a pas assez d'arêtes longues et
+contrastées pour juger un objectif — le cas le plus fréquent. Son verdict
+négatif s'appelle `no_distortion_evidence` et non « pas de distorsion » :
+l'absence de preuve n'est pas une preuve d'absence.
+
 ### La photo n'est jamais conservée
 
 Les octets sont décodés en mémoire, le tableau NumPy vit le temps de la
@@ -194,12 +234,24 @@ suffisamment sûr » plutôt que produire une mauvaise géométrie.**
 ## Banc d'essai
 
 ```powershell
-python -m scripts.make_fixtures
-python -m benchmarks.run_benchmark --dataset datasets/synthetic
+python -m benchmarks.run_benchmark
+python -m benchmarks.compare_candidates
 ```
 
+Le premier produit la matrice de confusion — **faux positifs compris** — et le
+bilan de distorsion contre la vérité terrain. Le second mesure la marge de
+séparation des candidates de netteté, ce qui a décidé du choix de méthode.
+
 Sorties dans `benchmarks/out/` : `benchmark.json` (tout, rejouable avec
-d'autres seuils sans réanalyser) et `benchmark.csv` (colonnes fixes, triables).
+d'autres seuils sans réanalyser), `benchmark.csv` (colonnes fixes, triables) et
+`candidates.json`.
+
+Le corpus est construit en mémoire depuis `corpus/catalogue.py`. Pour l'écrire
+sur le disque et **regarder les images** :
+
+```powershell
+python -m scripts.build_corpus
+```
 
 Voir [benchmarks/README.md](benchmarks/README.md) et
 [datasets/README.md](datasets/README.md).
@@ -247,6 +299,7 @@ le corpus sera assez grand pour la mesurer. C'est le rôle du LOT 1.
 | document                                             | contenu                                              |
 | ---------------------------------------------------- | ---------------------------------------------------- |
 | [docs/architecture.md](docs/architecture.md)         | pipeline, contrats, journalisation, dépendances       |
+| [docs/quality-methodology.md](docs/quality-methodology.md) | **LOT 1** : méthodes comparées, chiffres, échecs |
 | [docs/scene-data.md](docs/scene-data.md)             | SceneData **actuel** et SceneData **futur**          |
 | [docs/dataset.md](docs/dataset.md)                   | quoi mettre dans le corpus, et pourquoi              |
 | [docs/lens-distortion.md](docs/lens-distortion.md)   | ce qu'on mesure, ce qu'on ne corrige pas             |

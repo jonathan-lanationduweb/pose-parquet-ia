@@ -8,6 +8,7 @@ réviser quand le corpus sera assez grand pour la mesurer. Un seuil éparpillé
 dans le code est un seuil qu'on ne révise jamais.
 """
 
+from enum import StrEnum
 from functools import lru_cache
 
 from pydantic import Field
@@ -21,6 +22,32 @@ ALLOWED_FORMATS: frozenset[str] = frozenset({"JPEG", "PNG", "WEBP"})
 
 #: Types MIME annoncés dans la documentation de l'API, à titre indicatif.
 ALLOWED_MIME_TYPES: tuple[str, ...] = ("image/jpeg", "image/png", "image/webp")
+
+
+class BlurMethod(StrEnum):
+    """Mesure de netteté active. Les trois sont toujours calculées et
+    renvoyées ; ce réglage ne décide que de celle qui **conclut**.
+
+    Voir `app/services/blur_analysis.py` pour ce que chacune vaut, et
+    `docs/quality-methodology.md` pour la comparaison mesurée qui a fixé le
+    défaut.
+    """
+
+    LAPLACIAN_VARIANCE = "laplacian_variance"
+    REBLUR_RATIO = "reblur_ratio"
+    EDGE_WIDTH = "edge_width"
+
+
+class LensMethod(StrEnum):
+    """Détecteur de distorsion actif.
+
+    `SAGITTA_MAGNITUDE` est le détecteur du LOT 0, conservé comme candidate A
+    et comme base de comparaison — pas comme solution retenue.
+    """
+
+    SAGITTA_MAGNITUDE = "sagitta_magnitude"
+    RADIAL_CONSISTENCY = "radial_consistency"
+    K1_FIT = "k1_fit"
 
 
 class Settings(BaseSettings):
@@ -59,9 +86,41 @@ class Settings(BaseSettings):
     #: variance du Laplacien dépend fortement de la résolution : sans taille
     #: de travail fixe, deux tirages de la même photo donnent deux scores.
     blur_working_side: int = 1024
-    #: Variance du Laplacien au-dessus de laquelle on classe « net ».
-    #: Indicatif et révisable — la mesure brute est toujours renvoyée.
+    #: Méthode qui conclut sur la netteté. Les trois mesures sont calculées
+    #: dans tous les cas : changer ce réglage ne change pas ce qui est
+    #: mesuré, seulement ce qui est déduit.
+    blur_method: BlurMethod = BlurMethod.REBLUR_RATIO
+    #: Candidate A — variance du Laplacien au-dessus de laquelle on classe
+    #: « net ». Conservé pour pouvoir rejouer le comportement du LOT 0.
     blur_sharp_min: float = 120.0
+    # Chaque candidate a DEUX bornes, pas un seuil. Entre les deux, la
+    # netteté est déclarée **indéterminée** plutôt que tranchée au hasard.
+    # Les bornes sont posées sur les bords des groupes réellement mesurés
+    # (`python -m benchmarks.compare_candidates`), pas au milieu : un seuil
+    # unique placé au centre d'une marge étroite tranche des cas que la mesure
+    # ne sépare pas.
+    #
+    #: Candidate B (**retenue**) — rapport de reflou. Bords mesurés sur le
+    #: corpus : nets <= 0,358, flous >= 0,478. Marge 0,120, séparation 0,142.
+    #: Les images rééchantillonnées par une distorsion tombent dans la bande,
+    #: donc en « indéterminé » plutôt qu'en « floue » — c'est exactement ce
+    #: que la bande sert à éviter.
+    blur_reblur_sharp_max: float = 0.3583
+    blur_reblur_blurry_min: float = 0.4778
+    #: Candidate C — largeur médiane de transition, ramenée à
+    #: `blur_working_side`. **Écartée par la mesure** : sur le corpus complet
+    #: sa marge est NÉGATIVE (−1,0 px), les deux cas de bougé aligné sur un
+    #: axe tombant à 8,0 px, dans l'intervalle des images nettes. Aucune borne
+    #: ne peut donc les séparer. Les valeurs ci-dessous sont celles du corpus
+    #: avant ces deux cas, conservées pour rejouer la comparaison.
+    blur_edge_width_sharp_max: float = 9.0
+    blur_edge_width_blurry_min: float = 12.0
+    #: Support minimal : part des pixels portant une transition franche en
+    #: dessous de laquelle la netteté est déclarée **indéterminée**, et non
+    #: « floue ». Mesuré : un mur lisse donne 0,00000, un mur avec trois
+    #: arêtes 0,025, une scène architecturale 0,068. Trois ordres de grandeur
+    #: séparent l'absence de support de sa présence la plus maigre.
+    blur_min_strong_gradient_ratio: float = 0.005
     #: Luminance (0 → 1) sous laquelle un pixel est compté « très sombre ».
     dark_luma_max: float = 0.06
     #: Luminance au-dessus de laquelle un pixel est compté « brûlé ».
@@ -73,7 +132,21 @@ class Settings(BaseSettings):
     luma_mean_min: float = 0.12
     luma_mean_max: float = 0.85
     #: Écart-type de luminance sous lequel l'image est jugée plate.
+    #: **Conservé comme mesure, plus utilisé comme critère** : l'écart-type
+    #: est proportionnel à la luminance, donc une photo sombre l'a
+    #: mécaniquement bas. Il confondait « sous-exposée » et « plate ».
     contrast_min: float = 0.05
+    #: Contraste **relatif** (écart-type / luminance moyenne), sans dimension
+    #: et donc indépendant de l'exposition. C'est lui qui décide.
+    #: Mesuré : une scène texturée donne 0,34 quelle que soit son exposition
+    #: (0,34 en pleine lumière, 0,35 après un gain de 0,20), une scène
+    #: réellement plate 0,071. Deux groupes séparés par un facteur cinq.
+    contrast_ratio_min: float = 0.10
+    #: Part de pixels écrêtés au-delà de laquelle on avertit. Séparé des
+    #: seuils « sombre / clair » : une photo claire se rattrape, une photo
+    #: dont les hautes lumières sont écrêtées a perdu l'information.
+    clipped_high_ratio_max: float = 0.02
+    clipped_low_ratio_max: float = 0.05
 
     # --- Analyse d'objectif ----------------------------------------------
     #: Flèche d'arc, en pixels, au-delà de laquelle une distorsion est
@@ -99,6 +172,86 @@ class Settings(BaseSettings):
     #: Nombre d'arêtes utilisables en dessous duquel le verdict reste
     #: indéterminé. Une seule arête ne prouve rien.
     lens_min_usable_edges: int = 2
+
+    # --- Analyse d'objectif : candidates du LOT 1 ------------------------
+    #: Détecteur qui conclut. Toutes les mesures sont calculées dans tous les
+    #: cas — comme pour la netteté, ce réglage ne change que la déduction.
+    lens_method: LensMethod = LensMethod.K1_FIT
+    #: Part des arêtes retenues qui doivent bomber dans le **même sens
+    #: radial** pour que la courbure soit imputable à l'objectif. Une
+    #: distorsion radiale courbe toutes les droites de façon cohérente ; un
+    #: carrelage ou un objet courbe donnent des signes désordonnés. C'est ce
+    #: critère, et non un seuil d'amplitude, qui sépare les deux.
+    lens_min_sign_agreement: float = 0.8
+    #: Bornes et pas de la recherche de k1 (candidate C). L'intervalle couvre
+    #: du coussinet franc au barillet d'ultra grand-angle.
+    lens_k1_search_min: float = -0.45
+    lens_k1_search_max: float = 0.45
+    lens_k1_search_steps: int = 181
+    #: |k1| estimé en dessous duquel on ne conclut pas à une distorsion. En
+    #: dessous, l'effet est plus petit que le bruit de suivi d'arêtes.
+    lens_k1_suspect_min: float = 0.03
+    #: Part du résidu de rectitude que le meilleur k1 doit faire disparaître.
+    #: Sans ce critère, la recherche renvoie toujours un k1 « optimal », y
+    #: compris sur une image sans aucune distorsion.
+    lens_k1_min_residual_gain: float = 0.25
+
+    #: Réglages qui changent le **résultat** d'une analyse, par opposition à
+    #: ceux qui changent son environnement (journalisation, CORS, limites de
+    #: transfert). Un rapport de benchmark en embarque une copie : sans elle,
+    #: deux rapports ne sont pas comparables et on ne sait pas lequel croire.
+    #:
+    #: La liste est explicite plutôt que déduite du modèle. C'est un peu de
+    #: redondance contre un vrai risque : un réglage ajouté et oublié ici
+    #: influencerait les mesures sans laisser de trace dans les rapports.
+    ALGORITHM_FIELDS: tuple[str, ...] = (
+        "min_long_side",
+        "max_aspect_ratio",
+        "blur_working_side",
+        "blur_method",
+        "blur_sharp_min",
+        "blur_reblur_sharp_max",
+        "blur_edge_width_sharp_max",
+        "blur_min_strong_gradient_ratio",
+        "dark_luma_max",
+        "bright_luma_min",
+        "dark_ratio_max",
+        "bright_ratio_max",
+        "luma_mean_min",
+        "luma_mean_max",
+        "contrast_min",
+        "contrast_ratio_min",
+        "blur_reblur_blurry_min",
+        "blur_edge_width_blurry_min",
+        "clipped_high_ratio_max",
+        "clipped_low_ratio_max",
+        "lens_method",
+        "lens_sagitta_suspect_px",
+        "lens_reference_width",
+        "lens_max_fit_rms_px",
+        "lens_min_track_points",
+        "lens_min_track_height_ratio",
+        "lens_min_usable_edges",
+        "lens_min_sign_agreement",
+        "lens_k1_search_min",
+        "lens_k1_search_max",
+        "lens_k1_search_steps",
+        "lens_k1_suspect_min",
+        "lens_k1_min_residual_gain",
+    )
+
+    def algorithm_config(self) -> dict[str, float | int | str]:
+        """Instantané des réglages qui décident d'un résultat.
+
+        Destiné à être écrit tel quel dans un rapport de benchmark, pour qu'une
+        exécution soit rejouable des mois plus tard sans deviner quels seuils
+        étaient en vigueur.
+        """
+        snapshot: dict[str, float | int | str] = {}
+        for name in self.ALGORITHM_FIELDS:
+            value = getattr(self, name)
+            snapshot[name] = value.value if isinstance(value, StrEnum) else value
+        return snapshot
 
     @property
     def cors_origin_list(self) -> list[str]:

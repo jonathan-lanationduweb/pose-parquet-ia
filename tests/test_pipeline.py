@@ -7,12 +7,12 @@ from app.core.warnings import Warn
 from app.schemas.analysis import AnalysisStatus
 from app.services.pipeline import _decide_status, analyse_room
 from app.services.scene_builder import build_scene_data, missing_stage_warnings
-from tests import factories
+from corpus import patterns
 
 
 def test_une_photo_correcte_donne_analysis_incomplete():
     """Rien ne cloche, et pourtant ce n'est pas un succès : aucune scène."""
-    result = analyse_room(factories.encode(factories.checkerboard(), "JPEG")).result
+    result = analyse_room(patterns.encode(patterns.checkerboard(), "JPEG")).result
 
     assert result.status is AnalysisStatus.ANALYSIS_INCOMPLETE
     assert result.scene_data is None
@@ -21,7 +21,7 @@ def test_une_photo_correcte_donne_analysis_incomplete():
 
 
 def test_une_photo_trop_petite_est_rejetee():
-    data = factories.encode(factories.checkerboard(size=(320, 240)), "JPEG")
+    data = patterns.encode(patterns.checkerboard(size=(320, 240)), "JPEG")
     result = analyse_room(data).result
 
     assert result.status is AnalysisStatus.REJECTED
@@ -30,7 +30,7 @@ def test_une_photo_trop_petite_est_rejetee():
 
 def test_une_photo_rejetee_ne_paye_pas_l_analyse_d_objectif():
     """L'étage le plus coûteux du LOT 0 n'a pas à tourner pour rien."""
-    data = factories.encode(factories.checkerboard(size=(320, 240)), "JPEG")
+    data = patterns.encode(patterns.checkerboard(size=(320, 240)), "JPEG")
     result = analyse_room(data).result
 
     assert result.lens is None
@@ -39,7 +39,7 @@ def test_une_photo_rejetee_ne_paye_pas_l_analyse_d_objectif():
 
 def test_les_logs_ne_contiennent_que_des_champs_autorises():
     """Ni image, ni base64, ni nom de fichier, ni chemin."""
-    analysis = analyse_room(factories.encode(factories.checkerboard(), "JPEG"))
+    analysis = analyse_room(patterns.encode(patterns.checkerboard(), "JPEG"))
 
     assert set(analysis.log_fields) == {
         "status",
@@ -54,7 +54,7 @@ def test_les_logs_ne_contiennent_que_des_champs_autorises():
 
 def test_l_analyse_travaille_sur_l_image_redressee():
     """Le fichier est paysage, l'EXIF dit portrait : c'est le portrait qui compte."""
-    result = analyse_room(factories.portrait_with_exif_rotation()).result
+    result = analyse_room(patterns.portrait_with_exif_rotation()).result
 
     assert (result.image.width, result.image.height) == (720, 960)
     assert result.image.exif_orientation_applied is True

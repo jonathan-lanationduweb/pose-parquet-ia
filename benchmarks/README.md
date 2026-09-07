@@ -10,19 +10,18 @@ mesurer, c'est choisir la première chose qui marche à peu près.
 ## Lancer
 
 ```bash
-python -m scripts.make_fixtures
-python -m benchmarks.run_benchmark --dataset datasets/synthetic
+python -m benchmarks.run_benchmark          # corpus synthétique, en mémoire
+python -m benchmarks.compare_candidates     # marges des candidates de netteté
 ```
 
-Sur le corpus de photos réelles (vide au terme du LOT 0, voir
-`datasets/README.md`) :
+Sur le corpus de photos réelles (vide, voir `datasets/README.md`) :
 
 ```bash
-python -m benchmarks.run_benchmark --dataset datasets
+python -m benchmarks.run_benchmark --source dataset --dataset datasets
 ```
 
-Options : `--dataset` (dossier contenant `manifest.json`), `--out` (dossier de
-sortie, défaut `benchmarks/out`, non versionné).
+Options : `--source` (`synthetic` ou `dataset`), `--dataset` (dossier contenant
+`manifest.json`), `--out` (défaut `benchmarks/out`, non versionné).
 
 ## Deux sorties, deux usages
 
@@ -36,33 +35,53 @@ déclarées explicitement dans `CSV_COLUMNS` plutôt que déduites du contenu :
 une colonne qui apparaît ou disparaît selon le corpus rendrait deux rapports
 incomparables.
 
-## Ce qui est mesuré au LOT 0
+## Ce qui est mesuré
 
-| famille    | colonnes                                                                  |
-| ---------- | ------------------------------------------------------------------------- |
-| image      | `width`, `height`, `aspect_ratio`, `megapixels`, `format`, `exif_applied` |
-| netteté    | `blur_laplacian_variance`, `blur_sharp`                                    |
-| exposition | `luma_mean`, `contrast_std`, `dark_pixel_ratio`, `bright_pixel_ratio`      |
-| objectif   | `lens_verdict`, `lens_usable_edges`, `lens_max_sagitta_px`                 |
-| verdict    | `status`, `warnings`, `expected_issues`, `missed_issues`                   |
-| durées     | `load_image_ms`, `quality_analysis_ms`, `lens_analysis_ms`, `scene_builder_ms`, `total_ms` |
+| famille       | colonnes                                                                    |
+| ------------- | --------------------------------------------------------------------------- |
+| identité      | `id`, `difficulty`, `graded`, `status`, `blur_method`, `lens_method`        |
+| image         | `width`, `height`                                                           |
+| netteté       | `strong_gradient_ratio`, `laplacian_variance`, `reblur_ratio`, `edge_width_px`, `blur_sharp`, `blur_low_texture` |
+| exposition    | `luma_mean`, `contrast_std`, `clipped_high_ratio`, `clipped_low_ratio`      |
+| objectif      | `lens_verdict`, `lens_suspected_sign`, `lens_usable_edges`, `lens_total_track_px`, `lens_spatial_coverage`, `lens_sign_agreement`, `lens_k1_estimate`, `lens_k1_residual_gain` |
+| vérité terrain| `truth_k1`, `truth_sign`, `truth_blur_sigma`, `truth_exposure_gain`, `k1_absolute_error`, `sign_correct` |
+| comptage      | `expected`, `detected`, `false_positives`, `false_negatives`, `informational` |
+| durées        | `load_image_ms`, `quality_analysis_ms`, `lens_analysis_ms`, `total_ms`     |
+
+Les **trois** candidates de netteté sont enregistrées à chaque ligne, quelle
+que soit celle qui conclut : un rapport permet donc de rejouer un choix de
+méthode sans réanalyser le corpus. `blur_method` et `lens_method` disent
+laquelle a tranché.
 
 Les étages à venir — `segmentation_ms`, `depth_ms`, `perspective_ms`,
 `occlusion_ms` — sont déjà déclarés dans `AnalysisResult.timings` et valent
 `None`. `None` veut dire « pas exécutée » ; `0.0` voudrait dire
 « instantanée ». La distinction compte pour lire un rapport.
 
-## La colonne à lire en premier
+## Reproductibilité
 
-**`missed_issues`** : ce que le manifeste annonçait et que l'analyse n'a pas
-vu. Elle mesure un manque, pas une durée — et un manque coûte cher, puisque le
-service aura promis un résultat sûr sur une photo qui ne l'était pas.
+Chaque rapport embarque sa version, la graine du corpus, l'environnement, et
+**l'instantané complet des réglages d'algorithme**
+(`Settings.algorithm_config()`, trente valeurs). Sans ce dernier, deux rapports
+ne sont pas comparables : on lit deux séries de chiffres sans savoir lequel des
+deux seuils était en vigueur.
 
-Son symétrique n'a pas de colonne mais se lit dans `warnings` : un défaut
-signalé qu'aucun manifeste n'annonçait est un **faux positif**, et il coûte
-aussi. C'est ainsi qu'a été trouvé le faux positif de distorsion sur damier
-qui a donné naissance à `lens_min_track_height_ratio` — voir
-`docs/lens-distortion.md`.
+## Les deux colonnes à lire en premier
+
+**`false_negatives`** : ce que le corpus annonçait et que l'analyse n'a pas vu.
+Un manque coûte cher — le service aura laissé passer une photo inexploitable.
+
+**`false_positives`** : ce que l'analyse a signalé et que le corpus n'annonçait
+pas. Le LOT 0 ne comptait pas cette colonne, et c'était son défaut
+méthodologique : un détecteur qui déclare tout sur tout ne manque rien non
+plus. Un utilisateur à qui l'on signale cinq problèmes sur une photo correcte
+cesse de lire les avertissements.
+
+**Aucun chiffre de rappel n'est publié sans son faux positif**, et aucune
+« exactitude » n'est publiée du tout : sur un problème multi-label
+majoritairement négatif, elle est dominée par les vrais négatifs et flatte un
+détecteur muet. Voir `benchmarks/scoring.py` et
+`docs/quality-methodology.md`.
 
 ## Ce qu'il ne mesure pas encore
 

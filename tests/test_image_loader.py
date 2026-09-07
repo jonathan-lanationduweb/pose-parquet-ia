@@ -6,11 +6,11 @@ from PIL import Image
 
 from app.core.errors import ImageRejected
 from app.services.image_loader import load_image, luma
-from tests import factories
+from corpus import patterns
 
 
 def test_dimensions_lues_apres_decodage():
-    data = factories.encode(factories.checkerboard(size=(800, 600)), "JPEG")
+    data = patterns.encode(patterns.checkerboard(size=(800, 600)), "JPEG")
     image = load_image(data)
     assert (image.width, image.height) == (800, 600)
 
@@ -30,7 +30,7 @@ def test_octets_aleatoires_levent():
 
 def test_jpeg_tronque_leve():
     """Un fichier coupé en deux a un en-tête valide et un contenu impossible."""
-    data = factories.encode(factories.noise(), "JPEG")
+    data = patterns.encode(patterns.noise(), "JPEG")
     with pytest.raises(ImageRejected) as raised:
         load_image(data[: len(data) // 2])
     assert raised.value.code == "undecodable_image"
@@ -41,7 +41,7 @@ def test_trop_de_pixels_leve(monkeypatch):
     from app.core.config import get_settings
 
     get_settings.cache_clear()
-    data = factories.encode(factories.checkerboard(size=(800, 600)), "PNG")
+    data = patterns.encode(patterns.checkerboard(size=(800, 600)), "PNG")
     with pytest.raises(ImageRejected) as raised:
         load_image(data)
     assert raised.value.code == "image_too_many_pixels"
@@ -57,20 +57,20 @@ def test_orientation_exif_6_redresse_en_portrait():
     C'est le test qui compte : le fichier fait 960 × 720, la balise dit qu'il
     faut le tourner, l'image analysée doit donc faire 720 × 960.
     """
-    image = load_image(factories.portrait_with_exif_rotation())
+    image = load_image(patterns.portrait_with_exif_rotation())
     assert (image.width, image.height) == (720, 960)
     assert image.exif_orientation_applied is True
 
 
 def test_paysage_sans_exif_reste_paysage():
-    data = factories.encode(factories.checkerboard(size=(960, 720)), "JPEG")
+    data = patterns.encode(patterns.checkerboard(size=(960, 720)), "JPEG")
     image = load_image(data)
     assert (image.width, image.height) == (960, 720)
     assert image.exif_orientation_applied is False
 
 
 def test_portrait_sans_exif_reste_portrait():
-    data = factories.encode(factories.checkerboard(size=(720, 960)), "JPEG")
+    data = patterns.encode(patterns.checkerboard(size=(720, 960)), "JPEG")
     image = load_image(data)
     assert (image.width, image.height) == (720, 960)
     assert image.exif_orientation_applied is False
@@ -78,7 +78,7 @@ def test_portrait_sans_exif_reste_portrait():
 
 def test_orientation_1_ne_transforme_rien():
     """Orientation déclarée « déjà droite » : rien ne bouge, et on le dit."""
-    array = factories.checkerboard(size=(640, 480))
+    array = patterns.checkerboard(size=(640, 480))
     pil = Image.fromarray(array, mode="RGB")
     exif = pil.getexif()
     exif[0x0112] = 1
@@ -123,8 +123,8 @@ def test_le_contenu_est_bien_pivote_pas_seulement_les_dimensions():
 
 
 def test_luma_est_normalisee():
-    white = luma(factories.flat(255, size=(64, 64)))
-    black = luma(factories.flat(0, size=(64, 64)))
+    white = luma(patterns.flat(255, size=(64, 64)))
+    black = luma(patterns.flat(0, size=(64, 64)))
     assert white.mean() == pytest.approx(1.0, abs=1e-4)
     assert black.mean() == pytest.approx(0.0, abs=1e-4)
 

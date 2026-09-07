@@ -105,28 +105,21 @@ def straight_bars(
     return array
 
 
-def bowed_bars(
-    size: tuple[int, int] = DEFAULT_SIZE,
-    columns: tuple[float, ...] = (0.1, 0.25, 0.75, 0.9),
-    amplitude: float = 14.0,
-) -> np.ndarray:
-    """Les mêmes barres, courbées en arc — signature d'une distorsion.
+def encode_with_exif_orientation(array: np.ndarray, orientation: int) -> bytes:
+    """Encode un JPEG portant une balise d'orientation EXIF choisie.
 
-    Le décalage suit une parabole en fonction de la ligne, et croît avec
-    l'éloignement du centre de l'image : c'est le comportement d'une
-    distorsion radiale, pas un simple cisaillement.
+    Sépare le *quoi* du *comment*. `portrait_with_exif_rotation` fabriquait sa
+    propre image en dur : une entrée de corpus qui demandait l'orientation
+    EXIF recevait donc un damier noir et blanc au lieu de son image, et
+    récoltait au passage des avertissements d'exposition qui n'avaient rien à
+    voir avec ce qu'elle testait.
     """
-    width, height = size
-    array = np.full((height, width, 3), _BAR_BACKGROUND, dtype=np.uint8)
-    center_x = (width - 1) / 2.0
-    for fraction in columns:
-        x0 = width * fraction
-        radial = abs(x0 - center_x) / center_x
-        for y in range(height):
-            t = (y - (height - 1) / 2.0) / ((height - 1) / 2.0)
-            x = int(round(x0 + amplitude * radial * (t * t - 1.0 / 3.0)))
-            array[y, max(0, x - 3) : x + 3] = _BAR_INK
-    return array
+    image = Image.fromarray(array, mode="RGB")
+    exif = image.getexif()
+    exif[0x0112] = orientation
+    buffer = BytesIO()
+    image.save(buffer, format="JPEG", exif=exif, quality=92)
+    return buffer.getvalue()
 
 
 def portrait_with_exif_rotation() -> bytes:
@@ -136,10 +129,4 @@ def portrait_with_exif_rotation() -> bytes:
     respecte doit afficher l'image en portrait. C'est le cas qui casse tout en
     silence — sans redressement, on cherche l'horizon dans une pièce couchée.
     """
-    array = checkerboard(size=(960, 720), square=30)
-    image = Image.fromarray(array, mode="RGB")
-    exif = image.getexif()
-    exif[0x0112] = 6
-    buffer = BytesIO()
-    image.save(buffer, format="JPEG", exif=exif, quality=92)
-    return buffer.getvalue()
+    return encode_with_exif_orientation(checkerboard(size=(960, 720), square=30), 6)

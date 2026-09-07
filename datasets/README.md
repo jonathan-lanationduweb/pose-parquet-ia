@@ -80,9 +80,15 @@ benchmark à des semaines d'intervalle. Le renommer, c'est perdre l'historique
 de cette photo.
 
 `expectedIssues` prend des **codes machine** de `app/core/warnings.py`, jamais
-des phrases. C'est cette colonne qui transforme une image en test : le
-benchmark en déduit `missed_issues`, ce que le corpus annonçait et que
-l'analyse n'a pas vu.
+des phrases, et seulement des codes de `warnings.SCORED` — hors de cette liste
+un code attendu serait invisible au comptage. C'est cette colonne qui
+transforme une image en test : le benchmark en déduit les faux négatifs (ce que
+le corpus annonçait et que l'analyse n'a pas vu) **et les faux positifs** (ce
+que l'analyse a signalé sans que le corpus l'annonce).
+
+`graded: false` marque une photo dont la bonne réponse est discutable. Elle est
+mesurée et rapportée, hors comptage. Mieux vaut une zone grise documentée qu'une
+vérité inventée pour gonfler un score.
 
 ---
 
@@ -115,17 +121,38 @@ court dans tout le projet.
 ## Corpus synthétique
 
 `datasets/synthetic/` est autre chose, et ne doit pas être confondu avec ce
-qui précède. Ce sont des images fabriquées — damiers, aplats, barres droites
-et barres courbées — dont les propriétés sont **connues exactement**. Aucune
-ne contient de pièce, de sol ni de meuble.
+qui précède. Ce sont des images fabriquées — scènes texturées, murs lisses,
+champs de lignes, damiers, aplats — puis dégradées par une transformation
+**dont le paramètre est connu** : sigma de flou, gain d'exposition, coefficient
+de distorsion radiale. Aucune ne contient de pièce, de sol ni de meuble.
 
 Elles servent de repère avant de s'attaquer à des photos réelles dont
 personne ne connaît la vérité : une droite y est droite au pixel près, et une
 mesure de flèche qui n'y renvoie pas zéro est un bug, pas un objectif.
 
-Elles sont régénérables, donc ni versionnées ni précieuses :
+Il est déclaré une fois dans `corpus/catalogue.py`, avec pour chaque entrée la
+transformation appliquée, le paramètre **imposé** (sigma de flou, gain
+d'exposition, coefficient `k1`) et l'avertissement attendu. Le banc d'essai le
+construit en mémoire :
 
 ```bash
-python -m scripts.make_fixtures
-python -m benchmarks.run_benchmark --dataset datasets/synthetic
+python -m benchmarks.run_benchmark
 ```
+
+Pour l'écrire sur le disque et **regarder les images** — un corpus qu'on ne
+peut pas ouvrir est un corpus qu'on croit sur parole :
+
+```bash
+python -m scripts.build_corpus
+```
+
+### La vérité terrain synthétique, et sa limite
+
+C'est la seule vérité terrain que ce projet s'autorise à produire lui-même,
+parce qu'elle n'est pas estimée mais **imposée** : on part d'une image saine et
+on lui applique une dégradation dont on connaît le paramètre exact.
+
+Elle ne remplace pas une photo réelle. Une distorsion polynomiale parfaite,
+sans vignettage, sans aberration chromatique et sans bruit de capteur, dit si
+un détecteur voit ce qui est indiscutablement là. Elle ne dit pas s'il marchera
+sur un téléphone.

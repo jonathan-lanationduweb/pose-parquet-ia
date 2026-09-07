@@ -45,8 +45,8 @@ un clic.
 octets
   │
   ├─► load_image ········· validation, décodage, redressement EXIF   ✅ LOT 0
-  ├─► quality_analysis ··· netteté, luminance, contraste             ✅ LOT 0
-  ├─► lens_analysis ······ courbure des arêtes (mesure seule)        ✅ LOT 0
+  ├─► quality_analysis ··· netteté, exposition, contraste, écrêtage  ✅ LOT 1
+  ├─► lens_analysis ······ distorsion : sens et intensité estimés    ✅ LOT 1
   ├─► segmentation ······· masque du sol, zones distinctes           ⏳ LOT 2
   ├─► depth ·············· carte de profondeur relative              ⏳ LOT 3
   ├─► perspective ········ horizon, points de fuite, plans, échelle  ⏳ LOT 4
@@ -80,6 +80,10 @@ relevés suivants sans plus rien qui la distingue du reste.
 | `app/core/logging.py`         | journalisation structurée                          |
 | `app/schemas/scene_data.py`   | miroir du contrat du front                         |
 | `app/schemas/analysis.py`     | notre contrat de sortie                            |
+| `app/services/blur_analysis.py` | trois mesures de netteté, et le **support**      |
+| `app/services/edge_tracking.py` | suivi d'arêtes, courbure **signée**              |
+| `corpus/`                     | générateur du corpus synthétique, vérité imposée   |
+| `benchmarks/scoring.py`       | matrice de confusion, **faux positifs compris**    |
 | `app/services/pipeline.py`    | le seul module qui connaît l'enchaînement          |
 | `app/services/*.py`           | un étage, une responsabilité, aucune connaissance des autres |
 
@@ -87,7 +91,7 @@ relevés suivants sans plus rien qui la distingue du reste.
 il ne fabrique rien aujourd'hui. Sa raison d'être est de tenir **le seul
 endroit** où une scène pourra naître, pour qu'on n'en trouve jamais une
 deuxième ailleurs. Son en-tête explique pourquoi `None` est la bonne réponse
-au LOT 0.
+tant que les étages de géométrie n'existent pas.
 
 ---
 
@@ -100,9 +104,9 @@ ne l'inventons pas, nous le traduisons — voir `docs/scene-data.md`. Sa version
 est portée par son propre champ `schema` : `pose-parquet/scene@1`.
 
 **`AnalysisResult`** (`app/schemas/analysis.py`) est **le nôtre** :
-`pose-parquet/analysis@1`. Une analyse peut avoir beaucoup à dire sans
-produire de scène du tout, et c'est exactement le cas au LOT 0. Les deux
-versions bougent indépendamment.
+`pose-parquet/analysis@2` depuis le LOT 1. Une analyse peut avoir beaucoup à
+dire sans produire de scène du tout, et c'est encore le cas. Les deux versions
+bougent indépendamment.
 
 ### Le statut, et pourquoi il est pessimiste
 
@@ -114,7 +118,7 @@ et aucun avertissement**.
 C'est strict, et c'est le but : il est bien plus facile de détendre ce critère
 plus tard que de rattraper une géométrie fausse déjà montrée à quelqu'un.
 
-`analysis_incomplete` est la valeur du LOT 0 et disparaîtra quand les étages
+`analysis_incomplete` est la valeur des LOT 0 et 1 et disparaîtra quand les étages
 de géométrie existeront. Elle dit « les contrôles techniques ont tourné,
 l'analyse de la pièce n'existe pas encore ». Elle n'est pas un échec, et
 surtout pas un succès partiel : la confondre avec `partial` ferait croire
@@ -129,6 +133,14 @@ serait le pire mensonge que ce service puisse dire.
 
 Le principe, valable pour tout le projet : **savoir dire « je ne suis pas
 suffisamment sûr » plutôt que produire une mauvaise géométrie.**
+
+Le LOT 1 l'a étendu aux mesures elles-mêmes. `quality.blur.sharp` et
+`lens.verdict` peuvent tous deux répondre « indéterminé », et ce n'est pas un
+échec de mesure : c'est le seul résultat vrai quand l'image ne porte pas de
+quoi conclure. `LensSupport` publie de son côté la quantité de preuve
+géométrique disponible — nombre d'arêtes, longueur totale, couverture
+spatiale, accord de signe — pour qu'un verdict ne soit jamais un score opaque.
+C'est ce bloc qui alimentera la confiance du LOT 7.
 
 ---
 

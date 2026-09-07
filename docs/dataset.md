@@ -122,6 +122,28 @@ gagner en couverture coûte du temps de benchmark à chaque itération.
 
 ---
 
+## État du corpus réel : bloqué, et pourquoi
+
+`datasets/manifest.json` est **vide** au terme du LOT 1. Ce n'est pas un oubli.
+
+Les scènes du front seraient un bon point de départ, mais deux choses
+manquent, et aucune n'est technique :
+
+1. **la licence doit être reportée, pas supposée.** Chaque photo est créditée
+   nommément dans le manifeste du front. Vérifier que la licence Pexels couvre
+   *cet* usage — corpus d'évaluation redistribué avec un dépôt — est une
+   décision humaine ;
+2. **une photo réelle n'apporte aucune vérité terrain de dégradation.** Le
+   `k1` y est inconnu, le sigma de flou inconnu, et l'exposition « correcte »
+   est un jugement. On ne pourrait y mesurer que des faux positifs — utile,
+   mais à ne pas confondre avec ce que mesure le corpus synthétique.
+
+**Conséquence à retenir : aucun seuil du LOT 1 n'est validé sur photo
+réelle.** Ils sont tous établis sur des dégradations parfaites, et ils sont
+attendus comme révisés. Voir `docs/quality-methodology.md`, §7.
+
+---
+
 ## Ce que le benchmark mesure aujourd'hui
 
 Voir `benchmarks/README.md`. La colonne à lire en premier est

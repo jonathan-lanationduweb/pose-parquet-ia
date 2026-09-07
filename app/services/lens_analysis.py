@@ -1,305 +1,314 @@
-"""Analyse d'objectif : mesurer la courbure des droites, et rien de plus.
+"""Distorsion d'objectif : trois détecteurs candidats, aucune correction.
 
-**Aucune correction de distorsion n'est appliquée, ici ou ailleurs.** Corriger
-demande un étalonnage que nous n'avons pas, et une correction fausse est pire
-qu'aucune correction : une fois les points de fuite calculés sur une image mal
-redressée, l'erreur est entrée dans toutes les valeurs et plus rien ne la
-sépare du reste. Ce module mesure et rapporte ; la décision viendra au LOT 1,
-armée d'un corpus.
+**Aucune correction de distorsion n'est appliquée, ici ou ailleurs.**
+`LensMetrics.correction_applied` est un `Literal[False]` : il ne peut pas
+devenir vrai par accident. Corriger demande un étalonnage que nous n'avons
+pas, et une correction fausse est pire qu'aucune : une fois les points de fuite
+calculés sur une image mal redressée, l'erreur est entrée dans toutes les
+valeurs et plus rien ne la sépare du reste.
 
-## La mesure
+Le suivi d'arêtes vit dans `edge_tracking.py`. Ici on ne fait que décider ce
+que des tracés autorisent à dire.
 
-La perspective **conserve les droites** : une arête droite du monde reste
-droite dans l'image, où qu'elle soit dans le cadre. La distorsion optique, au
-contraire, **courbe les droites**, d'autant plus qu'elles passent loin du
-centre optique. C'est cette signature qu'on cherche.
+## Les trois candidates
 
-On suit donc une arête presque verticale, ligne par ligne, on lui ajuste une
-parabole, et on mesure sa **flèche** : l'écart de la parabole à sa corde, au
-milieu, en pixels. Pour une parabole ajustée sur une base L, la flèche vaut
-|a| · L² / 4 — le bombement croît comme le carré de la longueur, ce qui est
-exactement pourquoi une arête courte ne prouve rien.
+**A — `sagitta_magnitude`** (celle du LOT 0). La flèche d'arc maximale dépasse
+un seuil ⇒ distorsion. Simple, et **structurellement incapable** de distinguer
+une distorsion d'un accident de texture : elle ne mesure qu'une amplitude, et
+une amplitude ne dit pas d'où la courbure vient. C'est elle qui avait déclaré
+une distorsion sur un damier. Conservée pour que la comparaison ait une base.
 
-## Trois pièges, tous rencontrés par le front
+**B — `radial_consistency`.** Même mesure, mais **signée** relativement au
+centre de l'image, et on exige que les arêtes s'accordent. Une distorsion
+radiale courbe *toutes* les droites dans le même sens radial ; un carrelage ou
+un objet réellement courbe donnent des signes désordonnés. Le discriminant
+devient la cohérence, pas l'amplitude — ce qui est le bon critère, puisque
+c'est la propriété qui définit une distorsion radiale.
 
-1. **Suivre la mauvaise grandeur.** Un traqueur doit suivre *ce qui définit
-   l'arête*. Le front a d'abord suivi le **minimum de luminance** : sur un
-   jambage clair contre un mur clair, il n'y a pas de minimum, le traqueur a
-   glissé sur le bois sombre de la porte et a mesuré **sa propre dérive** —
-   un arc de +3,1 / −4,0 / +4,0 px, d'allure parfaitement crédible. Le même
-   jambage suivi par le **maximum de gradient** donne 0,13 px de flèche. Ici
-   on suit le gradient, jamais la luminance.
+**C — `k1_fit`, retenue.** On cherche le coefficient radial `k1` qui rend les
+tracés observés **le plus droits possible**, et on regarde ce qu'il fait
+gagner. Trois choses en découlent, qu'aucune mesure de flèche ne donne :
 
-2. **Lire la flèche sans l'écart-type.** `sagitta_px` seule ne veut rien
-   dire : c'est `fit_rms_px` qui dit si la parabole *décrit* le tracé. Les
-   deux voyagent ensemble dans `EdgeTrack`, et un tracé mal ajusté est écarté
-   avant tout verdict.
+* une **estimation quantitative** de l'intensité, comparable à la vérité
+  terrain synthétique ;
+* le **sens** (barillet / coussinet) sans avoir à le déduire d'un signe ;
+* un **test de cohérence intégré**. Le k1 est ajusté sur tous les tracés à la
+  fois : s'ils ne se courbent pas de façon compatible avec une distorsion
+  radiale, aucun k1 unique ne les redresse, et `residual_gain` reste bas.
 
-3. **Mesurer au centre du cadre.** La distorsion radiale ne déplace rien sur
-   l'axe optique : une verticale au milieu de l'image reste droite quelle que
-   soit la force de la distorsion. Les colonnes candidates sont donc pondérées
-   par leur éloignement du centre, et une bande centrale est exclue.
+Ce dernier point est ce qui rend C préférable à B plutôt que simplement
+différente : B teste la cohérence des *signes*, C teste en plus celle des
+*amplitudes* — une arête proche du centre doit bomber moins qu'une arête au
+bord, dans un rapport que le modèle impose.
 
-4. **Retenir des tracés courts.** Un motif répétitif — carrelage, rayures,
-   étagères — fournit des dizaines de petits segments verticaux. Leur flèche
-   n'est que du bruit d'ajustement, mais elle est non nulle, et en nombre elle
-   finit par franchir n'importe quel seuil. Le corpus synthétique a produit
-   exactement ce faux positif sur un damier. Un tracé doit donc couvrir une
-   fraction minimale de la hauteur d'image pour compter.
+## Le piège qui a coûté une scène au front
 
-Enfin : la résolution compte. La flèche est en pixels, donc proportionnelle à
-la taille de l'image. Le seuil configuré vaut pour une largeur de référence et
-est mis à l'échelle de l'image réellement analysée.
-
-Voir `docs/lens-distortion.md` et, côté front,
-`pose-parquet.com/docs/photo-lens-distortion.md`.
+Un traqueur doit suivre *ce qui définit l'arête*. Le front a d'abord suivi le
+minimum de luminance : sur un jambage clair contre un mur clair, il n'y a pas
+de minimum, le traqueur a glissé sur le bois sombre de la porte et a mesuré
+**sa propre dérive** — un arc parfaitement crédible de +3,1 / −4,0 / +4,0 px.
+Se tromper de grandeur ne donne pas un résultat bruité, il donne un résultat
+faux et d'allure convaincante. Voir `docs/lens-distortion.md`.
 """
 
-from dataclasses import dataclass
-
-import cv2
 import numpy as np
 
-from app.core.config import get_settings
+from app.core.config import LensMethod, get_settings
 from app.core.warnings import Warn
-from app.schemas.analysis import EdgeTrack, LensMetrics, LensVerdict
+from app.schemas.analysis import (
+    EdgeTrack,
+    K1Estimate,
+    LensMetrics,
+    LensSupport,
+    LensVerdict,
+)
+from app.services.edge_tracking import Track, find_tracks
 
-#: Demi-largeur de la fenêtre de recherche, en pixels, à chaque ligne. Assez
-#: large pour suivre une arête inclinée, assez étroite pour ne pas sauter sur
-#: l'arête voisine.
-_SEARCH_HALF_WINDOW = 6
-
-#: Bande centrale exclue, en fraction de la demi-largeur : une arête plus
-#: proche du centre que cela ne prouve rien sur la distorsion.
-_MIN_CENTER_OFFSET = 0.25
-
-#: Marge haute et basse ignorée, en fraction de la hauteur. Les bords d'image
-#: portent souvent du vignettage et des artefacts de compression.
-_VERTICAL_MARGIN = 0.08
-
-#: Écart minimal entre deux colonnes candidates, en fraction de la largeur.
-_MIN_SEED_GAP = 0.04
-
-#: Nombre de colonnes candidates examinées au plus.
-_MAX_SEEDS = 12
+#: Nombre minimal de points pour qu'un tracé entre dans l'ajustement de k1.
+#: Deux points définissent une droite : la non-rectitude d'un tracé si court
+#: est nulle par construction, et l'inclure fabriquerait du gain.
+_MIN_FIT_POINTS = 8
 
 
-@dataclass(frozen=True, slots=True)
-class _Arc:
-    """Un suivi d'arête ajusté, avant traduction en schéma."""
+def _straightness(points: np.ndarray) -> float:
+    """Non-rectitude d'un nuage de points, sans dimension.
 
-    sagitta_px: float
-    fit_rms_px: float
-    points: int
-    span_ratio: float
-    center_offset: float
-
-
-def _gradient_x(luma01: np.ndarray) -> np.ndarray:
-    """Gradient horizontal **signé**, légèrement lissé.
-
-    Le lissage préalable est indispensable : sur une photo compressée, le
-    bruit de bloc produit des maxima de gradient d'un pixel de large qui
-    attirent le traqueur hors de l'arête.
-
-    Le signe est conservé, et c'est essentiel : voir `_follow_edge`.
+    Rapport de l'écart perpendiculaire à l'étendue le long de la droite,
+    obtenu des deux valeurs propres de la covariance. **Sans dimension
+    exprès** : une mesure en pixels croîtrait avec l'échelle appliquée par la
+    correction, et la recherche de k1 dériverait vers les valeurs négatives —
+    elles contractent l'image, donc réduisent tous les résidus absolus sans
+    rien redresser.
     """
-    smoothed = cv2.GaussianBlur(luma01, (3, 3), 0)
-    return cv2.Sobel(smoothed, cv2.CV_32F, 1, 0, ksize=3)
+    centered = points - points.mean(axis=0)
+    sxx = float((centered[:, 0] ** 2).mean())
+    syy = float((centered[:, 1] ** 2).mean())
+    sxy = float((centered[:, 0] * centered[:, 1]).mean())
+
+    trace = sxx + syy
+    determinant = sxx * syy - sxy * sxy
+    spread = max(trace * trace / 4.0 - determinant, 0.0) ** 0.5
+    minor = max(trace / 2.0 - spread, 0.0)
+    major = max(trace / 2.0 + spread, 1e-12)
+    return float((minor / major) ** 0.5)
 
 
-def _vertical_span(height: int) -> tuple[int, int]:
-    """Bandes haute et basse exclues du suivi."""
-    return int(height * _VERTICAL_MARGIN), int(height * (1.0 - _VERTICAL_MARGIN))
+def _undistort(
+    points: np.ndarray, k1: float, center: np.ndarray, half_diagonal: float
+) -> np.ndarray:
+    """Applique le modèle radial aux points observés, pour un k1 candidat.
 
-
-def _seed_columns(grad: np.ndarray) -> list[int]:
-    """Colonnes les plus susceptibles de porter une arête verticale longue.
-
-    L'énergie de gradient d'une colonne entière favorise naturellement les
-    arêtes qui traversent l'image — jambages, angles de murs — sur les
-    accidents locaux. Elle est ensuite pondérée par l'éloignement du centre,
-    pour la raison dite en en-tête.
+    C'est exactement le modèle du générateur de corpus, dans le même sens :
+    `p_ideal = c + (p_image − c) · (1 + k1·r²)`. Appliqué avec le vrai k1 à des
+    points qui étaient alignés dans la scène, il les réaligne.
     """
-    height, width = grad.shape
-    top, bottom = _vertical_span(height)
-    # Magnitude ici : pour choisir une colonne, seule compte la quantité de
-    # contraste vertical qu'elle porte, pas le sens des transitions.
-    energy = np.abs(grad[top:bottom, :]).sum(axis=0)
-
-    center = (width - 1) / 2.0
-    offset = np.abs(np.arange(width) - center) / max(center, 1.0)
-    scored = energy * offset
-
-    gap = max(1, int(width * _MIN_SEED_GAP))
-    seeds: list[int] = []
-    for column in np.argsort(scored)[::-1]:
-        x = int(column)
-        if offset[x] < _MIN_CENTER_OFFSET:
-            continue
-        if any(abs(x - kept) < gap for kept in seeds):
-            continue
-        seeds.append(x)
-        if len(seeds) >= _MAX_SEEDS:
-            break
-    return seeds
+    delta = points - center
+    r2 = (delta**2).sum(axis=1) / (half_diagonal**2)
+    corrected: np.ndarray = center + delta * (1.0 + k1 * r2)[:, None]
+    return corrected
 
 
-def _subpixel_offset(left: float, peak: float, right: float) -> float:
-    """Sommet de la parabole passant par trois échantillons voisins.
+def _pooled_straightness(
+    tracks: list[Track], k1: float, center: np.ndarray, half_diagonal: float
+) -> float:
+    """Non-rectitude de tous les tracés à la fois, pondérée par leur longueur.
 
-    Sans cette interpolation la position de l'arête est quantifiée au pixel,
-    et le bruit de quantification (± 0,5 px) noie une flèche de 1 px.
+    Pondérer par le nombre de points empêche une poignée de tracés courts de
+    peser autant qu'une longue arête traversant l'image.
     """
-    denominator = left - 2.0 * peak + right
-    if denominator == 0.0:
-        return 0.0
-    return float(np.clip((left - right) / (2.0 * denominator), -1.0, 1.0))
+    total = 0.0
+    total_weight = 0.0
+    for track in tracks:
+        weight = float(track.points.shape[0])
+        total += _straightness(_undistort(track.points, k1, center, half_diagonal)) * weight
+        total_weight += weight
+    return total / total_weight if total_weight > 0.0 else 0.0
 
 
-def _polarity(grad: np.ndarray, seed_x: int) -> float:
-    """Sens de la transition portée par la colonne : +1 ou −1.
+def _image_center(shape: tuple[int, int]) -> tuple[np.ndarray, float]:
+    """Centre optique **supposé** au centre du cadre, et demi-diagonale.
 
-    Un jambage de porte a deux arêtes, à quelques pixels l'une de l'autre, et
-    elles sont de **sens opposés** : clair → sombre d'un côté, sombre → clair
-    de l'autre. Un traqueur qui ne regarde que la magnitude saute de l'une à
-    l'autre dès que le contraste varie un peu, et il mesure alors la largeur
-    du jambage plutôt que sa courbure.
-    """
-    top, bottom = _vertical_span(grad.shape[0])
-    column = grad[top:bottom, seed_x]
-    # Le sens est lu **là où la transition est la plus franche**, pas en
-    # moyenne sur la colonne : une arête qui dérive de quelques pixels fait
-    # entrer les deux côtés du jambage dans la même colonne, et leur somme
-    # s'annule au lieu de trancher.
-    strongest = int(np.argmax(np.abs(column)))
-    return -1.0 if float(column[strongest]) < 0.0 else 1.0
-
-
-def _follow_edge(grad: np.ndarray, seed_x: int) -> tuple[np.ndarray, np.ndarray] | None:
-    """Suit une arête ligne par ligne, par maximum de gradient **de même sens**.
-
-    Le suivi s'arrête dès que le maximum atteint le bord de la fenêtre de
-    recherche : l'arête s'échappe, et continuer voudrait dire mesurer sa
-    propre dérive — l'erreur exacte qui avait fait rejeter une scène côté
-    front.
-
-    :returns: les lignes et les abscisses sous-pixel du tracé, ou `None` si
-        l'arête n'est pas assez longue pour valoir quelque chose.
-    """
-    height, width = grad.shape
-    top, bottom = _vertical_span(height)
-    polarity = _polarity(grad, seed_x)
-
-    rows: list[int] = []
-    positions: list[float] = []
-    current = float(seed_x)
-
-    for y in range(top, bottom):
-        lo = max(0, int(round(current)) - _SEARCH_HALF_WINDOW)
-        hi = min(width, int(round(current)) + _SEARCH_HALF_WINDOW + 1)
-        # L'arête de sens contraire répond négativement : elle ne peut donc
-        # jamais remporter l'argmax.
-        window = grad[y, lo:hi] * polarity
-        if window.size < 3:
-            break
-        local = int(np.argmax(window))
-        if local == 0 or local == window.size - 1:
-            break
-        current = (
-            lo
-            + local
-            + _subpixel_offset(
-                float(window[local - 1]), float(window[local]), float(window[local + 1])
-            )
-        )
-        rows.append(y)
-        positions.append(current)
-
-    if len(rows) < get_settings().lens_min_track_points:
-        return None
-    return np.asarray(rows, dtype=np.float64), np.asarray(positions, dtype=np.float64)
-
-
-def _fit_arc(rows: np.ndarray, positions: np.ndarray, shape: tuple[int, int]) -> _Arc:
-    """Ajuste une parabole au tracé et en tire la flèche.
-
-    La flèche d'une parabole sur une base L vaut |a| · L² / 4 : c'est l'écart
-    de la courbe à sa corde, au milieu. Inutile de reconstruire la corde point
-    par point.
+    C'est une hypothèse, pas une mesure, et elle tombe sur une photo recadrée :
+    le centre optique n'est alors plus le centre de l'image. Estimer le centre
+    en même temps que k1 demanderait un support bien supérieur à ce qu'offre
+    une photo d'intérieur ordinaire — c'est une limite assumée du lot, notée
+    dans `docs/quality-methodology.md`.
     """
     height, width = shape
-    center_x = (width - 1) / 2.0
-    coefficients = np.polyfit(rows, positions, 2)
-    residuals = positions - np.polyval(coefficients, rows)
-    base = float(rows[-1] - rows[0])
-    return _Arc(
-        sagitta_px=round(abs(float(coefficients[0])) * base * base / 4.0, 4),
-        fit_rms_px=round(float(np.sqrt(np.mean(residuals**2))), 4),
-        points=int(rows.size),
-        span_ratio=round(base / max(height - 1, 1), 4),
-        center_offset=round(abs(float(positions.mean()) - center_x) / max(center_x, 1.0), 4),
+    center = np.array([(width - 1) / 2.0, (height - 1) / 2.0])
+    return center, float(np.hypot(center[0], center[1]))
+
+
+def estimate_k1(tracks: list[Track], shape: tuple[int, int]) -> K1Estimate | None:
+    """Cherche le coefficient radial qui redresse le mieux les tracés retenus.
+
+    Balayage régulier plutôt qu'optimisation : le critère n'est pas garanti
+    convexe sur des tracés réels, une descente pourrait s'arrêter dans un
+    minimum local, et 181 évaluations sur quelques milliers de points restent
+    très en dessous du budget de l'étage.
+
+    :returns: `None` si aucun tracé n'est assez long pour porter un ajustement.
+    """
+    settings = get_settings()
+    usable = [t for t in tracks if t.usable and t.points.shape[0] >= _MIN_FIT_POINTS]
+    if not usable:
+        return None
+
+    center, half_diagonal = _image_center(shape)
+    grid = np.linspace(
+        settings.lens_k1_search_min, settings.lens_k1_search_max, settings.lens_k1_search_steps
+    )
+    scores = [_pooled_straightness(usable, float(k1), center, half_diagonal) for k1 in grid]
+    best = int(np.argmin(scores))
+
+    at_zero = _pooled_straightness(usable, 0.0, center, half_diagonal)
+    at_best = float(scores[best])
+    gain = 0.0 if at_zero <= 1e-9 else max(0.0, 1.0 - at_best / at_zero)
+
+    return K1Estimate(
+        k1=round(float(grid[best]), 5),
+        straightness_at_zero=round(at_zero, 8),
+        straightness_at_best=round(at_best, 8),
+        residual_gain=round(gain, 5),
+        search_min=settings.lens_k1_search_min,
+        search_max=settings.lens_k1_search_max,
     )
 
 
-def analyse_lens(luma01: np.ndarray) -> LensMetrics:
-    """Mesure la courbure des arêtes verticales de l'image.
+def _support(tracks: list[Track], shape: tuple[int, int]) -> LensSupport:
+    """Quantité et répartition de la preuve géométrique disponible."""
+    height, width = shape
+    usable = [t for t in tracks if t.usable]
+    bulges = [t.radial_bulge_px for t in usable]
 
-    Le verdict reste `undetermined` tant que le nombre d'arêtes exploitables
-    n'atteint pas le minimum configuré. C'est le cas le plus fréquent sur une
-    photo d'intérieur ordinaire, et le seul honnête quand c'est vrai : une
-    arête unique ne prouve rien, et prétendre le contraire ferait entrer une
-    erreur dans tout ce qui suit.
+    if bulges:
+        positives = sum(1 for bulge in bulges if bulge > 0.0)
+        agreement = max(positives, len(bulges) - positives) / len(bulges)
+        median_bulge = float(np.median(bulges))
+    else:
+        # Sans tracé il n'y a pas d'accord à mesurer. 0 et non 1 : « aucune
+        # donnée » ne doit jamais se lire comme « parfaitement cohérent ».
+        agreement = 0.0
+        median_bulge = 0.0
+
+    quadrants = {
+        (
+            float(track.points[:, 0].mean()) >= (width - 1) / 2.0,
+            float(track.points[:, 1].mean()) >= (height - 1) / 2.0,
+        )
+        for track in usable
+    }
+
+    return LensSupport(
+        usable_edges=len(usable),
+        vertical_edges=sum(1 for t in usable if t.orientation == "vertical"),
+        horizontal_edges=sum(1 for t in usable if t.orientation == "horizontal"),
+        total_track_px=round(sum(t.length_px for t in usable), 1),
+        spatial_coverage=round(len(quadrants) / 4.0, 3),
+        sign_agreement=round(agreement, 4),
+        median_radial_bulge_px=round(median_bulge, 4),
+    )
+
+
+def _to_schema(track: Track) -> EdgeTrack:
+    return EdgeTrack(
+        orientation=track.orientation,
+        sagitta_px=track.sagitta_px,
+        radial_bulge_px=track.radial_bulge_px,
+        fit_rms_px=track.fit_rms_px,
+        points=int(track.points.shape[0]),
+        span_ratio=track.span_ratio,
+        center_offset=track.center_offset,
+        usable=track.usable,
+    )
+
+
+def _sign_of(value: float) -> str | None:
+    if value > 0.0:
+        return "barrel"
+    if value < 0.0:
+        return "pincushion"
+    return None
+
+
+def _decide(
+    support: LensSupport, k1: K1Estimate | None, max_sagitta: float | None, threshold: float
+) -> tuple[LensVerdict, str | None]:
+    """Applique le détecteur configuré, et renvoie le verdict et le sens supposé.
+
+    Une règle est commune aux trois : **sans support suffisant, on ne conclut
+    pas**. Aucun détecteur n'a le droit de répondre « pas de distorsion » sur
+    une image où il n'a rien pu mesurer — ce serait rassurer sans avoir
+    regardé, et c'est exactement ce que le nom `no_distortion_evidence` refuse
+    de laisser croire.
+    """
+    settings = get_settings()
+
+    if support.usable_edges < settings.lens_min_usable_edges:
+        return LensVerdict.UNDETERMINED, None
+
+    if settings.lens_method is LensMethod.SAGITTA_MAGNITUDE:
+        # Candidate A : l'amplitude, et rien d'autre. Reproduite telle quelle,
+        # y compris son incapacité à voir d'où vient la courbure — sans quoi la
+        # comparaison serait flatteuse pour la méthode retenue.
+        if max_sagitta is not None and max_sagitta >= threshold:
+            return LensVerdict.DISTORTION_SUSPECTED, _sign_of(support.median_radial_bulge_px)
+        return LensVerdict.NO_DISTORTION_EVIDENCE, None
+
+    if settings.lens_method is LensMethod.RADIAL_CONSISTENCY:
+        coherent = support.sign_agreement >= settings.lens_min_sign_agreement
+        strong = max_sagitta is not None and max_sagitta >= threshold
+        if coherent and strong:
+            return LensVerdict.DISTORTION_SUSPECTED, _sign_of(support.median_radial_bulge_px)
+        return LensVerdict.NO_DISTORTION_EVIDENCE, None
+
+    # Candidate C : intensité estimée **et** part de courbure expliquée. Les
+    # deux conditions sont nécessaires. Sans la seconde, la recherche
+    # renverrait un k1 « optimal » sur n'importe quelle image, y compris
+    # parfaitement rectilinéaire.
+    if k1 is None:
+        return LensVerdict.UNDETERMINED, None
+    if (
+        abs(k1.k1) >= settings.lens_k1_suspect_min
+        and k1.residual_gain >= settings.lens_k1_min_residual_gain
+    ):
+        return LensVerdict.DISTORTION_SUSPECTED, _sign_of(k1.k1)
+    return LensVerdict.NO_DISTORTION_EVIDENCE, None
+
+
+def analyse_lens(luma01: np.ndarray) -> LensMetrics:
+    """Mesure la courbure des arêtes de l'image et en tire un verdict prudent.
+
+    Toutes les mesures sont calculées quel que soit le détecteur configuré : un
+    rapport de benchmark porte donc de quoi rejouer les trois candidates sans
+    réanalyser le corpus.
     """
     settings = get_settings()
     shape = (int(luma01.shape[0]), int(luma01.shape[1]))
-    width = shape[1]
-    threshold = settings.lens_sagitta_suspect_px * (width / settings.lens_reference_width)
+    threshold = settings.lens_sagitta_suspect_px * (shape[1] / settings.lens_reference_width)
 
-    grad = _gradient_x(luma01)
-    tracks: list[EdgeTrack] = []
-    for seed_x in _seed_columns(grad):
-        followed = _follow_edge(grad, seed_x)
-        if followed is None:
-            continue
-        arc = _fit_arc(followed[0], followed[1], shape)
-        tracks.append(
-            EdgeTrack(
-                sagitta_px=arc.sagitta_px,
-                fit_rms_px=arc.fit_rms_px,
-                points=arc.points,
-                span_ratio=arc.span_ratio,
-                center_offset=arc.center_offset,
-                usable=(
-                    arc.fit_rms_px <= settings.lens_max_fit_rms_px
-                    and arc.points >= settings.lens_min_track_points
-                    and arc.span_ratio >= settings.lens_min_track_height_ratio
-                    and arc.center_offset >= _MIN_CENTER_OFFSET
-                ),
-            )
-        )
+    tracks = find_tracks(luma01)
+    support = _support(tracks, shape)
+    k1 = estimate_k1(tracks, shape)
 
     usable = [t for t in tracks if t.usable]
     max_sagitta = max((t.sagitta_px for t in usable), default=None)
-
-    if len(usable) < settings.lens_min_usable_edges:
-        verdict = LensVerdict.UNDETERMINED
-    elif max_sagitta is not None and max_sagitta >= threshold:
-        verdict = LensVerdict.DISTORTION_SUSPECTED
-    else:
-        verdict = LensVerdict.NO_DISTORTION_DETECTED
+    verdict, sign = _decide(support, k1, max_sagitta, threshold)
 
     return LensMetrics(
         verdict=verdict,
+        method=settings.lens_method.value,
+        suspected_sign=sign,  # type: ignore[arg-type]
+        support=support,
+        k1=k1,
         max_sagitta_px=max_sagitta,
         max_sagitta_px_normalized=(
             None
             if max_sagitta is None
-            else round(max_sagitta * settings.lens_reference_width / width, 4)
+            else round(max_sagitta * settings.lens_reference_width / shape[1], 4)
         ),
-        usable_edges=len(usable),
-        tracks=tracks,
         suspect_threshold_px=round(threshold, 4),
+        tracks=[_to_schema(track) for track in tracks],
     )
 
 

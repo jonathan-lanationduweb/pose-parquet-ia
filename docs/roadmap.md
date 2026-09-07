@@ -33,26 +33,46 @@ exactement ce qu'on attend d'un banc d'essai construit avant les modèles.
 
 ---
 
-## LOT IA 1 — Qualité et distorsion
+## LOT IA 1 — Qualité et distorsion ✅
 
-Rendre les seuils défendables, et trancher ce qui reste ouvert.
+Livré. Compte rendu complet, chiffres et échecs :
+`docs/quality-methodology.md`.
 
-* constituer le corpus (voir `docs/dataset.md`) ;
-* mesurer la distribution réelle de la variance du Laplacien sur des photos
-  d'intérieur, et remplacer `blur_sharp_min` par une valeur mesurée ;
-* **décider ce qui doit être bloquant.** Aujourd'hui seul `image_too_small`
-  l'est. Une photo quasi noire, un panorama : faut-il les refuser ou les
-  analyser en avertissant ? La question est ouverte exprès, et le corpus doit
-  y répondre plutôt qu'un avis ;
-* éprouver l'analyse d'objectif sur de vraies photos de téléphone, dont
-  certaines sont corrigées en interne et d'autres non — et rien dans le
-  fichier ne le dit de façon fiable ;
-* explorer l'estimation d'un coefficient radial `k₁` (voire `k₁, k₂`) par
-  optimisation sur les arêtes détectées. Sans étalonnage préalable, c'est un
-  problème à une ou deux inconnues : c'est la piste raisonnable. Voir
-  `docs/lens-distortion.md`.
+* corpus synthétique de 42 entrées déterministes, à vérité terrain **imposée** ;
+* banc d'essai qui compte les **faux positifs** — le défaut méthodologique du
+  LOT 0 ;
+* trois mesures de netteté comparées par leur **marge de séparation**. La
+  variance du Laplacien du LOT 0 est écartée : 18 faux positifs, marge
+  négative. Le rapport de reflou est retenu ;
+* séparation du **support** et de la netteté : une image pauvre en texture
+  n'est plus déclarée floue, elle est déclarée indécidable ;
+* contraste rendu **relatif** à la luminance : une photo sombre n'est plus
+  déclarée plate en plus d'être déclarée sombre ;
+* écrêtage mesuré séparément de la clarté ;
+* trois détecteurs de distorsion comparés. `k1_fit` retenu : il estime le
+  **sens** et l'**intensité**, exactement sur les cas centrés, et son test de
+  cohérence est intégré à l'estimation ;
+* suivi d'arêtes étendu aux **horizontales** et rendu bidirectionnel — il
+  était aveugle aux distorsions fortes ;
+* `no_distortion_detected` devient `no_distortion_evidence`.
 
-**Ce lot ne corrige toujours pas la distorsion.** Il décide si on peut.
+**Ce lot ne corrige toujours pas la distorsion.** Il mesure, et il sait dire
+quand il ne sait pas.
+
+### Reste ouvert, et remis au LOT suivant
+
+* **le corpus réel.** Vide, et le blocage est documenté : la licence des
+  photos du front doit être reportée et non supposée, et une photo réelle
+  n'apporte aucune vérité terrain de `k1` ni de sigma. Aucun seuil de ce lot
+  n'est donc validé sur photo réelle ;
+* **décider ce qui doit être bloquant.** Seul `image_too_small` l'est
+  aujourd'hui. Une photo quasi noire, un panorama : refuser ou avertir ? La
+  question reste ouverte exprès — elle demande de vraies photos ;
+* **le bougé aligné sur un axe**, non détecté par la candidate C ;
+* **le centre optique**, supposé au centre du cadre : 43 % d'erreur
+  d'intensité sur une photo recadrée hors axe ;
+* **les photos de 640 à 1024 px**, hors du domaine étalonné de la netteté ;
+* la **correction** de distorsion, toujours pas envisagée.
 
 ---
 
