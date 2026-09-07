@@ -59,7 +59,12 @@ import numpy as np
 
 from app.schemas.annotation import ANNOTATION_SCHEMA
 from app.services.image_loader import LoadedImage, load_image
-from benchmarks.annotations import AnnotatedScene, corpus_report, load_corpus
+from benchmarks.annotations import (
+    AnnotatedScene,
+    corpus_report,
+    load_corpus,
+    primary_scenes,
+)
 from benchmarks.dataset import DATASET_SCHEMA, Difficulty
 from benchmarks.segmentation import METRICS_SCHEMA, MetricConfig, SegmentationMetrics, evaluate
 
@@ -205,7 +210,9 @@ def run(
     """Évalue les candidats sur les scènes **approuvées** du corpus."""
     settings = config or MetricConfig()
     scenes = load_corpus(root)
-    usable = [scene for scene in scenes if scene.usable]
+    # Une photo annotée deux fois ne doit pas compter double dans les
+    # moyennes : on retient la passe principale.
+    usable = [scene for scene in primary_scenes(scenes) if scene.usable]
 
     rows: list[dict[str, Any]] = []
     for name in candidates:

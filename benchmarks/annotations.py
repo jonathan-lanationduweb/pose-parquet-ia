@@ -349,6 +349,50 @@ def load_corpus(root: Path) -> list[AnnotatedScene]:
     return [load_scene(path, manifest, root) for path in sorted(directory.glob("*.json"))]
 
 
+def primary_scenes(scenes: list[AnnotatedScene]) -> list[AnnotatedScene]:
+    """Une scène par photo, pour le banc d'essai officiel.
+
+    Une photo annotée deux fois porte deux relevés exploitables, et aucun n'est
+    « la » vérité — c'est justement ce que le LOT 2A mesure. Le banc d'essai de
+    segmentation, lui, doit en choisir un, sinon la même image compterait
+    double dans les moyennes.
+
+    La règle est explicite plutôt que subtile : la passe **sans étiquette**
+    l'emporte, puis « A », puis l'ordre alphabétique. Une annotation unique n'a
+    pas d'étiquette, donc le cas courant ne demande aucune décision.
+    """
+
+    def rank(scene: AnnotatedScene) -> tuple[int, str]:
+        label = scene.annotation.pass_label
+        return (0, "") if label is None else (1 if label == "A" else 2, label)
+
+    by_photo: dict[str, list[AnnotatedScene]] = {}
+    for scene in scenes:
+        by_photo.setdefault(scene.annotation.photo_id, []).append(scene)
+    return [sorted(group, key=rank)[0] for _, group in sorted(by_photo.items())]
+
+
+def paired_scenes(scenes: list[AnnotatedScene]) -> list[tuple[AnnotatedScene, AnnotatedScene]]:
+    """Les photos annotées au moins deux fois, par paires de passes.
+
+    Ne rend que des paires dont les deux masques ont pu être lus : comparer
+    contre un masque manquant n'apprendrait rien, et le contrôle a déjà
+    signalé le problème.
+    """
+    by_photo: dict[str, list[AnnotatedScene]] = {}
+    for scene in scenes:
+        if scene.floor_visible is not None:
+            by_photo.setdefault(scene.annotation.photo_id, []).append(scene)
+
+    pairs: list[tuple[AnnotatedScene, AnnotatedScene]] = []
+    for _, group in sorted(by_photo.items()):
+        if len(group) < 2:
+            continue
+        ordered = sorted(group, key=lambda s: s.annotation.pass_label or "")
+        pairs.append((ordered[0], ordered[1]))
+    return pairs
+
+
 def corpus_report(scenes: list[AnnotatedScene]) -> dict[str, Any]:
     """Bilan de contrôle, lisible et comptable."""
     return {
@@ -361,6 +405,8 @@ def corpus_report(scenes: list[AnnotatedScene]) -> dict[str, Any]:
             status.value: sum(1 for s in scenes if s.annotation.status is status)
             for status in AnnotationStatus
         },
+        "photos": len({scene.annotation.photo_id for scene in scenes}),
+        "doublyAnnotated": len(paired_scenes(scenes)),
         "issues": [
             {"photoId": scene.annotation.photo_id, **issue.as_dict()}
             for scene in scenes

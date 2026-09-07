@@ -10,7 +10,7 @@ PHOTO  →  pose-parquet-ai  →  SceneData  →  Visualiseur (JS/WebGL)
 Python **comprend la pièce**. Il ne dessine pas le parquet : le moteur de rendu
 existe déjà, il est éprouvé, et il n'a rien à apprendre de ce service.
 
-> ## État : préambule du LOT IA 2 — cadre du corpus réel et métriques de segmentation
+> ## État : LOT IA 2A — corpus pilote collecté, relevés humains à faire
 >
 > Ce service **ne fait pas encore d'analyse de pièce.** Il valide et redresse
 > une photo, mesure sa netteté, son exposition et la courbure de ses arêtes, et
@@ -24,8 +24,14 @@ existe déjà, il est éprouvé, et il n'a rien à apprendre de ce service.
 >
 > Le préambule du LOT 2 a posé le cadre de la **segmentation du sol** : format
 > d'annotation humaine, contrôles, métriques de surface et de contour, banc
-> d'essai. **Aucun modèle n'est installé ni comparé**, et le corpus réel est
-> vide — voir [docs/annotation-protocol.md](docs/annotation-protocol.md).
+> d'essai. Le LOT 2A y a ajouté la mesure de l'**accord humain**, la mesure du
+> **temps d'annotation**, un balayage de tolérance de contour, et un corpus
+> pilote de **onze photos réelles** — collecté, décrit, **pas encore annoté**.
+>
+> **Aucun modèle de segmentation n'est installé ni comparé.** Ce qui manque
+> maintenant n'est pas du code : c'est le relevé humain. Marche à suivre dans
+> [docs/pilot-runbook.md](docs/pilot-runbook.md), règles dans
+> [docs/annotation-protocol.md](docs/annotation-protocol.md).
 >
 > **Aucun modèle lourd n'est installé** — ni PyTorch, ni ONNX, ni poids. Voir
 > [docs/roadmap.md](docs/roadmap.md).
@@ -319,6 +325,7 @@ le corpus sera assez grand pour la mesurer. C'est le rôle du LOT 1.
 | [docs/architecture.md](docs/architecture.md)         | pipeline, contrats, journalisation, dépendances       |
 | [docs/quality-methodology.md](docs/quality-methodology.md) | **LOT 1** : méthodes comparées, chiffres, échecs |
 | [docs/annotation-protocol.md](docs/annotation-protocol.md) | **LOT 2** : annoter le sol, métriques, provenance |
+| [docs/pilot-runbook.md](docs/pilot-runbook.md) | **LOT 2A** : le corpus pilote, et comment l'annoter |
 | [docs/scene-data.md](docs/scene-data.md)             | SceneData **actuel** et SceneData **futur**          |
 | [docs/dataset.md](docs/dataset.md)                   | quoi mettre dans le corpus, et pourquoi              |
 | [docs/lens-distortion.md](docs/lens-distortion.md)   | ce qu'on mesure, ce qu'on ne corrige pas             |

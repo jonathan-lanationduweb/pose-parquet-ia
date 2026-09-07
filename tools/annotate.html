@@ -98,6 +98,7 @@
   <fieldset>
     <legend>4 · Enregistrer</legend>
     <label>Notes<input type="text" id="notes" placeholder="ce que les chiffres ne diront pas" /></label>
+    <p class="hint">Temps de tracé : <b id="clock">0 s</b> · <span id="clockState">en attente</span></p>
     <button id="save">Télécharger le tracé (.draw.json)</button>
     <input type="file" id="reload" accept=".json,application/json" />
     <p class="hint">Puis : <code>python -m scripts.import_annotation --draw …</code></p>
@@ -116,8 +117,54 @@
   /** Tout l'état du tracé. Les points sont en pixels image, normalisés à l'export. */
   const state = { bitmap: null, width: 0, height: 0, scale: 1, current: [], shapes: [] };
 
+
   const $ = (id) => document.getElementById(id);
   const mode = () => $('mode').value;
+
+  /**
+   * Chronomètre du tracé. Le temps d'annotation est une métrique du LOT 2A :
+   * il décide si un corpus de trente scènes est réaliste, et c'est une donnée
+   * qu'aucune mesure d'image ne remplace.
+   *
+   * Il se met en PAUSE après une minute sans interaction, et reprend au geste
+   * suivant. Sans cette pause, une annotation interrompue par un déjeuner
+   * mesurerait le déjeuner — et la moyenne du corpus deviendrait une fiction.
+   * Volontairement grossier : à la seconde près, personne n'apprendrait rien
+   * de plus.
+   */
+  const clock = { accumulated: 0, since: null, lastActivity: 0 };
+  const IDLE_LIMIT_MS = 60000;
+
+  function tick() {
+    const now = Date.now();
+    if (clock.since !== null) {
+      if (now - clock.lastActivity > IDLE_LIMIT_MS) {
+        clock.accumulated += clock.lastActivity - clock.since;
+        clock.since = null;
+      } else {
+        // Rien à faire : le temps court.
+      }
+    }
+    const live = clock.since === null ? 0 : now - clock.since;
+    const seconds = Math.round((clock.accumulated + live) / 1000);
+    $('clock').textContent = `${seconds} s`;
+    $('clockState').textContent =
+      state.bitmap === null ? 'en attente' : clock.since === null ? 'en pause' : 'en cours';
+  }
+
+  /** Tout geste de l'annotateur relance le chronomètre. */
+  function noteActivity() {
+    if (!state.bitmap) return;
+    clock.lastActivity = Date.now();
+    if (clock.since === null) clock.since = clock.lastActivity;
+  }
+
+  function elapsedSeconds() {
+    const live = clock.since === null ? 0 : Math.min(Date.now(), clock.lastActivity) - clock.since;
+    return Math.round((clock.accumulated + Math.max(live, 0)) / 1000);
+  }
+
+  setInterval(tick, 1000);
 
   /* --- Chargement ----------------------------------------------------- */
 
@@ -135,6 +182,9 @@
     canvas.height = Math.round(state.height * state.scale);
     state.current = [];
     state.shapes = [];
+    clock.accumulated = 0;
+    clock.since = null;
+    noteActivity();
     if (!$('photoId').value) $('photoId').value = file.name.replace(/\.[^.]+$/, '');
     $('dims').textContent =
       `${state.width} × ${state.height} px (après EXIF) · affiché à ${Math.round(state.scale * 100)} %`;
@@ -145,6 +195,7 @@
 
   canvas.addEventListener('click', (event) => {
     if (!state.bitmap) return;
+    noteActivity();
     const box = canvas.getBoundingClientRect();
     state.current.push({
       x: (event.clientX - box.left) / state.scale,
@@ -156,6 +207,7 @@
   canvas.addEventListener('dblclick', (event) => { event.preventDefault(); finish(); });
 
   window.addEventListener('keydown', (event) => {
+    noteActivity();
     if (event.key === 'Enter') finish();
     else if (event.key === 'Backspace') { event.preventDefault(); state.current.pop(); redraw(); }
     else if (event.key === 'Escape') { state.current = []; redraw(); }
@@ -264,6 +316,9 @@
       boundary: pick('boundary').map((shape) => ({
         kind: shape.boundaryKind, points: normalize(shape.points),
       })),
+      // Mesuré par l'outil, pas saisi à la main : un temps noté après coup est
+      // une estimation, et la moyenne du corpus en dépend.
+      drawSeconds: elapsedSeconds(),
       notes: $('notes').value.trim() || null,
     };
 

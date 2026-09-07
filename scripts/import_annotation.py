@@ -41,6 +41,7 @@ import numpy as np
 
 from app.schemas.annotation import (
     AnnotationStatus,
+    AnnotationTiming,
     BoundaryKind,
     BoundarySegment,
     FloorAnnotation,
@@ -122,8 +123,17 @@ def build(
     status: AnnotationStatus,
     reviewer: str | None,
     notes: str | None,
+    pass_label: str | None = None,
+    independent: bool = False,
+    timing: AnnotationTiming | None = None,
 ) -> Path:
-    """Écrit les masques et l'annotation. Renvoie le chemin de l'annotation."""
+    """Écrit les masques et l'annotation. Renvoie le chemin de l'annotation.
+
+    Une seconde passe sur la même photo s'écrit sous un nom distinct
+    (`photo.B.json`) et ne remplace donc pas la première : c'est ce qui rend la
+    comparaison possible. Sans `pass_label`, une réimportation écrase, ce qui
+    est le comportement voulu pour une correction.
+    """
     draw = _load_draw(draw_path)
     photo_id = str(draw["photoId"])
 
@@ -156,15 +166,22 @@ def build(
     width, height = loaded.width, loaded.height
     masks_dir = root / ANNOTATIONS_DIR / "masks"
 
+    # Le temps chronométré par l'outil, s'il n'a pas été fourni autrement. Ici
+    # et non dans la CLI : un appelant qui passe par `build` doit obtenir le
+    # même comportement, sans quoi la métrique de temps se perd en silence.
+    if timing is None and draw.get("drawSeconds") is not None:
+        timing = AnnotationTiming(first_pass_seconds=float(draw["drawSeconds"]))
+
     floor = rasterize(draw["floorPolygons"], draw.get("floorHoles", []), width, height)
-    floor_name = f"{photo_id}.floor-visible.png"
+    suffix = f".{pass_label}" if pass_label else ""
+    floor_name = f"{photo_id}{suffix}.floor-visible.png"
     save_mask(floor, masks_dir / floor_name)
 
     zones = draw.get("uncertainZones", [])
     uncertain_name: str | None = None
     if zones:
         uncertain = rasterize([zone["polygon"] for zone in zones], [], width, height)
-        uncertain_name = f"{photo_id}.uncertain.png"
+        uncertain_name = f"{photo_id}{suffix}.uncertain.png"
         save_mask(uncertain, masks_dir / uncertain_name)
 
     annotation = FloorAnnotation(
@@ -193,6 +210,9 @@ def build(
         ],
         annotator=annotator,
         annotated_on=date.today(),
+        pass_label=pass_label,
+        independent_pass=independent,
+        timing=timing,
         status=status,
         review=(
             None
@@ -206,7 +226,7 @@ def build(
         notes=notes or draw.get("notes"),
     )
 
-    out_path = root / ANNOTATIONS_DIR / f"{photo_id}.json"
+    out_path = root / ANNOTATIONS_DIR / f"{photo_id}{suffix}.json"
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(
         json.dumps(
@@ -232,7 +252,42 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--reviewer", help="obligatoire de fait dès que le statut n'est pas draft")
     parser.add_argument("--notes")
+    parser.add_argument(
+        "--pass-label",
+        help="« A », « B »… pour une photo annotée plusieurs fois. "
+        "Sans lui, une réimportation écrase l'annotation existante.",
+    )
+    parser.add_argument(
+        "--independent",
+        action="store_true",
+        help="déclare que cette passe a été faite SANS regarder les autres. "
+        "L'outil ne peut pas le vérifier : c'est une déclaration, et le nom de "
+        "la mesure d'accord en dépend.",
+    )
+    parser.add_argument(
+        "--seconds",
+        type=float,
+        help="durée du premier tracé, en secondes. Par défaut, celle que "
+        "l'outil a chronométrée (champ drawSeconds du tracé).",
+    )
+    parser.add_argument("--corrections-seconds", type=float, default=0.0)
+    parser.add_argument("--review-seconds", type=float, default=0.0)
+    parser.add_argument("--corrections", type=int, help="nombre de reprises, s'il se compte")
     args = parser.parse_args(argv)
+
+    # `--seconds` l'emporte ; sinon `build` reprendra ce que l'outil a
+    # chronométré. Les durées de correction et de revue, elles, ne peuvent
+    # venir que d'ici : l'outil ne les voit pas.
+    timing = (
+        None
+        if args.seconds is None
+        else AnnotationTiming(
+            first_pass_seconds=args.seconds,
+            corrections_seconds=args.corrections_seconds,
+            review_seconds=args.review_seconds,
+            correction_count=args.corrections,
+        )
+    )
 
     try:
         path = build(
@@ -242,6 +297,9 @@ def main(argv: list[str] | None = None) -> int:
             AnnotationStatus(args.status),
             args.reviewer,
             args.notes,
+            pass_label=args.pass_label,
+            independent=args.independent,
+            timing=timing,
         )
     except (ImportError_, FileNotFoundError, ValueError) as failure:
         print(f"Erreur : {failure}", file=sys.stderr)

@@ -1,5 +1,330 @@
 {
   "schema": "pose-parquet-ai/dataset@2",
   "note": "Corpus de photos réelles. VIDE au terme du préambule du LOT IA 2, et volontairement : le format, les contrôles, les métriques et le banc d'essai sont en place ; la collecte est un travail de sélection et de licences qui ne doit pas être bâclé pour faire nombre. Cible : 20 à 30 scènes couvrant les traits de SceneTrait. Les photos Pexels du front NE constituent pas un corpus redistribué ici (décision humaine) ; elles peuvent servir de tests privés locaux, une entrée à la fois, avec provenance documentée. Ajouter une photo : python -m scripts.add_photo. Voir datasets/README.md et docs/annotation-protocol.md.",
-  "photos": []
+  "photos": [
+    {
+      "id": "appartement-ancien",
+      "file": "private-real/appartement-ancien.jpg",
+      "difficulty": "hard",
+      "provenance": {
+        "source": "pose-parquet.com, assets/images/room-appartement-ancien.jpg — Pexels",
+        "sourceUrl": "https://www.pexels.com/photo/8583672/",
+        "author": "Curtis Adams",
+        "license": "Pexels License",
+        "verifiedOn": "2026-09-07",
+        "redistributable": false,
+        "usage": "local_evaluation_only",
+        "sha256": "cf3f65618d353e76b174bd8046cd436da43e45bb1e634f5523bb9cfbf0424d77",
+        "note": "Provenance recopiée de assets/images/CREDITS.md du front. redistributable=false enregistre la décision humaine du préambule LOT 2 (pas de corpus Pexels redistribué dans ce dépôt), et non une limite de la Pexels License."
+      },
+      "traits": [
+        "furnished",
+        "thin_furniture_legs",
+        "existing_parquet",
+        "corridor",
+        "doors",
+        "hard_perspective"
+      ],
+      "expectedIssues": [],
+      "graded": true,
+      "groundTruth": {
+        "available": false
+      },
+      "notes": "PIEDS FINS : une console cabriole et un porte-manteau à colonnettes, huit pieds à contourner. Couloir profond, sols visibles par plusieurs embrasures successives. Le front y avait laissé une bande du même sol hors de son masque."
+    },
+    {
+      "id": "bureau-vide",
+      "file": "private-real/bureau-vide.jpg",
+      "difficulty": "easy",
+      "provenance": {
+        "source": "pose-parquet.com, assets/images/room-bureau-vide.jpg — Pexels",
+        "sourceUrl": "https://www.pexels.com/photo/7028110/",
+        "author": "Curtis Adams",
+        "license": "Pexels License",
+        "verifiedOn": "2026-09-07",
+        "redistributable": false,
+        "usage": "local_evaluation_only",
+        "sha256": "1a75ed862f66233d7b244e1fd889d9419f877b0b7820104863be7edfef1552da",
+        "note": "Provenance recopiée de assets/images/CREDITS.md du front. redistributable=false enregistre la décision humaine du préambule LOT 2 (pas de corpus Pexels redistribué dans ce dépôt), et non une limite de la Pexels License."
+      },
+      "traits": [
+        "empty_room",
+        "existing_parquet",
+        "doors",
+        "easy_perspective"
+      ],
+      "expectedIssues": [],
+      "graded": true,
+      "groundTruth": {
+        "available": false
+      },
+      "notes": "Référence facile : pièce vide, plinthes blanches franches, vue d'angle. Une embrasure en bas à gauche montre un sol plus sombre au-delà."
+    },
+    {
+      "id": "chambre",
+      "file": "private-real/chambre.jpg",
+      "difficulty": "medium",
+      "provenance": {
+        "source": "pose-parquet.com, assets/images/room-chambre.jpg — Pexels",
+        "sourceUrl": "https://www.pexels.com/photo/7587859/",
+        "author": "Max Vakhtbovych",
+        "license": "Pexels License",
+        "verifiedOn": "2026-09-07",
+        "redistributable": false,
+        "usage": "local_evaluation_only",
+        "sha256": "18fce27c00a5bd7d360e3db03eadc21462564fc1400161d3fb87197318302b73",
+        "note": "Provenance recopiée de assets/images/CREDITS.md du front. redistributable=false enregistre la décision humaine du préambule LOT 2 (pas de corpus Pexels redistribué dans ce dépôt), et non une limite de la Pexels License."
+      },
+      "traits": [
+        "empty_room",
+        "existing_parquet",
+        "doors",
+        "exterior_visible",
+        "large_room",
+        "easy_perspective"
+      ],
+      "expectedIssues": [],
+      "graded": true,
+      "groundTruth": {
+        "available": false
+      },
+      "notes": "LA QUESTION QUE LE PROTOCOLE NE TRANCHE PAS : une terrasse extérieure est visible par la porte-fenêtre. Est-elle « du sol » ? Porte aussi une grille de ventilation encastrée dans le parquet. Contraste mur/sol très élevé (murs bleu foncé), ce qui en fait un témoin utile."
+    },
+    {
+      "id": "contraste",
+      "file": "private-real/contraste.jpg",
+      "difficulty": "rejected",
+      "provenance": {
+        "source": "pose-parquet.com, assets/images/room-contraste.jpg — Pexels",
+        "sourceUrl": "https://www.pexels.com/photo/18707513/",
+        "author": "sanket mahind",
+        "license": "Pexels License",
+        "verifiedOn": "2026-09-07",
+        "redistributable": false,
+        "usage": "local_evaluation_only",
+        "sha256": "c2642bf2fa3b1c6c8111380c3e60090f7859cc7d9c67fb0d2297b87093aa1126",
+        "note": "Provenance recopiée de assets/images/CREDITS.md du front. redistributable=false enregistre la décision humaine du préambule LOT 2 (pas de corpus Pexels redistribué dans ce dépôt), et non une limite de la Pexels License."
+      },
+      "traits": [
+        "not_a_room",
+        "empty_room",
+        "dark_floor",
+        "existing_parquet"
+      ],
+      "expectedIssues": [],
+      "graded": true,
+      "groundTruth": {
+        "available": false
+      },
+      "notes": "Rangée en `rejected` parce que ce n'est pas une pièce : un mur, un rai de soleil, une lisière de sol. À noter : son sol est parfaitement annotable. `rejected` veut dire « on n'attend pas de SceneData exploitable », pas « le sol est indéchiffrable »."
+    },
+    {
+      "id": "couloir",
+      "file": "private-real/couloir.jpg",
+      "difficulty": "hard",
+      "provenance": {
+        "source": "pose-parquet.com, assets/images/room-couloir.jpg — Pexels",
+        "sourceUrl": "https://www.pexels.com/photo/7587374/",
+        "author": "Max Vakhtbovych",
+        "license": "Pexels License",
+        "verifiedOn": "2026-09-07",
+        "redistributable": false,
+        "usage": "local_evaluation_only",
+        "sha256": "4c18875ccde6027586211703bdb2b06ff4ba74784ae81a6858169bc5ae9d0ea4",
+        "note": "Provenance recopiée de assets/images/CREDITS.md du front. redistributable=false enregistre la décision humaine du préambule LOT 2 (pas de corpus Pexels redistribué dans ce dépôt), et non une limite de la Pexels License."
+      },
+      "traits": [
+        "empty_room",
+        "corridor",
+        "existing_parquet",
+        "low_wall_floor_contrast",
+        "doors"
+      ],
+      "expectedIssues": [],
+      "graded": true,
+      "groundTruth": {
+        "available": false
+      },
+      "notes": "LE CAS DÉCISIF. Bois clair sur bois clair : à droite, le mur crème rejoint le sol sans plinthe ni marche de teinte. Le front a mesuré des résidus de 46 et 61 px en tentant d'y relever le pied de mur. C'est ici que le masque `uncertain` doit prouver son utilité."
+    },
+    {
+      "id": "entree-cadree",
+      "file": "private-real/entree-cadree.jpg",
+      "difficulty": "easy",
+      "provenance": {
+        "source": "pose-parquet.com, assets/images/room-entree-cadree.jpg — Pexels",
+        "sourceUrl": "https://www.pexels.com/photo/7865621/",
+        "author": "Gustavo Galeano Maz",
+        "license": "Pexels License",
+        "verifiedOn": "2026-09-07",
+        "redistributable": false,
+        "usage": "local_evaluation_only",
+        "sha256": "74351f8c7bbd77d847083017c60d303c5b1e770ae1d979f1cf319461c07e6311",
+        "note": "Provenance recopiée de assets/images/CREDITS.md du front. redistributable=false enregistre la décision humaine du préambule LOT 2 (pas de corpus Pexels redistribué dans ce dépôt), et non une limite de la Pexels License."
+      },
+      "traits": [
+        "empty_room",
+        "existing_parquet",
+        "tiles",
+        "doors",
+        "cropped",
+        "easy_perspective"
+      ],
+      "expectedIssues": [],
+      "graded": true,
+      "groundTruth": {
+        "available": false
+      },
+      "notes": "SEUIL DE PORTE net : le parquet cède la place à un sol clair de couloir. Changement de sol, pas fin de sol. Cadrage serré, centre optique possiblement décentré — le LOT 1 a mesuré 43 % d'erreur de k1 sur ce cas de figure, en synthétique seulement."
+    },
+    {
+      "id": "petite-piece",
+      "file": "private-real/petite-piece.jpg",
+      "difficulty": "hard",
+      "provenance": {
+        "source": "pose-parquet.com, assets/images/room-petite-piece.jpg — Pexels",
+        "sourceUrl": "https://www.pexels.com/photo/26747989/",
+        "author": "Image Hunter",
+        "license": "Pexels License",
+        "verifiedOn": "2026-09-07",
+        "redistributable": false,
+        "usage": "local_evaluation_only",
+        "sha256": "4749ea5e75692a01a8fe1623e68e5523876aa28a6609e385705bbf76e5b85a6a",
+        "note": "Provenance recopiée de assets/images/CREDITS.md du front. redistributable=false enregistre la décision humaine du préambule LOT 2 (pas de corpus Pexels redistribué dans ce dépôt), et non une limite de la Pexels License."
+      },
+      "traits": [
+        "furnished",
+        "thin_furniture_legs",
+        "radiator",
+        "existing_parquet",
+        "small_room",
+        "hidden_corners"
+      ],
+      "expectedIssues": [],
+      "graded": true,
+      "groundTruth": {
+        "available": false
+      },
+      "notes": "La plus laborieuse : bureau et chaise à pieds fuselés (huit pieds), rideau tombant jusqu'au sol dont on ne voit pas la fin, angle de murs masqué par le bureau, sol coupé par le bas du cadre. Front : « boundary-not-verifiable »."
+    },
+    {
+      "id": "piece-arcades",
+      "file": "private-real/piece-arcades.jpg",
+      "difficulty": "hard",
+      "provenance": {
+        "source": "pose-parquet.com, assets/images/room-piece-arcades.jpg — Pexels",
+        "sourceUrl": "https://www.pexels.com/photo/13702811/",
+        "author": "Daniel Tanque",
+        "license": "Pexels License",
+        "verifiedOn": "2026-09-07",
+        "redistributable": false,
+        "usage": "local_evaluation_only",
+        "sha256": "87209f57aee1b315be9ea2e076a120a2debc3834d8dcac1ee1161bf6c4cb127c",
+        "note": "Provenance recopiée de assets/images/CREDITS.md du front. redistributable=false enregistre la décision humaine du préambule LOT 2 (pas de corpus Pexels redistribué dans ce dépôt), et non une limite de la Pexels License."
+      },
+      "traits": [
+        "empty_room",
+        "existing_parquet",
+        "curved_architecture",
+        "large_room",
+        "doors",
+        "low_wall_floor_contrast"
+      ],
+      "expectedIssues": [],
+      "graded": true,
+      "groundTruth": {
+        "available": false
+      },
+      "notes": "COURBES ARCHITECTURALES RÉELLES : deux arcades maçonnées, dont une alcôve avec son propre sol visible. Le LOT 1 n'avait éprouvé ce cas qu'en synthétique. Embrasure sombre au fond où le sol n'est PAS visible — bonne occasion de ne pas l'inventer."
+    },
+    {
+      "id": "piece-claire",
+      "file": "private-real/piece-claire.jpg",
+      "difficulty": "medium",
+      "provenance": {
+        "source": "pose-parquet.com, assets/images/room-piece-claire.jpg — Pexels",
+        "sourceUrl": "https://www.pexels.com/photo/8146330/",
+        "author": "Max Vakhtbovych",
+        "license": "Pexels License",
+        "verifiedOn": "2026-09-07",
+        "redistributable": false,
+        "usage": "local_evaluation_only",
+        "sha256": "25e84df28ec760f4f00edea388b86fb4e3d491025c0048be324ae795ec31a5e8",
+        "note": "Provenance recopiée de assets/images/CREDITS.md du front. redistributable=false enregistre la décision humaine du préambule LOT 2 (pas de corpus Pexels redistribué dans ce dépôt), et non une limite de la Pexels License."
+      },
+      "traits": [
+        "furnished",
+        "radiator",
+        "doors",
+        "existing_parquet",
+        "easy_perspective"
+      ],
+      "expectedIssues": [],
+      "graded": true,
+      "groundTruth": {
+        "available": false
+      },
+      "notes": "Meuble bas sur pieds courts et radiateur, tous deux avec du sol visible dessous. Tache de soleil dure au pied de la baie. Aucune plinthe : le mur gris rencontre directement le sol clair."
+    },
+    {
+      "id": "salon",
+      "file": "private-real/salon.jpg",
+      "difficulty": "hard",
+      "provenance": {
+        "source": "pose-parquet.com, assets/images/room-salon.jpg — Pexels",
+        "sourceUrl": "https://www.pexels.com/photo/7027842/",
+        "author": "Curtis Adams",
+        "license": "Pexels License",
+        "verifiedOn": "2026-09-07",
+        "redistributable": false,
+        "usage": "local_evaluation_only",
+        "sha256": "7b3e593878ad3644dfbe4454b2902fe84b9266436d4a7b737af431569318416e",
+        "note": "Provenance recopiée de assets/images/CREDITS.md du front. redistributable=false enregistre la décision humaine du préambule LOT 2 (pas de corpus Pexels redistribué dans ce dépôt), et non une limite de la Pexels License."
+      },
+      "traits": [
+        "empty_room",
+        "existing_parquet",
+        "dark_floor",
+        "reflective_floor",
+        "doors",
+        "large_room"
+      ],
+      "expectedIssues": [],
+      "graded": true,
+      "groundTruth": {
+        "available": false
+      },
+      "notes": "Parquet foncé très réfléchissant : reflets de fenêtre assez francs pour qu'on soit tenté de les exclure. Quatre zones de sol par trois ouvertures. Une bouche de soufflage encastrée dans le sol."
+    },
+    {
+      "id": "sejour",
+      "file": "private-real/sejour.jpg",
+      "difficulty": "easy",
+      "provenance": {
+        "source": "pose-parquet.com, assets/images/room-sejour.jpg — Pexels",
+        "sourceUrl": "https://www.pexels.com/photo/3935327/",
+        "author": "Curtis Adams",
+        "license": "Pexels License",
+        "verifiedOn": "2026-09-07",
+        "redistributable": false,
+        "usage": "local_evaluation_only",
+        "sha256": "9b755d40ad144a85f4bea4c2b8407595dd8d74f2466261197a02617a9ad65546",
+        "note": "Provenance recopiée de assets/images/CREDITS.md du front. redistributable=false enregistre la décision humaine du préambule LOT 2 (pas de corpus Pexels redistribué dans ce dépôt), et non une limite de la Pexels License."
+      },
+      "traits": [
+        "empty_room",
+        "existing_parquet",
+        "reflective_floor",
+        "doors",
+        "large_room",
+        "easy_perspective"
+      ],
+      "expectedIssues": [],
+      "graded": true,
+      "groundTruth": {
+        "available": false
+      },
+      "notes": "Deux pièces en enfilade sur UN SEUL parquet : l'ouverture n'est pas une frontière de sol, et un annotateur peut être tenté d'en tracer une. Reflets francs de fenêtre sur les lames."
+    }
+  ]
 }

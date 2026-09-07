@@ -128,18 +128,43 @@ validateur le dit.
 ## Les photos Pexels du front
 
 **Décision humaine déjà prise : elles ne constituent pas un corpus redistribué
-dans ce dépôt.** Aucune n'a été copiée, l'API Pexels n'est pas utilisée, et
-rien n'est présenté comme redistribuable.
+dans ce dépôt.** L'API Pexels n'est pas utilisée, rien n'est présenté comme
+redistribuable, et rien n'est copié en masse.
 
-Elles peuvent servir de **tests privés locaux**, une entrée à la fois, avec
-provenance documentée : `private-real/`, licence nommée,
-`redistributable: false`, `usage: local_evaluation_only`.
+Elles servent de **tests privés locaux**, une entrée à la fois, avec provenance
+documentée : `private-real/`, licence nommée, `redistributable: false`,
+`usage: local_evaluation_only`.
 
-Deux scènes du front méritent d'y passer en priorité — voir
-`docs/annotation-protocol.md`, §9 : `entree-cadree` (recadrage, centre optique
-décentré) et `piece-arcades` (courbes architecturales réelles). Le LOT 1 a
-mesuré ces deux cas de figure sur des images **synthétiques** ; ce sont les
-seules photos réelles connues qui les portent.
+### Le corpus pilote du LOT 2A
+
+Onze scènes ont été retenues ainsi, une par une, par
+`scripts/collect_pilot.py` : copie depuis le dépôt du front (lu, jamais
+modifié), hash calculé, provenance inscrite au manifeste. Elles restent **hors
+de Git** ; le dépôt n'en garde que la description.
+
+`redistributable: false` y enregistre une **décision humaine**, pas une limite
+de licence : la licence Pexels autoriserait la redistribution, et le choix de
+ne pas s'en servir a été pris en amont. Le champ dit ce qu'on fait, pas ce
+qu'on pourrait faire.
+
+Deux de ces scènes portent des cas que le LOT 1 n'avait mesurés que sur images
+**synthétiques**, et sont les seules photos réelles connues à les porter :
+`entree-cadree` (recadrage, centre optique décentré) et `piece-arcades`
+(courbes architecturales réelles).
+
+Ce que le pilote **ne** couvre pas : aucun **tapis**, et trois scènes meublées
+sur onze. Les photos du front avaient été choisies pour leurs sols dégagés —
+l'inverse de ce qu'un banc d'essai de segmentation demande. C'est le premier
+manque à combler pour passer de onze à trente. Voir
+`docs/pilot-runbook.md`, §6.
+
+### Ce qui ne doit jamais entrer ici tout seul
+
+Une photo envoyée un jour par un visiteur de pose-parquet.com **ne rejoint pas
+ce dossier automatiquement**. Elle reste temporaire, hors de Git, hors du
+manifeste, hors du banc d'essai permanent et hors des journaux — masques
+dérivés compris, puisqu'un masque de sol décrit la géométrie d'une habitation.
+Voir `docs/annotation-protocol.md`, §10.
 
 ---
 
@@ -163,7 +188,8 @@ leur provenance. Il servira aux LOT 3 et 4.
 remplie « pour faire complet ».** Une vérité terrain inventée transforme un
 banc d'essai en machine à valider ses propres erreurs : le modèle est comparé à
 sa propre sortie et trouve qu'il a raison. `available: false` est un état
-parfaitement acceptable, et c'est celui de tout le corpus aujourd'hui.
+parfaitement acceptable, et c'est celui de tout le corpus aujourd'hui — les
+onze photos du pilote comprises : personne n'a mesuré leur objectif.
 
 ---
 

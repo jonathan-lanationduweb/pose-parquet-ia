@@ -81,6 +81,17 @@ class SceneTrait(StrEnum):
     REFLECTIVE_FLOOR = "reflective_floor"
 
     # Ce qui rend le relevé difficile
+    #: Arches, voûtes, courbes maçonnées. Ajouté au LOT 2A : une photo réelle
+    #: du corpus pilote en porte deux, et le vocabulaire n'avait aucun mot
+    #: pour « lignes architecturales inhabituelles ». Le LOT 1 avait construit
+    #: ce cas synthétiquement (`curved_objects`) pour vérifier qu'on ne
+    #: l'imputait pas à l'objectif ; il fallait pouvoir le nommer sur du réel.
+    CURVED_ARCHITECTURE = "curved_architecture"
+    #: Une surface extérieure est visible par une ouverture — terrasse, balcon,
+    #: jardin. Ajouté au LOT 2A parce qu'une photo pilote pose la question que
+    #: le protocole ne tranchait pas : le sol d'une terrasse vu par une
+    #: porte-fenêtre est-il « du sol » ? Voir docs/annotation-protocol.md.
+    EXTERIOR_VISIBLE = "exterior_visible"
     LOW_WALL_FLOOR_CONTRAST = "low_wall_floor_contrast"
     HIDDEN_CORNERS = "hidden_corners"
     CROPPED = "cropped"

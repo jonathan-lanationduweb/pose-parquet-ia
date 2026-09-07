@@ -102,17 +102,45 @@ comparé** : c'est la balance qui a été construite, pas ce qu'on y pose.
 * outil de tracé minimal (`tools/annotate.html`), sans dépendance, dont la
   sortie réelle est figée en fixture de test.
 
-**Le corpus réel est vide.** Le blocage est documenté : voir
-`datasets/README.md`. Aucun seuil n'est validé sur photo réelle, y compris la
-tolérance de contour et la cible d'IoU.
+### 2A ✅ — corpus pilote, temps, accord humain
+
+Livré. Voir `docs/pilot-runbook.md`. **Toujours aucun modèle.**
+
+* **onze photos réelles** collectées dans `private-real/`, avec provenance
+  entrée par entrée : 3 `easy`, 2 `medium`, 5 `hard`, 1 `rejected` ;
+* le **temps d'annotation** devient une mesure officielle — trois durées
+  séparées, le premier tracé chronométré par l'outil lui-même, en pause après
+  60 s d'inactivité ;
+* l'**accord humain** est mesuré, et son nom suit qui a annoté :
+  `inter_annotator_agreement` entre deux personnes,
+  `intra_annotator_repeatability` pour deux passes d'une même main — jamais
+  l'un pour l'autre, parce que le chiffre servira de plafond ;
+* le désaccord est **localisé** (jonction / bord de cadre / plein intérieur) et
+  rendu en image, parce qu'un désaccord se regarde avant de se moyenner ;
+* la tolérance de contour est **balayée** à 0,25 %, 0,5 % et 1 %. Mesuré : un
+  tremblement de 5 px donne F1 = 0 aux deux premières et 0,73 à la troisième —
+  le réglage compte donc plus que l'annotation, et ne peut pas être fixé par
+  défaut silencieux ;
+* seize tests figent le traitement des contours en zone incertaine : une
+  frontière déclarée indécidable ne rapporte ni ne coûte rien ;
+* six ambiguïtés du protocole trouvées **en regardant les vraies photos**, dont
+  deux qui changent ce qu'un annotateur tracera. `floor-annotation@1` n'est pas
+  modifié : ce sont des décisions, pas du code. Voir
+  `docs/annotation-protocol.md`, §11.
+
+**Aucune photo n'est encore annotée.** Le blocage n'est plus le corpus : c'est
+le relevé humain, qui est précisément la mesure que ce lot existe pour
+recueillir. Aucun seuil n'est validé sur photo réelle, y compris la tolérance
+de contour et la cible d'IoU.
 
 ### Reste à faire
 
-* **constituer le corpus** : 20 à 30 scènes couvrant les traits de
-  `SceneTrait`, avec provenance vérifiée entrée par entrée ;
-* **annoter, et faire relire.** Les scènes `hard` méritent une double
-  annotation : le protocole dit comment mesurer le désaccord, le dispositif
-  n'est pas construit faute de données ;
+* **annoter le corpus pilote**, dont quatre scènes en double passe
+  indépendante. Le dispositif est prêt et vide ;
+* **étendre le corpus** vers 20 à 30 scènes couvrant les traits de
+  `SceneTrait`. Le pilote en manque deux notables : aucun **tapis**, et trois
+  scènes meublées sur onze — les photos du front avaient été choisies pour
+  leurs sols dégagés, l'inverse de ce qu'un banc d'essai demande ;
 * masque du sol, et découpage en zones distinctes (une pièce vue à travers une
   ouverture est une zone de plus, pas un trou) ;
 * critère de réussite hérité du front : **IoU > 0,92** contre le masque humain.

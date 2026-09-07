@@ -47,6 +47,26 @@ que personne ne sait tracer.
 * **aucun redimensionnement de masque n'est fait automatiquement.** Si les
   dimensions ne correspondent plus, c'est une erreur à corriger, pas une
   interpolation à appliquer.
+
+## Plusieurs relevés de la même photo
+
+Une photo peut être annotée deux fois, pour mesurer ce que le protocole a de
+reproductible. `pass_label` distingue les passes, `independent_pass` dit si
+elles ont été faites sans se regarder.
+
+Le nom de la mesure qui en sort dépend de qui a tenu la souris, et la
+distinction n'est pas cosmétique :
+
+* deux **personnes différentes** → accord inter-annotateurs. Il mesure ce que
+  le protocole transmet ;
+* la **même personne**, deux fois → répétabilité intra-annotateur. Elle mesure
+  la stabilité d'une main, ce qui est une borne optimiste : personne ne
+  reproduit ses propres hésitations aussi mal que celles d'un autre.
+
+Appeler la seconde « accord inter-annotateurs » gonflerait le chiffre qui
+servira de plafond aux exigences posées aux modèles.
+`benchmarks/agreement.py` déduit le nom des `annotator` et refuse de le
+choisir à notre place.
 """
 
 from datetime import date
@@ -173,6 +193,38 @@ class MaskFiles(_Model):
     floor_extent: None = None
 
 
+class AnnotationTiming(_Model):
+    """Combien de temps ce relevé a coûté. Une métrique du LOT 2A.
+
+    Le temps d'annotation décide si un corpus de trente scènes est réaliste ou
+    non, et c'est une donnée qu'aucune mesure d'image ne remplace. Il est donc
+    mesuré comme le reste.
+
+    Les trois durées sont séparées parce qu'elles ne se réduisent pas l'une à
+    l'autre : une première passe rapide suivie de longues corrections dit
+    autre chose qu'une passe lente et propre — la première signale un protocole
+    ambigu, la seconde une image difficile.
+
+    Chronométrage volontairement grossier. Un dispositif de télémétrie fin
+    coûterait plus à écrire qu'il ne rapporterait sur une douzaine d'images, et
+    la seconde près n'apprendrait rien.
+    """
+
+    #: Premier tracé, du chargement de l'image au premier enregistrement.
+    first_pass_seconds: float = Field(ge=0.0)
+    #: Reprises ultérieures par l'annotateur lui-même, cumulées.
+    corrections_seconds: float = Field(default=0.0, ge=0.0)
+    #: Relecture par une autre personne, ou par la même à distance.
+    review_seconds: float = Field(default=0.0, ge=0.0)
+    #: Nombre de reprises, s'il se compte sans effort. `None` sinon — un
+    #: chiffre approximatif inventé après coup ne vaut rien.
+    correction_count: int | None = Field(default=None, ge=0)
+
+    @property
+    def total_seconds(self) -> float:
+        return self.first_pass_seconds + self.corrections_seconds + self.review_seconds
+
+
 class Review(_Model):
     """Qui a relu, quand, et ce qu'il en a pensé.
 
@@ -221,6 +273,24 @@ class FloorAnnotation(_Model):
 
     status: AnnotationStatus = AnnotationStatus.DRAFT
     review: Review | None = None
+
+    #: Étiquette de passe, quand une même photo est annotée plusieurs fois :
+    #: « A », « B »… Absente pour une annotation unique.
+    pass_label: str | None = None
+
+    #: L'annotateur déclare avoir fait cette passe **sans regarder** les
+    #: autres.
+    #:
+    #: C'est une déclaration, et rien dans l'outil ne peut la vérifier — le
+    #: champ le dit plutôt que de laisser croire à une garantie. Sa valeur est
+    #: pourtant décisive : sans elle, on ne saurait pas si un accord élevé
+    #: mesure la reproductibilité du protocole ou la mémoire de l'annotateur.
+    #:
+    #: Faux par défaut, comme toute affirmation non vérifiée dans ce projet.
+    independent_pass: bool = False
+
+    #: Coût du relevé. Voir `AnnotationTiming`.
+    timing: AnnotationTiming | None = None
 
     #: SHA-256 des fichiers de masque, pour qu'un rapport puisse affirmer
     #: contre quels octets il a été calculé.
