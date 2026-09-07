@@ -1,0 +1,1329 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Concept — Visualiseur public · Pose Parquet AI</title>
+
+<!--
+  MAQUETTE. Pas un produit, pas un moteur de rendu, pas une IA.
+
+  Ce fichier illustre `docs/product-visualizer-ux.md`. Il sert à juger une
+  interface, pas un résultat.
+
+  ## Ce qu'il n'est pas
+
+  * **Ce n'est pas le moteur de rendu.** Le vrai moteur existe déjà dans le
+    front (`js/scene/renderer-gl.js` et son repli logiciel). Ici, la « pièce »
+    est un dessin SVG et le « parquet » un motif SVG : de quoi juger une
+    interaction, jamais de quoi juger un rendu.
+  * **Ce n'est pas une analyse.** Les quatre issues — success, partial,
+    needs_manual_adjustment, rejected — sont déclenchées par un sélecteur
+    visible en haut à droite. Aucun calcul n'a lieu.
+  * **Ce n'est pas le catalogue.** Les essences, teintes et finitions sont des
+    exemples d'UX, marqués DEMO dans le code. Le catalogue réel est modélisé
+    dans le front (`js/scene/product.js`) et porte ses propres contraintes.
+
+  ## Ce qu'il montre
+
+  La disposition, la dominance de la pièce, la modulation immédiate, les
+  ambiances, l'avant/après, la comparaison, la retouche au pinceau, et les
+  quatre issues de l'analyse.
+
+  Autonome : un seul fichier, aucune dépendance, aucune requête réseau,
+  ouvrable par double-clic en file://.
+-->
+
+<style>
+  :root {
+    /* Palette : blanc chaud, graphite, brun terre. Le bleu n'est pas la
+       couleur du produit — Apple est cité pour la hiérarchie, pas la teinte. */
+    --paper: #fbfaf8;
+    --shell: #f2f1ee;
+    --card: #ffffff;
+    --ink: #22201d;
+    --ink-soft: #6b6660;
+    --ink-faint: #a5a09a;
+    --line: rgba(34, 32, 29, 0.09);
+    --line-firm: rgba(34, 32, 29, 0.16);
+    --accent: #8a6244;
+    --accent-soft: rgba(138, 98, 68, 0.1);
+    --ok: #3f7d53;
+    --warn: #b07d2b;
+
+    --r-lg: 18px;
+    --r-md: 12px;
+    --r-pill: 999px;
+    --lift: 0 1px 2px rgba(34, 32, 29, 0.05);
+    --lift-2: 0 2px 8px rgba(34, 32, 29, 0.06), 0 14px 34px rgba(34, 32, 29, 0.07);
+    --ease: cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; overflow: hidden; }
+
+  body {
+    background: var(--shell);
+    color: var(--ink);
+    font: 14.5px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto,
+      "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  button, input { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+  .hidden { display: none !important; }
+  .spacer { flex: 1; }
+
+  /* ---------- Bandeau maquette ---------- */
+  #demoBar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 7px 16px;
+    background: #2a2724;
+    color: #f5f2ee;
+    font-size: 12px;
+  }
+  #demoBar strong { font-weight: 600; letter-spacing: 0.02em; }
+  #demoBar .note { color: #b3aca4; }
+  #demoBar select {
+    padding: 4px 8px;
+    background: #3a3631;
+    color: #f5f2ee;
+    border: 1px solid #4c4741;
+    border-radius: 7px;
+    font-size: 12px;
+  }
+
+  /* ---------- Cadre ---------- */
+  #app { display: flex; flex-direction: column; height: 100%; }
+
+  header#top {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    height: 58px;
+    padding: 0 18px;
+    background: var(--paper);
+    border-bottom: 1px solid var(--line);
+    flex: none;
+  }
+
+  .brand { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+  .brand span { color: var(--accent); }
+
+  .steps { display: flex; align-items: center; gap: 4px; }
+  .step {
+    padding: 6px 12px;
+    border-radius: var(--r-pill);
+    font-size: 13px;
+    color: var(--ink-faint);
+    background: none;
+    border: none;
+  }
+  .step[aria-current="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 550; }
+  .step .num {
+    display: inline-block;
+    width: 16px;
+    text-align: center;
+    color: var(--ink-faint);
+    font-variant-numeric: tabular-nums;
+  }
+  .step[aria-current="true"] .num { color: var(--accent); }
+
+  .ghost {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 13px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--r-pill);
+    font-size: 13px;
+    box-shadow: var(--lift);
+    transition: box-shadow 160ms var(--ease), border-color 160ms var(--ease);
+  }
+  .ghost:hover { box-shadow: var(--lift-2); }
+  .ghost[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+
+  .icon {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    background: none;
+    border: none;
+    border-radius: 9px;
+    color: var(--ink-soft);
+    transition: background 160ms var(--ease);
+  }
+  .icon:hover { background: rgba(34, 32, 29, 0.05); }
+
+  /* ---------- Trois colonnes ---------- */
+  #body { display: flex; flex: 1; min-height: 0; gap: 0; }
+
+  aside#left {
+    width: 226px;
+    flex: none;
+    padding: 18px 16px;
+    background: var(--paper);
+    border-right: 1px solid var(--line);
+    overflow-y: auto;
+  }
+
+  .lbl {
+    margin: 0 0 10px;
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+
+  .thumb {
+    width: 100%;
+    aspect-ratio: 16 / 10;
+    border-radius: var(--r-md);
+    overflow: hidden;
+    background: var(--shell);
+    box-shadow: var(--lift);
+  }
+  .thumb svg { width: 100%; height: 100%; display: block; }
+
+  .room-name { margin: 10px 0 2px; font-size: 14px; font-weight: 550; }
+  .room-meta { margin: 0 0 18px; font-size: 12px; color: var(--ink-faint); }
+
+  .checks { display: flex; flex-direction: column; gap: 9px; margin-bottom: 18px; }
+  .check { display: flex; align-items: center; gap: 9px; font-size: 13px; color: var(--ink-soft); }
+  .check .mark { width: 15px; height: 15px; flex: none; color: var(--ok); }
+  .check.pending .mark { color: var(--ink-faint); }
+  .check.doubt .mark { color: var(--warn); }
+  .check.doubt { color: var(--warn); }
+
+  .side-btn {
+    display: block;
+    width: 100%;
+    padding: 9px 12px;
+    margin-bottom: 7px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    font-size: 13px;
+    text-align: left;
+    color: var(--ink-soft);
+    box-shadow: var(--lift);
+    transition: color 160ms var(--ease), border-color 160ms var(--ease);
+  }
+  .side-btn:hover { color: var(--ink); border-color: var(--line-firm); }
+  .side-btn.urge { border-color: var(--warn); color: var(--warn); background: rgba(176, 125, 43, 0.07); }
+
+  /* ---------- Centre ---------- */
+  main#stage {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 18px;
+    gap: 12px;
+  }
+
+  #viewport {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    border-radius: var(--r-lg);
+    overflow: hidden;
+    background: var(--card);
+    box-shadow: var(--lift-2);
+  }
+  #viewport svg { width: 100%; height: 100%; display: block; }
+
+  #overlay {
+    position: absolute;
+    left: 50%;
+    bottom: 16px;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px;
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(14px);
+    border: 1px solid var(--line);
+    border-radius: var(--r-pill);
+    box-shadow: var(--lift-2);
+  }
+
+  .ov {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 14px;
+    background: none;
+    border: none;
+    border-radius: var(--r-pill);
+    font-size: 13.5px;
+    color: var(--ink-soft);
+    transition: background 160ms var(--ease), color 160ms var(--ease);
+  }
+  .ov:hover { background: rgba(34, 32, 29, 0.05); color: var(--ink); }
+  .ov[aria-pressed="true"] { background: var(--ink); color: #fff; }
+
+  #handle {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: rgba(255, 255, 255, 0.92);
+    box-shadow: 0 0 0 1px rgba(34, 32, 29, 0.18);
+    cursor: ew-resize;
+  }
+  #handle::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 34px;
+    height: 34px;
+    transform: translate(-50%, -50%);
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: var(--r-pill);
+    box-shadow: var(--lift-2);
+  }
+
+  #ribbon {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 11px 15px;
+    border-radius: var(--r-md);
+    font-size: 13px;
+  }
+  #ribbon.warn { background: rgba(176, 125, 43, 0.09); border: 1px solid rgba(176, 125, 43, 0.28); color: #7a5417; }
+  #ribbon button { background: none; border: none; font-size: 13px; font-weight: 550; text-decoration: underline; }
+
+  /* ---------- Découverte ---------- */
+  #discover { flex: none; }
+
+  .discover-head { display: flex; align-items: baseline; gap: 14px; margin-bottom: 10px; }
+  .discover-head h2 { margin: 0; font-size: 14px; font-weight: 600; }
+  .switch { display: flex; gap: 2px; }
+  .switch button {
+    padding: 4px 10px;
+    background: none;
+    border: none;
+    border-radius: var(--r-pill);
+    font-size: 12.5px;
+    color: var(--ink-faint);
+  }
+  .switch button[aria-pressed="true"] { background: var(--card); color: var(--ink); box-shadow: var(--lift); }
+
+  .rail { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; }
+
+  .mood {
+    flex: none;
+    width: 156px;
+    padding: 0;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    overflow: hidden;
+    text-align: left;
+    box-shadow: var(--lift);
+    transition: box-shadow 160ms var(--ease), border-color 160ms var(--ease),
+      transform 160ms var(--ease);
+  }
+  .mood:hover { box-shadow: var(--lift-2); transform: translateY(-1px); }
+  .mood[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft), var(--lift-2); }
+  .mood .swatch { height: 62px; display: block; }
+  .mood .txt { padding: 9px 11px 11px; }
+  .mood .t { display: block; font-size: 13px; font-weight: 550; }
+  .mood .s { display: block; margin-top: 1px; font-size: 12px; color: var(--ink-faint); }
+
+  /* ---------- Configurateur ---------- */
+  aside#right {
+    width: 320px;
+    flex: none;
+    background: var(--paper);
+    border-left: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .tabs { display: flex; padding: 12px 14px 0; gap: 3px; }
+  .tab {
+    flex: 1;
+    padding: 8px 6px;
+    background: none;
+    border: none;
+    border-radius: 9px;
+    font-size: 13.5px;
+    color: var(--ink-faint);
+    transition: background 160ms var(--ease), color 160ms var(--ease);
+  }
+  .tab:hover { color: var(--ink-soft); }
+  .tab[aria-selected="true"] { background: var(--card); color: var(--ink); font-weight: 550; box-shadow: var(--lift); }
+
+  .panes { flex: 1; overflow-y: auto; padding: 16px 16px 20px; }
+  .group { margin-bottom: 22px; }
+  .group:last-child { margin-bottom: 0; }
+
+  .row { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 9px; }
+  .row .val { font-size: 12.5px; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+
+  .chip {
+    padding: 7px 12px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--r-pill);
+    font-size: 13px;
+    color: var(--ink-soft);
+    box-shadow: var(--lift);
+    transition: border-color 160ms var(--ease), color 160ms var(--ease);
+  }
+  .chip:hover { border-color: var(--line-firm); color: var(--ink); }
+  .chip[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+
+  .tones { display: flex; gap: 8px; }
+  .tone {
+    width: 42px;
+    height: 42px;
+    padding: 0;
+    border: 2px solid transparent;
+    border-radius: 11px;
+    box-shadow: var(--lift), inset 0 0 0 1px rgba(34, 32, 29, 0.08);
+    transition: transform 160ms var(--ease), border-color 160ms var(--ease);
+  }
+  .tone:hover { transform: translateY(-1px); }
+  .tone[aria-pressed="true"] { border-color: var(--accent); }
+
+  .patterns { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
+  .pat {
+    padding: 0;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: var(--lift);
+    transition: border-color 160ms var(--ease);
+  }
+  .pat svg { display: block; width: 100%; height: 46px; }
+  .pat .n { display: block; padding: 6px 4px 7px; font-size: 11.5px; color: var(--ink-soft); }
+  .pat[aria-pressed="true"] { border-color: var(--accent); }
+  .pat[aria-pressed="true"] .n { color: var(--accent); font-weight: 550; }
+
+  input[type="range"] {
+    width: 100%;
+    height: 22px;
+    background: none;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  input[type="range"]::-webkit-slider-runnable-track {
+    height: 3px;
+    background: var(--line-firm);
+    border-radius: 2px;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 17px;
+    height: 17px;
+    margin-top: -7px;
+    background: var(--card);
+    border: 1px solid var(--line-firm);
+    border-radius: var(--r-pill);
+    box-shadow: var(--lift);
+  }
+  input[type="range"]::-moz-range-track { height: 3px; background: var(--line-firm); border-radius: 2px; }
+  input[type="range"]::-moz-range-thumb {
+    width: 17px; height: 17px; background: var(--card);
+    border: 1px solid var(--line-firm); border-radius: var(--r-pill);
+  }
+
+  .hint { margin: 5px 0 0; font-size: 12px; color: var(--ink-faint); }
+
+  .reset {
+    padding: 0;
+    background: none;
+    border: none;
+    font-size: 12.5px;
+    color: var(--accent);
+    text-decoration: underline;
+  }
+
+  .foot {
+    flex: none;
+    padding: 13px 16px;
+    border-top: 1px solid var(--line);
+    display: flex;
+    gap: 8px;
+  }
+  .cta {
+    flex: 1;
+    padding: 11px 16px;
+    background: var(--ink);
+    color: #fff;
+    border: none;
+    border-radius: var(--r-pill);
+    font-size: 14px;
+    font-weight: 550;
+    transition: background 160ms var(--ease), transform 160ms var(--ease);
+  }
+  .cta:hover { background: #34302c; }
+  .cta:active { transform: scale(0.985); }
+
+  /* ---------- Écrans pleins : rejet, retouche ---------- */
+  .sheet {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    background: rgba(251, 250, 248, 0.94);
+    backdrop-filter: blur(6px);
+    padding: 28px;
+    text-align: center;
+  }
+  .sheet .box { max-width: 420px; }
+  .sheet h2 { margin: 0 0 8px; font-size: 21px; font-weight: 600; letter-spacing: -0.01em; }
+  .sheet p { margin: 0 0 6px; color: var(--ink-soft); font-size: 14px; }
+  .sheet .tip {
+    margin: 16px 0 22px;
+    padding: 12px 14px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    font-size: 13.5px;
+    color: var(--ink);
+    text-align: left;
+  }
+  .sheet .acts { display: flex; gap: 8px; justify-content: center; }
+
+  #brushBar {
+    position: absolute;
+    left: 50%;
+    bottom: 16px;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 9px;
+    background: rgba(255, 255, 255, 0.94);
+    backdrop-filter: blur(14px);
+    border: 1px solid var(--line);
+    border-radius: var(--r-pill);
+    box-shadow: var(--lift-2);
+  }
+  #brushBar .sz { width: 92px; }
+  #brushBar .sep { width: 1px; height: 22px; background: var(--line); }
+
+  #toast {
+    position: fixed;
+    left: 50%;
+    bottom: 26px;
+    transform: translateX(-50%) translateY(8px);
+    padding: 11px 19px;
+    background: rgba(34, 32, 29, 0.94);
+    color: #fff;
+    border-radius: var(--r-pill);
+    font-size: 13.5px;
+    box-shadow: var(--lift-2);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 200ms var(--ease), transform 200ms var(--ease);
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ---------- Comparaison ---------- */
+  #compare { position: absolute; inset: 0; background: var(--shell); display: flex; flex-direction: column; }
+  #compare .bar {
+    display: flex; align-items: center; gap: 12px;
+    padding: 11px 15px; background: var(--paper); border-bottom: 1px solid var(--line);
+  }
+  #compare .grid { flex: 1; display: flex; gap: 10px; padding: 12px; min-height: 0; }
+  #compare .cell {
+    flex: 1; display: flex; flex-direction: column; gap: 8px; min-width: 0;
+  }
+  #compare .cell .frame {
+    flex: 1; border-radius: var(--r-md); overflow: hidden; background: var(--card); box-shadow: var(--lift);
+  }
+  #compare .cell .frame svg { width: 100%; height: 100%; }
+  #compare .cell .cap { font-size: 13px; text-align: center; color: var(--ink-soft); }
+
+  @media (max-width: 1280px) {
+    #discover .rail .mood { width: 138px; }
+    aside#right { width: 290px; }
+  }
+  @media (max-width: 1080px) {
+    aside#left { width: 190px; }
+    #discover { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { transition-duration: 1ms !important; }
+  }
+</style>
+</head>
+<body>
+
+<div id="demoBar">
+  <strong>MAQUETTE</strong>
+  <span class="note">Aucune IA, aucun rendu réel — la pièce est un dessin, le parquet un motif.</span>
+  <span class="spacer"></span>
+  <label>État simulé de l'analyse
+    <select id="stateSel">
+      <option value="success">success — rien à faire</option>
+      <option value="partial">partial — réserve non bloquante</option>
+      <option value="manual">needs_manual_adjustment</option>
+      <option value="rejected">rejected — photo inexploitable</option>
+    </select>
+  </label>
+</div>
+
+<div id="app">
+  <header id="top">
+    <div class="brand">Pose Parquet <span>·</span> Visualiseur</div>
+    <nav class="steps" aria-label="Étapes">
+      <button class="step" type="button"><span class="num">1</span> Votre photo</button>
+      <button class="step" type="button"><span class="num">2</span> Analyse</button>
+      <button class="step" type="button" aria-current="true"><span class="num">3</span> Personnalisation</button>
+      <button class="step" type="button"><span class="num">4</span> Résultat</button>
+    </nav>
+    <span class="spacer"></span>
+    <button class="ghost" id="favBtn" type="button" aria-pressed="false">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 20s-7-4.4-7-9.5A4 4 0 0112 7a4 4 0 017 3.5C19 15.6 12 20 12 20z" />
+      </svg>
+      <span id="favTxt">Favori</span>
+    </button>
+    <button class="ghost" id="saveBtn" type="button">Enregistrer</button>
+    <button class="icon" type="button" aria-label="Menu">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <circle cx="12" cy="5.5" r="1.6" /><circle cx="12" cy="12" r="1.6" /><circle cx="12" cy="18.5" r="1.6" />
+      </svg>
+    </button>
+  </header>
+
+  <div id="body">
+    <!-- ============ Panneau gauche ============ -->
+    <aside id="left">
+      <p class="lbl">Votre pièce</p>
+      <div class="thumb" id="thumb"></div>
+      <p class="room-name">Salon</p>
+      <p class="room-meta">1600 × 1067</p>
+
+      <div class="checks" id="checks"></div>
+
+      <button class="side-btn" id="adjustBtn" type="button">Ajuster la détection</button>
+      <button class="side-btn" type="button">Changer de photo</button>
+    </aside>
+
+    <!-- ============ Centre ============ -->
+    <main id="stage">
+      <div id="viewport">
+        <div id="scene"></div>
+        <div id="handle" class="hidden"></div>
+
+        <div id="overlay">
+          <button class="ov" id="baBtn" type="button" aria-pressed="false">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                 stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="9" /><path d="M12 3v18" /><path d="M12 3a9 9 0 000 18" fill="currentColor" />
+            </svg>
+            Avant / après
+          </button>
+          <button class="ov" id="cmpBtn" type="button">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3" y="5" width="7.5" height="14" rx="1.5" /><rect x="13.5" y="5" width="7.5" height="14" rx="1.5" />
+            </svg>
+            Comparer
+          </button>
+          <button class="ov" type="button" aria-label="Plein écran">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M4 9V5.5A1.5 1.5 0 015.5 4H9M15 4h3.5A1.5 1.5 0 0120 5.5V9M20 15v3.5a1.5 1.5 0 01-1.5 1.5H15M9 20H5.5A1.5 1.5 0 014 18.5V15" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Retouche au pinceau : add / remove, taille, annuler, terminé -->
+        <div id="brushBar" class="hidden">
+          <button class="ov" id="brAdd" type="button" aria-pressed="true">＋ Ajouter au sol</button>
+          <button class="ov" id="brDel" type="button" aria-pressed="false">− Retirer du sol</button>
+          <span class="sep"></span>
+          <input class="sz" id="brSize" type="range" min="8" max="80" value="34" aria-label="Taille du pinceau" />
+          <span class="sep"></span>
+          <button class="ov" type="button" aria-label="Annuler">↶</button>
+          <button class="ov" type="button" aria-label="Rétablir">↷</button>
+          <span class="sep"></span>
+          <button class="ov" id="brDone" type="button" aria-pressed="true">Terminé</button>
+        </div>
+
+        <!-- Rejet -->
+        <div class="sheet hidden" id="rejected">
+          <div class="box">
+            <h2>Nous ne pouvons pas travailler sur cette photo</h2>
+            <p id="rejReason">La photo est floue : le sol n'est pas assez net pour poser un parquet.</p>
+            <div class="tip" id="rejTip">
+              <strong>Pour la reprendre :</strong> appuyez-vous contre un mur ou posez le téléphone,
+              et cadrez le sol au premier plan en reculant de deux pas.
+            </div>
+            <div class="acts">
+              <button class="cta" type="button" style="flex:none" id="rejRetry">Essayer une autre photo</button>
+              <button class="ghost" type="button">Choisir une pièce d'exemple</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Comparaison -->
+        <div id="compare" class="hidden">
+          <div class="bar">
+            <strong style="font-size:14px">Comparer</strong>
+            <div class="switch" role="group" aria-label="Mode">
+              <button type="button" aria-pressed="true">Côte à côte</button>
+              <button type="button" aria-pressed="false">Curseur</button>
+            </div>
+            <span class="spacer"></span>
+            <button class="ghost" id="cmpClose" type="button">Fermer</button>
+          </div>
+          <div class="grid" id="cmpGrid"></div>
+        </div>
+      </div>
+
+      <div id="ribbon" class="hidden"></div>
+
+      <!-- ============ Découverte ============ -->
+      <section id="discover">
+        <div class="discover-head">
+          <h2 id="discoverTitle">Nos ambiances</h2>
+          <div class="switch" role="group" aria-label="Contenu">
+            <button type="button" data-rail="moods" aria-pressed="true">Ambiances</button>
+            <button type="button" data-rail="favs" aria-pressed="false">Mes favoris</button>
+            <button type="button" data-rail="cat" aria-pressed="false">Catalogue</button>
+          </div>
+        </div>
+        <div class="rail" id="rail"></div>
+      </section>
+    </main>
+
+    <!-- ============ Configurateur ============ -->
+    <aside id="right">
+      <div class="tabs" role="tablist">
+        <button class="tab" role="tab" data-tab="parquet" aria-selected="true">Parquet</button>
+        <button class="tab" role="tab" data-tab="moods" aria-selected="false">Ambiances</button>
+        <button class="tab" role="tab" data-tab="tune" aria-selected="false">Réglages</button>
+      </div>
+
+      <div class="panes">
+        <!-- Parquet -->
+        <div id="pane-parquet">
+          <div class="group">
+            <div class="row"><p class="lbl" style="margin:0">Essence</p></div>
+            <div class="chips" id="species"></div>
+          </div>
+          <div class="group">
+            <div class="row"><p class="lbl" style="margin:0">Teinte</p><span class="val" id="toneVal"></span></div>
+            <div class="tones" id="tones"></div>
+          </div>
+          <div class="group">
+            <div class="row"><p class="lbl" style="margin:0">Motif de pose</p></div>
+            <div class="patterns" id="patterns"></div>
+          </div>
+          <div class="group">
+            <div class="row"><p class="lbl" style="margin:0">Largeur de lame</p><span class="val" id="widthVal"></span></div>
+            <div class="chips" id="widths"></div>
+            <p class="hint">Largeurs réellement vendues — pas un curseur libre.</p>
+          </div>
+          <div class="group">
+            <div class="row"><p class="lbl" style="margin:0">Finition</p></div>
+            <div class="chips" id="finishes"></div>
+          </div>
+        </div>
+
+        <!-- Ambiances : même contenu que la bande basse -->
+        <div id="pane-moods" class="hidden">
+          <p class="hint" style="margin:0 0 12px">
+            Les six mêmes ambiances que la bande du bas. Un seul jeu de propositions,
+            pas deux listes à comparer.
+          </p>
+          <div id="moodList" style="display:flex;flex-direction:column;gap:8px"></div>
+        </div>
+
+        <!-- Réglages -->
+        <div id="pane-tune" class="hidden">
+          <p class="hint" style="margin:0 0 16px">
+            Quatre réglages, tous portés par le moteur existant. Repliés par défaut :
+            personne n'est obligé d'y toucher.
+          </p>
+          <div class="group">
+            <div class="row"><p class="lbl" style="margin:0">Orientation des lames</p><span class="val" id="angleVal"></span></div>
+            <input type="range" id="angle" min="-45" max="45" step="5" value="0" />
+          </div>
+          <div class="group">
+            <div class="row"><p class="lbl" style="margin:0">Variation entre lames</p><span class="val" id="varVal"></span></div>
+            <input type="range" id="variation" min="0" max="100" value="45" />
+          </div>
+          <div class="group">
+            <div class="row"><p class="lbl" style="margin:0">Visibilité des joints</p><span class="val" id="jointVal"></span></div>
+            <input type="range" id="joints" min="0" max="100" value="30" />
+          </div>
+          <div class="group">
+            <div class="row"><p class="lbl" style="margin:0">Brillance</p><span class="val" id="glossVal"></span></div>
+            <input type="range" id="gloss" min="0" max="100" value="20" />
+          </div>
+          <button class="reset" id="resetTune" type="button">Réinitialiser les réglages</button>
+        </div>
+      </div>
+
+      <div class="foot">
+        <button class="cta" id="quoteBtn" type="button">Demander un devis</button>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+  'use strict';
+
+  /* =====================================================================
+     DONNÉES DEMO — rien de tout cela n'est le catalogue réel.
+
+     Le catalogue Premibel est modélisé dans le front (`js/scene/product.js`)
+     et porte ses propres contraintes : `compatiblePatterns`, bornes de
+     dimensions, finitions par référence. Ici, six teintes et trois largeurs
+     suffisent à juger l'interface.
+     ===================================================================== */
+  const DEMO = {
+    species: ['Chêne', 'Noyer', 'Frêne', 'Châtaignier'],
+
+    tones: [
+      { id: 'naturel', label: 'Naturel', base: '#c9a678', dark: '#a9834f', light: '#e0c39a' },
+      { id: 'miel',    label: 'Miel',    base: '#c48f4c', dark: '#a06f31', light: '#dcae72' },
+      { id: 'sable',   label: 'Sable',   base: '#d8c3a0', dark: '#bda57f', light: '#eddcc0' },
+      { id: 'gris',    label: 'Gris',    base: '#a9a49c', dark: '#8b8680', light: '#c6c1b9' },
+      { id: 'brun',    label: 'Brun',    base: '#8a6244', dark: '#6b4830', light: '#a87c58' },
+      { id: 'fume',    label: 'Fumé',    base: '#5f4a3c', dark: '#453529', light: '#7b6152' },
+    ],
+
+    /* Les trois motifs que le moteur du front sait réellement produire —
+       `KNOWN_PATTERNS` dans js/scene/product.js. Pas un de plus. */
+    patterns: [
+      { id: 'lames', label: 'Lames' },
+      { id: 'point-de-hongrie', label: 'Point de Hongrie' },
+      { id: 'baton-rompu', label: 'Bâton rompu' },
+    ],
+
+    widths: [
+      { id: 'etroite', label: 'Étroite', mm: 90 },
+      { id: 'standard', label: 'Standard', mm: 140 },
+      { id: 'large', label: 'Large', mm: 190 },
+    ],
+
+    /* Rugosité / clearcoat reprises de `FINISHES` du front, à titre indicatif. */
+    finishes: [
+      { id: 'mat', label: 'Mate', gloss: 8 },
+      { id: 'satine', label: 'Satinée', gloss: 22 },
+      { id: 'vernis', label: 'Brillante', gloss: 38 },
+    ],
+
+    /* Génération A : presets éditoriaux. Les mêmes pour tout le monde — d'où
+       le titre « Nos ambiances » et non « Adapté à votre pièce ». */
+    moods: [
+      { id: 'clair', title: 'Clair et lumineux', sub: 'Chêne naturel', tone: 'naturel', pattern: 'lames', width: 'large', finish: 'mat' },
+      { id: 'chaud', title: 'Chaleureux', sub: 'Chêne miel', tone: 'miel', pattern: 'lames', width: 'standard', finish: 'mat' },
+      { id: 'moderne', title: 'Élégant et moderne', sub: 'Chêne gris', tone: 'gris', pattern: 'lames', width: 'etroite', finish: 'satine' },
+      { id: 'caractere', title: 'Caractère', sub: 'Chêne fumé', tone: 'fume', pattern: 'lames', width: 'standard', finish: 'mat' },
+      { id: 'hongrie', title: 'Point de Hongrie', sub: 'Chêne naturel', tone: 'naturel', pattern: 'point-de-hongrie', width: 'etroite', finish: 'satine' },
+      { id: 'rompu', title: 'Bâton rompu', sub: 'Chêne miel', tone: 'miel', pattern: 'baton-rompu', width: 'etroite', finish: 'mat' },
+    ],
+
+    /* Les quatre issues de l'analyse, telles que `AnalysisStatus` les nomme. */
+    states: {
+      success: {
+        checks: [['ok', 'Sol détecté'], ['ok', 'Perspective ajustée'], ['ok', 'Obstacles identifiés']],
+        ribbon: null, urge: false, blocked: false,
+      },
+      partial: {
+        checks: [['ok', 'Sol détecté'], ['ok', 'Perspective ajustée'], ['doubt', 'Un coin reste incertain']],
+        ribbon: 'Le coin gauche au fond est incertain — le parquet peut y déborder.',
+        urge: false, blocked: false,
+      },
+      manual: {
+        checks: [['doubt', 'Sol partiellement détecté'], ['ok', 'Perspective ajustée'], ['pending', 'Obstacles à confirmer']],
+        ribbon: "Le sol n'est pas tout à fait juste. Deux minutes de retouche suffisent.",
+        urge: true, blocked: false,
+      },
+      rejected: {
+        checks: [['pending', 'Sol non détecté'], ['pending', 'Perspective inconnue'], ['pending', 'Obstacles inconnus']],
+        ribbon: null, urge: false, blocked: true,
+      },
+    },
+  };
+
+  const $ = (id) => document.getElementById(id);
+
+  const state = {
+    species: 'Chêne',
+    tone: 'naturel',
+    pattern: 'lames',
+    width: 'standard',
+    finish: 'mat',
+    angle: 0,
+    variation: 45,
+    joints: 30,
+    gloss: 20,
+    mood: 'clair',
+    analysis: 'success',
+    beforeAfter: false,
+    split: 0.5,
+    favourite: false,
+    rail: 'moods',
+    tab: 'parquet',
+    brushing: false,
+  };
+
+  const tone = () => DEMO.tones.find((t) => t.id === state.tone);
+  const widthMm = () => DEMO.widths.find((w) => w.id === state.width).mm;
+
+  /* =====================================================================
+     La « pièce » — un dessin, pas un rendu
+
+     Un intérieur SVG stylisé : deux murs, une fenêtre, une plinthe, un
+     canapé qui sert d'occulteur. Le sol reçoit un motif SVG déformé par
+     `patternTransform` pour évoquer la fuite. C'est une évocation : le vrai
+     moteur travaille par homographie et cartes de relief.
+     ===================================================================== */
+  function floorPattern(id, opts) {
+    const t = opts.tone;
+    const plank = Math.max(6, opts.widthMm / 7);          // largeur visuelle
+    const jointOpacity = 0.12 + (opts.joints / 100) * 0.5;
+    const spread = (opts.variation / 100) * 0.5;
+
+    /* Trois nuances tirées de la teinte : la variation entre lames. */
+    const shades = [t.base, t.light, t.dark, t.base, t.dark, t.light].map((hex, i) => {
+      const mix = 1 - spread * ((i % 3) / 2);
+      return shade(hex, mix);
+    });
+
+    if (opts.pattern === 'lames') {
+      const rows = shades.map((c, i) => `
+        <rect x="0" y="${i * plank}" width="240" height="${plank}" fill="${c}" />
+        <line x1="0" y1="${i * plank}" x2="240" y2="${i * plank}"
+              stroke="#2b1d12" stroke-opacity="${jointOpacity}" stroke-width="1" />
+        ${[0, 1, 2].map((k) => `<line x1="${(i * 53 + k * 80) % 240}" y1="${i * plank}"
+              x2="${(i * 53 + k * 80) % 240}" y2="${(i + 1) * plank}"
+              stroke="#2b1d12" stroke-opacity="${jointOpacity}" stroke-width="1" />`).join('')}
+      `).join('');
+      return `<pattern id="${id}" width="240" height="${plank * 6}" patternUnits="userSpaceOnUse"
+                patternTransform="rotate(${opts.angle}) skewX(-8)">
+                <rect width="240" height="${plank * 6}" fill="${t.base}" />${rows}
+              </pattern>`;
+    }
+
+    /* Point de Hongrie et bâton rompu : des chevrons, orientés à 45°, avec un
+       joint central net pour le premier et un décalage pour le second. */
+    const chev = opts.pattern === 'point-de-hongrie' ? 45 : 45;
+    const step = plank * 1.6;
+    const cells = shades.slice(0, 4).map((c, i) => `
+      <rect x="${i * step}" y="0" width="${step - 1}" height="${step * 2.6}" fill="${c}" />
+      <line x1="${i * step}" y1="0" x2="${i * step}" y2="${step * 2.6}"
+            stroke="#2b1d12" stroke-opacity="${jointOpacity}" stroke-width="1" />
+    `).join('');
+    const offset = opts.pattern === 'baton-rompu' ? step / 2 : 0;
+    return `<pattern id="${id}" width="${step * 4}" height="${step * 2.6}" patternUnits="userSpaceOnUse"
+              patternTransform="rotate(${chev + opts.angle}) translate(${offset} 0)">
+              <rect width="${step * 4}" height="${step * 2.6}" fill="${t.base}" />${cells}
+            </pattern>`;
+  }
+
+  function shade(hex, factor) {
+    const n = parseInt(hex.slice(1), 16);
+    const clamp = (v) => Math.max(0, Math.min(255, Math.round(v)));
+    const r = clamp(((n >> 16) & 255) * factor);
+    const g = clamp(((n >> 8) & 255) * factor);
+    const b = clamp((n & 255) * factor);
+    return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
+  }
+
+  /** L'intérieur. `withFloor` à faux rend le sol d'origine (béton terne). */
+  function room(uid, opts, splitFraction) {
+    const pat = floorPattern(`p-${uid}`, opts);
+    const clip = splitFraction === undefined ? '' : `
+      <clipPath id="clip-${uid}"><rect x="0" y="0" width="${800 * splitFraction}" height="520" /></clipPath>`;
+    const clipAttr = splitFraction === undefined ? '' : `clip-path="url(#clip-${uid})"`;
+
+    return `
+    <svg viewBox="0 0 800 520" preserveAspectRatio="xMidYMid slice" role="img"
+         aria-label="Vue de démonstration d'un salon">
+      <defs>
+        ${pat}${clip}
+        <linearGradient id="wall-${uid}" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#efece7" /><stop offset="1" stop-color="#e2ded7" />
+        </linearGradient>
+        <linearGradient id="side-${uid}" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stop-color="#d9d4cc" /><stop offset="1" stop-color="#e8e4dd" />
+        </linearGradient>
+        <linearGradient id="glow-${uid}" x1="0.2" y1="0" x2="0.9" y2="1">
+          <stop offset="0" stop-color="#fff8e8" stop-opacity="0.5" />
+          <stop offset="1" stop-color="#fff8e8" stop-opacity="0" />
+        </linearGradient>
+        <linearGradient id="depth-${uid}" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#2b1d12" stop-opacity="0.24" />
+          <stop offset="0.45" stop-color="#2b1d12" stop-opacity="0.05" />
+          <stop offset="1" stop-color="#2b1d12" stop-opacity="0.13" />
+        </linearGradient>
+      </defs>
+
+      <!-- murs -->
+      <rect x="0" y="0" width="800" height="330" fill="url(#wall-${uid})" />
+      <path d="M0 0 L120 62 L120 372 L0 448 Z" fill="url(#side-${uid})" />
+      <path d="M800 0 L680 62 L680 372 L800 448 Z" fill="url(#side-${uid})" />
+
+      <!-- fenêtre -->
+      <rect x="470" y="72" width="176" height="176" rx="3" fill="#f7f4ee" />
+      <rect x="470" y="72" width="176" height="176" rx="3" fill="none" stroke="#cdc7bd" stroke-width="3" />
+      <line x1="558" y1="72" x2="558" y2="248" stroke="#cdc7bd" stroke-width="3" />
+
+      <!-- SOL : d'origine, puis le parquet par-dessus -->
+      <path d="M120 330 L680 330 L800 448 L800 520 L0 520 L0 448 Z" fill="#b9b3aa" />
+      <g ${clipAttr}>
+        <path d="M120 330 L680 330 L800 448 L800 520 L0 520 L0 448 Z" fill="url(#p-${uid})" />
+        <path d="M120 330 L680 330 L800 448 L800 520 L0 520 L0 448 Z" fill="url(#depth-${uid})" />
+        <path d="M120 330 L680 330 L800 448 L800 520 L0 520 L0 448 Z"
+              fill="#ffffff" opacity="${(opts.gloss / 100) * 0.16}" />
+      </g>
+
+      <!-- plinthe -->
+      <path d="M120 330 L680 330 L680 322 L120 322 Z" fill="#f4f1ec" />
+      <path d="M0 448 L120 330 L120 322 L0 440 Z" fill="#eeeae4" />
+      <path d="M800 448 L680 330 L680 322 L800 440 Z" fill="#eeeae4" />
+
+      <!-- occulteur : le canapé n'est jamais repeint -->
+      <g>
+        <ellipse cx="250" cy="452" rx="132" ry="15" fill="#2b1d12" opacity="0.16" />
+        <rect x="124" y="352" width="252" height="76" rx="13" fill="#cfc7bb" />
+        <rect x="124" y="336" width="252" height="34" rx="14" fill="#dcd5cb" />
+        <rect x="136" y="424" width="14" height="22" rx="4" fill="#8d8579" />
+        <rect x="350" y="424" width="14" height="22" rx="4" fill="#8d8579" />
+      </g>
+
+      <!-- lumière de fenêtre -->
+      <path d="M470 248 L646 248 L760 520 L300 520 Z" fill="url(#glow-${uid})" />
+    </svg>`;
+  }
+
+  const opts = () => ({
+    tone: tone(),
+    pattern: state.pattern,
+    widthMm: widthMm(),
+    angle: state.angle,
+    variation: state.variation,
+    joints: state.joints,
+    gloss: state.gloss + DEMO.finishes.find((f) => f.id === state.finish).gloss,
+  });
+
+  let uid = 0;
+
+  function paint() {
+    uid += 1;
+    const split = state.beforeAfter ? state.split : undefined;
+    $('scene').innerHTML = room(`v${uid}`, opts(), split);
+    $('thumb').innerHTML = room(`t${uid}`, opts());
+    $('handle').classList.toggle('hidden', !state.beforeAfter);
+    if (state.beforeAfter) $('handle').style.left = `${state.split * 100}%`;
+  }
+
+  /* =====================================================================
+     Panneaux
+     ===================================================================== */
+  function renderChips(host, items, current, onPick, label = (i) => i.label) {
+    host.innerHTML = items
+      .map((item) => `<button class="chip" type="button" data-id="${item.id ?? item}"
+        aria-pressed="${(item.id ?? item) === current}">${label(item)}</button>`)
+      .join('');
+    host.onclick = (event) => {
+      const button = event.target.closest('.chip');
+      if (button) onPick(button.dataset.id);
+    };
+  }
+
+  function renderTones() {
+    $('tones').innerHTML = DEMO.tones
+      .map((t) => `<button class="tone" type="button" data-id="${t.id}"
+        aria-pressed="${t.id === state.tone}" aria-label="${t.label}" title="${t.label}"
+        style="background:linear-gradient(160deg,${t.light},${t.base} 55%,${t.dark})"></button>`)
+      .join('');
+    $('tones').onclick = (event) => {
+      const button = event.target.closest('.tone');
+      if (!button) return;
+      state.tone = button.dataset.id;
+      state.mood = null;
+      refresh();
+      toast(`Teinte ${tone().label}`);
+    };
+    $('toneVal').textContent = tone().label;
+  }
+
+  function patternGlyph(id) {
+    if (id === 'lames') {
+      return `<svg viewBox="0 0 60 40"><rect width="60" height="40" fill="#e9e3d9" />
+        ${[0, 1, 2, 3].map((i) => `<rect x="1" y="${1 + i * 10}" width="58" height="8" fill="#c9a678"
+          stroke="#a9834f" stroke-width="0.6" />`).join('')}</svg>`;
+    }
+    if (id === 'point-de-hongrie') {
+      return `<svg viewBox="0 0 60 40"><rect width="60" height="40" fill="#e9e3d9" />
+        ${[0, 1, 2, 3].map((i) => `
+          <path d="M${i * 16} 40 L${i * 16 + 14} 20 L${i * 16 + 20} 24 L${i * 16 + 6} 44 Z" fill="#c9a678" stroke="#a9834f" stroke-width="0.6" />
+          <path d="M${i * 16 + 14} 20 L${i * 16 + 28} 40 L${i * 16 + 34} 36 L${i * 16 + 20} 16 Z" fill="#dcae72" stroke="#a9834f" stroke-width="0.6" />
+        `).join('')}</svg>`;
+    }
+    return `<svg viewBox="0 0 60 40"><rect width="60" height="40" fill="#e9e3d9" />
+      ${[0, 1, 2].map((i) => `
+        <rect x="${2 + i * 20}" y="4" width="9" height="20" fill="#c9a678" stroke="#a9834f" stroke-width="0.6" transform="rotate(45 ${6 + i * 20} 14)" />
+        <rect x="${11 + i * 20}" y="16" width="9" height="20" fill="#dcae72" stroke="#a9834f" stroke-width="0.6" transform="rotate(-45 ${15 + i * 20} 26)" />
+      `).join('')}</svg>`;
+  }
+
+  function renderPatterns() {
+    $('patterns').innerHTML = DEMO.patterns
+      .map((p) => `<button class="pat" type="button" data-id="${p.id}" aria-pressed="${p.id === state.pattern}">
+        ${patternGlyph(p.id)}<span class="n">${p.label}</span></button>`)
+      .join('');
+    $('patterns').onclick = (event) => {
+      const button = event.target.closest('.pat');
+      if (!button) return;
+      state.pattern = button.dataset.id;
+      state.mood = null;
+      refresh();
+      toast(DEMO.patterns.find((p) => p.id === state.pattern).label);
+    };
+  }
+
+  function renderMoods() {
+    const cards = DEMO.moods.map((m) => {
+      const t = DEMO.tones.find((x) => x.id === m.tone);
+      return `<button class="mood" type="button" data-id="${m.id}" aria-pressed="${m.id === state.mood}">
+        <span class="swatch" style="background:linear-gradient(160deg,${t.light},${t.base} 55%,${t.dark})"></span>
+        <span class="txt"><span class="t">${m.title}</span><span class="s">${m.sub}</span></span>
+      </button>`;
+    }).join('');
+    $('rail').innerHTML = state.rail === 'moods'
+      ? cards
+      : `<p class="hint" style="padding:14px 2px">${state.rail === 'favs'
+        ? 'Vos favoris apparaîtront ici. Aucun compte n’est nécessaire — c’est une liste de session.'
+        : 'Le catalogue complet mérite son propre écran, pas une lucarne.'}</p>`;
+
+    $('moodList').innerHTML = DEMO.moods.map((m) => {
+      const t = DEMO.tones.find((x) => x.id === m.tone);
+      return `<button class="mood" type="button" data-id="${m.id}" style="width:100%;display:flex;align-items:center;gap:11px"
+        aria-pressed="${m.id === state.mood}">
+        <span class="swatch" style="width:56px;height:44px;flex:none;border-radius:8px;margin:6px 0 6px 6px;
+          background:linear-gradient(160deg,${t.light},${t.base} 55%,${t.dark})"></span>
+        <span class="txt" style="padding:0"><span class="t">${m.title}</span><span class="s">${m.sub}</span></span>
+      </button>`;
+    }).join('');
+
+    const apply = (event) => {
+      const button = event.target.closest('.mood');
+      if (!button) return;
+      const mood = DEMO.moods.find((m) => m.id === button.dataset.id);
+      Object.assign(state, {
+        tone: mood.tone, pattern: mood.pattern, width: mood.width,
+        finish: mood.finish, mood: mood.id,
+      });
+      refresh();
+      toast(mood.title);
+    };
+    $('rail').onclick = apply;
+    $('moodList').onclick = apply;
+    $('discoverTitle').textContent = state.rail === 'moods'
+      ? 'Nos ambiances'
+      : state.rail === 'favs' ? 'Mes favoris' : 'Catalogue';
+  }
+
+  function renderChecks() {
+    const conf = DEMO.states[state.analysis];
+    $('checks').innerHTML = conf.checks.map(([kind, text]) => {
+      const glyph = kind === 'ok'
+        ? '<path d="M20 6L9 17l-5-5" />'
+        : kind === 'doubt'
+          ? '<circle cx="12" cy="12" r="9" /><path d="M12 8v5" /><circle cx="12" cy="16.5" r="1" fill="currentColor" />'
+          : '<circle cx="12" cy="12" r="9" stroke-dasharray="3 3" />';
+      const cls = kind === 'ok' ? '' : kind === 'doubt' ? 'doubt' : 'pending';
+      return `<div class="check ${cls}"><svg class="mark" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"
+        aria-hidden="true">${glyph}</svg>${text}</div>`;
+    }).join('');
+
+    $('adjustBtn').classList.toggle('urge', conf.urge);
+    $('adjustBtn').textContent = conf.urge ? 'Ajuster la détection →' : 'Ajuster la détection';
+
+    const ribbon = $('ribbon');
+    if (conf.ribbon) {
+      ribbon.className = 'warn';
+      ribbon.innerHTML = `<span>${conf.ribbon}</span><span class="spacer"></span>
+        <button type="button" id="ribAdjust">Ajuster</button><button type="button">Ignorer</button>`;
+      ribbon.classList.remove('hidden');
+      $('ribAdjust').onclick = openBrush;
+    } else {
+      ribbon.classList.add('hidden');
+    }
+
+    $('rejected').classList.toggle('hidden', !conf.blocked);
+    $('overlay').classList.toggle('hidden', conf.blocked);
+  }
+
+  function refresh() {
+    renderChips($('species'), DEMO.species.map((s) => ({ id: s, label: s })), state.species,
+      (id) => { state.species = id; refresh(); });
+    renderTones();
+    renderPatterns();
+    renderChips($('widths'), DEMO.widths, state.width, (id) => {
+      state.width = id; state.mood = null; refresh(); toast(`Lame ${widthMm()} mm`);
+    }, (w) => `${w.label} · ${w.mm} mm`);
+    renderChips($('finishes'), DEMO.finishes, state.finish, (id) => {
+      state.finish = id; state.mood = null; refresh();
+    });
+    renderMoods();
+    renderChecks();
+
+    $('widthVal').textContent = `${widthMm()} mm`;
+    $('angleVal').textContent = `${state.angle > 0 ? '+' : ''}${state.angle}°`;
+    $('varVal').textContent = `${state.variation} %`;
+    $('jointVal').textContent = `${state.joints} %`;
+    $('glossVal').textContent = `${state.gloss} %`;
+    paint();
+  }
+
+  /* =====================================================================
+     Interactions
+     ===================================================================== */
+  document.querySelectorAll('.tab').forEach((tab) => {
+    tab.onclick = () => {
+      state.tab = tab.dataset.tab;
+      document.querySelectorAll('.tab').forEach((other) => {
+        other.setAttribute('aria-selected', String(other === tab));
+      });
+      ['parquet', 'moods', 'tune'].forEach((name) => {
+        $(`pane-${name}`).classList.toggle('hidden', name !== state.tab);
+      });
+    };
+  });
+
+  document.querySelectorAll('.switch button[data-rail]').forEach((button) => {
+    button.onclick = () => {
+      state.rail = button.dataset.rail;
+      document.querySelectorAll('.switch button[data-rail]').forEach((other) => {
+        other.setAttribute('aria-pressed', String(other === button));
+      });
+      renderMoods();
+    };
+  });
+
+  ['angle', 'variation', 'joints', 'gloss'].forEach((key) => {
+    $(key).oninput = (event) => {
+      state[key] = Number(event.target.value);
+      state.mood = null;
+      refresh();
+    };
+  });
+
+  $('resetTune').onclick = () => {
+    Object.assign(state, { angle: 0, variation: 45, joints: 30, gloss: 20 });
+    ['angle', 'variation', 'joints', 'gloss'].forEach((key) => { $(key).value = state[key]; });
+    refresh();
+    toast('Réglages réinitialisés');
+  };
+
+  /* Avant / après : bascule, et curseur glissable. Le maintien fonctionne
+     aussi — appuyer révèle l'origine, relâcher la rend. */
+  $('baBtn').onclick = () => {
+    state.beforeAfter = !state.beforeAfter;
+    state.split = 0.5;
+    $('baBtn').setAttribute('aria-pressed', String(state.beforeAfter));
+    paint();
+  };
+
+  let dragging = false;
+  $('handle').onpointerdown = (event) => { dragging = true; $('handle').setPointerCapture(event.pointerId); };
+  $('handle').onpointerup = () => { dragging = false; };
+  $('viewport').onpointermove = (event) => {
+    if (!dragging) return;
+    const box = $('viewport').getBoundingClientRect();
+    state.split = Math.max(0, Math.min(1, (event.clientX - box.left) / box.width));
+    paint();
+  };
+
+  /* Comparaison : deux variantes côte à côte, comme le front sait déjà le faire. */
+  $('cmpBtn').onclick = () => {
+    const other = DEMO.moods.find((m) => m.tone !== state.tone) || DEMO.moods[2];
+    const alt = { ...opts(), tone: DEMO.tones.find((t) => t.id === other.tone) };
+    $('cmpGrid').innerHTML = `
+      <div class="cell"><div class="frame">${room('c1', opts())}</div>
+        <p class="cap">${tone().label} · ${DEMO.patterns.find((p) => p.id === state.pattern).label}</p></div>
+      <div class="cell"><div class="frame">${room('c2', alt)}</div>
+        <p class="cap">${other.sub} · ${other.title}</p></div>`;
+    $('compare').classList.remove('hidden');
+  };
+  $('cmpClose').onclick = () => $('compare').classList.add('hidden');
+
+  /* Retouche : pinceau add / remove. Aucun sommet, aucun polygone. */
+  function openBrush() {
+    state.brushing = true;
+    $('brushBar').classList.remove('hidden');
+    $('overlay').classList.add('hidden');
+    toast('Peignez ce qui manque, effacez ce qui dépasse');
+  }
+  $('adjustBtn').onclick = openBrush;
+  $('brDone').onclick = () => {
+    state.brushing = false;
+    $('brushBar').classList.add('hidden');
+    $('overlay').classList.remove('hidden');
+    toast('Détection ajustée');
+  };
+  $('brAdd').onclick = () => {
+    $('brAdd').setAttribute('aria-pressed', 'true');
+    $('brDel').setAttribute('aria-pressed', 'false');
+  };
+  $('brDel').onclick = () => {
+    $('brDel').setAttribute('aria-pressed', 'true');
+    $('brAdd').setAttribute('aria-pressed', 'false');
+  };
+
+  $('favBtn').onclick = () => {
+    state.favourite = !state.favourite;
+    $('favBtn').setAttribute('aria-pressed', String(state.favourite));
+    $('favTxt').textContent = state.favourite ? 'Dans vos favoris' : 'Favori';
+    toast(state.favourite ? 'Ajouté aux favoris' : 'Retiré des favoris');
+  };
+  $('saveBtn').onclick = () => toast('Enregistrement : à documenter, pas à développer ici');
+  $('quoteBtn').onclick = () => toast('Le devis part vers le formulaire existant du site');
+  $('rejRetry').onclick = () => { $('stateSel').value = 'success'; state.analysis = 'success'; refresh(); };
+
+  $('stateSel').onchange = (event) => {
+    state.analysis = event.target.value;
+    if (state.analysis === 'rejected') { state.beforeAfter = false; $('baBtn').setAttribute('aria-pressed', 'false'); }
+    refresh();
+  };
+
+  let toastTimer = null;
+  function toast(message) {
+    $('toast').textContent = message;
+    $('toast').classList.add('show');
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => $('toast').classList.remove('show'), 1700);
+  }
+
+  refresh();
+})();
+</script>
+</body>
+</html>
