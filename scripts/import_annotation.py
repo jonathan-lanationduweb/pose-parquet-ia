@@ -221,6 +221,11 @@ def build(
         independent_pass=independent,
         timing=timing,
         status=status,
+        # Sans relecteur nommé, c'est l'annotateur qui est inscrit : une
+        # **auto-relecture**, et le rapport la lira comme telle puisque les deux
+        # noms coïncident. Le repli va dans le sens conservateur — il ne peut
+        # que sous-estimer la relecture, jamais la surestimer — mais il reste un
+        # repli : nommer explicitement un relecteur est toujours préférable.
         review=(
             None
             if status is AnnotationStatus.DRAFT
@@ -257,7 +262,12 @@ def main(argv: list[str] | None = None) -> int:
         default=AnnotationStatus.DRAFT.value,
         help="draft par défaut ; seules les approved entrent au banc d'essai",
     )
-    parser.add_argument("--reviewer", help="obligatoire de fait dès que le statut n'est pas draft")
+    parser.add_argument(
+        "--reviewer",
+        help="qui a relu. Omis sur un statut non-draft, l'annotateur est "
+        "inscrit : l'annotation devient une AUTO-RELECTURE, pas une revue "
+        "indépendante. Nommez un relecteur distinct dès qu'il en existe un.",
+    )
     parser.add_argument("--notes")
     parser.add_argument(
         "--pass-label",

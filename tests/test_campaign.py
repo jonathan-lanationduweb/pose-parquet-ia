@@ -292,3 +292,55 @@ def test_un_trace_sans_etiquette_reste_accepte(corpus):
     )
     assert out.name == "p1.json"
     assert json.loads(out.read_text(encoding="utf-8"))["passLabel"] is None
+
+
+# --- Relecture : auto-relecture ou revue indépendante ? -----------------
+
+
+def test_sans_relecteur_nomme_l_annotation_devient_une_auto_relecture(corpus):
+    """Le repli est conservateur, mais il doit rester connu.
+
+    `--reviewer` omis sur un statut non-draft inscrit l'annotateur comme
+    relecteur : les deux noms coïncident, donc le rapport lit une
+    auto-relecture. Le sens de l'erreur ne peut que sous-estimer la relecture,
+    jamais la surestimer — mais un lecteur qui croirait le champ obligatoire
+    prendrait un oubli pour un choix.
+    """
+    from scripts import import_annotation
+
+    out = import_annotation.build(
+        draw_file(corpus, 0.60), corpus, "jonathan", AnnotationStatus.APPROVED, None, None
+    )
+    written = json.loads(out.read_text(encoding="utf-8"))
+
+    assert written["review"]["reviewer"] == written["annotator"] == "jonathan"
+    assert written["status"] == "approved"
+
+
+def test_un_relecteur_distinct_reste_une_revue_independante(corpus):
+    """Deux noms différents ne doivent jamais être aplatis en un seul."""
+    from scripts import import_annotation
+
+    out = import_annotation.build(
+        draw_file(corpus, 0.60), corpus, "jonathan", AnnotationStatus.APPROVED, "alex", None
+    )
+    written = json.loads(out.read_text(encoding="utf-8"))
+
+    assert written["annotator"] == "jonathan"
+    assert written["review"]["reviewer"] == "alex"
+
+
+def test_l_aide_de_la_ligne_de_commande_decrit_le_repli(capsys):
+    """L'aide disait « obligatoire de fait » — ce qui n'était pas vrai.
+
+    Un drapeau décrit comme obligatoire mais silencieusement remplacé est le
+    genre d'écart qui fait prendre un oubli pour une décision.
+    """
+    from scripts import import_annotation
+
+    with pytest.raises(SystemExit):
+        import_annotation.main(["--help"])
+    helped = capsys.readouterr().out.lower()
+
+    assert "auto-relecture" in helped
+    assert "obligatoire de fait" not in helped
