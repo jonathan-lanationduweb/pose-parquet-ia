@@ -152,10 +152,28 @@ Deux de ces scènes portent des cas que le LOT 1 n'avait mesurés que sur images
 `entree-cadree` (recadrage, centre optique décentré) et `piece-arcades`
 (courbes architecturales réelles).
 
-Ce que le pilote **ne** couvre pas : aucun **tapis**, et trois scènes meublées
-sur onze. Les photos du front avaient été choisies pour leurs sols dégagés —
-l'inverse de ce qu'un banc d'essai de segmentation demande. C'est le premier
-manque à combler pour passer de onze à trente. Voir
+### Ce que le pilote ne couvre pas
+
+Deux manques prioritaires : **aucun tapis**, et **trois scènes meublées sur
+onze**. Les photos du front avaient été choisies pour leurs sols dégagés —
+l'inverse de ce qu'un banc d'essai de segmentation demande.
+
+Le futur corpus devra donc ajouter, par ordre d'utilité :
+
+| à ajouter | pourquoi |
+| --- | --- |
+| **tapis** | le cas d'école du sol *caché* : il teste la définition même de `floor_visible` |
+| canapé ou fauteuil **avec pieds** | du sol visible dessous, et un contact au sol large |
+| table et chaises à **pieds fins** | le geste d'annotation le plus coûteux, à chronométrer |
+| mobilier **au contact des murs** | la jonction mur/sol disparaît derrière l'objet |
+| **radiateur** | présent une fois seulement, et toujours en second plan |
+| **faible contraste** mur/sol | présent deux fois, jamais avec du mobilier |
+| sol **sombre ou réfléchissant** | présent deux fois, jamais avec un tapis |
+
+**Rien ne sera téléchargé pour combler ces cases**, et aucune recherche
+automatique d'images externes ne sera lancée : une photo dont la provenance
+n'est pas certaine ne peut pas servir de référence commune, donc ne sert à
+rien. Ces manques se comblent par des photos dont on connaît l'origine — voir
 `docs/pilot-runbook.md`, §6.
 
 ### Ce qui ne doit jamais entrer ici tout seul

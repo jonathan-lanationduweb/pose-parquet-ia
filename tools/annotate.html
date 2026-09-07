@@ -47,6 +47,9 @@
     <legend>1 · Image</legend>
     <input type="file" id="file" accept="image/jpeg,image/png,image/webp" />
     <label>Identifiant du manifeste<input type="text" id="photoId" placeholder="salon-01" /></label>
+    <label>Passe <input type="text" id="passLabel" placeholder="A" maxlength="8" /></label>
+    <p class="hint">La passe nomme le fichier. Sans elle, une seconde passe
+      écraserait la première.</p>
     <p class="hint" id="dims">Aucune image chargée.</p>
   </fieldset>
 
@@ -306,6 +309,10 @@
     const draw = {
       schema: DRAW_SCHEMA,
       photoId: $('photoId').value.trim(),
+      // Facultatif, et repris par l'import comme --pass-label. Sans lui, deux
+      // passes de la même photo se téléchargent sous le même nom et la
+      // seconde écrase la première à l'import : un relevé perdu, sans erreur.
+      passLabel: $('passLabel').value.trim() || null,
       width: state.width,
       height: state.height,
       floorPolygons: pick('floor').map((shape) => normalize(shape.points)),
@@ -327,7 +334,9 @@
     );
     const link = document.createElement('a');
     link.href = url;
-    link.download = `${draw.photoId}.draw.json`;
+    link.download = draw.passLabel
+      ? `${draw.photoId}.${draw.passLabel}.draw.json`
+      : `${draw.photoId}.draw.json`;
     link.click();
     URL.revokeObjectURL(url);
   });

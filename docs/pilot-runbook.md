@@ -1,160 +1,235 @@
-# Marche à suivre du pilote — LOT IA 2A
+# Campagne pilote d'annotation — LOT IA 2A
 
-Le corpus pilote est **collecté** : onze photos réelles dans
-`datasets/private-real/`, chacune avec sa provenance. Le dispositif de mesure
-est **prêt et testé**.
+**Quatre scènes, deux passes chacune, huit relevés.** Tout le reste est prêt :
+les photos, l'outil, les contrôles, les métriques et la commande d'analyse.
 
-Ce qui reste est un travail humain que rien ici ne peut remplacer : **relever
-le sol à la main.** Ce document dit exactement quoi faire.
+> **Statut du lot**
+>
+> | | |
+> | --- | --- |
+> | Infrastructure LOT IA 2A | **VALIDÉE** |
+> | Expérience LOT IA 2A | **EN ATTENTE DES ANNOTATIONS HUMAINES** |
+> | LOT IA 2B | **non autorisé** avant analyse des premières annotations |
+>
+> Aucun modèle n'est installé, et aucun ne le sera avant d'avoir lu ce que la
+> campagne dira du protocole.
 
-> **Pourquoi je n'ai pas annoté.** Le LOT 2A mesure la difficulté d'annotation,
-> le temps qu'elle prend, les hésitations humaines et le désaccord entre deux
-> personnes. Ces quatre grandeurs sont des mesures *d'un humain qui annote*.
-> Les produire moi-même reviendrait à fabriquer précisément les données que ce
-> lot existe pour collecter — et une seconde passe faite par moi serait un
-> deuxième annotateur simulé, ce que le protocole interdit.
+> **Pourquoi ces relevés ne peuvent pas être faits à votre place.** Le LOT 2A
+> mesure la difficulté d'annotation, le temps qu'elle prend, les hésitations
+> humaines et l'écart entre deux passes. Ces quatre grandeurs sont des mesures
+> *d'un humain qui annote*. Les produire moi-même fabriquerait précisément la
+> donnée que ce lot existe pour observer, et une seconde passe faite par moi
+> serait un annotateur simulé.
 
 ---
 
-## 1. Ce qui est déjà fait
+## 1. Les quatre scènes, et pourquoi celles-là
+
+Le choix vise la **diversité des difficultés réelles**, pas le remplissage des
+catégories : quatre pièces vides bien réparties en `easy`/`medium`/`hard`
+n'auraient rien appris. Chacune apporte au moins un cas qu'aucune autre ne
+porte — un test le vérifie.
+
+| ordre | scène | rôle | ce qu'elle seule apporte |
+| --- | --- | --- | --- |
+| 1 | `sejour` | `easy` | deux pièces en enfilade sur **un seul** parquet, et des reflets francs |
+| 2 | `chambre` | `medium` | une **terrasse** vue par la porte-fenêtre, et une **grille encastrée** |
+| 3 | `couloir` | `hard` | bois clair sur bois clair, **sans plinthe** : où finit le mur ? |
+| 4 | `petite-piece` | la plus ambiguë | huit pieds fins, rideau au sol, angle masqué, sol coupé par le cadre |
+
+**Annotez-les dans cet ordre.** `sejour` sert à prendre la main et donne la
+durée de référence ; `petite-piece` vient en dernier, quand le geste est acquis
+— et sa durée est l'information la plus utile du lot, celle qui dira si trente
+scènes sont réalistes.
+
+### Ce que chaque scène met à l'épreuve
+
+**`sejour`** — l'ouverture entre les deux pièces **n'est pas** une frontière de
+sol : le parquet continue, le masque continue. Les reflets de fenêtre sur les
+lames sont du sol.
+
+**`chambre`** — la scène qui teste les deux décisions récentes :
+
+* la **terrasse est dehors** → hors du masque, *même de plain-pied et dans le
+  prolongement exact du parquet* ;
+* le **seuil de la porte-fenêtre** reçoit un contour, il n'est pas une fin de
+  sol par épuisement ;
+* la **grille de ventilation** encastrée est exclue ; le parquet autour reste
+  inclus.
+
+Son contraste mur/sol est très élevé, ce qui isole ces règles de toute
+difficulté de frontière : un désaccord ici portera sur la **définition**, pas
+sur la main.
+
+**`couloir`** — ne forcez **pas** la ligne de pied de mur à droite. Déclarez-la
+incertaine, et faites la zone assez large (voir §5). Une part incertaine élevée
+est un **résultat**, pas un échec.
+
+**`petite-piece`** — le bas du cadre est un `frame_cut`. Le pied du rideau et
+l'angle masqué par le bureau sont incertains, pas devinés. Le sol sous le
+radiateur est du sol si on le voit.
+
+---
+
+## 2. Passe A — la procédure, en sept points
+
+### 1 · Ouvrir l'outil
+
+**Double-cliquez sur `tools/annotate.html`.** Aucun serveur n'est nécessaire :
+l'outil est un fichier unique, sans dépendance et sans requête réseau ; il lit
+l'image que vous lui donnez et n'envoie rien.
+
+Si votre navigateur refuse d'ouvrir un fichier local, et **seulement** dans ce
+cas, servez le dossier depuis `C:\Users\jonat\Desktop\pose-parquet-ai` :
 
 ```bash
-python -m scripts.validate_dataset
-# → 11 photo(s), 0 problème(s) · 0 scène(s) annotée(s)
+.venv/Scripts/python.exe -m http.server 8000
 ```
 
-| état | détail |
+puis ouvrez `http://localhost:8000/tools/annotate.html`. Arrêtez-le avec
+`Ctrl+C` quand vous avez fini.
+
+### 2 · La première image
+
+`datasets/private-real/sejour.jpg` — la plus simple, et sa durée sert de
+référence aux trois autres.
+
+Remplissez les deux champs du bloc **1 · Image** :
+
+| champ | valeur |
 | --- | --- |
-| photos | 11, dans `private-real/`, hors de Git |
-| provenance | auteur, identifiant Pexels, URL, licence, hash — pour chacune |
-| difficulté | 3 `easy`, 2 `medium`, 5 `hard`, 1 `rejected` |
-| traits | assignés par observation des photos, **révisables** |
-| annotations | **aucune** |
+| Identifiant du manifeste | `sejour` |
+| Passe | `A` |
 
----
+**Le champ « Passe » n'est pas décoratif** : il nomme le fichier exporté. Sans
+lui, la passe B se téléchargerait sous le même nom que la A et l'écraserait à
+l'import — sans aucune erreur, et avec une paire devenue impossible à mesurer.
 
-## 2. Annoter une scène
+### 3 · Tracer, puis enregistrer
 
-```bash
-# 1. Ouvrir l'outil dans un navigateur (double-clic suffit)
-#    tools/annotate.html
-#
-# 2. Charger la photo : datasets/private-real/bureau-vide.jpg
-#    Saisir l'identifiant du manifeste : bureau-vide
-#
-# 3. Tracer. L'outil chronomètre tout seul et se met en pause après une
-#    minute d'inactivité — inutile de noter le temps.
-#
-# 4. Télécharger le tracé, puis :
-python -m scripts.import_annotation \
-    --draw bureau-vide.draw.json --annotator votre-nom
-
-# 5. Contrôler
-python -m scripts.validate_dataset
-```
-
-L'annotation arrive en `draft`. Elle n'entre au banc d'essai qu'une fois
-relue :
+Tracez, puis **Enregistrer le tracé**. Le navigateur télécharge
+`sejour.A.draw.json` dans votre dossier de téléchargements. Importez-le :
 
 ```bash
-python -m scripts.import_annotation \
-    --draw bureau-vide.draw.json --annotator votre-nom \
-    --status approved --reviewer nom-du-relecteur --review-seconds 90
+.venv/Scripts/python.exe -m scripts.import_annotation --draw ~/Downloads/sejour.A.draw.json --annotator jonathan --independent --status approved --reviewer jonathan
 ```
 
-### L'ordre conseillé
+L'étiquette de passe et la durée sont **reprises du tracé** : rien à retaper.
+Les masques PNG et le JSON d'annotation atterrissent dans
+`datasets/annotations/`.
 
-Commencez par `bureau-vide`, la plus simple : elle sert à prendre la main sur
-l'outil, et son temps d'annotation devient la référence à laquelle les autres
-se comparent.
+> `--independent` déclare que cette passe a été faite sans regarder l'autre.
+> L'outil ne peut pas le vérifier : ne la posez que si c'est vrai.
+>
+> `--status approved` engage l'annotation comme référence. Sans cela elle reste
+> en `draft` et n'entre pas au banc d'essai — donc pas dans la mesure.
 
-Gardez `petite-piece` et `appartement-ancien` pour la fin : ce sont les plus
-laborieuses — huit pieds de meuble à contourner chacune — et leur durée est
-l'information la plus utile du lot. C'est elle qui dira si trente scènes sont
-réalistes ou s'il faut un autre outil.
+### 4 · Passer à la suivante
 
----
+Rechargez la page (ou **Tout effacer**), puis reprenez au point 2 avec
+`chambre`, `couloir`, `petite-piece` — même procédure, passe `A` à chaque fois.
 
-## 3. Les quatre scènes à annoter deux fois
+Vérifiez l'avancement quand vous voulez :
 
-Choisies pour maximiser la chance de désaccord, donc d'information :
+```bash
+.venv/Scripts/python.exe -m benchmarks.run_pilot
+```
 
-| scène | ce qui devrait faire diverger deux personnes |
+Il annonce `4/8 relevé(s)` et liste nommément ce qui manque.
+
+### 5 · Les passes B, plus tard
+
+**Attendez au moins un jour.** Une seconde passe faite dans la demi-heure
+mesure votre mémoire à court terme, pas votre protocole.
+
+Même procédure, avec `B` dans le champ Passe :
+
+```bash
+.venv/Scripts/python.exe -m scripts.import_annotation --draw ~/Downloads/sejour.B.draw.json --annotator jonathan --independent --status approved --reviewer jonathan
+```
+
+Gardez le **même nom d'annotateur** si c'est bien vous : c'est ainsi que la
+mesure s'appellera `intra_annotator_repeatability`. Un nom différent la ferait
+passer pour un accord entre deux personnes, ce qu'elle ne serait pas.
+
+### 6 · Ce qui est chronométré tout seul
+
+| donnée | comment |
 | --- | --- |
-| `couloir` | bois clair sur bois clair : où finit le mur ? |
-| `petite-piece` | pieds fins, rideau au sol, angle masqué par le bureau |
-| `salon` | reflets de fenêtre francs : sol ou pas sol ? |
-| `chambre` | la terrasse vue par la porte-fenêtre compte-t-elle ? |
+| durée du premier tracé | **automatique** — l'outil compte, et se met en pause après 60 s sans geste |
+| durée de relecture | `--review-seconds 90`, si vous la mesurez |
+| durée des corrections | `--corrections-seconds 45`, si vous en faites |
+| nombre de reprises | `--corrections 3`, si vous les comptez |
 
-```bash
-# Passe A
-python -m scripts.import_annotation --draw couloir.draw.json \
-    --annotator personne-1 --pass-label A --independent \
-    --status approved --reviewer personne-1
+Seule la première est automatique, et c'est la plus fastidieuse à tenir à la
+main. Les trois autres sont facultatives : une durée absente vaut mieux qu'une
+durée inventée.
 
-# Passe B — SANS avoir regardé la passe A
-python -m scripts.import_annotation --draw couloir.draw.json \
-    --annotator personne-2 --pass-label B --independent \
-    --status approved --reviewer personne-2
-```
+L'outil ne mesure rien d'autre. Pas de trace de gestes, pas d'envoi.
 
-**`--independent` est une déclaration**, et l'outil ne peut pas la vérifier. Ne
-la posez que si c'est vrai : le nom de la mesure en dépend, et un accord élevé
-entre deux passes non indépendantes ne mesurerait que la mémoire.
+### 7 · Ce qu'il ne faut surtout pas regarder avant la passe B
 
-### Si vous êtes seul
+C'est la condition qui décide si la mesure vaut quelque chose. Avant de refaire
+une scène, **n'ouvrez pas** :
 
-C'est le cas le plus probable, et il est prévu. Faites deux passes espacées —
-idéalement à des jours différents — et **ne rouvrez pas la première**.
+* `datasets/annotations/<scène>.A.json` ;
+* `datasets/annotations/masks/<scène>.A.*.png` ;
+* les images de comparaison de `benchmarks/out/pilot/` ;
+* le rapport `pilot.json`, dont la partie « désaccord » vous dirait où vous
+  avez hésité ;
+* vos propres notes de la passe A.
 
-La mesure s'appellera alors `intra_annotator_repeatability` et non
-`inter_annotator_agreement`. Le module le déduit des noms d'annotateur et
-refuse de choisir à votre place. La différence n'est pas de vocabulaire :
+Et **ne rechargez pas** le tracé A dans l'outil : le bouton « Recharger un
+tracé » sert à reprendre un travail interrompu, pas à refaire une passe.
 
-* la répétabilité mesure la stabilité d'**une main**. C'est une **borne
-  optimiste** — personne ne reproduit ses propres hésitations aussi mal que
-  celles d'un autre ;
-* l'accord mesure ce que le **protocole** transmet d'une tête à une autre.
-  C'est lui qui plafonne ce qu'on peut exiger d'un modèle.
-
-Si une seconde personne est disponible, même pour deux scènes seulement, cela
-vaut mieux que quatre passes solitaires.
+Si vous regardez malgré tout, ce n'est pas grave — mais **importez la passe
+sans `--independent`**. Le rapport marquera la paire, et un chiffre
+honnêtement diminué vaut mieux qu'un chiffre faux.
 
 ---
 
-## 4. Lire les résultats
+## 3. Analyser les huit relevés
+
+Une seule commande, quand les huit sont là :
 
 ```bash
-python -m benchmarks.run_pilot --render
+.venv/Scripts/python.exe -m benchmarks.run_pilot --render
 ```
 
-Le rapport arrive dans `benchmarks/out/pilot/pilot.json`, avec une image de
-comparaison par paire. La légende des couleurs :
+Elle écrit `benchmarks/out/pilot/pilot.json` et une image de comparaison par
+scène. Elle produit, **par scène** : IoU, Dice, précision, rappel,
+`BF@0.25%`, `BF@0.5%`, `BF@1%`, la part incertaine de chaque passe, la
+localisation du désaccord et ses principaux foyers, la durée de chaque passe.
+Et **au global** : moyenne, médiane, minimum, maximum, et la répétabilité par
+difficulté.
+
+Légende des images de comparaison :
 
 | couleur | sens |
 | --- | --- |
-| vert | les deux annotateurs sont d'accord : c'est du sol |
+| vert | les deux passes sont d'accord : c'est du sol |
 | bleu | seule la passe A l'a compté |
 | rouge | seule la passe B l'a compté |
-| jaune | déclaré indécidable par au moins l'un des deux — exclu des scores |
+| jaune | déclaré indécidable par au moins l'une des deux — exclu des scores |
 
 Les chiffres à regarder, dans cet ordre :
 
 1. **le temps**, par difficulté. C'est lui qui décide de la taille du corpus ;
 2. **l'IoU minimum** entre passes. C'est le plafond réaliste, pas la moyenne ;
-3. **la F-mesure de contour selon la tolérance.** Si le score bouge beaucoup
-   entre 0,25 % et 1 %, le choix de tolérance compte plus que le choix de
-   modèle, et il faudra le trancher avant tout benchmark ;
+3. **la F-mesure de contour selon la tolérance.** Les trois valeurs sont
+   publiées et **aucune n'est un objectif** : si le score bouge beaucoup de
+   0,25 % à 1 %, le choix de tolérance compte plus que le choix de modèle, et
+   il faudra le trancher avant tout banc d'essai ;
 4. **la répartition du désaccord** — jonction, cadre, ou surface entière. Un
    désaccord de surface porte sur la **définition** du sol visible, donc sur le
    protocole ; un désaccord de jonction porte sur la main.
 
 ---
 
-## 5. Ce qu'il faut noter en annotant
+## 4. Ce qu'il faut noter en annotant
 
-Le format prévoit un champ `notes` par annotation. Utilisez-le pour ce que les
-masques ne diront pas :
+Le format prévoit un champ `notes` par annotation — dans l'outil, bloc
+**Notes**. Utilisez-le pour ce que les masques ne diront pas :
 
 * un endroit où vous avez hésité **sans** le marquer incertain, et pourquoi ;
 * une catégorie du protocole qui ne collait pas ;
@@ -162,9 +237,26 @@ masques ne diront pas :
 * une raison d'incertitude qui manque à la liste.
 
 Ces notes sont la matière première de la calibration de `floor-annotation@1`.
-Les cinq questions ouvertes que l'examen des photos a déjà soulevées sont dans
-`docs/annotation-protocol.md`, §11 — lisez-les **avant** de commencer : deux
-d'entre elles changent ce que vous tracerez.
+
+Les règles et les cas déjà tranchés sont dans `docs/annotation-protocol.md` :
+la **définition officielle** de `floor_visible` au §1, et ce que les vraies
+photos ont appris au §11. Lisez le §1 avant de commencer.
+
+---
+
+## 5. La règle de tracé qui coûte le plus cher si on l'ignore
+
+Une zone `uncertain` doit couvrir **toute la région dont la frontière est
+ambiguë**, et non une ligne symbolique en son centre.
+
+La raison est mesurée : une frontière de masque est épaisse de plusieurs
+pixels. Une zone tracée au ras du doute laisse évaluer exactement ce que vous
+avez déclaré indécidable — sur le cas observé pendant le lot, la précision de
+contour tombait à **0,929** au lieu de **1,0000**, sans que le masque ait
+changé : seule la déclaration d'incertitude était trop étroite.
+
+Une zone honnêtement large ne cache rien : les pixels exclus sont comptés et
+publiés (`ignoredFraction`). Voir `docs/annotation-protocol.md`, §11.5.
 
 ---
 
@@ -172,16 +264,49 @@ d'entre elles changent ce que vous tracerez.
 
 Les onze photos viennent du dépôt du front, qui les avait choisies pour leurs
 **sols dégagés** — l'inverse de ce qu'un banc d'essai de segmentation demande.
-Trois traits sont donc absents ou presque :
 
-| trait | état | pourquoi c'est un manque |
+| manque | état actuel | pourquoi c'est prioritaire |
 | --- | --- | --- |
-| `rug` | **absent** | un tapis est le cas d'école du sol *caché* : il teste la définition même de `floor_visible` |
-| `furnished` | 3 sur 11 | huit scènes sur onze sont des pièces vides |
-| `tiles` | 1, aperçu au loin | aucun carrelage en premier plan |
+| **tapis** | **aucun** | c'est le cas d'école du sol *caché* : il teste la définition même de `floor_visible` |
+| **mobilier** | 3 scènes sur 11 | huit scènes sont des pièces vides |
 
-Une seule photo de votre salon avec un tapis apporterait plus au corpus que
-trois pièces vides supplémentaires. Si vous en prenez, `add_photo.py` les
-enregistre avec `--source "photo personnelle"` et
-`--license "propriétaire"` — provenance certaine, et le corpus gagne
-exactement ce qui lui manque.
+Le futur corpus devra notamment ajouter :
+
+* un **tapis**, ou plusieurs ;
+* un canapé ou un fauteuil **avec pieds** ;
+* une table et des chaises à **pieds fins** ;
+* du mobilier **au contact des murs** ;
+* un **radiateur** ;
+* un **faible contraste** mur/sol ;
+* un sol **sombre ou réfléchissant**.
+
+Le pilote en couvre déjà quelques-uns — pieds fins, radiateur, faible
+contraste, sol réfléchissant — mais un seul exemplaire chacun, et jamais avec
+un tapis.
+
+**Rien ne sera téléchargé pour combler ces cases.** Aucune recherche
+automatique d'images, aucune source externe : une photo dont la provenance
+n'est pas certaine ne peut pas servir de référence commune. Une seule photo de
+votre salon avec un tapis apporterait plus au corpus que trois pièces vides
+supplémentaires :
+
+```bash
+.venv/Scripts/python.exe -m scripts.add_photo --file private-real/salon-tapis.jpg --id salon-tapis --difficulty medium --source "photo personnelle" --license "propriétaire" --verified-on 2026-09-07 --traits furnished,rug,existing_parquet
+```
+
+---
+
+## 7. Confidentialité — ce que `private-real/` est, et n'est pas
+
+`private-real/` est un **corpus privé de développement contrôlé** : des images
+choisies une par une, provenance vérifiée, inscrites au manifeste à la main.
+Il est hors de Git ; le dépôt n'en garde que la description.
+
+Une photo envoyée un jour par un visiteur de pose-parquet.com **n'y entre
+jamais automatiquement**. Elle reste temporaire, hors de Git, hors du dataset,
+hors du banc d'essai permanent, et hors des journaux — ni image, ni base64, ni
+chemin. **Les masques dérivés sont temporaires par défaut** au même titre : un
+masque de sol décrit la géométrie d'une habitation.
+
+Aucun développement WordPress ni cloud n'est engagé. Voir
+`docs/annotation-protocol.md`, §10.

@@ -434,9 +434,9 @@ def summarise(pairs: list[PairAgreement]) -> dict[str, Any]:
 
     Aucun écart-type, aucun intervalle de confiance : sur une poignée
     d'images, ils donneraient une précision statistique que l'échantillon ne
-    porte pas. Moyenne, médiane et minimum suffisent, et le minimum est le plus
-    parlant des trois — c'est la scène sur laquelle deux humains se sont le
-    moins entendus.
+    porte pas. Moyenne, médiane, minimum et maximum suffisent — et le minimum
+    est le plus parlant des quatre, parce que c'est la scène sur laquelle deux
+    relevés se sont le moins entendus qui plafonne ce qu'on peut exiger.
     """
     if not pairs:
         return {"pairs": 0}
@@ -446,12 +446,13 @@ def summarise(pairs: list[PairAgreement]) -> dict[str, Any]:
 
     def aggregate(values: list[float]) -> dict[str, float | int | None]:
         if not values:
-            return {"counted": 0, "mean": None, "median": None, "min": None}
+            return {"counted": 0, "mean": None, "median": None, "min": None, "max": None}
         return {
             "counted": len(values),
             "mean": round(float(np.mean(values)), 4),
             "median": round(float(np.median(values)), 4),
             "min": round(float(min(values)), 4),
+            "max": round(float(max(values)), 4),
         }
 
     tolerance_keys = sorted(pairs[0].boundary_by_tolerance)

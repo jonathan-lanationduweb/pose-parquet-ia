@@ -7,7 +7,6 @@ gonflerait le chiffre qui servira de plafond aux exigences posées aux modèles.
 
 import json
 from datetime import date
-from pathlib import Path
 
 import numpy as np
 import pytest
@@ -32,8 +31,8 @@ from benchmarks.agreement import (
 from benchmarks.annotations import load_corpus, paired_scenes, primary_scenes
 from benchmarks.run_pilot import run
 from benchmarks.segmentation import MaskError
-from corpus import patterns
-from scripts import add_photo, import_annotation
+from scripts import import_annotation
+from tests.conftest import draw_file
 
 HEIGHT, WIDTH = 400, 600
 
@@ -389,67 +388,10 @@ def test_le_chronometrage_est_facultatif():
 # --- Passes multiples dans le corpus ------------------------------------
 
 
-@pytest.fixture
-def corpus(tmp_path: Path) -> Path:
-    root = tmp_path / "datasets"
-    (root / "private-real").mkdir(parents=True)
-    (root / "manifest.json").write_text(
-        json.dumps({"schema": "pose-parquet-ai/dataset@2", "photos": []}), encoding="utf-8"
-    )
-    (root / "private-real" / "p.png").write_bytes(
-        patterns.encode(patterns.mid_tone_checkerboard((WIDTH, HEIGHT)), "PNG")
-    )
-    assert (
-        add_photo.main(
-            [
-                "--dataset",
-                str(root),
-                "--file",
-                "private-real/p.png",
-                "--id",
-                "p1",
-                "--difficulty",
-                "hard",
-                "--source",
-                "test",
-                "--license",
-                "aucune",
-                "--verified-on",
-                "2026-09-07",
-                "--traits",
-                "rug,thin_furniture_legs",
-            ]
-        )
-        == 0
-    )
-    return root
-
-
-def _draw(root: Path, top: float) -> Path:
-    draw = {
-        "schema": import_annotation.DRAW_SCHEMA,
-        "photoId": "p1",
-        "width": WIDTH,
-        "height": HEIGHT,
-        "floorPolygons": [
-            [
-                {"x": 0.0, "y": top},
-                {"x": 1.0, "y": top},
-                {"x": 1.0, "y": 1.0},
-                {"x": 0.0, "y": 1.0},
-            ]
-        ],
-        "drawSeconds": 240,
-    }
-    path = root / f"p1-{top}.draw.json"
-    path.write_text(json.dumps(draw), encoding="utf-8")
-    return path
-
-
 def test_deux_passes_coexistent_sans_s_ecraser(corpus):
     """Sans étiquette de passe, la seconde remplacerait la première."""
     first = import_annotation.build(
-        _draw(corpus, 0.60),
+        draw_file(corpus, 0.60),
         corpus,
         "jo",
         AnnotationStatus.APPROVED,
@@ -459,7 +401,7 @@ def test_deux_passes_coexistent_sans_s_ecraser(corpus):
         independent=True,
     )
     second = import_annotation.build(
-        _draw(corpus, 0.63),
+        draw_file(corpus, 0.63),
         corpus,
         "alex",
         AnnotationStatus.APPROVED,
@@ -477,7 +419,7 @@ def test_deux_passes_coexistent_sans_s_ecraser(corpus):
 def test_le_banc_de_segmentation_ne_compte_pas_une_photo_deux_fois(corpus):
     """Sinon la même image pèserait double dans les moyennes."""
     import_annotation.build(
-        _draw(corpus, 0.60),
+        draw_file(corpus, 0.60),
         corpus,
         "jo",
         AnnotationStatus.APPROVED,
@@ -487,7 +429,7 @@ def test_le_banc_de_segmentation_ne_compte_pas_une_photo_deux_fois(corpus):
         independent=True,
     )
     import_annotation.build(
-        _draw(corpus, 0.63),
+        draw_file(corpus, 0.63),
         corpus,
         "alex",
         AnnotationStatus.APPROVED,
@@ -506,7 +448,7 @@ def test_le_banc_de_segmentation_ne_compte_pas_une_photo_deux_fois(corpus):
 def test_le_temps_mesure_par_l_outil_est_reprise_a_l_import(corpus):
     """Un temps chronométré vaut mieux qu'un temps noté de mémoire."""
     path = import_annotation.build(
-        _draw(corpus, 0.60), corpus, "jo", AnnotationStatus.DRAFT, None, None
+        draw_file(corpus, 0.60), corpus, "jo", AnnotationStatus.DRAFT, None, None
     )
     annotation = FloorAnnotation.model_validate(json.loads(path.read_text(encoding="utf-8")))
     assert annotation.timing is not None
@@ -516,7 +458,7 @@ def test_le_temps_mesure_par_l_outil_est_reprise_a_l_import(corpus):
 def test_le_rapport_pilote_mesure_temps_et_accord(corpus, tmp_path):
     """Chaîne complète : deux passes indépendantes → accord + durées."""
     import_annotation.build(
-        _draw(corpus, 0.60),
+        draw_file(corpus, 0.60),
         corpus,
         "jo",
         AnnotationStatus.APPROVED,
@@ -526,7 +468,7 @@ def test_le_rapport_pilote_mesure_temps_et_accord(corpus, tmp_path):
         independent=True,
     )
     import_annotation.build(
-        _draw(corpus, 0.63),
+        draw_file(corpus, 0.63),
         corpus,
         "alex",
         AnnotationStatus.APPROVED,

@@ -172,6 +172,13 @@ def build(
     if timing is None and draw.get("drawSeconds") is not None:
         timing = AnnotationTiming(first_pass_seconds=float(draw["drawSeconds"]))
 
+    # L'étiquette de passe saisie dans l'outil, à défaut de --pass-label. Sans
+    # cette reprise, importer une passe B en oubliant le drapeau écraserait la
+    # passe A : aucune erreur levée, un relevé perdu, et une paire devenue
+    # impossible à mesurer.
+    if pass_label is None and draw.get("passLabel"):
+        pass_label = str(draw["passLabel"]).strip() or None
+
     floor = rasterize(draw["floorPolygons"], draw.get("floorHoles", []), width, height)
     suffix = f".{pass_label}" if pass_label else ""
     floor_name = f"{photo_id}{suffix}.floor-visible.png"

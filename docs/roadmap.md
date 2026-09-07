@@ -102,9 +102,14 @@ comparé** : c'est la balance qui a été construite, pas ce qu'on y pose.
 * outil de tracé minimal (`tools/annotate.html`), sans dépendance, dont la
   sortie réelle est figée en fixture de test.
 
-### 2A ✅ — corpus pilote, temps, accord humain
+### 2A — corpus pilote, temps, accord humain
 
-Livré. Voir `docs/pilot-runbook.md`. **Toujours aucun modèle.**
+| | |
+| --- | --- |
+| Infrastructure | ✅ **VALIDÉE** |
+| Expérience | ⏳ **EN ATTENTE DES ANNOTATIONS HUMAINES** |
+
+Voir `docs/pilot-runbook.md`. **Toujours aucun modèle.**
 
 * **onze photos réelles** collectées dans `private-real/`, avec provenance
   entrée par entrée : 3 `easy`, 2 `medium`, 5 `hard`, 1 `rejected` ;
@@ -128,15 +133,33 @@ Livré. Voir `docs/pilot-runbook.md`. **Toujours aucun modèle.**
   modifié : ce sont des décisions, pas du code. Voir
   `docs/annotation-protocol.md`, §11.
 
+Décisions humaines intégrées après le premier rapport :
+
+* une **surface extérieure** visible par une porte, une baie ou une
+  porte-fenêtre est **exclue** de `floor_visible` — terrasse, balcon, jardin,
+  allée — *même horizontalement continue* avec le sol intérieur. La définition
+  officielle porte désormais la finalité : le sol **intérieur** visible
+  **candidat au remplacement** par du parquet ;
+* un **élément technique encastré** — grille, bouche de chauffage, trappe — est
+  **exclu**, le sol visible autour restant inclus ;
+* **aucune tolérance de contour n'est définitive** : `BF@0.25%`, `BF@0.5%` et
+  `BF@1%` sont conservées ensemble dans tous les rapports de calibration, et
+  aucune n'est un objectif produit.
+
 **Aucune photo n'est encore annotée.** Le blocage n'est plus le corpus : c'est
 le relevé humain, qui est précisément la mesure que ce lot existe pour
 recueillir. Aucun seuil n'est validé sur photo réelle, y compris la tolérance
 de contour et la cible d'IoU.
 
+**Le LOT IA 2B n'est pas autorisé** avant l'analyse des premières annotations
+humaines : choisir un modèle avant de savoir de combien deux relevés diffèrent
+serait choisir sans connaître le plafond.
+
 ### Reste à faire
 
-* **annoter le corpus pilote**, dont quatre scènes en double passe
-  indépendante. Le dispositif est prêt et vide ;
+* **mener la campagne pilote** : quatre scènes — `sejour`, `chambre`,
+  `couloir`, `petite-piece` — en deux passes indépendantes chacune, soit huit
+  relevés. Le dispositif est prêt et vide ;
 * **étendre le corpus** vers 20 à 30 scènes couvrant les traits de
   `SceneTrait`. Le pilote en manque deux notables : aucun **tapis**, et trois
   scènes meublées sur onze — les photos du front avaient été choisies pour

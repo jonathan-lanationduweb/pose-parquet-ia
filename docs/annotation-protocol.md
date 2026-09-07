@@ -8,9 +8,15 @@ dispositif qui l'accompagne sont la *balance*. Format, contrôles, métriques,
 mesure de l'accord humain, mesure du temps — tout ce contre quoi un modèle sera
 un jour pesé.
 
-Onze photos réelles sont collectées (`docs/pilot-runbook.md`). **Aucune n'est
-encore annotée** : c'est le relevé humain qui manque, et lui seul dira si ce
-protocole tient.
+| | |
+| --- | --- |
+| Infrastructure LOT IA 2A | **VALIDÉE** |
+| Expérience LOT IA 2A | **EN ATTENTE DES ANNOTATIONS HUMAINES** |
+| LOT IA 2B | **non autorisé** avant analyse des premières annotations |
+
+Onze photos réelles sont collectées, et une campagne de **quatre scènes × deux
+passes** est prête (`docs/pilot-runbook.md`). **Aucune n'est encore annotée** :
+c'est le relevé humain qui manque, et lui seul dira si ce protocole tient.
 
 ---
 
@@ -18,24 +24,83 @@ protocole tient.
 
 ### Le sol visible — `floor_visible`
 
-Les pixels où l'on **voit** le sol. C'est le seul masque contre lequel une
-segmentation sera mesurée, et le seul dont une personne peut décider en
-regardant l'image.
+> **Définition officielle.** `floor_visible` représente les pixels du **sol
+> intérieur réellement visible** appartenant à la surface **candidate au
+> remplacement visuel par le parquet**.
+
+Trois mots portent la définition, et chacun exclut quelque chose :
+
+* **intérieur** — une surface extérieure n'en fait pas partie, même vue de
+  plain-pied par une baie grande ouverte ;
+* **réellement visible** — ce qui est caché est hors du masque, sans
+  reconstruction mentale ;
+* **candidate au remplacement** — une surface sur laquelle on ne posera jamais
+  de parquet n'y est pas, même quand c'est bien du sol.
+
+C'est le seul masque contre lequel une segmentation sera mesurée, et il reste
+décidable en regardant l'image : chacune de ces trois conditions se constate,
+aucune ne se déduit.
 
 | ce qu'on voit | sol visible ? |
 | --- | --- |
 | parquet, carrelage, béton, lino apparent | **oui** |
+| sol intérieur visible par une porte, une embrasure, une enfilade | **oui** |
+| reflet sur le sol | **oui** — c'est le sol, éclairé autrement |
+| ombre portée sur le sol | **oui** — c'est le sol, moins éclairé |
 | tapis, carpette, paillasson | **non** — ils cachent le sol |
 | meuble, canapé, carton posé | **non** |
 | pied de chaise, de table, de lit | **non** |
+| grille de ventilation, bouche de soufflage encastrée | **non** — voir plus bas |
+| trappe technique, regard, plaque encastrée | **non** — voir plus bas |
+| terrasse, balcon, jardin, allée, sol extérieur | **non** — voir plus bas |
 | plinthe | **non** — elle appartient au mur |
 | mur, porte, fenêtre, plafond | **non** |
-| sol aperçu à travers une porte ouverte | **oui**, si on le voit |
-| reflet sur le sol | **oui** — c'est le sol, éclairé autrement |
-| ombre portée sur le sol | **oui** — c'est le sol, moins éclairé |
 
-Les deux dernières lignes sont celles qui font hésiter. La règle : on annote la
-**surface**, pas son éclairement. Un sol dans l'ombre reste du sol.
+Reflet et ombre sont les deux lignes qui font hésiter. La règle : on annote la
+**surface**, pas son éclairement. Un sol dans l'ombre reste du sol, un sol qui
+renvoie une fenêtre reste du sol.
+
+#### La surface extérieure est exclue
+
+**Décision prise.** Une surface extérieure visible par une porte, une baie ou
+une porte-fenêtre est **hors de `floor_visible`** : terrasse, balcon, jardin,
+allée, et tout sol extérieur aperçu par une ouverture.
+
+**Y compris quand elle est horizontalement continue avec le sol intérieur** —
+une terrasse de plain-pied dans le prolongement du parquet reste dehors. La
+continuité visuelle n'est pas un argument : c'est justement le piège, et c'est
+pourquoi la règle est écrite.
+
+La raison est la finalité : on ne posera pas de parquet sur une terrasse. Un
+segmenteur qui la trouve n'a pas trouvé sa cible, et le masquer comme du sol
+lui apprendrait à se tromper.
+
+Le **seuil ou l'encadrement** de l'ouverture peut alors recevoir sa propre
+polyligne de contour : c'est là que le sol candidat s'arrête, et cette limite
+est aussi réelle qu'une jonction mur/sol.
+
+#### Les éléments techniques encastrés sont exclus
+
+**Décision prise.** Une grille de ventilation, une bouche de chauffage, une
+trappe technique ou tout autre élément encastré **qui n'est pas destiné à
+recevoir du parquet** est hors de `floor_visible`.
+
+**Le sol visible autour reste inclus** : on exclut l'élément, pas la zone qui
+le contient.
+
+Un tel élément est dans le plan du sol, mais il n'est pas une surface
+recouvrable — exactement comme un tapis n'est pas du sol visible. La règle est
+donc la même que pour les objets, et elle se lit dans le même sens : ce qui
+occupe le sol n'est pas le sol.
+
+Ces éléments sont petits, donc presque sans effet sur l'IoU — mais ils
+comptent pour la **F-mesure de contour**, qui est la métrique qui décide de ce
+projet.
+
+> Il ne s'agit **pas** ici d'occlusions au sens du LOT IA 5. Rien n'est
+> reconstruit, rien n'est classé par nature d'objet : on décrit seulement la
+> vérité terrain de la **segmentation visible**, et un élément encastré en est
+> absent comme un canapé en est absent.
 
 ### L'étendue géométrique du sol — non annotée
 
@@ -63,6 +128,18 @@ mur, faible contraste, coupé par le cadre, reflet, flou de bougé, autre.
 > hasard pour « finir proprement » devient une exigence chiffrée contre
 > laquelle un modèle sera jugé. Marquer la zone incertaine est plus utile, plus
 > rapide, et plus vrai.
+
+**Règle de tracé, vérifiée pendant le LOT 2A :** une zone `uncertain` doit
+couvrir **toute la région dont la frontière est réellement ambiguë**, et non
+une ligne symbolique au milieu de cette ambiguïté. Si vous ne savez pas où le
+mur rencontre le sol à dix pixels près, la zone doit être large de ces dix
+pixels — pas d'un trait.
+
+La raison est mesurable et elle est démontrée au §11.5 : une frontière de
+masque est **épaisse de plusieurs pixels**, et une zone tracée au ras du doute
+laisse évaluer précisément ce que vous aviez déclaré indécidable. Les pixels
+exclus sont comptés et publiés (`ignoredFraction`) : une zone honnêtement large
+ne cache rien, elle se déclare.
 
 ---
 
@@ -125,6 +202,9 @@ python -m scripts.add_photo \
 
 # 2. Tracer. Ouvrir tools/annotate.html dans un navigateur, charger la photo,
 #    dessiner, télécharger le .draw.json. Rien ne quitte la machine.
+#    Le champ « Passe » (A, B…) suffixe le fichier et est repris à l'import :
+#    sans lui, deux passes de la même photo portent le même nom et la
+#    seconde écrase la première, sans erreur.
 
 # 3. Rastériser et écrire l'annotation.
 python -m scripts.import_annotation --draw salon-01.draw.json --annotator jonathan
@@ -205,10 +285,10 @@ aux exigences posées aux modèles.
 Une seconde annotation de la même photo se range à côté de la première :
 
 ```bash
-python -m scripts.import_annotation --draw salon.b.draw.json     --annotator jonathan --pass B --independent --seconds 240
+python -m scripts.import_annotation --draw salon.b.draw.json     --annotator jonathan --pass-label B --independent --seconds 240
 ```
 
-`--pass` nomme la passe et suffixe les fichiers (`salon.B.json`,
+`--pass-label` nomme la passe et suffixe les fichiers (`salon.B.json`,
 `salon.floor_visible.B.png`) ; `photo_id` les rattache toutes les deux à la
 même image. `paired_scenes()` retrouve les paires, `primary_scenes()` choisit
 une passe par photo pour les agrégats — sans quoi une photo annotée deux fois
@@ -243,9 +323,18 @@ ne mesurer que la mémoire de celui qui a dessiné.
    seul, rouge = B seul, jaune = incertain. Un désaccord se regarde avant de
    se moyenner.
 
-Priorité pour les doubles annotations : les scènes `hard`, et celles portant
-`low_wall_floor_contrast`, `hidden_corners` ou `reflective_floor`. Ce sont
-celles où le désaccord est probable, donc celles où il est informatif.
+Les quatre scènes retenues pour la campagne pilote sont fixées dans
+`benchmarks/campaign.py`, avec la raison de chaque choix : `sejour` (`easy`),
+`chambre` (`medium`), `couloir` (`hard`) et `petite-piece` (la plus ambiguë).
+Le critère n'était pas de remplir les catégories — quatre pièces vides bien
+réparties n'apprendraient rien — mais que chacune apporte un cas qu'aucune
+autre ne porte : enfilade et reflets, extérieur et grille encastrée, jonction
+sans plinthe, pieds fins et angle masqué.
+
+Priorité pour d'éventuelles doubles annotations supplémentaires : les scènes
+`hard`, et celles portant `low_wall_floor_contrast`, `hidden_corners` ou
+`reflective_floor`. Ce sont celles où le désaccord est probable, donc celles où
+il est informatif.
 
 ### Ce qu'on en fera
 
@@ -320,9 +409,27 @@ lirait comme « à peu près juste » — et sa F-mesure de contour tombe à
 **0,002**. C'est la frontière qui fixera le plan de perspective, donc toutes
 les lames posées.
 
-La tolérance est exprimée en **fraction de la diagonale** (0,5 % par défaut,
-soit ~10 px sur 1600 × 1067), pour qu'une même erreur visuelle donne le même
-score à toute résolution.
+La tolérance est exprimée en **fraction de la diagonale**, pour qu'une même
+erreur visuelle donne le même score à toute résolution.
+
+**Décision prise : aucune tolérance n'est définitive.** Les trois sont
+calculées et publiées ensemble, pour les mesures pilotes comme pour les futurs
+bancs d'essai :
+
+| clé | fraction de diagonale | ~px sur 1600 × 1067 |
+| --- | --- | --- |
+| `BF@0.25%` | 0,0025 | ~5 |
+| `BF@0.5%` | 0,005 | ~10 |
+| `BF@1%` | 0,01 | ~19 |
+
+**Aucune des trois n'est un objectif produit**, et aucune ne doit être retirée
+des rapports de calibration humaine. La raison est mesurée : un tremblement de
+5 px donne F1 = 0,000 aux deux premières et 0,734 à la troisième. Publier une
+seule valeur ferait passer un choix de réglage pour un résultat — et le réglage
+pèse ici plus lourd que l'annotation.
+
+`config.boundary_tolerance_fraction` garde 0,5 % comme valeur d'un calcul
+isolé, mais ce n'est **pas** un seuil retenu : c'est le milieu des trois.
 
 Deux comportements à connaître :
 
@@ -435,61 +542,70 @@ Leur intérêt est documenté ici. Leur intégration reste une décision, et un
 
 ---
 
-## 11. Questions ouvertes trouvées sur de vraies photos
+## 11. Ce que les vraies photos ont appris
 
-Le corpus pilote a été collecté et **regardé** avant d'être annoté. Cinq
-questions que le tableau du §1 ne tranche pas sont apparues. Elles sont écrites
-ici parce que deux d'entre elles changent ce qu'un annotateur va tracer, et
-qu'un protocole ambigu produit un désaccord qu'on imputerait ensuite aux
-annotateurs.
+Le corpus pilote a été collecté et **regardé** avant d'être annoté. Six
+questions que le tableau du §1 ne tranchait pas sont apparues.
 
-`floor-annotation@1` **n'est pas modifié** : ces questions demandent des
+**Les deux premières sont tranchées** — décisions humaines prises après le
+rapport du LOT 2A, reportées dans la définition officielle du §1. Elles sont
+gardées ici avec leur raisonnement, parce qu'une règle dont on a perdu le motif
+finit par être contournée.
+
+`floor-annotation@1` **n'est pas modifié** : ces questions demandaient des
 décisions, pas du code.
 
-### 11.1 — Une surface extérieure vue par une ouverture est-elle du sol ?
+### 11.1 — La surface extérieure vue par une ouverture : **exclue** ✅
 
 **Où** : `chambre`, terrasse visible par une porte-fenêtre
 (trait `exterior_visible`).
 
-Le §1 dit « sol aperçu à travers une porte ouverte → oui, si on le voit ». La
-règle visait une pièce voisine. Ici c'est une terrasse : une surface qu'on voit
-franchement, qui est bien un sol, et sur laquelle **on ne posera jamais de
-parquet**.
+Le tableau d'origine disait « sol aperçu à travers une porte ouverte → oui ».
+La règle visait une pièce voisine. Sur `chambre` c'est une terrasse : une
+surface qu'on voit franchement, qui est bien un sol, et sur laquelle **on ne
+posera jamais de parquet**.
 
-Les deux lectures se défendent, et elles ne donnent pas le même masque :
+Les deux lectures possibles ne donnaient pas le même masque :
 
-* *tout sol visible* — cohérent avec la lettre du §1, et laisse au LOT 6 le
+* *tout sol visible* — fidèle à la lettre du tableau, et laissait au LOT 6 le
   soin de trier l'intérieur de l'extérieur ;
-* *sol intérieur seulement* — cohérent avec l'usage, mais introduit dans
-  `floor_visible` un jugement sur la **destination** de la surface, alors que
-  ce masque ne devait porter que sur ce qui est *visible*.
+* *sol intérieur candidat au parquet* — fidèle à la finalité, mais introduit
+  dans `floor_visible` un jugement sur la **destination** de la surface.
 
-**Recommandation** : exclure l'extérieur, et marquer la limite de l'ouverture
-comme `frame_cut` — le sol y est coupé par le cadre du bâti, pas par la scène.
-La raison est la cohérence : `floor_visible` sert à mesurer un segmenteur dont
-le but est de trouver *le sol à recouvrir*. **Décision humaine requise** avant
-d'annoter `chambre`.
+**Décision : la seconde.** `floor_visible` est la cible d'un segmenteur dont le
+but est de trouver *le sol à recouvrir* ; une terrasse n'en fait pas partie,
+même de plain-pied et dans le prolongement exact du parquet. Le §1 porte
+désormais la définition, la liste des cas exclus, et le rôle du seuil comme
+contour.
 
-### 11.2 — Une grille encastrée dans le sol est-elle du sol ?
+Ce que la décision coûte : un annotateur doit désormais reconnaître le
+**dehors**, ce qui est un jugement de plus. Le pilote dira si c'est une source
+de désaccord — `chambre` fait partie des quatre scènes à double passe
+précisément pour cela.
+
+### 11.2 — Les éléments techniques encastrés : **exclus** ✅
 
 **Où** : `chambre` (grille de ventilation dans le parquet), `salon` (bouche de
-soufflage).
+soufflage encastrée).
 
-Elle est dans le plan du sol, mais ce n'est pas une surface recouvrable — comme
-une trappe ou une plaque de seuil. Elle relève de la même famille qu'un pied de
-meuble : un objet qui **occupe** le sol.
+Ils sont dans le plan du sol, mais ne sont pas des surfaces recouvrables — au
+même titre qu'une trappe technique ou un regard.
 
-**Recommandation** : hors de `floor_visible`, tracée comme « ce qui cache le
-sol », et contour `object_contact`. Cohérent avec le traitement des tapis.
-Petites surfaces, donc peu d'effet sur l'IoU — mais un effet réel sur la
-F-mesure de contour, qui est justement la métrique qui compte.
+**Décision : hors de `floor_visible`, le sol visible autour restant inclus.**
+La règle rejoint celle des tapis et des meubles, et se lit dans le même sens :
+ce qui occupe le sol n'est pas le sol.
+
+Effet mesurable : négligeable sur l'IoU — ce sont de petites surfaces — mais
+réel sur la **F-mesure de contour**, puisque chaque élément ajoute un contour
+fermé à retrouver. C'est donc la métrique qui compte qui en portera la trace.
 
 ### 11.3 — Deux sols différents dans la même photo
 
 **Où** : `entree-cadree`, où le parquet cède la place à un sol clair de couloir
 au-delà d'un seuil.
 
-Les deux sont du sol visible, donc les deux entrent dans le masque. Mais
+Les deux sont du sol **intérieur** visible et candidat au parquet : les deux
+entrent donc dans le masque, la décision du §11.1 ne les sépare pas. Mais
 `floor_visible` mélange alors deux surfaces que le Visualiseur traiterait
 séparément — le front modélise exactement cela avec ses `surfaces` et ses
 `planeRef`.
@@ -499,9 +615,13 @@ peut dire. La question à trancher est celle de la **cible du LOT 2** : segmente
 « tout sol visible », ou « le sol de cette pièce » ? Le premier est plus simple
 à annoter et à mesurer ; le second est ce dont le produit a besoin.
 
-**Recommandation** : garder « tout sol visible » pour le LOT 2, et laisser la
+**Recommandation** : garder « tout le sol intérieur candidat » pour le LOT 2,
+tracer un contour `door_threshold` là où le revêtement change, et laisser la
 séparation en surfaces au LOT 6, qui aura la perspective pour la faire. À
 signaler dans les `notes` de la scène.
+
+Encore ouvert, mais sans effet sur le tracé : le contour marque déjà la limite,
+donc l'information ne sera pas perdue quel que soit le choix final.
 
 ### 11.4 — Les reflets francs
 
@@ -517,13 +637,16 @@ Aucune décision nécessaire. Signalé parce que c'est un endroit où deux
 annotateurs divergeront, et où le désaccord sera *instructif* plutôt que
 fautif.
 
-### 11.5 — Une zone incertaine doit couvrir ce qu'elle excuse
+### 11.5 — Une zone incertaine doit couvrir ce qu'elle excuse ✅
 
 Trouvé en écrivant les tests, pas sur les photos, mais c'est une règle
-d'annotation.
+d'annotation — reprise au §1 pour qu'on la lise avant de dessiner.
 
-Un décrochement de masque produit une frontière **épaisse de plusieurs
-pixels** : le contour d'une marche occupe cinq colonnes, pas une. Une zone
+**La règle** : une zone `uncertain` couvre toute la région dont la frontière est
+ambiguë, pas une ligne symbolique en son centre.
+
+**Le cas observé.** Un décrochement de masque produit une frontière **épaisse
+de plusieurs pixels** : le contour d'une marche occupe cinq colonnes, pas une. Une zone
 incertaine tracée au ras de l'incertitude laisse ces colonnes évaluées, et
 l'annotateur se voit reprocher exactement ce qu'il avait déclaré indécidable —
 la précision de contour tombe alors à 0,93 au lieu de 1,00.
@@ -532,7 +655,13 @@ la précision de contour tombe alors à 0,93 au lieu de 1,00.
 Elle ne coûte rien de trop — les pixels exclus sont comptés et publiés dans
 `ignoredFraction` — et elle évite une pénalité que rien ne justifie.
 
-`tests/test_boundary_uncertain.py` fige ce comportement, pour que la consigne
+Mesuré sur le cas exact : un décrochement à `x = 300`, une zone incertaine
+tracée jusqu'à `x < 300` → précision de contour **0,929**. La même zone étendue
+à `x < 308`, c'est-à-dire couvrant l'épaisseur du décrochement → **1,0000**.
+Le masque n'avait pas changé ; seule la déclaration d'incertitude l'avait.
+
+La métrique n'a **pas** été modifiée : elle respectait déjà la règle, et
+`tests/test_boundary_uncertain.py` fige ce comportement pour que la consigne
 reste rattachée à sa raison.
 
 ### 11.6 — Une scène `rejected` peut avoir un sol parfaitement annotable
@@ -551,7 +680,11 @@ qui échoue là échoue sur le cas le plus simple du corpus.
 
 * **aucune photo réelle n'est annotée.** Le format, les contrôles et les
   métriques sont éprouvés sur des images synthétiques et sur un tracé produit
-  par l'outil réel. Rien n'est éprouvé sur une vraie pièce ;
+  par l'outil réel. Rien n'est éprouvé sur une vraie pièce — l'infrastructure
+  est validée, l'expérience ne l'est pas ;
+* **les deux décisions du §11 ne sont pas encore appliquées.** Extérieur exclu
+  et élément encastré exclu sont écrites et testables ; c'est `chambre` qui
+  dira si elles se laissent appliquer sans hésitation ;
 * **aucun seuil n'est validé.** Ni la tolérance de contour, ni la cible d'IoU,
   ni la limite de zone incertaine ;
 * **le temps d'annotation est inconnu.** Une pièce meublée aux pieds fins peut

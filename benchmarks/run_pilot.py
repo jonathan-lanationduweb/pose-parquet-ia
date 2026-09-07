@@ -7,12 +7,16 @@ machine.
 
 ## Ce qu'il produit
 
+* l'**avancement de la campagne** : lesquels des huit relevés attendus sont
+  là, lesquels manquent ;
 * par scène : difficulté, traits, annotateur, passe, **durée**, part
   incertaine, statut ;
 * par photo annotée deux fois : IoU, Dice, précision, rappel, F-mesure de
-  contour **à plusieurs tolérances**, et la localisation du désaccord ;
-* des agrégats de temps et d'accord, et les deux scènes extrêmes — la plus
-  ambiguë et la plus stable.
+  contour **aux trois tolérances**, la part incertaine de chaque passe, la
+  localisation du désaccord et ses principaux foyers, la durée de chaque
+  passe, et sur demande une image de comparaison ;
+* des agrégats — moyenne, médiane, minimum, maximum — de temps et d'accord, la
+  répétabilité par difficulté, et les deux scènes extrêmes.
 
 ## Ce qu'il refuse de produire
 
@@ -46,11 +50,13 @@ from app.services.image_loader import load_image, luma
 from benchmarks.agreement import (
     AGREEMENT_SCHEMA,
     DEFAULT_TOLERANCES,
+    PairAgreement,
     compare,
     render_comparison,
     summarise,
 )
 from benchmarks.annotations import AnnotatedScene, corpus_report, load_corpus, paired_scenes
+from benchmarks.campaign import progress
 from benchmarks.dataset import DATASET_SCHEMA
 
 #: Version du format de rapport pilote.
@@ -113,6 +119,61 @@ def _by_difficulty(scenes: list[AnnotatedScene]) -> dict[str, Any]:
     }
 
 
+def _pair_row(
+    pair: PairAgreement,
+    first: AnnotatedScene,
+    second: AnnotatedScene,
+) -> dict[str, Any]:
+    """Une paire, avec la difficulté de la scène et la durée de chaque passe.
+
+    Les durées voyagent avec l'accord parce qu'elles s'expliquent l'une par
+    l'autre : une seconde passe deux fois plus rapide que la première n'est pas
+    forcément indépendante, et un désaccord sur une scène expédiée en trois
+    minutes ne se lit pas comme un désaccord sur une scène pesée pendant vingt.
+    """
+    row = pair.as_dict()
+    row["difficulty"] = first.photo.difficulty.value
+
+    def side(scene: AnnotatedScene) -> dict[str, Any]:
+        timing = scene.annotation.timing
+        return {
+            "annotator": scene.annotation.annotator,
+            "passLabel": scene.annotation.pass_label,
+            "annotatedOn": scene.annotation.annotated_on.isoformat(),
+            "revision": scene.annotation.revision,
+            "independentPass": scene.annotation.independent_pass,
+            "totalSeconds": None if timing is None else round(timing.total_seconds, 1),
+            "firstPassSeconds": None if timing is None else timing.first_pass_seconds,
+        }
+
+    row["passes"] = {"first": side(first), "second": side(second)}
+    return row
+
+
+def _by_difficulty_agreement(
+    pairs: list[tuple[PairAgreement, AnnotatedScene, AnnotatedScene]],
+) -> dict[str, Any]:
+    """Répétabilité par difficulté — publiée seulement là où elle a un sens.
+
+    Une moyenne sur une seule paire n'est pas une moyenne : `scenes` le dit, et
+    une difficulté représentée par une paire unique est rendue avec sa valeur
+    brute plutôt que déguisée en statistique.
+    """
+    groups: dict[str, list[float]] = {}
+    for pair, first, _ in pairs:
+        if pair.area.iou is not None:
+            groups.setdefault(first.photo.difficulty.value, []).append(pair.area.iou)
+    return {
+        name: {
+            "scenes": len(values),
+            "meanIou": round(float(np.mean(values)), 4),
+            "minIou": round(float(min(values)), 4),
+            "note": None if len(values) > 1 else "une seule paire : valeur brute, pas une moyenne",
+        }
+        for name, values in sorted(groups.items())
+    }
+
+
 def _scene_row(scene: AnnotatedScene) -> dict[str, Any]:
     annotation = scene.annotation
     timing = annotation.timing
@@ -159,6 +220,7 @@ def run(
     pairs_of_scenes = paired_scenes(scenes)
 
     comparisons = []
+    detailed: list[tuple[PairAgreement, AnnotatedScene, AnnotatedScene]] = []
     for first, second in pairs_of_scenes:
         assert first.floor_visible is not None and second.floor_visible is not None
         pair = compare(
@@ -171,6 +233,7 @@ def run(
             tolerances,
         )
         comparisons.append(pair)
+        detailed.append((pair, first, second))
 
         if render:
             image = load_image(first.image_path.read_bytes())
@@ -214,8 +277,16 @@ def run(
         "validation": corpus_report(scenes),
         "annotationTime": _durations(scenes),
         "annotationTimeByDifficulty": _by_difficulty(scenes),
+        "campaign": progress(
+            {
+                (scene.annotation.photo_id, scene.annotation.pass_label)
+                for scene in scenes
+                if scene.annotation.pass_label is not None
+            }
+        ),
         "humanAgreement": summarise(comparisons),
-        "pairs": [pair.as_dict() for pair in comparisons],
+        "repeatabilityByDifficulty": _by_difficulty_agreement(detailed),
+        "pairs": [_pair_row(pair, first, second) for pair, first, second in detailed],
         "scenes": [_scene_row(scene) for scene in scenes],
         # Écrit dans la sortie, pas seulement dans la documentation : un
         # rapport qu'on relit dans six mois doit porter ses propres réserves.
@@ -266,11 +337,16 @@ def main(argv: list[str] | None = None) -> int:
         f"{corpus['annotations']} relevé(s), {corpus['doublyAnnotated']} paire(s)"
     )
 
+    campaign = report["campaign"]
+    print(f"campagne pilote : {campaign['collected']}/{campaign['expected']} relevé(s)")
+    for entry in campaign["missing"]:
+        print(f"  manque : {entry['photoId']} passe {entry['pass']}")
+
     if corpus["annotations"] == 0:
         print(
             "\nAucune annotation. Le dispositif est prêt ; les relevés humains "
-            "restent à faire.\nVoir docs/annotation-protocol.md, et "
-            "docs/pilot-runbook.md pour la marche à suivre.",
+            "restent à faire.\nVoir docs/pilot-runbook.md pour la marche à "
+            "suivre, et docs/annotation-protocol.md pour les règles.",
             file=sys.stderr,
         )
         return 0
@@ -292,6 +368,8 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  contour F1 @ {key} : {value}")
         print(f"  désaccord réparti : {agreement['disagreementShare']}")
         print(f"  moins stable : {agreement['leastStableScene']}")
+        for name, entry in report["repeatabilityByDifficulty"].items():
+            print(f"  {name} : IoU moy {entry['meanIou']} · min {entry['minIou']}")
     print(f"Rapport : {args.out / 'pilot.json'}")
     return 0
 
