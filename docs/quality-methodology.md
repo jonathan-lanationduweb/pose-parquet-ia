@@ -57,8 +57,8 @@ zéro image parfaite.
 
 ## 2. Le corpus
 
-42 entrées synthétiques déterministes (`corpus/catalogue.py`, graine unique),
-dont 39 gradées. Chaque entrée déclare ce qu'on lui a **imposé** — sigma de
+44 entrées synthétiques déterministes (`corpus/catalogue.py`, graine unique),
+dont 38 gradées. Chaque entrée déclare ce qu'on lui a **imposé** — sigma de
 flou, gain d'exposition, coefficient `k1` — et ce qu'on attend que l'analyse en
 dise.
 
@@ -75,7 +75,7 @@ son contraste relatif mesuré vaut 0,054 à 0,060 contre 0,34 pour une scène
 texturée ; le déclarer « sans défaut » était une erreur de ma part. Chaque
 correction porte sa mesure dans la note de l'entrée.
 
-Sept entrées sont **non gradées** (`graded=False`) : leur bonne réponse est
+Six entrées sont **non gradées** (`graded=False`) : leur bonne réponse est
 discutable — un flou de sigma 0,8, une pièce à moitié dans l'ombre. Les grader
 serait inventer une vérité ; les exclure du corpus serait ne jamais regarder la
 zone grise. Elles sont mesurées et rapportées, hors comptage.
@@ -99,20 +99,28 @@ sont réellement indiscernables. La réponse n'est pas une mesure plus fine mais
 **une mesure de plus** : le *support* (`strong_gradient_ratio`) décide s'il y a
 de quoi conclure, avant toute netteté.
 
-| candidate | mesure | FP | FN |
-| --- | --- | --- | --- |
-| A `laplacian_variance` | variance de la dérivée seconde (LOT 0) | **18** | 2 |
-| B `reblur_ratio` | part de variation que le reflou ne change plus | **0** | **0** |
-| C `edge_width` | largeur médiane des transitions, en pixels | 0 | 2 |
+Bilan de bout en bout sur les 38 entrées gradées, à corpus et seuils
+identiques — seule la méthode qui conclut change :
+
+| candidate | mesure | TP | FP | FN |
+| --- | --- | --- | --- | --- |
+| A `laplacian_variance` | variance de la dérivée seconde (LOT 0) | 37 | **17** | 2 |
+| B `reblur_ratio` | part de variation que le reflou ne change plus | 39 | **0** | **0** |
+| C `edge_width` | largeur médiane des transitions, en pixels | 36 | 0 | 3 |
 
 **A est disqualifiée par un chiffre**, pas par un avis : sa marge de séparation
 est **négative** (−817), les groupes se chevauchent, et aucun seuil ne peut les
-séparer. Elle produit 18 faux positifs, dont un `image_blurry` sur chacune des
+séparer. Elle produit 17 faux positifs, dont un `image_blurry` sur chacune des
 sept scènes architecturales nettes et sur le mur lisse. C'est exactement le
 défaut annoncé, mesuré.
 
-**B est retenue.** Séparation 0,142, bornes mesurées : nets ≤ 0,3583,
-flous ≥ 0,4778.
+**C manque trois cas** : les deux bougés alignés sur un axe, et un troisième
+que ces deux-là entraînent — sa marge devenant négative, aucune borne ne la
+sert plus correctement.
+
+**B est retenue** : aucune erreur sur ce corpus.
+
+Séparation de B : 0,142. Bornes mesurées : nets ≤ 0,3583, flous ≥ 0,4778.
 
 ### Le choix a basculé deux fois
 
@@ -279,7 +287,7 @@ Les trois verdicts sont `undetermined`, `no_distortion_evidence`,
 support suffisant, on ne conclut pas.** Aucun détecteur n'a le droit de
 répondre « pas de distorsion » sur une image où il n'a rien pu mesurer.
 
-Sur les 42 entrées, 13 reçoivent `undetermined` — mur lisse, aplats, lignes
+Sur les 44 entrées, 13 reçoivent `undetermined` — mur lisse, aplats, lignes
 courtes, lignes interrompues, damier, courbes réelles. C'est le verdict le plus
 fréquent, et c'est normal : la plupart des images ne portent pas de quoi juger
 un objectif.
@@ -367,20 +375,32 @@ Voir `datasets/README.md` pour la procédure d'ajout.
 
 ## 8. Performance, sur CPU
 
-Mesurée sur les 42 entrées, en millisecondes :
+Mesurée sur les 44 entrées du corpus, en millisecondes, sur une machine de
+développement Windows sans isolation particulière. Trois exécutions
+successives donnent des moyennes de 382, 505 et 521 ms : la **dispersion entre
+exécutions est du même ordre que les écarts entre étages**, et ces chiffres ne
+valent donc que comme ordre de grandeur.
 
 | étape | moyenne | maximum |
 | --- | --- | --- |
-| `load_image` | 23 | 44 |
-| `quality_analysis` | 61 | 93 |
-| `lens_analysis` | 109 | 259 |
-| **total** | **190** | **358** |
+| `load_image` | 37 à 51 | ~110 |
+| `quality_analysis` | 141 à 179 | ~350 |
+| `lens_analysis` | 208 à 299 | ~700 |
+| **total** | **380 à 520** | **700 à 1350** |
 
-L'analyse d'objectif est l'étage le plus coûteux, l'essentiel venant du
-balayage de 181 valeurs de `k1`. Aucune optimisation n'a été faite : à 190 ms
-en moyenne le budget est large, et le lot avait mieux à prouver que sa vitesse.
-Une descente locale remplacerait le balayage si besoin — au prix du risque de
-minimum local, ce qui est cher payé pour gagner cent millisecondes.
+L'analyse d'objectif reste l'étage le plus coûteux, l'essentiel venant du
+balayage de 181 valeurs de `k1`. L'analyse de qualité a environ doublé au cours
+du lot, quand `edge_width` s'est mise à mesurer les **deux** directions et que
+les filtres médians sont apparus : les trois candidates étant calculées à
+chaque passage, on paie le prix de la comparaison même après l'avoir tranchée.
+Ne garder que la candidate retenue diviserait ce coût, au prix de la capacité
+à rejouer un choix de méthode sans réanalyser le corpus — mauvais échange tant
+que le corpus réel n'existe pas.
+
+Aucune optimisation n'a été faite. Un demi-seconde par photo sur un service
+d'analyse asynchrone est large, et le lot avait mieux à prouver que sa vitesse.
+Si le budget se resserre : une descente locale remplacerait le balayage de
+`k1`, au prix du risque de minimum local.
 
 ---
 
