@@ -1,6 +1,6 @@
 {
   "schema": "pose-parquet-ai/dataset@2",
-  "note": "Corpus de photos réelles. VIDE au terme du préambule du LOT IA 2, et volontairement : le format, les contrôles, les métriques et le banc d'essai sont en place ; la collecte est un travail de sélection et de licences qui ne doit pas être bâclé pour faire nombre. Cible : 20 à 30 scènes couvrant les traits de SceneTrait. Les photos Pexels du front NE constituent pas un corpus redistribué ici (décision humaine) ; elles peuvent servir de tests privés locaux, une entrée à la fois, avec provenance documentée. Ajouter une photo : python -m scripts.add_photo. Voir datasets/README.md et docs/annotation-protocol.md.",
+  "note": "Corpus de photos réelles. Onze scènes pilotes au LOT IA 2A, toutes dans private-real/ et donc hors de Git : le dépôt n'en garde que la description. Cible à terme : 20 à 30 scènes couvrant les traits de SceneTrait. Les photos Pexels du front NE constituent pas un corpus redistribué ici ; elles servent de stress-tests privés locaux, une entrée à la fois, avec provenance et licence documentées, sans API Pexels ni collecte automatisée. Le projet ne conclut pas sur leur réutilisabilité dans un dataset IA public ou redistribué. Ajouter une photo : python -m scripts.add_photo. Voir datasets/README.md et docs/annotation-protocol.md.",
   "photos": [
     {
       "id": "appartement-ancien",
@@ -15,7 +15,7 @@
         "redistributable": false,
         "usage": "local_evaluation_only",
         "sha256": "cf3f65618d353e76b174bd8046cd436da43e45bb1e634f5523bb9cfbf0424d77",
-        "note": "Provenance recopiée de assets/images/CREDITS.md du front. redistributable=false enregistre la décision humaine du préambule LOT 2 (pas de corpus Pexels redistribué dans ce dépôt), et non une limite de la Pexels License."
+        "note": "Provenance recopiée de assets/images/CREDITS.md du front. redistributable=false est une décision conservatrice du projet : cette image sert uniquement de stress-test privé local, hors de Git. Le projet ne conclut pas ici sur sa réutilisabilité dans un dataset IA public ou redistribué."
       },
       "traits": [
         "furnished",
@@ -45,7 +45,7 @@
         "redistributable": false,
         "usage": "local_evaluation_only",
         "sha256": "1a75ed862f66233d7b244e1fd889d9419f877b0b7820104863be7edfef1552da",
-        "note": "Provenance recopiée de assets/images/CREDITS.md du front. redistributable=false enregistre la décision humaine du préambule LOT 2 (pas de corpus Pexels redistribué dans ce dépôt), et non une limite de la Pexels License."
+        "note": "Provenance recopiée de assets/images/CREDITS.md du front. redistributable=false est une décision conservatrice du projet : cette image sert uniquement de stress-test privé local, hors de Git. Le projet ne conclut pas ici sur sa réutilisabilité dans un dataset IA public ou redistribué."
       },
       "traits": [
         "empty_room",
@@ -73,7 +73,7 @@
         "redistributable": false,
         "usage": "local_evaluation_only",
         "sha256": "18fce27c00a5bd7d360e3db03eadc21462564fc1400161d3fb87197318302b73",
-        "note": "Provenance recopiée de assets/images/CREDITS.md du front. redistributable=false enregistre la décision humaine du préambule LOT 2 (pas de corpus Pexels redistribué dans ce dépôt), et non une limite de la Pexels License."
+        "note": "Provenance recopiée de assets/images/CREDITS.md du front. redistributable=false est une décision conservatrice du projet : cette image sert uniquement de stress-test privé local, hors de Git. Le projet ne conclut pas ici sur sa réutilisabilité dans un dataset IA public ou redistribué."
       },
       "traits": [
         "empty_room",
@@ -103,7 +103,7 @@
         "redistributable": false,
         "usage": "local_evaluation_only",
         "sha256": "c2642bf2fa3b1c6c8111380c3e60090f7859cc7d9c67fb0d2297b87093aa1126",
-        "note": "Provenance recopiée de assets/images/CREDITS.md du front. redistributable=false enregistre la décision humaine du préambule LOT 2 (pas de corpus Pexels redistribué dans ce dépôt), et non une limite de la Pexels License."
+        "note": "Provenance recopiée de assets/images/CREDITS.md du front. redistributable=false est une décision conservatrice du projet : cette image sert uniquement de stress-test privé local, hors de Git. Le projet ne conclut pas ici sur sa réutilisabilité dans un dataset IA public ou redistribué."
       },
       "traits": [
         "not_a_room",
@@ -131,7 +131,7 @@
         "redistributable": false,
         "usage": "local_evaluation_only",
         "sha256": "4c18875ccde6027586211703bdb2b06ff4ba74784ae81a6858169bc5ae9d0ea4",
-        "note": "Provenance recopiée de assets/images/CREDITS.md du front. redistributable=false enregistre la décision humaine du préambule LOT 2 (pas de corpus Pexels redistribué dans ce dépôt), et non une limite de la Pexels License."
+        "note": "Provenance recopiée de assets/images/CREDITS.md du front. redistributable=false est une décision conservatrice du projet : cette image sert uniquement de stress-test privé local, hors de Git. Le projet ne conclut pas ici sur sa réutilisabilité dans un dataset IA public ou redistribué."
       },
       "traits": [
         "empty_room",
@@ -160,7 +160,7 @@
         "redistributable": false,
         "usage": "local_evaluation_only",
         "sha256": "74351f8c7bbd77d847083017c60d303c5b1e770ae1d979f1cf319461c07e6311",
-        "note": "Provenance recopiée de assets/images/CREDITS.md du front. redistributable=false enregistre la décision humaine du préambule LOT 2 (pas de corpus Pexels redistribué dans ce dépôt), et non une limite de la Pexels License."
+        "note": "Provenance recopiée de assets/images/CREDITS.md du front. redistributable=false est une décision conservatrice du projet : cette image sert uniquement de stress-test privé local, hors de Git. Le projet ne conclut pas ici sur sa réutilisabilité dans un dataset IA public ou redistribué."
       },
       "traits": [
         "empty_room",
@@ -190,7 +190,7 @@
         "redistributable": false,
         "usage": "local_evaluation_only",
         "sha256": "4749ea5e75692a01a8fe1623e68e5523876aa28a6609e385705bbf76e5b85a6a",
-        "note": "Provenance recopiée de assets/images/CREDITS.md du front. redistributable=false enregistre la décision humaine du préambule LOT 2 (pas de corpus Pexels redistribué dans ce dépôt), et non une limite de la Pexels License."
+        "note": "Provenance recopiée de assets/images/CREDITS.md du front. redistributable=false est une décision conservatrice du projet : cette image sert uniquement de stress-test privé local, hors de Git. Le projet ne conclut pas ici sur sa réutilisabilité dans un dataset IA public ou redistribué."
       },
       "traits": [
         "furnished",
@@ -220,7 +220,7 @@
         "redistributable": false,
         "usage": "local_evaluation_only",
         "sha256": "87209f57aee1b315be9ea2e076a120a2debc3834d8dcac1ee1161bf6c4cb127c",
-        "note": "Provenance recopiée de assets/images/CREDITS.md du front. redistributable=false enregistre la décision humaine du préambule LOT 2 (pas de corpus Pexels redistribué dans ce dépôt), et non une limite de la Pexels License."
+        "note": "Provenance recopiée de assets/images/CREDITS.md du front. redistributable=false est une décision conservatrice du projet : cette image sert uniquement de stress-test privé local, hors de Git. Le projet ne conclut pas ici sur sa réutilisabilité dans un dataset IA public ou redistribué."
       },
       "traits": [
         "empty_room",
@@ -250,7 +250,7 @@
         "redistributable": false,
         "usage": "local_evaluation_only",
         "sha256": "25e84df28ec760f4f00edea388b86fb4e3d491025c0048be324ae795ec31a5e8",
-        "note": "Provenance recopiée de assets/images/CREDITS.md du front. redistributable=false enregistre la décision humaine du préambule LOT 2 (pas de corpus Pexels redistribué dans ce dépôt), et non une limite de la Pexels License."
+        "note": "Provenance recopiée de assets/images/CREDITS.md du front. redistributable=false est une décision conservatrice du projet : cette image sert uniquement de stress-test privé local, hors de Git. Le projet ne conclut pas ici sur sa réutilisabilité dans un dataset IA public ou redistribué."
       },
       "traits": [
         "furnished",
@@ -279,7 +279,7 @@
         "redistributable": false,
         "usage": "local_evaluation_only",
         "sha256": "7b3e593878ad3644dfbe4454b2902fe84b9266436d4a7b737af431569318416e",
-        "note": "Provenance recopiée de assets/images/CREDITS.md du front. redistributable=false enregistre la décision humaine du préambule LOT 2 (pas de corpus Pexels redistribué dans ce dépôt), et non une limite de la Pexels License."
+        "note": "Provenance recopiée de assets/images/CREDITS.md du front. redistributable=false est une décision conservatrice du projet : cette image sert uniquement de stress-test privé local, hors de Git. Le projet ne conclut pas ici sur sa réutilisabilité dans un dataset IA public ou redistribué."
       },
       "traits": [
         "empty_room",
@@ -309,7 +309,7 @@
         "redistributable": false,
         "usage": "local_evaluation_only",
         "sha256": "9b755d40ad144a85f4bea4c2b8407595dd8d74f2466261197a02617a9ad65546",
-        "note": "Provenance recopiée de assets/images/CREDITS.md du front. redistributable=false enregistre la décision humaine du préambule LOT 2 (pas de corpus Pexels redistribué dans ce dépôt), et non une limite de la Pexels License."
+        "note": "Provenance recopiée de assets/images/CREDITS.md du front. redistributable=false est une décision conservatrice du projet : cette image sert uniquement de stress-test privé local, hors de Git. Le projet ne conclut pas ici sur sa réutilisabilité dans un dataset IA public ou redistribué."
       },
       "traits": [
         "empty_room",

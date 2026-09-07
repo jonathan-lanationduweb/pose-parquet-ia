@@ -252,6 +252,27 @@ mesurerait contre un brouillon en croyant mesurer contre une référence.
 approuver, c'est engager la mesure. La même personne peut faire les deux, mais
 pas sans le dire.
 
+### Quand `reviewer` est aussi `annotator` : auto-relecture
+
+Le cas est admis — à une personne, il n'y a pas d'autre relecteur — et il doit
+être **nommé pour ce qu'il est** :
+
+| `annotator` et `reviewer` | ce que la relecture vaut |
+| --- | --- |
+| noms **identiques** | **auto-relecture** : la même personne constate son propre travail |
+| noms **différents** | **revue indépendante** : un second regard |
+
+Une auto-relecture attrape les fautes d'exécution — masque oublié, trou mal
+fermé, contour rangé dans la mauvaise catégorie. Elle n'attrape pas les fautes
+de **lecture**, puisque c'est la même lecture qui relit : une interprétation
+erronée mais cohérente y survit intacte.
+
+Un banc d'essai dont toute la vérité terrain est auto-relue n'est donc pas
+faux, mais son plafond de fiabilité est plus bas qu'il n'y paraît. C'est
+exactement ce que les deux passes indépendantes servent à mesurer — et c'est
+pourquoi la répétabilité ne doit jamais être présentée comme un accord entre
+deux personnes.
+
 Un masque modifié après coup est détecté par son hash : le validateur signale
 l'écart et demande d'incrémenter `revision`. Un résultat de banc d'essai reste
 ainsi rattachable aux octets exacts sur lesquels il a été calculé.
@@ -519,13 +540,20 @@ consciente plutôt que subie.
 
 ### Les photos Pexels du front
 
-**Décision humaine déjà prise : elles ne constituent pas un corpus
-redistribué dans ce dépôt.** Aucune n'a été copiée, l'API Pexels n'est pas
-utilisée, et rien n'est présenté comme redistribuable.
+**Décision humaine déjà prise : elles ne constituent pas un corpus redistribué
+dans ce dépôt.** L'API Pexels n'est pas utilisée, aucune collecte n'est
+automatisée, et rien n'est présenté comme redistribuable.
 
-Elles peuvent servir de **tests privés locaux** si leur provenance est
-documentée entrée par entrée : `private-real/`, licence nommée,
-`redistributable: false`, `usage: local_evaluation_only`.
+Elles servent de **stress-tests privés locaux**, une entrée à la fois, avec
+provenance documentée : `private-real/` (hors de Git), licence nommée,
+`verified_on` renseignée, `redistributable: false`,
+`usage: local_evaluation_only`. Onze scènes ont été retenues ainsi pour le
+pilote du LOT 2A — voir `datasets/README.md`.
+
+`redistributable: false` est une **décision conservatrice du projet**, et le
+projet **ne conclut pas** ici sur la réutilisabilité de ces images dans un
+dataset IA public ou redistribué. Le champ dit ce qu'on fait, et rien de plus :
+il ne constate pas une interdiction et n'accorde pas une permission.
 
 Deux scènes du front méritent d'y passer en priorité, pour ce qu'elles
 éprouvent :

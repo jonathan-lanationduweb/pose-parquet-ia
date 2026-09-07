@@ -124,6 +124,26 @@ Les masques PNG et le JSON d'annotation atterrissent dans
 > `--status approved` engage l'annotation comme référence. Sans cela elle reste
 > en `draft` et n'entre pas au banc d'essai — donc pas dans la mesure.
 
+**`--annotator jonathan --reviewer jonathan`, c'est une auto-relecture.** Les
+deux champs portent le même nom, et c'est explicitement admis : à une personne,
+il n'y a pas d'autre relecteur disponible. Mais ce n'est **pas** une revue
+indépendante, et le rapport ne doit jamais être lu comme si c'en était une.
+
+| ce que le couple annotateur/relecteur vaut | |
+| --- | --- |
+| noms **identiques** | **auto-relecture** — la même personne constate son propre travail |
+| noms **différents** | revue indépendante — un second regard |
+
+Ce que l'auto-relecture attrape quand même : un masque oublié, un trou mal
+fermé, un contour tracé dans la mauvaise catégorie. Ce qu'elle n'attrape pas :
+une mauvaise **lecture** de la scène, puisque c'est la même lecture qui relit.
+Une erreur d'interprétation cohérente avec elle-même y survit intacte.
+
+C'est la raison pour laquelle les deux passes indépendantes existent : elles
+mesurent ce que l'auto-relecture est structurellement incapable de voir. Si
+une seconde personne est disponible, ne serait-ce que pour relire deux scènes,
+cela vaut mieux que quatre auto-relectures.
+
 ### 4 · Passer à la suivante
 
 Rechargez la page (ou **Tout effacer**), puis reprenez au point 2 avec
@@ -148,9 +168,24 @@ Même procédure, avec `B` dans le champ Passe :
 .venv/Scripts/python.exe -m scripts.import_annotation --draw ~/Downloads/sejour.B.draw.json --annotator jonathan --independent --status approved --reviewer jonathan
 ```
 
-Gardez le **même nom d'annotateur** si c'est bien vous : c'est ainsi que la
-mesure s'appellera `intra_annotator_repeatability`. Un nom différent la ferait
-passer pour un accord entre deux personnes, ce qu'elle ne serait pas.
+Gardez le **même nom d'annotateur** si c'est bien vous. Le nom de la mesure en
+dépend, et il n'est pas cosmétique :
+
+| qui a fait les deux passes | nom de la mesure |
+| --- | --- |
+| la **même** personne | `intra_annotator_repeatability` |
+| deux personnes **réellement différentes** | `inter_annotator_agreement` |
+
+Le module le déduit des champs `annotator` et refuse de choisir à votre place.
+La répétabilité mesure la stabilité d'**une main** : c'est une **borne
+optimiste**, parce que personne ne reproduit ses propres hésitations aussi mal
+que celles d'un autre. L'accord, lui, mesure ce que le **protocole** transmet
+d'une tête à une autre — et c'est lui qui plafonne ce qu'on pourra exiger d'un
+modèle.
+
+Mettre deux noms différents pour deux passes que vous avez faites toutes les
+deux gonflerait donc précisément le chiffre qui servira de plafond. Le pilote
+mesurera une **répétabilité**, et le rapport l'écrira ainsi.
 
 ### 6 · Ce qui est chronométré tout seul
 

@@ -444,7 +444,11 @@ def test_le_bilan_de_controle_est_comptable(corpus):
 
 
 def test_une_image_privee_ne_peut_pas_etre_declaree_redistribuable(corpus, capsys):
-    """Le garde-fou de la décision humaine du LOT 2."""
+    """Le garde-fou de la décision conservatrice du projet.
+
+    `public/` est versionné, donc redistribué de fait : y ranger une image
+    déclarée non redistribuable la publierait par simple inadvertance.
+    """
     code = add_photo.main(
         [
             "--dataset",

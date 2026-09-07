@@ -9,7 +9,8 @@ enregistrée ici a donc toujours de quoi être citée.
 `--redistributable` est un drapeau qu'il faut poser explicitement, et le script
 refuse de le poser sur une image rangée dans `private-real/`. C'est le
 garde-fou qui empêche qu'une photo non redistribuable finisse versionnée par
-inadvertance — le cas exact que la décision humaine du LOT 2 voulait éviter.
+inadvertance — le cas exact que la décision conservatrice du projet vise à
+éviter.
 
 Usage
 -----

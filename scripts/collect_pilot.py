@@ -7,14 +7,17 @@ documentée. Ce script recopie cette provenance plutôt que de l'inventer.
 
 ## Pourquoi `private-real/` et pas `public/`
 
-Ce n'est pas une limite de la licence. La licence Pexels autoriserait
-probablement la redistribution — elle interdit de reverser les photos sur une
-plateforme de banque d'images, pas de constituer un corpus d'évaluation.
+`redistributable: false` est une **décision conservatrice du projet**. Les
+images concernées servent uniquement de **stress-tests privés locaux**, hors de
+Git, et le projet **ne conclut pas** ici sur leur réutilisabilité dans un
+dataset IA public ou redistribué.
 
-C'est une **décision humaine prise au préambule** : pas de corpus Pexels
-redistribué dans ce dépôt. `redistributable: false` enregistre donc notre
-choix, et non une contrainte du titulaire. La note de provenance le dit, pour
-qu'un lecteur futur ne prenne pas l'un pour l'autre.
+Ce que cela veut dire en pratique : usage local seulement, rien de versionné,
+aucune collecte automatisée, aucune API Pexels pour constituer le corpus, et
+provenance et licence documentées entrée par entrée. Ce que cela ne veut
+**pas** dire : ni que la redistribution serait interdite, ni qu'elle serait
+permise. La question n'est pas tranchée, et ce script n'est pas l'endroit où la
+trancher.
 
 ## Ce que ce script ne fait pas
 
@@ -297,15 +300,17 @@ def collect(front: Path, root: Path) -> tuple[int, list[str]]:
                 author=pick.author,
                 license=LICENSE,
                 verified_on=VERIFIED_ON,
-                # Notre décision, PAS une contrainte de la licence. La note le dit.
+                # Décision conservatrice du projet : usage local seulement.
+                # Ni un constat d'interdiction, ni un feu vert — la note le dit.
                 redistributable=False,
                 usage=Usage.LOCAL_EVALUATION_ONLY,
                 sha256=sha256_of(target),
                 note=(
                     "Provenance recopiée de assets/images/CREDITS.md du front. "
-                    "redistributable=false enregistre la décision humaine du "
-                    "préambule LOT 2 (pas de corpus Pexels redistribué dans ce "
-                    "dépôt), et non une limite de la Pexels License."
+                    "redistributable=false est une décision conservatrice du "
+                    "projet : cette image sert uniquement de stress-test privé "
+                    "local, hors de Git. Le projet ne conclut pas ici sur sa "
+                    "réutilisabilité dans un dataset IA public ou redistribué."
                 ),
             ),
             list(pick.traits),

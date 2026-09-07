@@ -348,7 +348,12 @@ résultats du lot autant que la matrice.
 
 ## 7. Corpus réel : blocage documenté
 
-`datasets/manifest.json` est **vide**, et le rester est un choix.
+`datasets/manifest.json` est **vide** au terme du LOT 1, et le rester à ce
+stade est un choix.
+
+> Depuis, le LOT 2A y a inscrit onze scènes pilotes, toutes dans
+> `private-real/` et donc hors de Git. Cela ne change rien aux conclusions
+> ci-dessous : aucun seuil du LOT 1 n'a été mesuré sur photo réelle.
 
 Les scènes du front (`pose-parquet.com/data/scenes/`) sont des photos Pexels,
 créditées scène par scène. Elles sont utilisables et constitueraient un bon

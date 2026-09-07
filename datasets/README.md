@@ -142,10 +142,14 @@ Onze scènes ont été retenues ainsi, une par une, par
 modifié), hash calculé, provenance inscrite au manifeste. Elles restent **hors
 de Git** ; le dépôt n'en garde que la description.
 
-`redistributable: false` y enregistre une **décision humaine**, pas une limite
-de licence : la licence Pexels autoriserait la redistribution, et le choix de
-ne pas s'en servir a été pris en amont. Le champ dit ce qu'on fait, pas ce
-qu'on pourrait faire.
+`redistributable: false` y est une **décision conservatrice du projet**. Les
+images concernées servent uniquement de **stress-tests privés locaux**, et le
+projet **ne conclut pas** ici sur leur réutilisabilité dans un dataset IA
+public ou redistribué.
+
+Le champ dit donc ce qu'on fait — usage local, hors de Git, provenance et
+licence documentées, aucune collecte automatisée, aucune API Pexels — et rien
+de plus. Il ne constate pas une interdiction et n'accorde pas une permission.
 
 Deux de ces scènes portent des cas que le LOT 1 n'avait mesurés que sur images
 **synthétiques**, et sont les seules photos réelles connues à les porter :
