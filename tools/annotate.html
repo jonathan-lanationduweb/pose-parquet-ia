@@ -1,161 +1,812 @@
+<!doctype html>
+<html lang="fr">
+<head>
 <meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Relevé du sol — pose-parquet-ai</title>
 
 <!--
-  Outil de tracé minimal, volontairement.
+  Outil de relevé du sol. Un seul fichier, aucune dépendance, aucune requête
+  réseau : il s'ouvre par double-clic en file:// et rien ne quitte la machine.
 
-  Il ne fait qu'une chose : produire des polygones normalisés que
-  `scripts/import_annotation.py` rastérise. Le navigateur dessine, Python
-  possède le format — un tracé n'est qu'une entrée intermédiaire, et n'importe
-  quel autre outil peut produire le même JSON.
+  ## Ce qu'il fait, et ce qu'il ne fait pas
 
-  Aucun cadre, aucune dépendance, aucune étape de construction : un fichier
-  qu'on ouvre. Rien n'est envoyé nulle part, l'image ne quitte pas la machine.
+  Il produit des polygones normalisés au format `pose-parquet-ai/floor-draw@1`.
+  Python possède le format et fait la rastérisation : le tracé n'est qu'une
+  entrée intermédiaire, et n'importe quel autre outil peut produire le même
+  JSON.
 
-  ORIENTATION EXIF : l'image est décodée avec `imageOrientation: 'from-image'`,
-  donc redressée comme le fait le pipeline Python. Les dimensions écrites dans
-  le tracé sont celles d'après redressement, et l'import REFUSE le tracé si
-  elles ne correspondent pas à ce que charge `image_loader.load_image`. C'est
-  ce refus qui évite un masque silencieusement faux.
+  Il n'y a **aucune assistance automatique**. Pas de détection de contour, pas
+  de suggestion de sol, aucun modèle. La vérité terrain doit rester le jugement
+  d'une personne qui regarde la photo — c'est précisément ce que le LOT 2A
+  mesure, et une aide algorithmique la contaminerait.
+
+  ## Le chronomètre
+
+  Sa sémantique est une donnée expérimentale, à ne pas modifier : il ne démarre
+  pas au chargement de la page mais au premier geste d'annotation, se met en
+  pause après 60 s d'inactivité, et reprend au geste suivant. Aucune télémétrie.
+
+  Un temps qui inclurait la lecture d'une notice ne mesurerait pas l'annotation.
+  C'est une raison de plus pour que l'interface se comprenne sans notice.
 -->
 
 <style>
-  :root { color-scheme: light dark; --ink: #222; --line: #bbb; }
-  body { margin: 0; font: 13px/1.5 system-ui, sans-serif; display: flex; height: 100vh; }
-  aside { width: 270px; flex: none; padding: 14px; overflow-y: auto;
-          border-right: 1px solid var(--line); }
-  main { flex: 1; overflow: auto; background: #666; display: grid; place-items: center; }
-  canvas { display: block; box-shadow: 0 0 0 1px #000; cursor: crosshair; }
-  h1 { font-size: 14px; margin: 0 0 12px; }
-  fieldset { border: 1px solid var(--line); margin: 0 0 12px; padding: 8px; }
-  legend { padding: 0 4px; font-weight: 600; }
-  label { display: block; margin: 3px 0; }
-  select, input[type=text], button { width: 100%; margin: 3px 0; font: inherit; padding: 3px; }
-  button { cursor: pointer; }
-  ul { margin: 4px 0; padding-left: 18px; }
-  li { cursor: pointer; }
-  li:hover { text-decoration: line-through; }
-  .hint { color: #888; font-size: 12px; }
-  .swatch { display: inline-block; width: 10px; height: 10px; margin-right: 4px;
-            vertical-align: middle; border: 1px solid #0006; }
+  /* ---------------------------------------------------------------------
+     Jetons de style. Une seule source pour les couleurs et les rayons :
+     un outil interne qui dérive visuellement devient vite illisible.
+     --------------------------------------------------------------------- */
+  :root {
+    --bg: #f5f5f7;
+    --surface: #ffffff;
+    --surface-veil: rgba(255, 255, 255, 0.82);
+    --ink: #1d1d1f;
+    --ink-soft: #6e6e73;
+    --ink-faint: #a1a1a6;
+    --line: rgba(0, 0, 0, 0.08);
+    --line-strong: rgba(0, 0, 0, 0.14);
+
+    --floor: #0a84ff;
+    --exclude: #ff3b30;
+    --unsure: #b8860b;
+    --edge: #1f9e55;
+
+    --radius-lg: 20px;
+    --radius-md: 14px;
+    --radius-pill: 999px;
+
+    --lift-1: 0 1px 2px rgba(0, 0, 0, 0.05);
+    --lift-2: 0 2px 6px rgba(0, 0, 0, 0.06), 0 12px 32px rgba(0, 0, 0, 0.08);
+    --ease: cubic-bezier(0.32, 0.72, 0, 1);
+    --fast: 160ms;
+    --calm: 220ms;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body { height: 100%; margin: 0; overflow: hidden; }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto,
+      "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  button { font: inherit; color: inherit; cursor: pointer; }
+
+  :focus-visible { outline: 2px solid var(--floor); outline-offset: 2px; border-radius: 6px; }
+
+  .hidden { display: none !important; }
+  .spacer { flex: 1; }
+
+  /* ---------------------------------------------------------------------
+     Écran d'entrée
+     --------------------------------------------------------------------- */
+  #welcome { position: fixed; inset: 0; display: grid; place-items: center; padding: 32px; }
+
+  .intro { width: min(520px, 100%); text-align: center; }
+
+  .intro h1 { margin: 0 0 6px; font-size: 30px; font-weight: 600; letter-spacing: -0.02em; }
+  .intro .lede { margin: 0 0 28px; color: var(--ink-soft); font-size: 15px; }
+
+  #drop {
+    display: block;
+    width: 100%;
+    padding: 44px 28px;
+    background: var(--surface);
+    border: 1px dashed var(--line-strong);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--lift-1);
+    text-align: center;
+    transition: border-color var(--fast) var(--ease),
+      box-shadow var(--fast) var(--ease), transform var(--fast) var(--ease);
+  }
+
+  #drop:hover { box-shadow: var(--lift-2); }
+  #drop.over {
+    border-color: var(--floor);
+    box-shadow: 0 0 0 4px rgba(10, 132, 255, 0.12), var(--lift-2);
+    transform: scale(1.005);
+  }
+
+  #drop .glyph {
+    display: grid;
+    place-items: center;
+    width: 52px;
+    height: 52px;
+    margin: 0 auto 16px;
+    background: rgba(10, 132, 255, 0.1);
+    border-radius: var(--radius-pill);
+    color: var(--floor);
+  }
+
+  #drop .title { display: block; font-size: 17px; font-weight: 550; }
+  #drop .hint { display: block; margin-top: 4px; font-size: 13px; color: var(--ink-faint); }
+
+  .fields { display: flex; gap: 12px; margin-top: 22px; text-align: left; }
+  .field { flex: 1; }
+
+  .field label {
+    display: block;
+    margin: 0 0 6px 2px;
+    font-size: 12px;
+    font-weight: 550;
+    color: var(--ink-soft);
+  }
+
+  .field input {
+    width: 100%;
+    padding: 11px 13px;
+    font: inherit;
+    color: var(--ink);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    box-shadow: var(--lift-1);
+    transition: border-color var(--fast) var(--ease), box-shadow var(--fast) var(--ease);
+  }
+
+  .field input:focus {
+    border-color: var(--floor);
+    box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.14);
+    outline: none;
+  }
+
+  .privacy { margin: 26px 0 0; font-size: 12px; color: var(--ink-faint); }
+
+  /* ---------------------------------------------------------------------
+     Atelier : barre haute, canvas plein, barre d'outils flottante
+     --------------------------------------------------------------------- */
+  #studio { position: fixed; inset: 0; display: flex; flex-direction: column; }
+
+  #topbar {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    height: 52px;
+    padding: 0 14px;
+    background: var(--surface-veil);
+    backdrop-filter: saturate(180%) blur(20px);
+    border-bottom: 1px solid var(--line);
+    flex: none;
+  }
+
+  .icon-btn {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    background: transparent;
+    border: none;
+    border-radius: 9px;
+    color: var(--ink-soft);
+    transition: background var(--fast) var(--ease), color var(--fast) var(--ease);
+  }
+
+  .icon-btn:hover { background: rgba(0, 0, 0, 0.055); color: var(--ink); }
+  .icon-btn[disabled] { opacity: 0.3; cursor: default; }
+  .icon-btn[disabled]:hover { background: transparent; color: var(--ink-soft); }
+
+  #sceneName { font-size: 15px; font-weight: 550; letter-spacing: -0.01em; }
+  #sceneName .pass { color: var(--ink-faint); font-weight: 400; }
+
+  .meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--ink-soft);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: var(--radius-pill);
+    background: var(--ink-faint);
+    transition: background var(--calm) var(--ease);
+  }
+  .dot.live { background: #34c759; }
+
+  #stage { position: relative; flex: 1; min-height: 0; overflow: hidden; }
+
+  #canvas { display: block; width: 100%; height: 100%; }
+  #canvas.panning { cursor: grabbing; }
+  #canvas.pannable { cursor: grab; }
+
+  #tools {
+    position: absolute;
+    left: 50%;
+    bottom: 22px;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px;
+    background: var(--surface-veil);
+    backdrop-filter: saturate(180%) blur(20px);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-pill);
+    box-shadow: var(--lift-2);
+  }
+
+  .tool {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 14px 8px 11px;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-pill);
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--ink-soft);
+    transition: background var(--fast) var(--ease), color var(--fast) var(--ease);
+  }
+
+  .tool:hover { background: rgba(0, 0, 0, 0.05); color: var(--ink); }
+
+  .tool .swatch { width: 11px; height: 11px; border-radius: 3px; border: 1.5px solid currentColor; flex: none; }
+  .tool[data-mode="floor"] .swatch { color: var(--floor); background: rgba(10, 132, 255, 0.3); }
+  .tool[data-mode="hole"] .swatch {
+    color: var(--exclude);
+    background: repeating-linear-gradient(45deg, rgba(255, 59, 48, 0.5) 0 2px, transparent 2px 4px);
+  }
+  .tool[data-mode="uncertain"] .swatch {
+    color: var(--unsure);
+    background: repeating-linear-gradient(-45deg, rgba(184, 134, 11, 0.55) 0 2px, transparent 2px 4px);
+  }
+  .tool[data-mode="boundary"] .swatch {
+    color: var(--edge);
+    background: var(--edge);
+    height: 4px;
+    border-width: 0;
+    border-radius: var(--radius-pill);
+  }
+
+  .tool[aria-pressed="true"] {
+    background: var(--surface);
+    color: var(--ink);
+    box-shadow: var(--lift-1), inset 0 0 0 1px var(--line);
+  }
+
+  .sep { width: 1px; height: 22px; margin: 0 4px; background: var(--line); flex: none; }
+
+  .card {
+    position: absolute;
+    padding: 16px 18px;
+    background: var(--surface-veil);
+    backdrop-filter: saturate(180%) blur(20px);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--lift-2);
+  }
+
+  #help { top: 16px; left: 16px; width: 286px; }
+  #help h2 { margin: 0 0 10px; font-size: 13px; font-weight: 600; }
+  #help ul { margin: 0; padding-left: 17px; }
+  #help li { margin-bottom: 7px; font-size: 13px; color: var(--ink-soft); }
+  #help li:last-child { margin-bottom: 0; }
+  #help .close { position: absolute; top: 10px; right: 10px; }
+
+  #helpOpen {
+    position: absolute;
+    top: 16px;
+    left: 16px;
+    background: var(--surface-veil);
+    box-shadow: var(--lift-1);
+  }
+
+  #zoombar { right: 16px; top: 16px; display: flex; align-items: center; gap: 2px; padding: 5px; border-radius: var(--radius-pill); }
+
+  #zoomLevel {
+    min-width: 46px;
+    padding: 0 4px;
+    font-size: 12px;
+    text-align: center;
+    color: var(--ink-soft);
+    font-variant-numeric: tabular-nums;
+  }
+
+  #advanced { right: 16px; bottom: 22px; width: 264px; }
+  #advanced h2 { margin: 0 0 4px; font-size: 13px; font-weight: 600; }
+  #advanced p { margin: 0 0 12px; font-size: 12px; color: var(--ink-faint); }
+
+  .choice-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+
+  .choice {
+    padding: 9px 10px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    font-size: 12.5px;
+    text-align: left;
+    color: var(--ink-soft);
+    transition: border-color var(--fast) var(--ease), color var(--fast) var(--ease),
+      background var(--fast) var(--ease);
+  }
+
+  .choice:hover { border-color: var(--line-strong); color: var(--ink); }
+  .choice[aria-pressed="true"] { border-color: var(--edge); color: var(--ink); background: rgba(31, 158, 85, 0.08); }
+
+  #reasonPop { width: 300px; z-index: 5; }
+  #reasonPop h2 { margin: 0 0 3px; font-size: 13px; font-weight: 600; }
+  #reasonPop p { margin: 0 0 12px; font-size: 12px; color: var(--ink-faint); }
+
+  #footer {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 16px;
+    background: var(--surface-veil);
+    backdrop-filter: saturate(180%) blur(20px);
+    border-top: 1px solid var(--line);
+    flex: none;
+  }
+
+  #cue { font-size: 13px; color: var(--ink-soft); min-height: 19px; }
+  #cue kbd {
+    padding: 1px 5px;
+    margin: 0 1px;
+    font: inherit;
+    font-size: 11.5px;
+    background: rgba(0, 0, 0, 0.05);
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    color: var(--ink);
+  }
+
+  .btn {
+    padding: 10px 20px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-pill);
+    font-size: 14px;
+    font-weight: 500;
+    box-shadow: var(--lift-1);
+    transition: background var(--fast) var(--ease), transform var(--fast) var(--ease),
+      box-shadow var(--fast) var(--ease);
+  }
+
+  .btn:hover { box-shadow: var(--lift-2); }
+  .btn:active { transform: scale(0.985); }
+
+  .btn.primary { background: var(--floor); border-color: transparent; color: #fff; }
+  .btn.primary:hover { background: #0a7ae8; }
+  .btn.primary[disabled] {
+    background: rgba(0, 0, 0, 0.08);
+    color: var(--ink-faint);
+    box-shadow: none;
+    cursor: default;
+    transform: none;
+  }
+
+  .btn.quiet { background: transparent; border-color: transparent; box-shadow: none; color: var(--ink-soft); }
+  .btn.quiet:hover { background: rgba(0, 0, 0, 0.05); color: var(--ink); box-shadow: none; }
+
+  /* ---------------------------------------------------------------------
+     Vérification avant enregistrement
+     --------------------------------------------------------------------- */
+  #review {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    justify-content: flex-end;
+    background: rgba(0, 0, 0, 0.06);
+  }
+
+  #reviewPanel {
+    width: 336px;
+    margin: 16px;
+    padding: 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    background: var(--surface-veil);
+    backdrop-filter: saturate(180%) blur(20px);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--lift-2);
+    overflow-y: auto;
+  }
+
+  #reviewPanel h2 { margin: 0; font-size: 19px; font-weight: 600; letter-spacing: -0.01em; }
+  #reviewPanel .sub { margin: -12px 0 0; font-size: 13px; color: var(--ink-soft); }
+
+  .layers { display: flex; flex-direction: column; gap: 2px; }
+
+  .layer {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    width: 100%;
+    padding: 10px 11px;
+    background: transparent;
+    border: none;
+    border-radius: 11px;
+    text-align: left;
+    transition: background var(--fast) var(--ease);
+  }
+
+  .layer:hover { background: rgba(0, 0, 0, 0.04); }
+  .layer .swatch { width: 13px; height: 13px; border-radius: 4px; border: 1.5px solid currentColor; flex: none; }
+  .layer .name { flex: 1; font-size: 14px; color: var(--ink); }
+  .layer .count { font-size: 13px; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+  .layer .eye { color: var(--ink-faint); display: grid; place-items: center; }
+  .layer[aria-pressed="false"] .name,
+  .layer[aria-pressed="false"] .count { color: var(--ink-faint); }
+  .layer[aria-pressed="false"] .swatch { opacity: 0.35; }
+
+  .notice {
+    padding: 11px 13px;
+    background: rgba(255, 149, 0, 0.1);
+    border: 1px solid rgba(255, 149, 0, 0.28);
+    border-radius: 11px;
+    font-size: 12.5px;
+    color: #8a4b00;
+  }
+
+  #noteWrap { border-top: 1px solid var(--line); padding-top: 16px; }
+
+  #noteToggle { padding: 0; background: none; border: none; box-shadow: none; font-size: 13px; color: var(--floor); }
+
+  #noteField {
+    width: 100%;
+    margin-top: 10px;
+    padding: 10px 12px;
+    min-height: 76px;
+    resize: vertical;
+    font: inherit;
+    font-size: 13px;
+    color: var(--ink);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 11px;
+  }
+  #noteField:focus { border-color: var(--floor); outline: none; box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.14); }
+
+  .actions { display: flex; flex-direction: column; gap: 8px; margin-top: auto; }
+  .actions .btn { width: 100%; padding: 12px 20px; }
+
+  #saved {
+    position: absolute;
+    left: 50%;
+    bottom: 88px;
+    transform: translateX(-50%) translateY(6px);
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 11px 18px;
+    background: rgba(28, 28, 30, 0.92);
+    border-radius: var(--radius-pill);
+    color: #fff;
+    font-size: 13.5px;
+    box-shadow: var(--lift-2);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--calm) var(--ease), transform var(--calm) var(--ease);
+  }
+  #saved.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  @media (max-width: 900px) {
+    #help { width: 236px; }
+    #reviewPanel { width: auto; flex: 1; }
+    .tool .label { display: none; }
+    .tool { padding: 9px 11px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { transition-duration: 1ms !important; animation-duration: 1ms !important; }
+  }
 </style>
+</head>
+<body>
 
-<aside>
-  <h1>Relevé du sol</h1>
+<!-- ===================== Écran d'entrée ===================== -->
+<section id="welcome">
+  <div class="intro">
+    <h1>Relevé du sol</h1>
+    <p class="lede">Délimitez le sol visible sur une photo de pièce.</p>
 
-  <fieldset>
-    <legend>1 · Image</legend>
-    <input type="file" id="file" accept="image/jpeg,image/png,image/webp" />
-    <label>Identifiant du manifeste<input type="text" id="photoId" placeholder="salon-01" /></label>
-    <label>Passe <input type="text" id="passLabel" placeholder="A" maxlength="8" /></label>
-    <p class="hint">La passe nomme le fichier. Sans elle, une seconde passe
-      écraserait la première.</p>
-    <p class="hint" id="dims">Aucune image chargée.</p>
-  </fieldset>
+    <button id="drop" type="button">
+      <span class="glyph" aria-hidden="true">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="4" width="18" height="16" rx="2.5" />
+          <circle cx="8.5" cy="9.5" r="1.6" />
+          <path d="M3 16.5l4.5-4 3.5 3 3-2.5L21 17" />
+        </svg>
+      </span>
+      <span class="title">Choisir une photo</span>
+      <span class="hint">ou glissez-la ici · JPEG, PNG, WebP</span>
+    </button>
+    <input type="file" id="file" accept="image/jpeg,image/png,image/webp" class="hidden" />
 
-  <fieldset>
-    <legend>2 · Ce que je trace</legend>
-    <select id="mode">
-      <option value="floor">Sol visible (contour)</option>
-      <option value="hole">Ce qui cache le sol (tapis, meuble)</option>
-      <option value="uncertain">Zone indécidable</option>
-      <option value="boundary">Contour repéré (polyligne)</option>
-    </select>
-    <label id="reasonRow">Raison de l'incertitude
-      <select id="reason">
-        <option value="hidden_corner">coin caché</option>
-        <option value="strong_shadow">ombre forte</option>
-        <option value="furniture_against_wall">meuble collé au mur</option>
-        <option value="low_contrast">faible contraste</option>
-        <option value="cut_by_frame">coupé par le cadre</option>
-        <option value="reflection">reflet</option>
-        <option value="motion_blur">flou de bougé</option>
-        <option value="other">autre</option>
-      </select>
-    </label>
-    <label id="kindRow">Nature du contour
-      <select id="kind">
-        <option value="wall_floor">jonction mur/sol</option>
-        <option value="baseboard">plinthe</option>
-        <option value="door_threshold">seuil de porte</option>
-        <option value="frame_cut">coupé par le cadre</option>
-        <option value="object_contact">contact d'objet</option>
-        <option value="other">autre</option>
-      </select>
-    </label>
-    <p class="hint">
-      Clic : ajouter un point · <b>Entrée</b> ou double-clic : terminer la forme ·
-      <b>Retour arrière</b> : défaire le dernier point · <b>Échap</b> : abandonner la forme.
-    </p>
-  </fieldset>
+    <div class="fields">
+      <div class="field">
+        <label for="photoId">Scène</label>
+        <input type="text" id="photoId" placeholder="sejour" autocomplete="off" spellcheck="false" />
+      </div>
+      <div class="field">
+        <label for="passLabel">Session</label>
+        <input type="text" id="passLabel" placeholder="A" maxlength="8" autocomplete="off" spellcheck="false" />
+      </div>
+    </div>
 
-  <fieldset>
-    <legend>3 · Formes tracées</legend>
-    <p><span class="swatch" style="background:#22cc7788"></span>Sol <ul id="listFloor"></ul></p>
-    <p><span class="swatch" style="background:#ff444488"></span>Cache le sol <ul id="listHole"></ul></p>
-    <p><span class="swatch" style="background:#ffcc0088"></span>Indécidable <ul id="listUncertain"></ul></p>
-    <p><span class="swatch" style="background:#3388ff"></span>Contours <ul id="listBoundary"></ul></p>
-    <p class="hint">Cliquez une entrée pour la supprimer.</p>
-  </fieldset>
+    <p class="privacy">Tout reste sur cet ordinateur. Aucune image n'est envoyée.</p>
+  </div>
+</section>
 
-  <fieldset>
-    <legend>4 · Enregistrer</legend>
-    <label>Notes<input type="text" id="notes" placeholder="ce que les chiffres ne diront pas" /></label>
-    <p class="hint">Temps de tracé : <b id="clock">0 s</b> · <span id="clockState">en attente</span></p>
-    <button id="save">Télécharger le tracé (.draw.json)</button>
-    <input type="file" id="reload" accept=".json,application/json" />
-    <p class="hint">Puis : <code>python -m scripts.import_annotation --draw …</code></p>
-  </fieldset>
-</aside>
+<!-- ===================== Atelier ===================== -->
+<section id="studio" class="hidden">
+  <header id="topbar">
+    <button class="icon-btn" id="back" type="button" aria-label="Changer de photo" title="Changer de photo">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7" /></svg>
+    </button>
+    <div id="sceneName">Photo</div>
+    <div class="spacer"></div>
+    <div class="meta">
+      <span class="dot" id="clockState" aria-hidden="true"></span>
+      <span id="clock" aria-label="Temps d'annotation">0:00</span>
+    </div>
+  </header>
 
-<main><canvas id="canvas" width="640" height="400"></canvas></main>
+  <div id="stage">
+    <canvas id="canvas"></canvas>
+
+    <aside class="card" id="help">
+      <button class="icon-btn close" id="helpClose" type="button" aria-label="Masquer l'aide">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+      </button>
+      <h2>Cette scène</h2>
+      <ul id="helpList"></ul>
+    </aside>
+    <button class="icon-btn hidden" id="helpOpen" type="button" aria-label="Afficher l'aide de la scène">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9" /><path d="M12 16v-4.5" />
+        <circle cx="12" cy="8.2" r=".9" fill="currentColor" />
+      </svg>
+    </button>
+
+    <div class="card" id="zoombar">
+      <button class="icon-btn" id="zoomOut" type="button" aria-label="Réduire">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round"><path d="M6 12h12" /></svg>
+      </button>
+      <span id="zoomLevel">100 %</span>
+      <button class="icon-btn" id="zoomIn" type="button" aria-label="Agrandir">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round"><path d="M12 6v12M6 12h12" /></svg>
+      </button>
+      <span class="sep"></span>
+      <button class="icon-btn" id="zoomFit" type="button" aria-label="Adapter à l'écran" title="Adapter à l'écran">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 9V5.5A1.5 1.5 0 015.5 4H9M15 4h3.5A1.5 1.5 0 0120 5.5V9M20 15v3.5a1.5 1.5 0 01-1.5 1.5H15M9 20H5.5A1.5 1.5 0 014 18.5V15" />
+        </svg>
+      </button>
+    </div>
+
+    <div id="tools" role="toolbar" aria-label="Outils de tracé">
+      <button class="tool" type="button" data-mode="floor" aria-pressed="true">
+        <span class="swatch" aria-hidden="true"></span><span class="label">Sol</span>
+      </button>
+      <button class="tool" type="button" data-mode="hole" aria-pressed="false">
+        <span class="swatch" aria-hidden="true"></span><span class="label">Exclure</span>
+      </button>
+      <button class="tool" type="button" data-mode="uncertain" aria-pressed="false">
+        <span class="swatch" aria-hidden="true"></span><span class="label">Incertain</span>
+      </button>
+      <button class="tool hidden" type="button" data-mode="boundary" aria-pressed="false" id="toolBoundary">
+        <span class="swatch" aria-hidden="true"></span><span class="label">Contour</span>
+      </button>
+      <span class="sep"></span>
+      <button class="icon-btn" id="undo" type="button" aria-label="Annuler (Ctrl+Z)" title="Annuler — Ctrl+Z" disabled>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 10h9a5 5 0 010 10H8" /><path d="M8 6l-4 4 4 4" />
+        </svg>
+      </button>
+      <button class="icon-btn" id="redo" type="button" aria-label="Rétablir (Ctrl+Maj+Z)" title="Rétablir — Ctrl+Maj+Z" disabled>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 10h-9a5 5 0 000 10h5" /><path d="M16 6l4 4-4 4" />
+        </svg>
+      </button>
+      <span class="sep"></span>
+      <button class="icon-btn" id="more" type="button" aria-label="Plus d'options" aria-expanded="false">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+          <circle cx="6" cy="12" r="1.6" /><circle cx="12" cy="12" r="1.6" /><circle cx="18" cy="12" r="1.6" />
+        </svg>
+      </button>
+    </div>
+
+    <aside class="card hidden" id="advanced">
+      <h2>Contours avancés</h2>
+      <p>Facultatif. Repère une limite précise pour le banc d'essai.</p>
+      <div class="choice-grid" id="boundaryKinds"></div>
+      <button class="btn quiet" id="advancedDone" type="button" style="width:100%;margin-top:10px">Fermer</button>
+    </aside>
+
+    <aside class="card hidden" id="reasonPop">
+      <h2>Pourquoi est-ce indécidable ?</h2>
+      <p>Cette zone sortira des mesures.</p>
+      <div class="choice-grid" id="reasonChoices"></div>
+    </aside>
+
+    <div id="review" class="hidden">
+      <div id="reviewPanel">
+        <h2>Vérifier le tracé</h2>
+        <p class="sub">Masquez une couche pour l'inspecter.</p>
+        <div class="layers" id="layers"></div>
+        <div id="reviewNotice"></div>
+        <div id="noteWrap">
+          <button id="noteToggle" type="button">Ajouter une note</button>
+          <textarea id="noteField" class="hidden"
+                    placeholder="Une hésitation, une règle qui ne collait pas, un geste pénible…"></textarea>
+        </div>
+        <div class="actions">
+          <button class="btn primary" id="save" type="button">Valider et enregistrer</button>
+          <button class="btn quiet" id="reviewBack" type="button">Modifier</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="saved" role="status" aria-live="polite">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M20 6L9 17l-5-5" />
+      </svg>
+      <span id="savedText">Tracé enregistré</span>
+    </div>
+  </div>
+
+  <footer id="footer">
+    <div id="cue"></div>
+    <div class="spacer"></div>
+    <button class="btn primary" id="verify" type="button" disabled>Vérifier le tracé</button>
+  </footer>
+</section>
 
 <script>
+(() => {
+  'use strict';
+
+  /* =====================================================================
+     Contrat de sortie — À NE PAS MODIFIER SANS DÉCISION
+
+     `floor-draw@1` est lu par `scripts/import_annotation.py`, qui possède le
+     format. Les clés, leur nom et la normalisation des coordonnées sont un
+     contrat : le redesign de l'interface ne doit rien en changer.
+     ===================================================================== */
   const DRAW_SCHEMA = 'pose-parquet-ai/floor-draw@1';
-  const COLOUR = { floor: '#22cc77', hole: '#ff4444', uncertain: '#ffcc00', boundary: '#3388ff' };
 
-  const canvas = document.getElementById('canvas');
-  const context = canvas.getContext('2d');
+  /* Vocabulaires du schéma métier. Les VALEURS voyagent dans le JSON et
+     doivent rester exactement celles de `app/schemas/annotation.py` ; seuls
+     les libellés sont français et lisibles. */
+  const REASONS = [
+    ['low_contrast', 'Limite mur/sol invisible'],
+    ['furniture_against_wall', 'Un objet masque la limite'],
+    ['hidden_corner', 'Coin caché'],
+    ['strong_shadow', 'Ombre forte'],
+    ['reflection', 'Reflet'],
+    ['cut_by_frame', 'Hors cadre'],
+    ['motion_blur', 'Flou de bougé'],
+    ['other', 'Autre'],
+  ];
 
-  /** Tout l'état du tracé. Les points sont en pixels image, normalisés à l'export. */
-  const state = { bitmap: null, width: 0, height: 0, scale: 1, current: [], shapes: [] };
+  const BOUNDARY_KINDS = [
+    ['wall_floor', 'Jonction mur/sol'],
+    ['baseboard', 'Plinthe'],
+    ['door_threshold', 'Seuil de porte'],
+    ['frame_cut', 'Coupé par le cadre'],
+    ['object_contact', 'Contact d’objet'],
+    ['other', 'Autre'],
+  ];
 
+  /* Aides par scène. Centralisées ici pour qu'ajouter une scène ne demande
+     pas de toucher au balisage — et courtes, parce que le chronomètre mesure
+     l'annotation et non la lecture. */
+  const SCENE_HELP = {
+    sejour: [
+      'Les reflets de fenêtre font partie du sol.',
+      'Le parquet continue dans la pièce du fond : ne coupez pas à l’ouverture.',
+      'Ne reconstruisez rien derrière les meubles.',
+    ],
+    chambre: [
+      'La terrasse extérieure est exclue, même de plain-pied.',
+      'La grille encastrée est exclue ; le parquet autour reste inclus.',
+      'Le seuil de la porte-fenêtre peut recevoir un contour.',
+    ],
+    couloir: [
+      'Bois clair sur bois clair : si la jonction mur/sol est indécidable, utilisez Incertain.',
+      'La zone incertaine doit couvrir toute la largeur du doute.',
+      'Ne forcez pas une limite pour obtenir un joli masque.',
+    ],
+    'petite-piece': [
+      'Pieds de meubles, rideau et radiateur : à exclure.',
+      'Le sol visible sous le radiateur reste du sol.',
+      'Le coin masqué par le bureau ne se devine pas.',
+    ],
+  };
+
+  const DEFAULT_HELP = [
+    'Le sol intérieur visible, et lui seul.',
+    'Tapis, meubles, pieds, grilles : à exclure.',
+    'Ce que vous ne voyez pas n’entre pas dans le tracé.',
+  ];
+
+  const MODE_CUES = {
+    floor: 'Cliquez pour poser les sommets du sol. <kbd>Entrée</kbd> ou double-clic pour fermer.',
+    hole: 'Entourez ce qui occupe le sol : tapis, meubles, pieds, grilles…',
+    uncertain: 'Uniquement si la limite est réellement impossible à distinguer.',
+    boundary: 'Tracez une polyligne le long de la limite. <kbd>Entrée</kbd> pour terminer.',
+  };
+
+  const MODE_LABELS = {
+    floor: 'Sol',
+    hole: 'Exclusion',
+    uncertain: 'Zone incertaine',
+    boundary: 'Contour',
+  };
 
   const $ = (id) => document.getElementById(id);
-  const mode = () => $('mode').value;
 
-  /**
-   * Chronomètre du tracé. Le temps d'annotation est une métrique du LOT 2A :
-   * il décide si un corpus de trente scènes est réaliste, et c'est une donnée
-   * qu'aucune mesure d'image ne remplace.
-   *
-   * Il se met en PAUSE après une minute sans interaction, et reprend au geste
-   * suivant. Sans cette pause, une annotation interrompue par un déjeuner
-   * mesurerait le déjeuner — et la moyenne du corpus deviendrait une fiction.
-   * Volontairement grossier : à la seconde près, personne n'apprendrait rien
-   * de plus.
-   */
+  /* =====================================================================
+     État
+     ===================================================================== */
+  const state = {
+    bitmap: null,
+    width: 0,
+    height: 0,
+    /* Formes fermées. `kind` reprend les clés du schéma. Les points sont en
+       pixels image : la normalisation n'a lieu qu'à l'export, pour qu'un
+       changement de zoom n'introduise jamais d'erreur d'arrondi. */
+    shapes: [],
+    current: [],
+    mode: 'floor',
+    boundaryKind: 'wall_floor',
+    selected: null,
+    hover: null,
+    drag: null,
+    pointer: null,
+    view: { scale: 1, x: 0, y: 0 },
+    pan: null,
+    spaceHeld: false,
+    reviewing: false,
+    layers: { floor: true, hole: true, uncertain: true, boundary: true },
+    pendingUncertain: null,
+  };
+
+  /* =====================================================================
+     Chronomètre — sémantique à ne pas modifier
+
+     Il ne démarre pas au chargement mais au premier geste, se met en pause
+     après 60 s d'inactivité en ne créditant que jusqu'au dernier geste, et
+     reprend ensuite. C'est une donnée expérimentale du LOT 2A : une pause-café
+     ne doit pas devenir du temps d'annotation.
+     ===================================================================== */
   const clock = { accumulated: 0, since: null, lastActivity: 0 };
   const IDLE_LIMIT_MS = 60000;
 
   function tick() {
     const now = Date.now();
-    if (clock.since !== null) {
-      if (now - clock.lastActivity > IDLE_LIMIT_MS) {
-        clock.accumulated += clock.lastActivity - clock.since;
-        clock.since = null;
-      } else {
-        // Rien à faire : le temps court.
-      }
+    if (clock.since !== null && now - clock.lastActivity > IDLE_LIMIT_MS) {
+      clock.accumulated += clock.lastActivity - clock.since;
+      clock.since = null;
     }
     const live = clock.since === null ? 0 : now - clock.since;
     const seconds = Math.round((clock.accumulated + live) / 1000);
-    $('clock').textContent = `${seconds} s`;
-    $('clockState').textContent =
-      state.bitmap === null ? 'en attente' : clock.since === null ? 'en pause' : 'en cours';
+    $('clock').textContent = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+    $('clockState').classList.toggle('live', clock.since !== null);
   }
 
-  /** Tout geste de l'annotateur relance le chronomètre. */
+  /** Tout geste d'annotation relance le chronomètre. */
   function noteActivity() {
     if (!state.bitmap) return;
     clock.lastActivity = Date.now();
@@ -163,155 +814,839 @@
   }
 
   function elapsedSeconds() {
-    const live = clock.since === null ? 0 : Math.min(Date.now(), clock.lastActivity) - clock.since;
+    const live = clock.since === null
+      ? 0
+      : Math.min(Date.now(), clock.lastActivity) - clock.since;
     return Math.round((clock.accumulated + Math.max(live, 0)) / 1000);
   }
 
   setInterval(tick, 1000);
 
-  /* --- Chargement ----------------------------------------------------- */
+  /* =====================================================================
+     Historique — annuler / rétablir
 
-  $('file').addEventListener('change', async (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-    // `from-image` : le redressement EXIF est appliqué, comme côté Python.
-    state.bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
-    state.width = state.bitmap.width;
-    state.height = state.bitmap.height;
-    // Une image de 4000 px ne tient pas à l'écran ; on l'affiche réduite et on
-    // ramène chaque clic aux pixels de l'image, jamais l'inverse.
-    state.scale = Math.min(1, 1100 / state.width, 780 / state.height);
-    canvas.width = Math.round(state.width * state.scale);
-    canvas.height = Math.round(state.height * state.scale);
-    state.current = [];
-    state.shapes = [];
-    clock.accumulated = 0;
-    clock.since = null;
-    noteActivity();
-    if (!$('photoId').value) $('photoId').value = file.name.replace(/\.[^.]+$/, '');
-    $('dims').textContent =
-      `${state.width} × ${state.height} px (après EXIF) · affiché à ${Math.round(state.scale * 100)} %`;
-    redraw();
-  });
+     Instantanés JSON des formes. Grossier mais fiable, et c'est ce qui compte :
+     un undo qui se désynchronise du tracé fait perdre du travail humain, et un
+     modèle de commandes fin coûterait plus qu'il ne rapporte ici.
+     ===================================================================== */
+  const history = { past: [], future: [] };
 
-  /* --- Saisie ---------------------------------------------------------- */
+  const snapshot = () => JSON.stringify({ shapes: state.shapes, current: state.current });
 
-  canvas.addEventListener('click', (event) => {
-    if (!state.bitmap) return;
-    noteActivity();
-    const box = canvas.getBoundingClientRect();
-    state.current.push({
-      x: (event.clientX - box.left) / state.scale,
-      y: (event.clientY - box.top) / state.scale,
-    });
-    redraw();
-  });
+  function restore(raw) {
+    const data = JSON.parse(raw);
+    state.shapes = data.shapes;
+    state.current = data.current;
+    state.selected = null;
+    state.hover = null;
+  }
 
-  canvas.addEventListener('dblclick', (event) => { event.preventDefault(); finish(); });
+  /** À appeler AVANT toute mutation du tracé. */
+  function commit() {
+    history.past.push(snapshot());
+    if (history.past.length > 200) history.past.shift();
+    history.future.length = 0;
+    refreshHistoryButtons();
+  }
 
-  window.addEventListener('keydown', (event) => {
-    noteActivity();
-    if (event.key === 'Enter') finish();
-    else if (event.key === 'Backspace') { event.preventDefault(); state.current.pop(); redraw(); }
-    else if (event.key === 'Escape') { state.current = []; redraw(); }
-  });
+  function undo() {
+    if (!history.past.length) return;
+    history.future.push(snapshot());
+    restore(history.past.pop());
+    afterChange();
+  }
 
-  /** Une polyligne demande 2 points, une surface 3. */
-  function finish() {
-    const minimum = mode() === 'boundary' ? 2 : 3;
-    if (state.current.length < minimum) return;
-    const shape = { kind: mode(), points: state.current };
-    if (mode() === 'uncertain') shape.reason = $('reason').value;
-    if (mode() === 'boundary') shape.boundaryKind = $('kind').value;
-    state.shapes.push(shape);
-    state.current = [];
+  function redo() {
+    if (!history.future.length) return;
+    history.past.push(snapshot());
+    restore(history.future.pop());
+    afterChange();
+  }
+
+  function refreshHistoryButtons() {
+    $('undo').disabled = history.past.length === 0;
+    $('redo').disabled = history.future.length === 0;
+  }
+
+  /* =====================================================================
+     Vue : zoom et déplacement
+     ===================================================================== */
+  const canvas = $('canvas');
+  const ctx = canvas.getContext('2d');
+
+  function stageSize() {
+    const stage = $('stage');
+    return {
+      width: stage.clientWidth || state.width || 1,
+      height: stage.clientHeight || state.height || 1,
+    };
+  }
+
+  function fitView() {
+    const { width, height } = stageSize();
+    const scale = Math.min(width / state.width, height / state.height) * 0.94;
+    state.view.scale = scale;
+    state.view.x = (width - state.width * scale) / 2;
+    state.view.y = (height - state.height * scale) / 2;
+  }
+
+  function zoomAt(factor, cx, cy) {
+    const next = Math.min(Math.max(state.view.scale * factor, 0.05), 12);
+    const ratio = next / state.view.scale;
+    state.view.x = cx - (cx - state.view.x) * ratio;
+    state.view.y = cy - (cy - state.view.y) * ratio;
+    state.view.scale = next;
     redraw();
   }
 
-  /* --- Rendu ----------------------------------------------------------- */
+  const toImage = (sx, sy) => ({
+    x: (sx - state.view.x) / state.view.scale,
+    y: (sy - state.view.y) / state.view.scale,
+  });
 
-  function path(points) {
-    context.beginPath();
+  function pointerPos(event) {
+    const box = canvas.getBoundingClientRect();
+    return { sx: event.clientX - box.left, sy: event.clientY - box.top };
+  }
+
+  /* Rayon de saisie d'un sommet, en pixels image : constant à l'écran quel que
+     soit le zoom, sinon un sommet devient impossible à attraper de loin. */
+  const grabRadius = () => 9 / state.view.scale;
+
+  /* =====================================================================
+     Rendu
+     ===================================================================== */
+  const STYLES = {
+    floor: { stroke: '#0a84ff', fill: 'rgba(10,132,255,0.24)', dash: [] },
+    hole: { stroke: '#ff3b30', fill: 'rgba(255,59,48,0.20)', dash: [7, 4] },
+    uncertain: { stroke: '#b8860b', fill: 'rgba(184,134,11,0.16)', dash: [2, 3] },
+    boundary: { stroke: '#1f9e55', fill: null, dash: [] },
+  };
+
+  const ratio = () => window.devicePixelRatio || 1;
+
+  function resize() {
+    const scale = ratio();
+    const { width, height } = stageSize();
+    canvas.width = Math.round(width * scale);
+    canvas.height = Math.round(height * scale);
+    canvas.style.width = `${width}px`;
+    canvas.style.height = `${height}px`;
+    redraw();
+  }
+
+  function polygonPath(points, close) {
+    ctx.beginPath();
     points.forEach((point, index) => {
-      const x = point.x * state.scale;
-      const y = point.y * state.scale;
-      index ? context.lineTo(x, y) : context.moveTo(x, y);
+      if (index === 0) ctx.moveTo(point.x, point.y);
+      else ctx.lineTo(point.x, point.y);
+    });
+    if (close) ctx.closePath();
+  }
+
+  function drawShape(shape) {
+    const style = STYLES[shape.kind];
+    const line = 2 / state.view.scale;
+    const closed = shape.kind !== 'boundary';
+
+    polygonPath(shape.points, closed);
+
+    if (closed && style.fill) {
+      ctx.fillStyle = style.fill;
+      ctx.fill();
+    }
+
+    ctx.setLineDash(style.dash.map((value) => value / state.view.scale));
+    ctx.strokeStyle = style.stroke;
+    ctx.lineWidth = line;
+    ctx.lineJoin = 'round';
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  function drawHandles(shape, shapeIndex) {
+    const radius = 5 / state.view.scale;
+    shape.points.forEach((point, index) => {
+      const active = state.selected
+        && state.selected.shape === shapeIndex && state.selected.index === index;
+      const hovered = state.hover
+        && state.hover.shape === shapeIndex && state.hover.index === index;
+      const size = radius * (active ? 1.65 : hovered ? 1.35 : 1);
+
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, size, 0, Math.PI * 2);
+      ctx.fillStyle = active ? STYLES[shape.kind].stroke : '#ffffff';
+      ctx.fill();
+      ctx.lineWidth = 1.8 / state.view.scale;
+      ctx.strokeStyle = STYLES[shape.kind].stroke;
+      ctx.stroke();
+    });
+  }
+
+  function drawDraft() {
+    if (!state.current.length) return;
+    const style = STYLES[state.mode];
+    const line = 2 / state.view.scale;
+
+    if (state.current.length > 1) {
+      polygonPath(state.current, false);
+      ctx.strokeStyle = style.stroke;
+      ctx.lineWidth = line;
+      ctx.setLineDash([]);
+      ctx.stroke();
+    }
+
+    /* Prévisualisation du prochain segment : le geste devient prévisible. */
+    if (state.pointer) {
+      const last = state.current[state.current.length - 1];
+      ctx.beginPath();
+      ctx.moveTo(last.x, last.y);
+      ctx.lineTo(state.pointer.x, state.pointer.y);
+      ctx.setLineDash([5 / state.view.scale, 4 / state.view.scale]);
+      ctx.strokeStyle = style.stroke;
+      ctx.lineWidth = line;
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      /* Fermeture imminente : le lien vers le premier sommet apparaît. */
+      if (state.mode !== 'boundary' && state.current.length > 2) {
+        const first = state.current[0];
+        const near = Math.hypot(first.x - state.pointer.x, first.y - state.pointer.y)
+          < grabRadius() * 1.6;
+        if (near) {
+          ctx.beginPath();
+          ctx.moveTo(state.pointer.x, state.pointer.y);
+          ctx.lineTo(first.x, first.y);
+          ctx.setLineDash([4 / state.view.scale, 4 / state.view.scale]);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+      }
+    }
+
+    state.current.forEach((point, index) => {
+      const first = index === 0;
+      const last = index === state.current.length - 1;
+      const radius = (first ? 6.5 : last ? 5.5 : 4) / state.view.scale;
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
+      ctx.fillStyle = first ? style.stroke : '#ffffff';
+      ctx.fill();
+      ctx.lineWidth = 1.8 / state.view.scale;
+      ctx.strokeStyle = style.stroke;
+      ctx.stroke();
     });
   }
 
   function redraw() {
-    context.clearRect(0, 0, canvas.width, canvas.height);
-    if (state.bitmap) context.drawImage(state.bitmap, 0, 0, canvas.width, canvas.height);
+    if (!ctx) return;
+    const { width, height } = stageSize();
+    ctx.setTransform(ratio(), 0, 0, ratio(), 0, 0);
+    ctx.clearRect(0, 0, width, height);
 
-    for (const shape of state.shapes) {
-      context.strokeStyle = COLOUR[shape.kind];
-      context.lineWidth = 2;
-      path(shape.points);
-      if (shape.kind === 'boundary') {
-        context.stroke();
-      } else {
-        context.closePath();
-        context.fillStyle = COLOUR[shape.kind] + '55';
-        context.fill();
-        context.stroke();
-      }
-    }
+    if (!state.bitmap) return;
 
-    if (state.current.length) {
-      context.strokeStyle = COLOUR[mode()];
-      context.lineWidth = 2;
-      context.setLineDash([5, 4]);
-      path(state.current);
-      context.stroke();
-      context.setLineDash([]);
-      for (const point of state.current) {
-        context.fillStyle = COLOUR[mode()];
-        context.fillRect(point.x * state.scale - 2, point.y * state.scale - 2, 5, 5);
-      }
-    }
-    refreshLists();
-  }
+    ctx.save();
+    ctx.translate(state.view.x, state.view.y);
+    ctx.scale(state.view.scale, state.view.scale);
+    ctx.drawImage(state.bitmap, 0, 0, state.width, state.height);
 
-  function refreshLists() {
-    const lists = {
-      floor: $('listFloor'), hole: $('listHole'),
-      uncertain: $('listUncertain'), boundary: $('listBoundary'),
-    };
-    Object.values(lists).forEach((list) => (list.innerHTML = ''));
-    state.shapes.forEach((shape, index) => {
-      const item = document.createElement('li');
-      const detail = shape.reason || shape.boundaryKind || '';
-      item.textContent = `${shape.points.length} pts${detail ? ' · ' + detail : ''}`;
-      item.onclick = () => { state.shapes.splice(index, 1); redraw(); };
-      lists[shape.kind].appendChild(item);
+    /* Cadre discret : on doit voir où l'image s'arrête, puisque le bord du
+       cadre n'est pas une frontière de scène. */
+    ctx.strokeStyle = 'rgba(0,0,0,0.18)';
+    ctx.lineWidth = 1 / state.view.scale;
+    ctx.strokeRect(0, 0, state.width, state.height);
+
+    ['floor', 'hole', 'uncertain', 'boundary'].forEach((kind) => {
+      if (!state.layers[kind]) return;
+      state.shapes.forEach((shape) => { if (shape.kind === kind) drawShape(shape); });
     });
-    $('reasonRow').style.display = mode() === 'uncertain' ? 'block' : 'none';
-    $('kindRow').style.display = mode() === 'boundary' ? 'block' : 'none';
+
+    if (!state.reviewing) {
+      state.shapes.forEach((shape, index) => {
+        if (state.layers[shape.kind]) drawHandles(shape, index);
+      });
+      drawDraft();
+    }
+
+    ctx.restore();
   }
 
-  $('mode').addEventListener('change', () => { state.current = []; redraw(); });
+  /* =====================================================================
+     Modes et interface
+     ===================================================================== */
+  function setMode(next) {
+    if (state.current.length) abandonDraft();
+    state.mode = next;
+    document.querySelectorAll('.tool').forEach((button) => {
+      button.setAttribute('aria-pressed', String(button.dataset.mode === next));
+    });
+    $('cue').innerHTML = MODE_CUES[next];
+    redraw();
+  }
 
-  /* --- Export / reprise ------------------------------------------------ */
+  const mode = () => state.mode;
 
-  /** Coordonnées normalisées 0 → 1 : elles survivent à un changement de résolution. */
+  const pick = (kind) => state.shapes.filter((shape) => shape.kind === kind);
+
+  /* Normalisation 0 → 1, comme SceneData : un masque raster ne survit pas à un
+     changement de résolution, des coordonnées relatives oui. */
   const normalize = (points) => points.map((point) => ({
     x: +(point.x / (state.width - 1)).toFixed(6),
     y: +(point.y / (state.height - 1)).toFixed(6),
   }));
 
-  const pick = (kind) => state.shapes.filter((shape) => shape.kind === kind);
+  function afterChange() {
+    refreshHistoryButtons();
+    $('verify').disabled = pick('floor').length === 0;
+    redraw();
+  }
 
-  $('save').addEventListener('click', () => {
-    if (!state.bitmap) return alert('Chargez une image.');
-    if (!$('photoId').value.trim()) return alert("L'identifiant du manifeste est obligatoire.");
-    if (!pick('floor').length) return alert('Aucun contour de sol tracé.');
+  /* =====================================================================
+     Tracé
+     ===================================================================== */
+  function addPoint(point) {
+    noteActivity();
+    commit();
+    state.current.push(point);
+    afterChange();
+  }
 
-    const draw = {
+  function abandonDraft() {
+    if (!state.current.length) return;
+    commit();
+    state.current = [];
+    afterChange();
+  }
+
+  /** Une polyligne demande 2 points, une surface 3. */
+  function finish() {
+    const minimum = state.mode === 'boundary' ? 2 : 3;
+    if (state.current.length < minimum) return false;
+
+    noteActivity();
+    commit();
+
+    const shape = { kind: state.mode, points: state.current };
+    if (state.mode === 'boundary') shape.boundaryKind = state.boundaryKind;
+
+    if (state.mode === 'uncertain') {
+      /* La raison est demandée à la fermeture, pas avant : un menu à remplir
+         d'abord ferait tracer moins de zones qu'il n'en faut. */
+      shape.reason = 'other';
+      state.shapes.push(shape);
+      state.current = [];
+      state.pendingUncertain = state.shapes.length - 1;
+      openReasonPop();
+      afterChange();
+      return true;
+    }
+
+    state.shapes.push(shape);
+    state.current = [];
+    afterChange();
+    flash(`${MODE_LABELS[shape.kind]} · ${shape.points.length} sommets`);
+    return true;
+  }
+
+  function hitVertex(image) {
+    const radius = grabRadius();
+    for (let s = state.shapes.length - 1; s >= 0; s -= 1) {
+      const shape = state.shapes[s];
+      if (!state.layers[shape.kind]) continue;
+      for (let i = 0; i < shape.points.length; i += 1) {
+        const point = shape.points[i];
+        if (Math.hypot(point.x - image.x, point.y - image.y) <= radius) {
+          return { shape: s, index: i };
+        }
+      }
+    }
+    return null;
+  }
+
+  /** Le point le plus proche d'un segment, pour insérer un sommet. */
+  function hitSegment(image) {
+    const radius = grabRadius();
+    for (let s = state.shapes.length - 1; s >= 0; s -= 1) {
+      const shape = state.shapes[s];
+      if (!state.layers[shape.kind]) continue;
+      const points = shape.points;
+      const closed = shape.kind !== 'boundary';
+      const count = closed ? points.length : points.length - 1;
+      for (let i = 0; i < count; i += 1) {
+        const a = points[i];
+        const b = points[(i + 1) % points.length];
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const squared = dx * dx + dy * dy;
+        if (squared === 0) continue;
+        const t = Math.max(0, Math.min(1, ((image.x - a.x) * dx + (image.y - a.y) * dy) / squared));
+        const px = a.x + t * dx;
+        const py = a.y + t * dy;
+        if (Math.hypot(px - image.x, py - image.y) <= radius) {
+          return { shape: s, index: i + 1, point: { x: px, y: py } };
+        }
+      }
+    }
+    return null;
+  }
+
+  function deleteVertex() {
+    if (!state.selected) return;
+    const shape = state.shapes[state.selected.shape];
+    const minimum = shape.kind === 'boundary' ? 2 : 3;
+    noteActivity();
+    commit();
+    if (shape.points.length <= minimum) {
+      state.shapes.splice(state.selected.shape, 1);
+      flash(`${MODE_LABELS[shape.kind]} supprimée`);
+    } else {
+      shape.points.splice(state.selected.index, 1);
+    }
+    state.selected = null;
+    afterChange();
+  }
+
+  function insertVertex(image) {
+    const segment = hitSegment(image);
+    if (!segment) return false;
+    noteActivity();
+    commit();
+    state.shapes[segment.shape].points.splice(segment.index, 0, segment.point);
+    state.selected = { shape: segment.shape, index: segment.index };
+    afterChange();
+    return true;
+  }
+
+  /* =====================================================================
+     Souris et clavier
+     ===================================================================== */
+  canvas.addEventListener('pointerdown', (event) => {
+    if (!state.bitmap || state.reviewing) return;
+    const { sx, sy } = pointerPos(event);
+
+    /* Déplacement de l'image : espace maintenu, bouton du milieu, ou clic
+       droit. Jamais le clic gauche seul, qui sert à poser un sommet. */
+    if (state.spaceHeld || event.button === 1 || event.button === 2) {
+      state.pan = { sx, sy, x: state.view.x, y: state.view.y };
+      canvas.classList.add('panning');
+      if (canvas.setPointerCapture) canvas.setPointerCapture(event.pointerId);
+      event.preventDefault();
+      return;
+    }
+    if (event.button !== 0) return;
+
+    const image = toImage(sx, sy);
+
+    /* Priorité : attraper un sommet existant plutôt qu'en créer un nouveau. */
+    if (!state.current.length) {
+      const vertex = hitVertex(image);
+      if (vertex) {
+        state.selected = vertex;
+        state.drag = { shape: vertex.shape, index: vertex.index, moved: false };
+        if (canvas.setPointerCapture) canvas.setPointerCapture(event.pointerId);
+        redraw();
+        return;
+      }
+    }
+
+    /* Fermeture par clic sur le premier sommet. */
+    if (state.mode !== 'boundary' && state.current.length > 2) {
+      const first = state.current[0];
+      if (Math.hypot(first.x - image.x, first.y - image.y) <= grabRadius() * 1.6) {
+        finish();
+        return;
+      }
+    }
+
+    state.selected = null;
+    addPoint(image);
+  });
+
+  canvas.addEventListener('pointermove', (event) => {
+    if (!state.bitmap) return;
+    const { sx, sy } = pointerPos(event);
+
+    if (state.pan) {
+      state.view.x = state.pan.x + (sx - state.pan.sx);
+      state.view.y = state.pan.y + (sy - state.pan.sy);
+      redraw();
+      return;
+    }
+
+    const image = toImage(sx, sy);
+    state.pointer = image;
+
+    if (state.drag) {
+      if (!state.drag.moved) { noteActivity(); commit(); state.drag.moved = true; }
+      state.shapes[state.drag.shape].points[state.drag.index] = image;
+      redraw();
+      return;
+    }
+
+    if (state.reviewing) return;
+
+    const hover = state.current.length ? null : hitVertex(image);
+    const changed = JSON.stringify(hover) !== JSON.stringify(state.hover);
+    state.hover = hover;
+    canvas.classList.toggle('pannable', state.spaceHeld);
+    if (changed || state.current.length) redraw();
+  });
+
+  canvas.addEventListener('pointerup', () => {
+    if (state.pan) {
+      state.pan = null;
+      canvas.classList.remove('panning');
+      return;
+    }
+    if (state.drag) {
+      if (!state.drag.moved) {
+        /* Un clic net sur un sommet, sans déplacement : simple sélection, donc
+           rien à annuler. */
+        history.past.pop();
+        refreshHistoryButtons();
+      }
+      state.drag = null;
+      afterChange();
+    }
+  });
+
+  canvas.addEventListener('pointerleave', () => { state.pointer = null; redraw(); });
+
+  canvas.addEventListener('dblclick', (event) => {
+    if (state.reviewing) return;
+    if (state.current.length) { finish(); return; }
+    const { sx, sy } = pointerPos(event);
+    insertVertex(toImage(sx, sy));
+  });
+
+  canvas.addEventListener('contextmenu', (event) => event.preventDefault());
+
+  canvas.addEventListener('wheel', (event) => {
+    if (!state.bitmap) return;
+    event.preventDefault();
+    const { sx, sy } = pointerPos(event);
+    zoomAt(Math.exp(-event.deltaY * 0.0016), sx, sy);
+    updateZoomLabel();
+  }, { passive: false });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.target && /INPUT|TEXTAREA/.test(event.target.tagName || '')) return;
+
+    const meta = event.ctrlKey || event.metaKey;
+    if (meta && String(event.key).toLowerCase() === 'z') {
+      event.preventDefault();
+      if (event.shiftKey) redo(); else undo();
+      return;
+    }
+    if (meta && String(event.key).toLowerCase() === 'y') { event.preventDefault(); redo(); return; }
+    if (!state.bitmap || state.reviewing) return;
+
+    if (event.code === 'Space') {
+      state.spaceHeld = true;
+      canvas.classList.add('pannable');
+      event.preventDefault();
+      return;
+    }
+    if (event.key === 'Enter') { event.preventDefault(); finish(); return; }
+    if (event.key === 'Escape') {
+      if (state.current.length) abandonDraft();
+      else { state.selected = null; redraw(); }
+      return;
+    }
+    if (event.key === 'Backspace') {
+      event.preventDefault();
+      if (state.current.length) { noteActivity(); commit(); state.current.pop(); afterChange(); }
+      else deleteVertex();
+      return;
+    }
+    if (event.key === 'Delete') { event.preventDefault(); deleteVertex(); return; }
+    if (event.key === '1') setMode('floor');
+    if (event.key === '2') setMode('hole');
+    if (event.key === '3') setMode('uncertain');
+  });
+
+  document.addEventListener('keyup', (event) => {
+    if (event.code === 'Space') { state.spaceHeld = false; canvas.classList.remove('pannable'); }
+  });
+
+  window.addEventListener('resize', resize);
+
+  /* =====================================================================
+     Chargement de la photo
+     ===================================================================== */
+  async function load(file) {
+    if (!file) return;
+    /* `imageOrientation: 'from-image'` applique la rotation EXIF, comme
+       `ImageOps.exif_transpose` côté Python. Sans cela, un tracé fait sur une
+       image affichée en portrait et rastérisé sur la même image décodée en
+       paysage serait silencieusement faux. L'import le refuse : c'est le seul
+       endroit où ce défaut peut encore être arrêté. */
+    const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+    state.bitmap = bitmap;
+    state.width = bitmap.width;
+    state.height = bitmap.height;
+    state.shapes = [];
+    state.current = [];
+    state.selected = null;
+    history.past.length = 0;
+    history.future.length = 0;
+    clock.accumulated = 0;
+    clock.since = null;
+    clock.lastActivity = 0;
+
+    if (!$('photoId').value.trim()) {
+      $('photoId').value = String(file.name || '').replace(/\.[^.]+$/, '');
+    }
+
+    $('welcome').classList.add('hidden');
+    $('studio').classList.remove('hidden');
+    showSceneName();
+    showSceneHelp();
+    setMode('floor');
+    resize();
+    fitView();
+    updateZoomLabel();
+    afterChange();
+    tick();
+  }
+
+  function showSceneName() {
+    const scene = $('photoId').value.trim() || 'Photo';
+    const pass = $('passLabel').value.trim();
+    const pretty = scene.charAt(0).toUpperCase() + scene.slice(1).replace(/-/g, ' ');
+    $('sceneName').innerHTML = pass
+      ? `${pretty} <span class="pass">· Passe ${pass}</span>`
+      : pretty;
+  }
+
+  function showSceneHelp() {
+    const lines = SCENE_HELP[$('photoId').value.trim()] || DEFAULT_HELP;
+    $('helpList').innerHTML = lines.map((line) => `<li>${line}</li>`).join('');
+  }
+
+  $('drop').addEventListener('click', () => $('file').click());
+  $('file').addEventListener('change', (event) => load(event.target.files[0]));
+
+  ['dragenter', 'dragover'].forEach((type) => {
+    $('drop').addEventListener(type, (event) => {
+      event.preventDefault();
+      $('drop').classList.add('over');
+    });
+  });
+  ['dragleave', 'dragend'].forEach((type) => {
+    $('drop').addEventListener(type, () => $('drop').classList.remove('over'));
+  });
+  $('drop').addEventListener('drop', (event) => {
+    event.preventDefault();
+    $('drop').classList.remove('over');
+    load(event.dataTransfer && event.dataTransfer.files[0]);
+  });
+  document.addEventListener('dragover', (event) => event.preventDefault());
+  document.addEventListener('drop', (event) => event.preventDefault());
+
+  ['photoId', 'passLabel'].forEach((id) => {
+    $(id).addEventListener('input', () => { showSceneName(); showSceneHelp(); });
+  });
+
+  $('back').addEventListener('click', () => {
+    $('studio').classList.add('hidden');
+    $('welcome').classList.remove('hidden');
+  });
+
+  /* Préremplissage par paramètres d'URL : ?scene=sejour&pass=A. Le choix du
+     fichier reste manuel — aucun contournement des restrictions du navigateur
+     sur les fichiers locaux. */
+  try {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('scene')) $('photoId').value = params.get('scene');
+    if (params.get('pass')) $('passLabel').value = params.get('pass');
+  } catch (ignored) { void ignored; }
+
+  /* =====================================================================
+     Outils, zoom, aide
+     ===================================================================== */
+  document.querySelectorAll('.tool').forEach((button) => {
+    button.addEventListener('click', () => setMode(button.dataset.mode));
+  });
+
+  $('undo').addEventListener('click', undo);
+  $('redo').addEventListener('click', redo);
+
+  function updateZoomLabel() {
+    $('zoomLevel').textContent = `${Math.round(state.view.scale * 100)} %`;
+  }
+
+  $('zoomIn').addEventListener('click', () => {
+    const { width, height } = stageSize();
+    zoomAt(1.25, width / 2, height / 2);
+    updateZoomLabel();
+  });
+  $('zoomOut').addEventListener('click', () => {
+    const { width, height } = stageSize();
+    zoomAt(0.8, width / 2, height / 2);
+    updateZoomLabel();
+  });
+  $('zoomFit').addEventListener('click', () => { fitView(); updateZoomLabel(); redraw(); });
+
+  $('helpClose').addEventListener('click', () => {
+    $('help').classList.add('hidden');
+    $('helpOpen').classList.remove('hidden');
+  });
+  $('helpOpen').addEventListener('click', () => {
+    $('help').classList.remove('hidden');
+    $('helpOpen').classList.add('hidden');
+  });
+
+  /* Contours avancés : hors du chemin principal, puisqu'ils sont facultatifs. */
+  $('boundaryKinds').innerHTML = BOUNDARY_KINDS
+    .map(([value, label]) =>
+      `<button class="choice" type="button" data-kind="${value}" aria-pressed="false">${label}</button>`)
+    .join('');
+
+  $('boundaryKinds').addEventListener('click', (event) => {
+    const button = event.target.closest && event.target.closest('.choice');
+    if (!button) return;
+    state.boundaryKind = button.dataset.kind;
+    $('boundaryKinds').querySelectorAll('.choice').forEach((other) => {
+      other.setAttribute('aria-pressed', String(other === button));
+    });
+    $('toolBoundary').classList.remove('hidden');
+    setMode('boundary');
+  });
+
+  $('more').addEventListener('click', () => {
+    const closed = $('advanced').classList.toggle('hidden');
+    $('more').setAttribute('aria-expanded', String(!closed));
+  });
+  $('advancedDone').addEventListener('click', () => {
+    $('advanced').classList.add('hidden');
+    $('more').setAttribute('aria-expanded', 'false');
+  });
+
+  /* Raison d'incertitude */
+  $('reasonChoices').innerHTML = REASONS
+    .map(([value, label]) =>
+      `<button class="choice" type="button" data-reason="${value}" aria-pressed="false">${label}</button>`)
+    .join('');
+
+  function openReasonPop() {
+    const pop = $('reasonPop');
+    const { width, height } = stageSize();
+    pop.classList.remove('hidden');
+    pop.style.left = `${Math.min(Math.max(width / 2 - 150, 16), Math.max(width - 316, 16))}px`;
+    pop.style.top = `${Math.max(Math.min(height / 2 - 90, height - 260), 16)}px`;
+  }
+
+  function chooseReason(value, label) {
+    if (state.pendingUncertain === null) return;
+    state.shapes[state.pendingUncertain].reason = value;
+    state.pendingUncertain = null;
+    $('reasonPop').classList.add('hidden');
+    flash(`Zone incertaine · ${label}`);
+    afterChange();
+  }
+
+  $('reasonChoices').addEventListener('click', (event) => {
+    const button = event.target.closest && event.target.closest('.choice');
+    if (!button) return;
+    chooseReason(button.dataset.reason, button.textContent);
+  });
+
+  /* =====================================================================
+     Vérification
+     ===================================================================== */
+  const LAYER_ROWS = [
+    ['floor', 'Sol'],
+    ['hole', 'Exclusions'],
+    ['uncertain', 'Zones incertaines'],
+    ['boundary', 'Contours'],
+  ];
+
+  function openReview() {
+    if (pick('floor').length === 0) return false;
+    abandonDraft();
+    state.reviewing = true;
+    state.layers = { floor: true, hole: true, uncertain: true, boundary: true };
+
+    $('layers').innerHTML = LAYER_ROWS.map(([kind, label]) => {
+      const count = pick(kind).length;
+      const unit = kind === 'boundary'
+        ? (count === 1 ? '1 tracé' : `${count} tracés`)
+        : (count === 1 ? '1 zone' : `${count} zones`);
+      return `<button class="layer" type="button" data-kind="${kind}" aria-pressed="true">
+          <span class="swatch" style="color:${STYLES[kind].stroke};background:${STYLES[kind].fill || STYLES[kind].stroke}"></span>
+          <span class="name">${label}</span>
+          <span class="count">${count === 0 ? '—' : unit}</span>
+          <span class="eye" aria-hidden="true">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z" />
+              <circle cx="12" cy="12" r="2.6" />
+            </svg>
+          </span>
+        </button>`;
+    }).join('');
+
+    const notices = [];
+    if (pick('uncertain').length === 0) {
+      notices.push('Aucune zone incertaine. Si une limite était vraiment indécidable, '
+        + 'mieux vaut la déclarer que la deviner.');
+    }
+    if (pick('hole').length === 0) {
+      notices.push('Aucune exclusion. Vérifiez les tapis, pieds de meubles et grilles.');
+    }
+    $('reviewNotice').innerHTML = notices.length
+      ? `<div class="notice">${notices.join('<br><br>')}</div>`
+      : '';
+
+    $('review').classList.remove('hidden');
+    redraw();
+    return true;
+  }
+
+  $('layers').addEventListener('click', (event) => {
+    const row = event.target.closest && event.target.closest('.layer');
+    if (!row) return;
+    const kind = row.dataset.kind;
+    state.layers[kind] = !state.layers[kind];
+    row.setAttribute('aria-pressed', String(state.layers[kind]));
+    redraw();
+  });
+
+  $('verify').addEventListener('click', openReview);
+
+  $('reviewBack').addEventListener('click', () => {
+    state.reviewing = false;
+    state.layers = { floor: true, hole: true, uncertain: true, boundary: true };
+    $('review').classList.add('hidden');
+    redraw();
+  });
+
+  $('noteToggle').addEventListener('click', () => {
+    const field = $('noteField');
+    field.classList.toggle('hidden');
+    if (!field.classList.contains('hidden') && field.focus) field.focus();
+  });
+
+  let flashTimer = null;
+  function flash(message) {
+    $('savedText').textContent = message;
+    $('saved').classList.add('show');
+    if (flashTimer) clearTimeout(flashTimer);
+    flashTimer = setTimeout(() => $('saved').classList.remove('show'), 1800);
+  }
+
+  /* =====================================================================
+     Export — structure figée par `floor-draw@1`
+     ===================================================================== */
+  function buildDraw() {
+    return {
       schema: DRAW_SCHEMA,
       photoId: $('photoId').value.trim(),
-      // Facultatif, et repris par l'import comme --pass-label. Sans lui, deux
-      // passes de la même photo se téléchargent sous le même nom et la
-      // seconde écrase la première à l'import : un relevé perdu, sans erreur.
+      /* Repris par l'import comme --pass-label. Sans lui, deux passes de la
+         même photo se téléchargent sous le même nom et la seconde écrase la
+         première : un relevé perdu, sans erreur. */
       passLabel: $('passLabel').value.trim() || null,
       width: state.width,
       height: state.height,
@@ -323,12 +1658,19 @@
       boundary: pick('boundary').map((shape) => ({
         kind: shape.boundaryKind, points: normalize(shape.points),
       })),
-      // Mesuré par l'outil, pas saisi à la main : un temps noté après coup est
-      // une estimation, et la moyenne du corpus en dépend.
+      /* Mesuré par l'outil, pas saisi à la main : un temps noté après coup est
+         une estimation, et la moyenne du corpus en dépend. */
       drawSeconds: elapsedSeconds(),
-      notes: $('notes').value.trim() || null,
+      notes: $('noteField').value.trim() || null,
     };
+  }
 
+  $('save').addEventListener('click', () => {
+    if (!state.bitmap) return alert('Choisissez une photo.');
+    if (!$('photoId').value.trim()) return alert('Indiquez le nom de la scène.');
+    if (!pick('floor').length) return alert('Délimitez d’abord le sol.');
+
+    const draw = buildDraw();
     const url = URL.createObjectURL(
       new Blob([JSON.stringify(draw, null, 2)], { type: 'application/json' })
     );
@@ -339,36 +1681,20 @@
       : `${draw.photoId}.draw.json`;
     link.click();
     URL.revokeObjectURL(url);
+    flash('Tracé enregistré');
+    return undefined;
   });
 
-  $('reload').addEventListener('change', async (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-    if (!state.bitmap) return alert("Chargez d'abord l'image correspondante.");
-    const draw = JSON.parse(await file.text());
-    if (draw.width !== state.width || draw.height !== state.height) {
-      return alert(
-        `Ce tracé a été fait sur ${draw.width} × ${draw.height}, ` +
-        `or l'image chargée fait ${state.width} × ${state.height}.`
-      );
-    }
-    const denormalize = (points) => points.map((point) => ({
-      x: point.x * (state.width - 1), y: point.y * (state.height - 1),
-    }));
-    $('photoId').value = draw.photoId || '';
-    $('notes').value = draw.notes || '';
-    state.shapes = [
-      ...(draw.floorPolygons || []).map((p) => ({ kind: 'floor', points: denormalize(p) })),
-      ...(draw.floorHoles || []).map((p) => ({ kind: 'hole', points: denormalize(p) })),
-      ...(draw.uncertainZones || []).map((z) => ({
-        kind: 'uncertain', reason: z.reason, points: denormalize(z.polygon),
-      })),
-      ...(draw.boundary || []).map((s) => ({
-        kind: 'boundary', boundaryKind: s.kind, points: denormalize(s.points),
-      })),
-    ];
-    redraw();
-  });
-
-  refreshLists();
+  /* Exposé pour les tests : le vrai script est exécuté sous Node avec un DOM
+     minimal, et un test qui réimplémenterait cette logique ne testerait rien. */
+  window.__annotate = {
+    state, clock, history, DRAW_SCHEMA, IDLE_LIMIT_MS, REASONS, BOUNDARY_KINDS,
+    SCENE_HELP, MODE_LABELS, setMode, mode, pick, normalize, finish, addPoint,
+    abandonDraft, deleteVertex, insertVertex, undo, redo, commit, buildDraw,
+    elapsedSeconds, noteActivity, tick, hitVertex, hitSegment, load, openReview,
+    fitView, zoomAt, toImage, chooseReason,
+  };
+})();
 </script>
+</body>
+</html>

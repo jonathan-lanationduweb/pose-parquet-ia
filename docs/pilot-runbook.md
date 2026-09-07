@@ -71,7 +71,7 @@ radiateur est du sol si on le voit.
 
 ---
 
-## 2. Passe A — la procédure, en sept points
+## 2. Passe A — la procédure
 
 ### 1 · Ouvrir l'outil
 
@@ -94,21 +94,43 @@ puis ouvrez `http://localhost:8000/tools/annotate.html`. Arrêtez-le avec
 `datasets/private-real/sejour.jpg` — la plus simple, et sa durée sert de
 référence aux trois autres.
 
-Remplissez les deux champs du bloc **1 · Image** :
+Remplissez les deux champs sous la zone de dépôt :
 
 | champ | valeur |
 | --- | --- |
-| Identifiant du manifeste | `sejour` |
-| Passe | `A` |
+| Scène | `sejour` |
+| Session | `A` |
 
-**Le champ « Passe » n'est pas décoratif** : il nomme le fichier exporté. Sans
-lui, la passe B se téléchargerait sous le même nom que la A et l'écraserait à
-l'import — sans aucune erreur, et avec une paire devenue impossible à mesurer.
+**Le champ « Session » n'est pas décoratif** : il nomme le fichier exporté.
+Sans lui, la passe B se téléchargerait sous le même nom que la A et
+l'écraserait à l'import — sans aucune erreur, et avec une paire devenue
+impossible à mesurer.
 
-### 3 · Tracer, puis enregistrer
+Raccourci : l'outil accepte aussi `annotate.html?scene=sejour&pass=A`, qui
+préremplit les deux champs.
 
-Tracez, puis **Enregistrer le tracé**. Le navigateur télécharge
-`sejour.A.draw.json` dans votre dossier de téléchargements. Importez-le :
+### 3 · Tracer
+
+| geste | effet |
+| --- | --- |
+| clic | pose un sommet |
+| <kbd>Entrée</kbd> ou double-clic | ferme la forme |
+| <kbd>Échap</kbd> | abandonne la forme en cours |
+| glisser un sommet | le déplace — inutile de tout refaire |
+| double-clic sur un segment | insère un sommet |
+| <kbd>Suppr</kbd> sur un sommet sélectionné | le retire |
+| <kbd>Ctrl+Z</kbd> / <kbd>Ctrl+Maj+Z</kbd> | annuler / rétablir |
+| molette | zoom |
+| <kbd>Espace</kbd> + glisser | déplace l'image |
+
+Trois outils dans la barre du bas : **Sol**, **Exclure**, **Incertain**. Les
+contours typés sont facultatifs, derrière le bouton « … ».
+
+### 4 · Vérifier, puis enregistrer
+
+**Vérifier le tracé** ouvre une revue : chaque couche se masque pour
+l'inspecter, avec le compte des zones. Puis **Valider et enregistrer**. Le
+navigateur télécharge `sejour.A.draw.json`. Importez-le :
 
 ```bash
 .venv/Scripts/python.exe -m scripts.import_annotation --draw ~/Downloads/sejour.A.draw.json --annotator jonathan --independent --status approved --reviewer jonathan
@@ -144,7 +166,7 @@ mesurent ce que l'auto-relecture est structurellement incapable de voir. Si
 une seconde personne est disponible, ne serait-ce que pour relire deux scènes,
 cela vaut mieux que quatre auto-relectures.
 
-### 4 · Passer à la suivante
+### 5 · Passer à la suivante
 
 Rechargez la page (ou **Tout effacer**), puis reprenez au point 2 avec
 `chambre`, `couloir`, `petite-piece` — même procédure, passe `A` à chaque fois.
@@ -157,7 +179,7 @@ Vérifiez l'avancement quand vous voulez :
 
 Il annonce `4/8 relevé(s)` et liste nommément ce qui manque.
 
-### 5 · Les passes B, plus tard
+### 6 · Les passes B, plus tard
 
 **Attendez au moins un jour.** Une seconde passe faite dans la demi-heure
 mesure votre mémoire à court terme, pas votre protocole.
@@ -187,7 +209,7 @@ Mettre deux noms différents pour deux passes que vous avez faites toutes les
 deux gonflerait donc précisément le chiffre qui servira de plafond. Le pilote
 mesurera une **répétabilité**, et le rapport l'écrira ainsi.
 
-### 6 · Ce qui est chronométré tout seul
+### 7 · Ce qui est chronométré tout seul
 
 | donnée | comment |
 | --- | --- |
@@ -202,7 +224,7 @@ durée inventée.
 
 L'outil ne mesure rien d'autre. Pas de trace de gestes, pas d'envoi.
 
-### 7 · Ce qu'il ne faut surtout pas regarder avant la passe B
+### 8 · Ce qu'il ne faut surtout pas regarder avant la passe B
 
 C'est la condition qui décide si la mesure vaut quelque chose. Avant de refaire
 une scène, **n'ouvrez pas** :
@@ -263,8 +285,8 @@ Les chiffres à regarder, dans cet ordre :
 
 ## 4. Ce qu'il faut noter en annotant
 
-Le format prévoit un champ `notes` par annotation — dans l'outil, bloc
-**Notes**. Utilisez-le pour ce que les masques ne diront pas :
+Le format prévoit un champ `notes` par annotation — dans l'outil, « Ajouter
+une note » sur l'écran de vérification. Utilisez-le pour ce que les masques ne diront pas :
 
 * un endroit où vous avez hésité **sans** le marquer incertain, et pourquoi ;
 * une catégorie du protocole qui ne collait pas ;

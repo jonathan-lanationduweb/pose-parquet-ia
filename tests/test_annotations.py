@@ -528,6 +528,49 @@ def test_le_format_du_traceur_est_lu_tel_quel(corpus):
     assert not mask[int(HEIGHT * 0.8), int(WIDTH * 0.4)]
 
 
+def test_l_outil_redessine_produit_toujours_un_trace_importable(corpus):
+    """La refonte de l'interface ne doit pas déplacer le contrat.
+
+    `tool-output-redesign.draw.json` est la sortie **réelle** de l'outil après
+    refonte UX, produite en exécutant son vrai JavaScript. L'ancienne fixture
+    reste testée juste au-dessus : les deux doivent passer, sinon la refonte
+    aurait cassé un format que des relevés déjà faits utilisent.
+    """
+    reference = json.loads(
+        (Path(__file__).parent / "fixtures" / "tool-output-redesign.draw.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert reference["schema"] == import_annotation.DRAW_SCHEMA
+    assert reference["width"] == WIDTH and reference["height"] == HEIGHT
+    # Les deux champs que la refonte devait conserver, et qui se perdent sans
+    # bruit s'ils disparaissent : la passe et la durée chronométrée.
+    assert reference["passLabel"] == "A"
+    assert reference["drawSeconds"] > 0
+
+    path = corpus / "refonte.draw.json"
+    path.write_text(json.dumps(reference), encoding="utf-8")
+    written = import_annotation.build(
+        path, corpus, "jonathan", AnnotationStatus.APPROVED, "relecteur", None
+    )
+
+    assert written.name == "piece-01.A.json", "la passe doit suffixer le fichier"
+    annotation = FloorAnnotation.model_validate(json.loads(written.read_text(encoding="utf-8")))
+    assert annotation.pass_label == "A"
+    assert annotation.timing is not None and annotation.timing.first_pass_seconds > 0
+    assert annotation.masks.floor_extent is None, "floorExtent doit rester vide"
+    assert annotation.masks.uncertain is not None
+    assert annotation.boundary[0].kind is BoundaryKind.WALL_FLOOR
+    assert annotation.uncertain_zones[0].reason is UncertainReason.LOW_CONTRAST
+
+    # L'exclusion tracée doit manquer au masque, le sol autour rester présent.
+    mask = load_mask(
+        corpus / "annotations" / "masks" / "piece-01.A.floor-visible.png", WIDTH, HEIGHT
+    )
+    assert mask[340, 400], "le sol hors exclusion reste du sol"
+    assert not mask[340, 130], "l'exclusion doit être creusée"
+
+
 # --- Le banc d'essai ------------------------------------------------------
 
 
