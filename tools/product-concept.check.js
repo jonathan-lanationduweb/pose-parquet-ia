@@ -87,7 +87,7 @@ ok('source des calibrations documentee',
   && /lu le\s*:\s*8 septembre 2026/.test(html));
 /* Et l'etat du front au moment ou on l'ecrit : sans ca, « commit lu »
    laisse croire que c'est la derniere version. */
-ok('la fraicheur de la lecture est dite', /encore à jour\s*:/.test(html));
+ok('l empreinte de l arbre lu est donnee', /arbre lu\s*:\s*data\/scenes\/ = 2f5bfc7/.test(html));
 ok('filtre de selection documente', /contour de 8 points au moins/.test(html));
 ok('scenes ecartees nommees', /entree-cadree/.test(html) && /salon/.test(html));
 ok('aucun polygone generique de repli',
@@ -306,7 +306,9 @@ ok('les occulteurs de la grande piece claire sont poses', el('occlShapes').kids.
   `${el('occlShapes').kids.length}`);
 api.openRoom('chambre');
 api.buildMasks();
-ok('la chambre restaure sa grille encastree', el('occlShapes').kids.length === 1);
+/* La grille de la chambre est le seul occulteur retire par demoFloorMask :
+   il restituait la grille — deja hors du contour — ET une bande de parquet. */
+ok('la grille de la chambre n est plus restauree', el('occlShapes').kids.length === 0);
 api.openRoom('sejour');
 api.buildMasks();
 ok('une piece sans occulteur n en pose aucun', el('occlShapes').kids.length === 0);
@@ -488,6 +490,52 @@ ok('la grille montre de vraies photos', count('roomGrid', /<img/g) >= 1);
 ok('la piece courante est cochee', /class="tick"/.test(h('roomGrid')));
 ok('le nombre de zones est annonce', /zone/.test(h('roomGrid')));
 
+/* ================= 14 bis. demoFloorMask : retouches de maquette ==========
+   Autorisees pour rendre une scene DEMO credible, interdites comme verite
+   terrain. Les tests verifient les deux moities de cette phrase. */
+ok('les retouches sont declarees a part',
+  /const DEMO_MASK_FIX = \{/.test(html) && /const ROOMS = DEMO_ROOMS\.map\(applyMaskFix\)/.test(html));
+ok('elles sont annoncees comme hors verite terrain',
+  /Prototype-only visual mask — not AI ground truth/.test(html)
+  && /n'entrent PAS dans `datasets\/`/.test(html));
+ok('chaque retouche porte son pourquoi et sa mesure',
+  Object.values(api.DEMO_MASK_FIX).every((f) => typeof f.pourquoi === 'string' && f.pourquoi.length > 80));
+ok('la donnee du front reste intacte a cote',
+  api.DEMO_ROOMS.find((r) => r.id === 'piece-claire').zones[0].poly.length === 37
+  && api.DEMO_ROOMS.find((r) => r.id === 'chambre').occluders.length === 1);
+ok('seules deux scenes sont retouchees',
+  api.ROOMS.filter((r) => r.retouche).map((r) => r.id).join(',') === 'chambre,piece-claire',
+  api.ROOMS.filter((r) => r.retouche).map((r) => r.id).join(','));
+ok('les trois scenes exactes ne sont pas touchees',
+  ['sejour', 'piece-arcades', 'bureau-vide'].every((id) =>
+    api.ROOMS.find((r) => r.id === id) === api.DEMO_ROOMS.find((r) => r.id === id)));
+ok('la retouche de piece-claire remonte bien le contour',
+  (() => {
+    const z = api.ROOMS.find((r) => r.id === 'piece-claire').zones[0].poly;
+    const seg = z.filter(([x]) => x >= 0.14 && x <= 0.37);
+    return seg.length === 2 && Math.abs(seg[0][1] - 0.6592) < 1e-6 && Math.abs(seg[1][1] - 0.624) < 1e-6;
+  })());
+ok('la retouche ne remonte jamais dans le mur',
+  api.ROOMS.every((r) => r.zones.every((z) => z.poly.every(([, y]) => y >= 0.33))));
+/* Aucune retouche ne doit avoir fui vers le corpus ni vers un schema. */
+ok('aucune sortie vers le dataset',
+  !/datasets\/(annotations|private-real|public)\//.test(html.split('<script>')[1] || '')
+  || /const PHOTOS = '\.\.\/datasets\/private-real\/';/.test(html));
+/* La seule mention des schemas est le commentaire qui dit qu'on n'y touche
+   pas ; ce test cherche un usage reel, entre guillemets. */
+ok('aucun schema d annotation invoque',
+  !/['"](pose-parquet(-ai)?\/)?(floor-annotation|floor-draw|dataset|analysis)@/.test(html));
+ok('le refus d y entrer est ecrit', /floor-annotation@1., ne sortent PAS/.test(html));
+
+/* ================= 14 ter. Modes debug, hors UX ================= */
+ok('deux modes debug existent', /\?debug=mask/.test(html) && /\?debug=outside/.test(html));
+ok('ils ne s activent que par l URL',
+  /new URLSearchParams\(window\.location\.search\)\.get\('debug'\)/.test(html));
+ok('aucun bouton ne les expose', !/>debug</i.test(html) && !/data-debug=/.test(html));
+ok('le mode debug est nul par defaut', api.DEBUG === null, String(api.DEBUG));
+ok('le masque inverse existe', /<mask id="outsideMask"/.test(html) && /id="outsideShapes"/.test(html));
+ok('le calque inverse est masque par defaut', /<div id="outside" class="hidden">/.test(html));
+
 /* ================= 15 bis. La couverture du sol, mesuree =================
    Point-dans-polygone sur la derniere rangee visible du cadre : au premier
    plan, une photo d interieur prise debout montre du sol sur presque toute
@@ -513,7 +561,13 @@ const coverage = api.DEMO_ROOMS.map((r) => {
   }
   return { id: r.id, pct: on / 2 };
 });
-ok('aucune piece ne laisse un pan d ancien sol au premier plan',
+/* Ce chiffre est un GARDE-FOU, pas une preuve : il ne dit pas que tout le sol
+   est remplace, seulement qu'aucune scene n'a subitement perdu son premier
+   plan. `piece-claire` plafonne a 80 % parce que la bande droite du cadre est
+   un MUR — verifie au pixel : x>0,845 est neutre (R-B de -7 a -18) sur toute
+   la hauteur, contre R-B de +26 a +40 pour le bois. Le verdict de couverture
+   se prend dans Chrome, masque en magenta. */
+ok('garde-fou : aucune scene n a perdu son premier plan',
   coverage.every((c) => c.pct >= 80),
   coverage.map((c) => `${c.id} ${c.pct.toFixed(0)}%`).join(', '));
 
@@ -539,6 +593,36 @@ ok('la texture ne depend pas de la photo', !/blob:|\.jpg/.test(tex));
 ok('aucune apostrophe double dans un attribut style', !/style="[^"]*url\("/.test(html));
 ok('les pastilles ne sont pas en display inline',
   /\.pd \.tex \{[\s\S]*?display: block/.test(html) && /#card \.sw[\s\S]*?display: block/.test(html));
+
+/* ================= Diagnostic par scene =================
+   Utile pour reperer une anomalie de donnee. Ce n'est PAS une preuve de
+   qualite visuelle : un masque peut etre grand, connexe et bien forme tout en
+   laissant une bande d'ancien sol. Chrome reste l'arbitre. */
+const shoelace = (poly) => {
+  let a = 0;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    a += poly[j][0] * poly[i][1] - poly[i][0] * poly[j][1];
+  }
+  return Math.abs(a) / 2;
+};
+console.log('');
+console.log('Diagnostic (donnee, pas qualite visuelle)');
+console.log('  scene              aire%  bbox x / y              zones trous occl  retouche');
+api.ROOMS.forEach((r) => {
+  const pts = r.zones.flatMap((z) => z.poly);
+  const xs = pts.map((q) => q[0]);
+  const ys = pts.map((q) => q[1]);
+  const area = r.zones.reduce((sum, z) => sum + shoelace(z.poly)
+    - (z.holes || []).reduce((h, hole) => h + shoelace(hole), 0), 0);
+  const holes = r.zones.reduce((n, z) => n + (z.holes || []).length, 0);
+  console.log('  ' + r.id.padEnd(18)
+    + (area * 100).toFixed(1).padStart(5) + '  '
+    + r.zones.length + ' comp.  '
+    + Math.min(...xs).toFixed(2) + '-' + Math.max(...xs).toFixed(2) + ' / '
+    + Math.min(...ys).toFixed(2) + '-' + Math.max(...ys).toFixed(2) + '  '
+    + String(r.zones.length).padStart(4) + String(holes).padStart(6)
+    + String(r.occluders.length).padStart(5) + '  ' + (r.retouche ? 'oui' : '-'));
+});
 
 console.log(bad ? `\n${bad} ECHEC(S)` : '\nAUCUN ECHEC');
 process.exit(bad ? 1 : 0);

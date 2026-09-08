@@ -36,9 +36,11 @@
 
       source    : pose-parquet.com/data/scenes/<id>.json
       commit lu : 124b553, sur la branche feature/home-visualizer
+      arbre lu  : data/scenes/ = 2f5bfc7 — c'est CETTE empreinte qui compte.
+                  Le front bouge sous nos pieds (l'utilisateur y travaille) ;
+                  un numéro de commit vieillit, une empreinte d'arbre se
+                  revérifie d'un `git rev-parse <ref>:data/scenes`.
       lu le     : 8 septembre 2026, en lecture seule, aucune écriture
-      encore à jour : oui — le front est depuis passé à 344d2c9, mais
-                  l'arbre data/scenes/ y est identique (2f5bfc7)
       filtre    : scène présente dans data/scenes/index.json (brouillons
                   exclus) ET contour de 8 points au moins. `salon` est écartée
                   (brouillon), `entree-cadree` aussi (5 points, trop grossier).
@@ -206,6 +208,8 @@
   /* Les occulteurs restaurent les pixels d'origine PAR-DESSUS le parquet :
      un meuble, un tapis ou un pied de chaise n'est jamais repeint. */
   #occl { z-index: 3; }
+  /* Couche du mode debug inverse : n'existe qu'avec ?debug=outside. */
+  #outside { position: absolute; inset: 0; z-index: 4; background: rgba(6, 6, 10, 0.82); }
   /* Le SVG porte-masques doit occuper la scene : en 0x0, Chrome ne resout
      pas `mask: url(#floorMask)` et le sol disparait entierement. Il ne
      contient que des <defs>, donc il ne peint rien. */
@@ -609,9 +613,11 @@
       <div id="joints"></div>
     </div>
     <div id="occl"></div>
+    <div id="outside" class="hidden"></div>
     <svg id="masks" aria-hidden="true"><defs>
       <mask id="floorMask" maskUnits="userSpaceOnUse"><g id="floorShapes"></g></mask>
       <mask id="occlMask" maskUnits="userSpaceOnUse"><g id="occlShapes"></g></mask>
+      <mask id="outsideMask" maskUnits="userSpaceOnUse"><g id="outsideShapes"></g></mask>
     </defs></svg>
 
     <nav id="nav">
@@ -953,6 +959,94 @@
     },
   ];
 
+  /* =====================================================================
+     demoFloorMask — RETOUCHES PROPRES À LA MAQUETTE, PAS UNE VÉRITÉ TERRAIN
+
+     ## Ce que c'est, et ce que ce n'est pas
+
+     Ces retouches n'existent que pour `tools/product-concept.html`. Elles
+     n'entrent PAS dans `datasets/`, PAS dans `annotations/`, PAS dans
+     `floor-annotation@1`, ne sortent PAS du service Python, et ne servent à
+     mesurer AUCUN modèle. Elles rendent une scène de démonstration
+     visuellement crédible, rien de plus.
+
+         Prototype-only visual mask — not AI ground truth.
+
+     `DEMO_ROOMS` juste au-dessus reste la donnée du front, mot pour mot. Les
+     retouches sont déclarées à part, une par une, avec leur mesure : on peut
+     donc toujours dire ce qui vient du front et ce qui vient de nous.
+
+     ## Pourquoi il en faut
+
+     Le contour du front est recalé sur le maximum de gradient, puis lissé par
+     un filtre médian et une moyenne glissante (sa propre note le dit). Ce
+     lissage arrondit les angles : là où la base d'un mur forme un coin franc,
+     le contour coupe au court et perd une bande de sol. Le front s'en
+     accommode — son visiteur peut corriger au pinceau. La maquette n'a pas de
+     pinceau : elle affiche la bande.
+
+     ## Comment chaque retouche a été mesurée
+
+     Sur la photo brute, en scrutant une colonne de pixels : le sol bois est
+     chaud (R−B élevé), un mur gris ou bleu ne l'est pas. La jonction est
+     relevée par persistance de la teinte chaude sur 8 lignes, règle vérifiée
+     d'abord sur deux colonnes où le contour du front est exact (`piece-claire`
+     x=0,52 → jonction 0,686, contour 0,684). Puis vérification à l'œil, dans
+     Chrome, masque peint en magenta.
+
+     Les scènes absentes de cette table n'ont RIEN eu : `sejour`,
+     `piece-arcades` et `bureau-vide` ont été mesurées de la même façon et
+     leur contour tombe à ±5 px de la jonction, plinthes comprises.
+     ===================================================================== */
+  const DEMO_MASK_FIX = {
+    'piece-claire': {
+      pourquoi: "Le lissage du front a arrondi le coin de la base du mur du "
+        + "fond : le contour s'affaissait de 20 à 56 px sous la jonction entre "
+        + "x=0,16 et x=0,40, laissant une bande d'ancien sol sous le radiateur. "
+        + "La base du mur y est rectiligne — droite ajustée par moindres carrés "
+        + "sur 22 relevés, résidu max 4 px, RMS 2 px.",
+      remplaceChaineHaute: { de: 0.145, a: 0.36, y0: 0.6592, y1: 0.624 },
+    },
+    chambre: {
+      pourquoi: "L'occulteur de la grille encastrée est décalé vers le bas : il "
+        + "restitue la grille — que le contour exclut déjà — ET une bande de "
+        + "parquet sous elle, large de ~0,03 en y sur toute la baie. Il est donc "
+        + "redondant et nuisible ici. La grille reste hors du sol par le contour.",
+      retireOcculteurs: [0],
+    },
+  };
+
+  /* Applique les retouches. `DEMO_ROOMS` n'est jamais modifié : les tests
+     comparent les deux pour prouver ce qui vient de nous. */
+  function applyMaskFix(entry) {
+    const fix = DEMO_MASK_FIX[entry.id];
+    if (!fix) return entry;
+    let zones = entry.zones;
+    if (fix.remplaceChaineHaute) {
+      const { de, a, y0, y1 } = fix.remplaceChaineHaute;
+      zones = entry.zones.map((zone, zi) => {
+        if (zi !== 0) return zone;
+        /* On retire les sommets de la chaîne haute compris dans l'intervalle,
+           puis on insère les deux bouts de la droite mesurée. */
+        const kept = zone.poly.filter(([x, y]) => !(x > de && x < a && y > 0.58 && y < 0.72));
+        const poly = [];
+        let done = false;
+        kept.forEach(([x, y], i) => {
+          const nx = kept[(i + 1) % kept.length][0];
+          poly.push([x, y]);
+          if (!done && x <= de && nx >= a) { poly.push([de, y0], [a, y1]); done = true; }
+        });
+        return { poly, holes: zone.holes };
+      });
+    }
+    const occluders = fix.retireOcculteurs
+      ? entry.occluders.filter((_, i) => !fix.retireOcculteurs.includes(i))
+      : entry.occluders;
+    return { ...entry, zones, occluders, retouche: true };
+  }
+
+  const ROOMS = DEMO_ROOMS.map(applyMaskFix);
+
   const CATEGORIES = ['Séjour', 'Chambre', 'Grande pièce', 'Petite pièce', 'Bureau', 'Couloir'];
 
   /* =====================================================================
@@ -1051,6 +1145,25 @@
   const $ = (id) => document.getElementById(id);
   const SVGNS = 'http://www.w3.org/2000/svg';
 
+  /* =====================================================================
+     Mode debug — hors de l'UX, jamais atteignable par un visiteur
+
+     `?debug=mask`     le sol devient magenta uni : tout pixel de sol resté
+                       photographique saute aux yeux.
+     `?debug=outside`  l'inverse est assombri : on voit d'un coup un trou
+                       dans le sol, un morceau de mur inclus par erreur.
+
+     Pourquoi ces deux modes : un masque incomplet est INVISIBLE quand le
+     parquet choisi ressemble à l'ancien sol. Juger « à l'œil » sur un chêne
+     naturel pose sur un sol en chêne ne prouve rien.
+     ===================================================================== */
+  const DEBUG = (() => {
+    try {
+      const v = new URLSearchParams(window.location.search).get('debug');
+      return v === 'mask' || v === 'outside' ? v : null;
+    } catch { return null; }
+  })();
+
   const state = {
     /* `demo` | `uploaded` — état d'interface, PAS SceneData. */
     source: null,
@@ -1076,7 +1189,7 @@
       return { id: 'uploaded', label: state.uploaded.name, url: state.uploaded.url,
         w: state.uploaded.w, h: state.uploaded.h, zones: null, occluders: [] };
     }
-    const entry = DEMO_ROOMS.find((r) => r.id === state.roomId) || DEMO_ROOMS[0];
+    const entry = ROOMS.find((r) => r.id === state.roomId) || ROOMS[0];
     return { ...entry, url: PHOTOS + entry.file };
   }
 
@@ -1128,6 +1241,21 @@
     (entry.occluders || []).forEach((poly) => {
       $('occlShapes').appendChild(polyEl(poly.map(to), '#fff'));
     });
+    /* Masque inverse : le cadre entier en blanc, les zones en noir. Un
+       `mask` SVG ne sait pas s'inverser tout seul. */
+    $('outsideShapes').innerHTML = '';
+    const frame = document.createElementNS(SVGNS, 'rect');
+    frame.setAttribute('width', String(box.width));
+    frame.setAttribute('height', String(box.height));
+    frame.setAttribute('fill', '#fff');
+    $('outsideShapes').appendChild(frame);
+    entry.zones.forEach((zone) => {
+      $('outsideShapes').appendChild(polyEl(zone.poly.map(to), '#000'));
+      (zone.holes || []).forEach((hole) => {
+        $('outsideShapes').appendChild(polyEl(hole.map(to), '#fff'));
+      });
+    });
+
     $('masks').setAttribute('width', String(box.width));
     $('masks').setAttribute('height', String(box.height));
     return zones;
@@ -1226,6 +1354,18 @@
       });
       $('occl').style.mask = 'url(#occlMask)';
       $('occl').style.webkitMask = 'url(#occlMask)';
+
+      if (DEBUG === 'mask') {
+        $('floor').style.backgroundImage = 'none';
+        $('floor').style.backgroundColor = '#ff00c8';
+        $('floor').style.filter = 'none';
+        $('joints').style.backgroundImage = 'none';
+      }
+      $('outside').classList.toggle('hidden', DEBUG !== 'outside');
+      if (DEBUG === 'outside') {
+        $('outside').style.mask = 'url(#outsideMask)';
+        $('outside').style.webkitMask = 'url(#outsideMask)';
+      }
     }
 
     /* Avant/après et comparaison partagent le même séparateur : un seul
@@ -1326,15 +1466,15 @@
      Sélecteur de pièce — catégories + import, comme chez Quick-Step
      ===================================================================== */
   function paintRoomSheet() {
-    const cats = CATEGORIES.filter((c) => DEMO_ROOMS.some((r) => r.category === c));
+    const cats = CATEGORIES.filter((c) => ROOMS.some((r) => r.category === c));
     $('roomCats').innerHTML = cats.map((c) => {
-      const n = DEMO_ROOMS.filter((r) => r.category === c).length;
+      const n = ROOMS.filter((r) => r.category === c).length;
       return `<button type="button" data-cat="${c}" aria-pressed="${c === state.category}">
         ${c} <span style="color:var(--ink-4);font-weight:400">${n}</span></button>`;
     }).join('');
 
-    const list = DEMO_ROOMS.filter((r) => r.category === state.category);
-    $('roomCount').textContent = `(${DEMO_ROOMS.length} pièces calibrées)`;
+    const list = ROOMS.filter((r) => r.category === state.category);
+    $('roomCount').textContent = `(${ROOMS.length} pièces calibrées)`;
     $('roomGrid').innerHTML = list.map((r) => `
       <button class="rcard" type="button" data-room="${r.id}">
         <span class="ph"><img alt="" src="${PHOTOS + r.file}" />${
@@ -1349,7 +1489,7 @@
   }
 
   function paintQuick() {
-    $('quickRooms').innerHTML = DEMO_ROOMS.slice(0, 3).map((r) => `
+    $('quickRooms').innerHTML = ROOMS.slice(0, 3).map((r) => `
       <button class="rcard" type="button" data-room="${r.id}">
         <span class="ph"><img alt="" src="${PHOTOS + r.file}" /></span>
         <span class="nm">${r.label}</span>
@@ -1781,8 +1921,9 @@
   /* Exposé pour les tests : le vrai script est exécuté sous Node avec un DOM
      minimal, et un test qui réimplémenterait cette logique ne testerait rien. */
   window.__concept = {
-    state, DEMO_ROOMS, DEMO_PRODUCTS, PATTERNS, FINISHES, TONES, MOODS, CATEGORIES,
-    PHOTOS, room, product, calibrated, buildMasks, mapper, woodCss, floorFilter,
+    state, DEMO_ROOMS, ROOMS, DEMO_MASK_FIX, applyMaskFix,
+    DEMO_PRODUCTS, PATTERNS, FINISHES, TONES, MOODS, CATEGORIES,
+    PHOTOS, DEBUG, room, product, calibrated, buildMasks, mapper, woodCss, floorFilter,
     texture, opts, paint, paintCard, paintCatalogue, paintCustom, paintRoomSheet,
     paintQuick, markFallbacks,
     openRoom, loadUpload, releaseUpload, select, stepProduct, toggleFav,
