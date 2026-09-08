@@ -85,6 +85,9 @@ ok('repli si photo absente', /fallbackPhoto/.test(html) && /photo indisponible/.
 ok('source des calibrations documentee',
   /data\/scenes\/<id>\.json/.test(html) && /commit lu\s*:\s*124b553/.test(html)
   && /lu le\s*:\s*8 septembre 2026/.test(html));
+/* Et l'etat du front au moment ou on l'ecrit : sans ca, « commit lu »
+   laisse croire que c'est la derniere version. */
+ok('la fraicheur de la lecture est dite', /encore à jour\s*:/.test(html));
 ok('filtre de selection documente', /contour de 8 points au moins/.test(html));
 ok('scenes ecartees nommees', /entree-cadree/.test(html) && /salon/.test(html));
 ok('aucun polygone generique de repli',
