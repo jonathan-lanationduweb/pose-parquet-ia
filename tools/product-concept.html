@@ -170,6 +170,7 @@
   .gal { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
   .gc { text-align: left; }
   .gc .ph {
+    display: block;
     width: 100%; aspect-ratio: 16 / 11; border-radius: var(--r-card); overflow: hidden;
     background: var(--track); box-shadow: 0 0 0 1px var(--line);
     transition: box-shadow var(--t) var(--ease), transform var(--t) var(--ease);
@@ -285,7 +286,7 @@
     background: rgba(255, 255, 255, 0.92); backdrop-filter: blur(14px);
     border-radius: var(--r-pill); box-shadow: var(--sh-2);
   }
-  #stamp .sw { width: 26px; height: 26px; border-radius: 7px; flex: none; overflow: hidden; position: relative; box-shadow: inset 0 0 0 1px var(--line-2); }
+  #stamp .sw { display: block; width: 26px; height: 26px; border-radius: 7px; flex: none; overflow: hidden; position: relative; box-shadow: inset 0 0 0 1px var(--line-2); }
   #stamp b { font-size: 13.5px; font-weight: 600; }
   #stamp i { font-style: normal; font-size: 12px; color: var(--ink-3); }
 
@@ -351,6 +352,7 @@
 
   .sug { flex: none; width: 182px; text-align: left; position: relative; }
   .sug .tile {
+    display: block;
     width: 100%; aspect-ratio: 16 / 10; border-radius: var(--r-tile);
     overflow: hidden; background: var(--track); position: relative;
     box-shadow: 0 0 0 1px var(--line);
@@ -394,7 +396,7 @@
 
   /* Produit actif — élégant, léger */
   #active { display: flex; align-items: center; gap: 11px; padding: 0 2px 14px; border-bottom: 1px solid var(--line); margin-bottom: 16px; }
-  #active .sw { width: 48px; height: 48px; border-radius: 11px; flex: none; overflow: hidden; position: relative; box-shadow: inset 0 0 0 1px var(--line-2); }
+  #active .sw { display: block; width: 48px; height: 48px; border-radius: 11px; flex: none; overflow: hidden; position: relative; box-shadow: inset 0 0 0 1px var(--line-2); }
   #active b { display: block; font-size: 14.5px; font-weight: 600; line-height: 1.25; }
   #active .spec { display: block; margin-top: 2px; font-size: 12px; color: var(--ink-3); }
   #actions { display: flex; gap: 6px; margin-bottom: 18px; }
@@ -409,6 +411,7 @@
   .prods { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; }
   .pd { text-align: left; position: relative; }
   .pd .mat {
+    display: block;
     width: 100%; aspect-ratio: 1 / 0.86; border-radius: var(--r-tile);
     overflow: hidden; position: relative; background: var(--track);
     box-shadow: 0 0 0 1px var(--line);
@@ -434,7 +437,7 @@
     box-shadow: 0 0 0 1px var(--line); transition: box-shadow var(--t) var(--ease), transform var(--t) var(--ease); }
   .in:hover { transform: translateY(-2px); box-shadow: var(--sh-2); }
   .in[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--terre); }
-  .in .ph { width: 100%; aspect-ratio: 16 / 8; position: relative; background: var(--track); }
+  .in .ph { display: block; width: 100%; aspect-ratio: 16 / 8; position: relative; background: var(--track); }
   .in .ph img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .in .cap { padding: 10px 12px 12px; background: var(--surface); }
   .in .t { display: block; font-size: 14px; font-weight: 600; }
@@ -452,7 +455,7 @@
 
   .pats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
   .pt { text-align: center; }
-  .pt .mat { width: 100%; aspect-ratio: 1; border-radius: var(--r-tile); overflow: hidden; position: relative;
+  .pt .mat { display: block; width: 100%; aspect-ratio: 1; border-radius: var(--r-tile); overflow: hidden; position: relative;
     box-shadow: 0 0 0 1px var(--line); transition: box-shadow var(--t) var(--ease); }
   .pt .mat > i { position: absolute; inset: 0; }
   .pt[aria-pressed="true"] .mat { box-shadow: 0 0 0 2px var(--terre); }
@@ -1173,9 +1176,11 @@
 
   /* Vignette matière : la zone de sol de la photo, agrandie et filtrée, avec
      le motif par-dessus. Chaque produit devient reconnaissable. */
+  /* Guillemets SIMPLES dans url() : cette chaîne part dans un attribut
+     `style="…"`, et un guillemet double le fermerait — le fond restait vide. */
   function matter(entry, size) {
-    return `background-image:url("${room().url}");background-size:${size}px;`
-      + `background-position:42% 88%;filter:${entry.filter} saturate(1.12) contrast(1.10)`;
+    return `background-image:url('${room().url}');background-size:${size}px;`
+      + `background-position:46% 97%;filter:${entry.filter} saturate(1.12) contrast(1.10)`;
   }
 
   function matterCard(entry, size, jointLevel) {
@@ -1332,7 +1337,7 @@
     $('split').classList.toggle('hidden', !state.ba);
     if (state.ba) $('split').style.left = `${state.split * 100}%`;
 
-    $('stamp').innerHTML = `<span class="sw">${matterCard(entry, 90, 55)}</span>
+    $('stamp').innerHTML = `<span class="sw">${matterCard(entry, 200, 55)}</span>
       <span><b>${entry.name}</b> <i>· ${state.width} mm</i></span>`;
 
     $('heroShot').innerHTML = `<img alt="Aperçu de votre pièce" src="${url}" />`;
@@ -1354,7 +1359,7 @@
   function paintActive() {
     const entry = product();
     const hearted = state.favourites.has(entry.id);
-    $('active').innerHTML = `<span class="sw">${matterCard(entry, 120, 55)}</span>
+    $('active').innerHTML = `<span class="sw">${matterCard(entry, 260, 55)}</span>
       <span class="grow"><b>${entry.name}</b>
         <span class="spec">${PATTERNS[entry.pattern].label} · ${state.width} mm · ${FINISHES[state.finish].label}</span>
       </span>`;
@@ -1377,7 +1382,7 @@
 
     $('prods').innerHTML = list.map((p) => `
       <button class="pd" type="button" data-id="${p.id}" aria-pressed="${p.id === state.productId}">
-        <span class="mat">${matterCard(p, 200, 60)}</span>
+        <span class="mat">${matterCard(p, 420, 60)}</span>
         <span class="hh" data-fav="${p.id}" role="button" aria-pressed="${state.favourites.has(p.id)}"
               aria-label="Favori">${heart(state.favourites.has(p.id))}</span>
         <span class="nm">${p.name}</span>
@@ -1424,7 +1429,7 @@
       .map((key) => {
         const target = family.find((p) => p.pattern === key);
         return `<button class="pt" type="button" data-target="${target.id}" aria-pressed="${key === entry.pattern}">
-          <span class="mat">${matterCard(target, 150, 65)}</span>
+          <span class="mat">${matterCard(target, 320, 65)}</span>
           <span class="cap">${PATTERNS[key].label}</span>
         </button>`;
       }).join('');
