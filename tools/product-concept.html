@@ -6,51 +6,58 @@
 <title>Pose Parquet · Visualiseur — concept</title>
 
 <!--
-  Concept du Visualiseur public. Illustre `docs/product-visualizer-ux.md`.
+  Concept du Visualiseur public. Illustre `docs/product-visualizer-ux.md` et
+  applique `docs/benchmark-quickstep-karndean.md`.
 
-  ## V4 — un espace de travail, pas un tunnel
+  ## V5 — ce que le benchmark a changé
 
-  Le stepper en quatre étapes a disparu. Le parcours vit dans l'état de
-  l'interface : on entre par une photo (la sienne ou une pièce proposée), on
-  clique un parquet, la pièce change, on affine si on veut. Tout au même
-  endroit, sans étape numérotée.
+  Quick-Step RoomViewer et Karndean Floorstyle ont été manipulés dans un
+  navigateur. Les deux laissent la photo occuper **tout** le cadre. Quick-Step
+  n'a aucun panneau permanent : trois entrées empilées, chacune portant sa
+  valeur courante, remplacent une sidebar entière.
 
-  Références d'usage : Quick-Step RoomViewer pour la simplicité (clic =
-  rendu), Karndean Floorstyle pour l'exploration, la comparaison et les
-  favoris. Aucune de leurs interfaces n'est reproduite.
+  Conséquences ici :
 
-  ## Le défaut corrigé en V4
+  * la colonne de gauche est **supprimée**, le configurateur permanent aussi ;
+  * navigation en trois entrées qui affichent leur valeur ;
+  * catalogue en modale — filtres à gauche, grille de TEXTURES à droite,
+    compte dans le titre, application au clic sans bouton « Appliquer » ;
+  * flèches produit précédent/suivant directement sur la scène ;
+  * import de sa photo placé DANS le sélecteur de pièce, au même niveau que
+    les exemples ;
+  * comparaison dans une **seule photo scindée**, versions A/B étiquetées,
+    une carte produit par côté.
 
-  En V3, le motif de joints couvrait toute l'image — murs, fenêtres, meubles.
-  La cause était nette : `applyFloorClips()` ne découpe que les éléments
-  portant `data-floor`, et les deux couches de la vue principale ne l'avaient
-  pas. Elles le portent maintenant, et un test vérifie qu'aucune couche de sol
-  ne peut être rendue sans découpe.
+  ## Le sol vient des VRAIES calibrations du front
 
-  Le motif a par ailleurs été refait : c'était une grille technique, ça doit
-  être un parquet. Joints très doux avec un chanfrein clair, aboutements
-  espacés, veinage dans le sens des lames, contraste faible.
+  Le polygone approximatif de la V4 laissait de l'ancien sol visible : refusé,
+  et à juste titre. Les contours ci-dessous sont ceux des scènes calibrées à
+  la main du front.
+
+      source    : pose-parquet.com/data/scenes/<id>.json
+      commit lu : 124b553
+      lu le     : 8 septembre 2026, en lecture seule, aucune écriture
+      filtre    : scène présente dans data/scenes/index.json (brouillons
+                  exclus) ET contour de 8 points au moins. `salon` est écartée
+                  (brouillon), `entree-cadree` aussi (5 points, trop grossier).
+
+  Chaque scène apporte TOUTES ses `floorZones`, leurs `holes` et ses
+  `occluders`. Le sol est peint par un **masque SVG** qui réunit les zones et
+  retire les trous ; les occulteurs restaurent les pixels d'origine
+  par-dessus, de sorte qu'un meuble n'est jamais repeint.
 
   ## Ce que ce fichier n'est pas
 
-  * **Pas un moteur de rendu.** Le vrai moteur existe dans le front
+  * **Pas un moteur de rendu.** Le vrai moteur est dans le front
     (`js/scene/renderer-gl.js` et son repli logiciel). Ici, la photo est
-    filtrée dans un polygone de sol ajusté à la main pour chaque pièce de
-    démonstration, puis recouverte d'un motif discret.
-  * **Pas une analyse.** Les quatre issues sont commutées depuis ⋯ → Mode démo.
-    L'écran « Analyse de votre pièce » est une temporisation, pas un calcul.
+    filtrée dans le masque puis recouverte d'un motif discret. Aucun WebGL.
+  * **Pas une analyse.** Une photo inconnue n'est PAS masquée au hasard : le
+    prototype dit que l'analyse automatique n'est pas connectée. Le LOT IA 2B
+    n'existe pas, et prétendre le contraire donnerait l'impression que notre
+    détection fonctionne mal.
   * **Pas le catalogue.** `DEMO_PRODUCTS` est un jeu de démonstration.
-
-  ## Les photos
-
-  Deux sources, distinguées par `state.source` :
-
-  * `demo` — pièces proposées par le site, lues dans
-    `datasets/private-real/` par chemin relatif. Ignorées par Git, jamais
-    copiées dans un dossier versionné, jamais encodées en base64.
-  * `uploaded` — la photo de l'utilisateur, lue en local par `URL.createObjectURL`.
-    Elle ne quitte jamais la machine, n'est jamais écrite, et disparaît à la
-    fermeture de l'onglet. Aucun stockage, aucun envoi.
+  * **Pas une copie.** Aucun asset, aucune capture, aucune ligne de code de
+    Quick-Step ou Karndean : des patterns d'interaction, pas une identité.
 
   Autonome : un fichier, aucune dépendance, aucune requête réseau, file://.
 -->
@@ -60,7 +67,7 @@
     --page: #f7f7f5;
     --surface: #ffffff;
     --track: #f0efec;
-    --track-2: #e8e6e1;
+    --track-2: #e6e4de;
 
     --ink: #26251f;
     --ink-2: #4a4842;
@@ -69,23 +76,23 @@
 
     --graphite: #35332f;
     --terre: #8a6049;
-    --terre-soft: rgba(138, 96, 73, 0.09);
+    --terre-soft: rgba(138, 96, 73, 0.1);
     --vert: #55b183;
 
     --line: rgba(38, 37, 31, 0.07);
-    --line-2: rgba(38, 37, 31, 0.12);
+    --line-2: rgba(38, 37, 31, 0.13);
 
-    --r-panel: 20px;
-    --r-card: 14px;
-    --r-tile: 10px;
+    --r-lg: 18px;
+    --r-md: 13px;
+    --r-sm: 9px;
     --r-pill: 999px;
 
-    --sh-1: 0 1px 2px rgba(38, 37, 31, 0.04);
-    --sh-2: 0 1px 3px rgba(38, 37, 31, 0.05), 0 10px 26px rgba(38, 37, 31, 0.045);
-    --sh-3: 0 2px 6px rgba(38, 37, 31, 0.07), 0 18px 44px rgba(38, 37, 31, 0.07);
+    --sh-1: 0 1px 2px rgba(38, 37, 31, 0.05);
+    --sh-2: 0 2px 6px rgba(24, 22, 18, 0.09), 0 12px 32px rgba(24, 22, 18, 0.10);
+    --sh-3: 0 3px 10px rgba(24, 22, 18, 0.13), 0 22px 54px rgba(24, 22, 18, 0.16);
 
     --ease: cubic-bezier(0.32, 0.72, 0, 1);
-    --t: 180ms;
+    --t: 170ms;
   }
 
   * { box-sizing: border-box; }
@@ -104,381 +111,319 @@
   .hidden { display: none !important; }
   .grow { flex: 1; }
 
-  /* ---------------- En-tête : fin, sans stepper ---------------- */
+  /* ---------------- En-tête : 54 px, minimal ---------------- */
   header {
-    display: flex; align-items: center; gap: 16px;
-    height: 62px; padding: 0 24px;
-    background: var(--surface);
-    border-bottom: 1px solid var(--line);
-    flex: none;
+    display: flex; align-items: center; gap: 6px;
+    height: 54px; padding: 0 18px;
+    background: var(--surface); border-bottom: 1px solid var(--line);
+    flex: none; position: relative; z-index: 30;
   }
-
-  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand { display: flex; align-items: center; gap: 9px; margin-right: auto; }
   .mark {
-    width: 28px; height: 28px; display: grid; place-items: center;
-    background: linear-gradient(145deg, #e9e5dd, #d5cfc3);
-    border-radius: 8px; transform: rotate(45deg);
+    width: 25px; height: 25px; display: grid; place-items: center;
+    background: linear-gradient(145deg, #e9e5dd, #d3ccbf);
+    border-radius: 7px; transform: rotate(45deg);
   }
   .mark svg { transform: rotate(-45deg); }
-  .brand h1 { margin: 0; font: 400 18px/1.05 Georgia, "Times New Roman", "Iowan Old Style", serif; }
-  .brand p { margin: 1px 0 0; font-size: 10px; color: var(--ink-4); }
+  .brand h1 { margin: 0; font: 400 17px/1 Georgia, "Times New Roman", serif; }
+  .brand p { margin: 2px 0 0; font-size: 9.5px; color: var(--ink-4); }
 
-  .plain {
-    display: flex; align-items: center; gap: 8px;
-    padding: 8px 14px; border-radius: var(--r-pill); font-size: 13.5px;
-    transition: background var(--t) var(--ease);
+  .hbtn {
+    display: flex; align-items: center; gap: 7px;
+    padding: 8px 13px; border-radius: var(--r-pill); font-size: 13px; color: var(--ink-2);
+    transition: background var(--t) var(--ease), color var(--t) var(--ease);
   }
-  .plain:hover { background: var(--track); }
-  .plain.edge { box-shadow: 0 0 0 1px var(--line); }
-
-  .ico {
-    width: 34px; height: 34px; display: grid; place-items: center;
-    border-radius: 9px; color: var(--ink-2);
-    transition: background var(--t) var(--ease), color var(--t) var(--ease), transform var(--t) var(--ease);
+  .hbtn:hover { background: var(--track); color: var(--ink); }
+  .hbtn .cnt {
+    min-width: 17px; height: 17px; padding: 0 5px;
+    display: grid; place-items: center; border-radius: var(--r-pill);
+    background: var(--terre); color: #fff; font-size: 10.5px; font-weight: 700;
   }
-  .ico:hover { background: var(--track); }
-  .ico[aria-pressed="true"] { color: var(--terre); }
-  .ico[aria-pressed="true"] svg { fill: var(--terre); }
-  .ico.beat { transform: scale(1.18); }
+  .hbtn[aria-pressed="true"] { color: var(--terre); }
+  .hbtn[aria-pressed="true"] svg { fill: var(--terre); }
 
   /* ---------------- Écran d'entrée ---------------- */
-  #entry {
-    flex: 1; min-height: 0; overflow-y: auto;
-    display: grid; place-items: center; padding: 40px 28px;
-  }
-  .entry-in { width: min(880px, 100%); text-align: center; }
-  .entry-in h2 { margin: 0 0 10px; font: 400 32px/1.2 Georgia, "Times New Roman", serif; letter-spacing: -0.01em; }
-  .entry-in .sub { margin: 0 0 34px; font-size: 15.5px; color: var(--ink-3); }
+  #entry { flex: 1; min-height: 0; overflow-y: auto; display: grid; place-items: center; padding: 36px 26px; }
+  .entry-in { width: min(820px, 100%); text-align: center; }
+  .entry-in h2 { margin: 0 0 9px; font: 400 31px/1.2 Georgia, "Times New Roman", serif; letter-spacing: -0.01em; }
+  .entry-in .sub { margin: 0 0 30px; font-size: 15px; color: var(--ink-3); }
 
-  .doors { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .doors { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
   .door {
-    padding: 30px 26px;
-    background: var(--surface); border-radius: var(--r-panel);
-    box-shadow: var(--sh-2); text-align: left;
+    padding: 26px 24px; background: var(--surface); border-radius: var(--r-lg);
+    box-shadow: var(--sh-1); text-align: left;
     transition: box-shadow var(--t) var(--ease), transform var(--t) var(--ease);
   }
-  .door:hover { box-shadow: var(--sh-3); transform: translateY(-2px); }
+  .door:hover { box-shadow: var(--sh-2); transform: translateY(-2px); }
   .door .gl {
-    width: 46px; height: 46px; display: grid; place-items: center; margin-bottom: 16px;
-    background: var(--terre-soft); border-radius: 13px; color: var(--terre);
+    width: 42px; height: 42px; display: grid; place-items: center; margin-bottom: 14px;
+    background: var(--terre-soft); border-radius: 12px; color: var(--terre);
   }
-  .door b { display: block; font-size: 17px; font-weight: 600; }
-  .door span { display: block; margin-top: 4px; font-size: 13.5px; color: var(--ink-3); }
+  .door b { display: block; font-size: 16.5px; font-weight: 600; }
+  .door span { display: block; margin-top: 4px; font-size: 13px; color: var(--ink-3); }
 
-  #gallery { margin-top: 34px; text-align: left; }
-  #gallery h3 { margin: 0 0 14px; font-size: 15px; font-weight: 600; }
-  .gal { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
-  .gc { text-align: left; }
-  .gc .ph {
-    display: block;
-    width: 100%; aspect-ratio: 16 / 11; border-radius: var(--r-card); overflow: hidden;
-    background: var(--track); box-shadow: 0 0 0 1px var(--line);
+  .quick { margin-top: 30px; text-align: left; }
+  .quick h3 { margin: 0 0 12px; font-size: 13px; font-weight: 600; color: var(--ink-3); }
+  .quick-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+
+  .rcard { text-align: left; }
+  .rcard .ph {
+    display: block; width: 100%; aspect-ratio: 16 / 11; position: relative;
+    border-radius: var(--r-md); overflow: hidden; background: var(--track);
+    box-shadow: 0 0 0 1px var(--line);
     transition: box-shadow var(--t) var(--ease), transform var(--t) var(--ease);
   }
-  .gc .ph img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .gc:hover .ph { transform: translateY(-2px); box-shadow: var(--sh-2); }
-  .gc .nm { display: block; margin-top: 9px; font-size: 14px; font-weight: 550; }
+  .rcard .ph img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .rcard:hover .ph { transform: translateY(-2px); box-shadow: var(--sh-2); }
+  .rcard .nm { display: block; margin-top: 8px; font-size: 13.5px; font-weight: 550; }
+  .rcard .cat { display: block; margin-top: 1px; font-size: 12px; color: var(--ink-4); }
+  .rcard .tick {
+    position: absolute; top: 8px; right: 8px; width: 22px; height: 22px;
+    display: grid; place-items: center; border-radius: var(--r-pill);
+    background: var(--vert); color: #fff;
+  }
   .ph.fallback::after {
     content: "photo indisponible"; position: absolute; inset: 0;
     display: grid; place-items: center; font-size: 11px; color: #6d6555;
     background: linear-gradient(150deg, #ded7c9, #c8bfae);
   }
-  .ph { position: relative; }
 
-  /* ---------------- Grille de travail ---------------- */
-  #app { display: flex; flex-direction: column; height: 100%; }
-
-  #shell {
-    flex: 1; min-height: 0;
-    display: grid;
-    grid-template-columns: 244px minmax(0, 1fr) 356px;
-    grid-template-rows: minmax(0, 1fr) auto;
-    grid-template-areas: "aside room config" "strip strip config";
-    gap: 16px;
-    padding: 16px 20px 18px;
-  }
-
-  .panel { background: var(--surface); border-radius: var(--r-panel); box-shadow: var(--sh-2); }
-
-  /* ---------------- Colonne gauche ---------------- */
-  #aside { grid-area: aside; }
-  #roomCard { padding: 12px; }
-
-  .shot { width: 100%; aspect-ratio: 16 / 11; border-radius: var(--r-card); overflow: hidden; background: var(--track); position: relative; }
-  .shot img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .shot.fallback::after {
-    content: "photo indisponible"; position: absolute; inset: 0;
-    display: grid; place-items: center; font-size: 11px; color: #6d6555;
-    background: linear-gradient(150deg, #ded7c9, #c8bfae);
-  }
-
-  .room-id { padding: 12px 4px 0; }
-  .room-id h2 { margin: 0; font-size: 15px; font-weight: 600; }
-  .room-id p { margin: 2px 0 0; font-size: 12.5px; color: var(--ink-3); }
-
-  .analysis { display: flex; gap: 10px; align-items: flex-start; padding: 13px 4px 0; }
-  .analysis .dot {
-    width: 19px; height: 19px; flex: none; margin-top: 1px;
-    display: grid; place-items: center; border-radius: var(--r-pill);
-    background: rgba(85, 177, 131, 0.16); color: var(--vert);
-  }
-  .analysis strong { display: block; font-size: 13px; font-weight: 550; }
-  .analysis span { display: block; margin-top: 2px; font-size: 11.5px; color: var(--ink-3); line-height: 1.4; }
-  .analysis[data-kind="doubt"] .dot { background: rgba(176, 125, 43, 0.15); color: #b07d2b; }
-  .analysis[data-kind="todo"] .dot { background: var(--track); color: var(--ink-4); }
-
-  .wide {
-    display: flex; align-items: center; justify-content: center; gap: 9px;
-    width: 100%; margin-top: 9px; padding: 11px 14px;
-    background: var(--track); border-radius: var(--r-card); font-size: 13.5px;
-    transition: background var(--t) var(--ease);
-  }
-  .wide:hover { background: var(--track-2); }
-  .wide.first { margin-top: 14px; }
-
-  /* Panneau « changer de pièce » */
-  #swap {
-    position: absolute; z-index: 15; left: 20px; top: 76px;
-    width: 340px; padding: 14px;
-    background: var(--surface); border-radius: var(--r-panel); box-shadow: var(--sh-3);
-  }
-  #swap h3 { margin: 0 0 12px; font-size: 14.5px; font-weight: 600; }
-  #swap .imp {
-    display: flex; align-items: center; gap: 10px; width: 100%;
-    padding: 12px 13px; margin-bottom: 12px;
-    background: var(--terre-soft); border-radius: var(--r-card);
-    font-size: 13.5px; color: var(--terre); font-weight: 550;
-  }
-  #swap .gal { grid-template-columns: repeat(3, 1fr); gap: 10px; }
-  #swap .gc .nm { font-size: 12px; margin-top: 6px; font-weight: 500; }
-
-  /* ---------------- La pièce ---------------- */
-  #room { grid-area: room; position: relative; overflow: hidden; padding: 0; }
-  #canvasWrap { position: absolute; inset: 0; border-radius: var(--r-panel); overflow: hidden; background: #ded9cf; }
+  /* ---------------- La pièce : tout l'espace ---------------- */
+  #stage { flex: 1; min-height: 0; position: relative; overflow: hidden; background: #dcd7cd; }
   #photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-  #after { position: absolute; inset: 0; }
-  #floor, #joints { position: absolute; inset: 0; background-size: cover; background-position: center; }
+  /* Ordre des couches, du fond vers l'avant : la photo, la version B de la
+     comparaison, la version A par-dessus (c'est elle que le separateur
+     decoupe), puis les occulteurs qui rendent les meubles. Sans z-index
+     explicite sur #after, la version B recouvrait les DEUX moities. */
+  #after { position: absolute; inset: 0; z-index: 2; }
+  #floor, #joints, #occl {
+    position: absolute; inset: 0; background-size: cover; background-position: center;
+  }
   #floor { transition: filter var(--t) var(--ease); }
   #joints { mix-blend-mode: multiply; }
+  /* Les occulteurs restaurent les pixels d'origine PAR-DESSUS le parquet :
+     un meuble, un tapis ou un pied de chaise n'est jamais repeint. */
+  #occl { z-index: 3; }
+  /* Le SVG porte-masques doit occuper la scene : en 0x0, Chrome ne resout
+     pas `mask: url(#floorMask)` et le sol disparait entierement. Il ne
+     contient que des <defs>, donc il ne peint rien. */
+  #masks { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 
-  .pill-dark {
-    display: flex; align-items: center; gap: 9px;
-    padding: 10px 16px 10px 12px;
-    background: rgba(28, 27, 22, 0.8); backdrop-filter: blur(12px);
-    border-radius: var(--r-pill); color: #fff; font-size: 13.5px;
-    box-shadow: var(--sh-2); transition: background var(--t) var(--ease);
+  /* Trois entrées de navigation — le pattern Quick-Step */
+  #nav {
+    position: absolute; top: 16px; left: 16px; z-index: 6; width: 238px;
+    background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(16px);
+    border-radius: var(--r-md); box-shadow: var(--sh-2); overflow: hidden;
   }
-  .pill-dark:hover { background: rgba(28, 27, 22, 0.92); }
-  .pill-dark[aria-pressed="true"] { background: #fff; color: var(--ink); }
-  #baBtn { position: absolute; top: 18px; left: 18px; z-index: 3; }
-
-  .round-light {
-    position: absolute; top: 18px; right: 18px; z-index: 3;
-    width: 38px; height: 38px; display: grid; place-items: center;
-    background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(12px);
-    border-radius: var(--r-pill); color: var(--ink-2); box-shadow: var(--sh-2);
+  #nav button {
+    display: flex; align-items: center; gap: 11px; width: 100%;
+    padding: 11px 13px; text-align: left; transition: background var(--t) var(--ease);
   }
+  #nav button + button { border-top: 1px solid var(--line); }
+  #nav button:hover { background: var(--track); }
+  #nav .ic { width: 19px; display: grid; place-items: center; color: var(--terre); flex: none; }
+  #nav .tx { flex: 1; min-width: 0; }
+  #nav .tx b { display: block; font-size: 13px; font-weight: 600; }
+  #nav .tx span {
+    display: block; margin-top: 1px; font-size: 11.5px; color: var(--ink-3);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  #nav .ch { color: var(--ink-4); flex: none; }
 
-  #stamp {
-    position: absolute; left: 18px; bottom: 18px; z-index: 3;
-    display: flex; align-items: center; gap: 10px;
-    padding: 9px 15px 9px 9px;
-    background: rgba(255, 255, 255, 0.92); backdrop-filter: blur(14px);
+  #tools {
+    position: absolute; top: 16px; left: 50%; transform: translateX(-50%); z-index: 6;
+    display: flex; gap: 3px; padding: 5px;
+    background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(16px);
     border-radius: var(--r-pill); box-shadow: var(--sh-2);
   }
-  #stamp .sw { display: block; width: 26px; height: 26px; border-radius: 7px; flex: none; overflow: hidden; position: relative; box-shadow: inset 0 0 0 1px var(--line-2); }
-  #stamp b { font-size: 13.5px; font-weight: 600; }
-  #stamp i { font-style: normal; font-size: 12px; color: var(--ink-3); }
-
-  #split { position: absolute; top: 0; bottom: 0; width: 2px; background: rgba(255,255,255,.95); z-index: 2; cursor: ew-resize; }
-  #split::after {
-    content: ""; position: absolute; top: 50%; left: 50%; width: 34px; height: 34px;
-    transform: translate(-50%, -50%); background: rgba(255,255,255,.96);
-    border-radius: var(--r-pill); box-shadow: var(--sh-3);
-  }
-
-  #ribbon {
-    position: absolute; left: 18px; right: 18px; top: 68px; z-index: 3;
-    display: flex; align-items: center; gap: 13px; padding: 11px 16px;
-    background: rgba(255, 255, 255, 0.94); backdrop-filter: blur(14px);
-    border-radius: var(--r-card); box-shadow: var(--sh-2); font-size: 13px;
-  }
-  #ribbon .wd { width: 7px; height: 7px; border-radius: var(--r-pill); background: #b07d2b; flex: none; }
-  #ribbon button { font-size: 13px; font-weight: 600; color: var(--terre); }
-
-  #pickHint {
-    position: absolute; left: 50%; top: 18px; z-index: 4; transform: translateX(-50%);
-    padding: 10px 19px; background: var(--graphite); color: #fff;
-    border-radius: var(--r-pill); font-size: 13px; box-shadow: var(--sh-3);
-  }
-
-  /* Analyse simulée après un import */
-  #analyzing {
-    position: absolute; inset: 0; z-index: 8; display: grid; place-items: center;
-    background: rgba(247, 247, 245, 0.88); backdrop-filter: blur(10px);
-    border-radius: var(--r-panel);
-  }
-  #analyzing .box { text-align: center; }
-  #analyzing b { display: block; font-size: 16px; font-weight: 600; }
-  #analyzing span { display: block; margin-top: 6px; font-size: 13px; color: var(--ink-3); }
-  #analyzing .bar { width: 190px; height: 3px; margin: 18px auto 0; background: var(--track-2); border-radius: 2px; overflow: hidden; }
-  #analyzing .bar i { display: block; height: 100%; width: 40%; background: var(--terre); border-radius: 2px; animation: run 1.1s var(--ease) infinite; }
-  @keyframes run { 0% { transform: translateX(-100%); } 100% { transform: translateX(260%); } }
-
-  /* ---------------- Bande basse ---------------- */
-  #strip { grid-area: strip; padding: 14px 18px 16px; }
-  .strip-tabs { display: flex; gap: 22px; margin-bottom: 12px; }
-  .strip-tabs button {
-    padding-bottom: 7px; font-size: 13.5px; color: var(--ink-3);
-    border-bottom: 2px solid transparent;
-    transition: color var(--t) var(--ease), border-color var(--t) var(--ease);
-  }
-  .strip-tabs button:hover { color: var(--ink-2); }
-  .strip-tabs button[aria-pressed="true"] { color: var(--ink); font-weight: 600; border-color: var(--ink); }
-
-  .carousel { position: relative; }
-  .arrow {
-    position: absolute; top: 36px; z-index: 2;
-    width: 30px; height: 30px; display: grid; place-items: center;
-    background: var(--surface); border-radius: var(--r-pill);
-    box-shadow: var(--sh-2); color: var(--ink-2);
-  }
-  .arrow.l { left: -5px; }
-  .arrow.r { right: -5px; }
-
-  #rail { display: flex; gap: 13px; overflow-x: auto; scroll-behavior: smooth; padding: 2px 14px; }
-  #rail::-webkit-scrollbar { height: 0; }
-  #rail .empty { padding: 20px 4px; font-size: 13px; color: var(--ink-3); }
-
-  .sug { flex: none; width: 182px; text-align: left; position: relative; }
-  .sug .tile {
-    display: block;
-    width: 100%; aspect-ratio: 16 / 10; border-radius: var(--r-tile);
-    overflow: hidden; background: var(--track); position: relative;
-    box-shadow: 0 0 0 1px var(--line);
-    transition: box-shadow var(--t) var(--ease), transform var(--t) var(--ease);
-  }
-  .sug .tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .sug:hover .tile { transform: translateY(-2px); box-shadow: var(--sh-2); }
-  .sug[aria-pressed="true"] .tile { box-shadow: 0 0 0 2px var(--terre); }
-  .sug .t { display: block; margin-top: 8px; font-size: 13.5px; font-weight: 600; }
-  .sug .s { display: block; margin-top: 1px; font-size: 12.5px; color: var(--ink-3); }
-  .sug .n { display: block; margin-top: 2px; font-size: 12px; color: var(--ink-4); }
-  .sug .hh {
-    position: absolute; top: 8px; right: 8px; z-index: 2;
-    width: 25px; height: 25px; display: grid; place-items: center;
-    background: rgba(255, 255, 255, 0.88); backdrop-filter: blur(8px);
-    border-radius: var(--r-pill); color: var(--ink-2);
-  }
-  .sug .hh[aria-pressed="true"] { color: var(--terre); }
-  .sug .hh[aria-pressed="true"] svg { fill: var(--terre); }
-
-  /* ---------------- Configurateur ---------------- */
-  #config { grid-area: config; display: flex; flex-direction: column; overflow: hidden; }
-
-  .seg { display: flex; margin: 14px 14px 0; padding: 4px; background: var(--track); border-radius: var(--r-pill); flex: none; }
-  .seg button {
-    flex: 1; padding: 10px 6px; border-radius: var(--r-pill); font-size: 13.5px; color: var(--ink-2);
+  #tools button {
+    display: flex; align-items: center; gap: 7px; padding: 8px 13px;
+    border-radius: var(--r-pill); font-size: 13px; color: var(--ink-2);
     transition: background var(--t) var(--ease), color var(--t) var(--ease);
   }
-  .seg button[aria-selected="true"], .seg button[aria-pressed="true"] {
-    background: var(--graphite); color: #fff; font-weight: 600;
+  #tools button:hover { background: var(--track); }
+  #tools button[aria-pressed="true"] { background: var(--graphite); color: #fff; }
+
+  #card, #cardB {
+    position: absolute; top: 16px; right: 16px; z-index: 6; width: 196px;
+    padding: 14px 14px 9px; text-align: center;
+    background: rgba(255, 255, 255, 0.96); backdrop-filter: blur(16px);
+    border-radius: var(--r-md); box-shadow: var(--sh-2);
+  }
+  #card .sw, #cardB .sw {
+    display: block; width: 72px; height: 72px; margin: 0 auto 10px;
+    border-radius: var(--r-pill); box-shadow: inset 0 0 0 1px var(--line-2);
+  }
+  #card b, #cardB b { display: block; font-size: 13.5px; font-weight: 600; line-height: 1.3; }
+  #card .ref, #cardB .ref { display: block; margin-top: 4px; font-size: 10.5px; letter-spacing: 0.03em; color: var(--ink-4); }
+  #card .dim, #cardB .dim { display: block; margin-top: 4px; font-size: 11.5px; color: var(--ink-3); }
+  #card .sheet, #cardB .sheet {
+    display: block; width: 100%; margin-top: 11px; padding: 8px;
+    border-radius: var(--r-pill); box-shadow: 0 0 0 1px var(--terre);
+    color: var(--terre); font-size: 11.5px; font-weight: 600; letter-spacing: 0.02em;
+    transition: background var(--t) var(--ease);
+  }
+  #card .sheet:hover, #cardB .sheet:hover { background: var(--terre-soft); }
+  #card .row, #cardB .row {
+    display: flex; align-items: center; margin-top: 7px;
+    border-top: 1px solid var(--line); padding-top: 5px;
+  }
+  #card .row button, #cardB .row button { flex: 1; padding: 6px 0; color: var(--ink-3); }
+  #card .row button:hover, #cardB .row button:hover { color: var(--ink); }
+  #card .row .fav[aria-pressed="true"], #cardB .row .fav[aria-pressed="true"] { color: var(--terre); }
+  #card .row .fav[aria-pressed="true"] svg, #cardB .row .fav[aria-pressed="true"] svg { fill: var(--terre); }
+  #card .row .sep, #cardB .row .sep { width: 1px; height: 16px; background: var(--line); flex: none; }
+
+  #status {
+    position: absolute; left: 16px; bottom: 16px; z-index: 6;
+    display: flex; align-items: center; gap: 8px; padding: 8px 14px 8px 10px;
+    background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(16px);
+    border-radius: var(--r-pill); box-shadow: var(--sh-1); font-size: 12.5px;
+  }
+  #status .dot {
+    width: 17px; height: 17px; display: grid; place-items: center; border-radius: var(--r-pill);
+    background: rgba(85, 177, 131, 0.18); color: var(--vert); flex: none;
+  }
+  #status[data-kind="doubt"] .dot { background: rgba(176, 125, 43, 0.18); color: #b07d2b; }
+  #status[data-kind="todo"] .dot { background: var(--track); color: var(--ink-4); }
+  #status button { color: var(--terre); font-weight: 600; font-size: 12.5px; }
+  #status.urge { box-shadow: 0 0 0 1px rgba(176, 125, 43, 0.4), var(--sh-2); }
+
+  #split { position: absolute; top: 0; bottom: 0; width: 2px; background: rgba(255,255,255,.96); z-index: 4; cursor: ew-resize; }
+  #split::after {
+    content: ""; position: absolute; top: 50%; left: 50%; width: 32px; height: 32px;
+    transform: translate(-50%, -50%) rotate(45deg); background: rgba(255,255,255,.97);
+    border-radius: 8px; box-shadow: var(--sh-2);
+  }
+  .vtag {
+    position: absolute; top: 88px; z-index: 5; padding: 5px 11px; border-radius: var(--r-pill);
+    background: var(--graphite); color: #fff; font-size: 11.5px; font-weight: 600;
   }
 
-  .panes { flex: 1; overflow-y: auto; padding: 16px 16px 16px; }
-  .panes::-webkit-scrollbar { width: 8px; }
-  .panes::-webkit-scrollbar-thumb { background: var(--track-2); border-radius: 4px; }
-
-  .sect { margin-bottom: 20px; }
-  .sect:last-child { margin-bottom: 4px; }
-  .sect > h3 { margin: 0 0 10px; font-size: 13.5px; font-weight: 600; }
-  .sect > .lead { margin: -5px 0 11px; font-size: 12.5px; color: var(--ink-3); }
-
-  /* Produit actif — élégant, léger */
-  #active { display: flex; align-items: center; gap: 11px; padding: 0 2px 14px; border-bottom: 1px solid var(--line); margin-bottom: 16px; }
-  #active .sw { display: block; width: 48px; height: 48px; border-radius: 11px; flex: none; overflow: hidden; position: relative; box-shadow: inset 0 0 0 1px var(--line-2); }
-  #active b { display: block; font-size: 14.5px; font-weight: 600; line-height: 1.25; }
-  #active .spec { display: block; margin-top: 2px; font-size: 12px; color: var(--ink-3); }
-  #actions { display: flex; gap: 6px; margin-bottom: 18px; }
-  #actions button {
-    flex: 1; padding: 9px 6px; background: var(--track); border-radius: var(--r-pill);
-    font-size: 12.5px; transition: background var(--t) var(--ease), color var(--t) var(--ease);
+  /* ---------------- Modales ---------------- */
+  /* Les modales sont ancrees a la page, pas a la scene : sur l'ecran
+     d'entree, #stage est masque, et une modale imbriquee ne s'ouvrirait
+     pas. Elles laissent l'en-tete visible. */
+  .scrim { position: fixed; inset: 54px 0 0; z-index: 20; background: rgba(30, 28, 24, 0.28); }
+  .sheetp {
+    position: fixed; inset: 54px 0 0; z-index: 21; display: flex; flex-direction: column;
+    background: var(--surface); border-radius: var(--r-lg); box-shadow: var(--sh-3); overflow: hidden;
   }
-  #actions button:hover { background: var(--track-2); }
-  #actions .on { color: var(--terre); font-weight: 600; }
+  .sheetp.right { left: auto; width: min(880px, 94%); border-radius: var(--r-lg) 0 0 var(--r-lg); }
+  .sheetp .head { display: flex; align-items: center; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--line); flex: none; }
+  .sheetp .head h2 { margin: 0; font-size: 18px; font-weight: 600; letter-spacing: -0.01em; }
+  .sheetp .head .n { font-size: 14px; color: var(--ink-4); }
+  .close { width: 34px; height: 34px; display: grid; place-items: center; border-radius: var(--r-sm); color: var(--ink-2); }
+  .close:hover { background: var(--track); }
+  .sheetp .body { flex: 1; display: flex; min-height: 0; }
 
-  /* Cartes de parquet */
-  .prods { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; }
-  .pd { text-align: left; position: relative; }
-  .pd .mat {
-    display: block;
-    width: 100%; aspect-ratio: 1 / 0.86; border-radius: var(--r-tile);
-    overflow: hidden; position: relative; background: var(--track);
-    box-shadow: 0 0 0 1px var(--line);
-    transition: box-shadow var(--t) var(--ease), transform var(--t) var(--ease);
+  .side { width: 212px; flex: none; padding: 16px; overflow-y: auto; border-right: 1px solid var(--line); }
+  .side h3 { margin: 0 0 9px; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-4); }
+  .side .grp { margin-bottom: 20px; }
+  .main { flex: 1; padding: 16px 20px 20px; overflow-y: auto; }
+
+  .cats { display: flex; flex-direction: column; gap: 1px; }
+  .cats button {
+    display: flex; align-items: center; gap: 9px; width: 100%;
+    padding: 9px 10px; border-radius: var(--r-sm); font-size: 13.5px; color: var(--ink-2); text-align: left;
+    transition: background var(--t) var(--ease), color var(--t) var(--ease);
   }
-  .pd .mat > i { position: absolute; inset: 0; }
-  .pd:hover .mat { transform: translateY(-2px); box-shadow: var(--sh-2); }
-  .pd[aria-pressed="true"] .mat { box-shadow: 0 0 0 2px var(--terre), var(--sh-2); }
-  .pd .nm { display: block; margin-top: 7px; font-size: 13px; font-weight: 600; line-height: 1.25; }
-  .pd .mt { display: block; margin-top: 1px; font-size: 11.5px; color: var(--ink-3); }
-  .pd .hh {
-    position: absolute; top: 6px; right: 6px; z-index: 2;
-    width: 24px; height: 24px; display: grid; place-items: center;
-    background: rgba(255, 255, 255, 0.86); backdrop-filter: blur(8px);
-    border-radius: var(--r-pill); color: var(--ink-2);
+  .cats button:hover { background: var(--track); }
+  .cats button[aria-pressed="true"] { background: var(--track); color: var(--ink); font-weight: 600; }
+
+  .import-btn {
+    display: flex; align-items: center; justify-content: center; gap: 9px;
+    width: 100%; margin-top: 18px; padding: 12px 10px;
+    background: var(--terre); color: #fff; border-radius: var(--r-pill);
+    font-size: 13px; font-weight: 600; white-space: nowrap;
+    transition: background var(--t) var(--ease);
   }
-  .pd .hh[aria-pressed="true"] { color: var(--terre); }
-  .pd .hh[aria-pressed="true"] svg { fill: var(--terre); }
+  .import-btn:hover { background: #79523d; }
 
-  /* Inspirations */
-  .insp { display: flex; flex-direction: column; gap: 12px; }
-  .in { width: 100%; text-align: left; border-radius: var(--r-card); overflow: hidden; position: relative;
-    box-shadow: 0 0 0 1px var(--line); transition: box-shadow var(--t) var(--ease), transform var(--t) var(--ease); }
-  .in:hover { transform: translateY(-2px); box-shadow: var(--sh-2); }
-  .in[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--terre); }
-  .in .ph { display: block; width: 100%; aspect-ratio: 16 / 8; position: relative; background: var(--track); }
-  .in .ph img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .in .cap { padding: 10px 12px 12px; background: var(--surface); }
-  .in .t { display: block; font-size: 14px; font-weight: 600; }
-  .in .s { display: block; margin-top: 2px; font-size: 12.5px; color: var(--ink-3); }
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
 
-  /* Choix discrets */
   .chips { display: flex; flex-wrap: wrap; gap: 6px; }
   .chip {
-    padding: 8px 13px; background: var(--surface); border-radius: var(--r-pill);
-    font-size: 13px; color: var(--ink-2); box-shadow: 0 0 0 1px var(--line);
-    transition: box-shadow var(--t) var(--ease), color var(--t) var(--ease), background var(--t) var(--ease);
+    padding: 7px 12px; border-radius: var(--r-pill); font-size: 12.5px; color: var(--ink-2);
+    box-shadow: 0 0 0 1px var(--line);
+    transition: box-shadow var(--t) var(--ease), background var(--t) var(--ease), color var(--t) var(--ease);
   }
   .chip:hover { box-shadow: 0 0 0 1px var(--line-2); }
   .chip[aria-pressed="true"] { background: var(--graphite); color: #fff; box-shadow: none; font-weight: 550; }
 
-  .pats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .dots { display: flex; flex-wrap: wrap; gap: 8px; }
+  .dot-b {
+    width: 30px; height: 30px; border-radius: var(--r-pill);
+    box-shadow: inset 0 0 0 1px var(--line-2);
+    transition: transform var(--t) var(--ease), box-shadow var(--t) var(--ease);
+  }
+  .dot-b:hover { transform: scale(1.08); }
+  .dot-b[aria-pressed="true"] { box-shadow: inset 0 0 0 1px var(--line-2), 0 0 0 2px var(--terre); }
+
+  .clearf { margin-top: 4px; font-size: 12px; color: var(--terre); text-decoration: underline; }
+
+  .prods { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .pd { text-align: left; position: relative; }
+  .pd .tex {
+    display: block; width: 100%; aspect-ratio: 1 / 0.78;
+    border-radius: var(--r-md); box-shadow: 0 0 0 1px var(--line);
+    transition: box-shadow var(--t) var(--ease), transform var(--t) var(--ease);
+  }
+  .pd:hover .tex { transform: translateY(-2px); box-shadow: var(--sh-2); }
+  .pd[aria-pressed="true"] .tex { box-shadow: 0 0 0 2px var(--terre), var(--sh-1); }
+  .pd .nm { display: block; margin-top: 8px; font-size: 13px; font-weight: 600; line-height: 1.3; }
+  .pd .ref { display: block; margin-top: 2px; font-size: 10.5px; letter-spacing: 0.03em; color: var(--ink-4); }
+  .pd .hh {
+    position: absolute; top: 7px; right: 7px; width: 25px; height: 25px;
+    display: grid; place-items: center; border-radius: var(--r-pill);
+    background: rgba(255, 255, 255, 0.9); color: var(--ink-2);
+  }
+  .pd .hh[aria-pressed="true"] { color: var(--terre); }
+  .pd .hh[aria-pressed="true"] svg { fill: var(--terre); }
+
+  .moods { display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 16px; }
+  .mood {
+    padding: 8px 14px; border-radius: var(--r-pill); font-size: 12.5px;
+    background: var(--track); color: var(--ink-2);
+    transition: background var(--t) var(--ease), color var(--t) var(--ease);
+  }
+  .mood:hover { background: var(--track-2); }
+  .mood[aria-pressed="true"] { background: var(--terre); color: #fff; font-weight: 550; }
+
+  .empty { padding: 30px 4px; font-size: 13.5px; color: var(--ink-3); }
+
+  .sect { margin-bottom: 22px; }
+  .sect h3 { margin: 0 0 10px; font-size: 13.5px; font-weight: 600; }
+  .sect .note { margin: 8px 0 0; font-size: 12px; color: var(--ink-4); }
+
+  .pats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; max-width: 340px; }
   .pt { text-align: center; }
-  .pt .mat { display: block; width: 100%; aspect-ratio: 1; border-radius: var(--r-tile); overflow: hidden; position: relative;
-    box-shadow: 0 0 0 1px var(--line); transition: box-shadow var(--t) var(--ease); }
-  .pt .mat > i { position: absolute; inset: 0; }
-  .pt[aria-pressed="true"] .mat { box-shadow: 0 0 0 2px var(--terre); }
-  .pt .cap { display: block; margin-top: 6px; font-size: 10.5px; color: var(--ink-3); line-height: 1.25; }
+  .pt .dg {
+    display: block; width: 100%; aspect-ratio: 1; border-radius: var(--r-md);
+    box-shadow: 0 0 0 1px var(--line); transition: box-shadow var(--t) var(--ease);
+  }
+  .pt[aria-pressed="true"] .dg { box-shadow: 0 0 0 2px var(--terre); }
+  .pt .cap { display: block; margin-top: 7px; font-size: 11.5px; color: var(--ink-3); }
   .pt[aria-pressed="true"] .cap { color: var(--ink); font-weight: 600; }
 
-  .orient { display: flex; gap: 8px; }
-  .or { flex: 1; padding: 11px 0; border-radius: var(--r-tile); box-shadow: 0 0 0 1px var(--line); display: grid; place-items: center; gap: 5px; }
+  .orient { display: flex; gap: 9px; max-width: 340px; }
+  .or {
+    flex: 1; padding: 13px 0; border-radius: var(--r-md); box-shadow: 0 0 0 1px var(--line);
+    display: grid; place-items: center; gap: 6px;
+  }
   .or[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--terre); }
-  .or span { font-size: 11px; color: var(--ink-3); }
+  .or span { font-size: 11.5px; color: var(--ink-3); }
   .or[aria-pressed="true"] span { color: var(--ink); font-weight: 600; }
 
   #advToggle {
     display: flex; align-items: center; gap: 8px; width: 100%;
-    padding: 12px 2px; font-size: 13px; color: var(--ink-2);
-    border-top: 1px solid var(--line);
+    padding: 13px 2px; font-size: 13px; color: var(--ink-2); border-top: 1px solid var(--line);
   }
   #advToggle svg { transition: transform var(--t) var(--ease); }
   #advToggle[aria-expanded="true"] svg { transform: rotate(90deg); }
 
-  .slide { display: flex; align-items: center; gap: 11px; margin-bottom: 12px; }
-  .slide:last-child { margin-bottom: 0; }
-  .slide label { width: 122px; flex: none; font-size: 13px; }
+  .slide { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; max-width: 420px; }
+  .slide label { width: 130px; flex: none; font-size: 13px; }
   .slide .num { width: 44px; flex: none; text-align: right; font-size: 12.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
 
   input[type="range"] { flex: 1; min-width: 0; height: 18px; -webkit-appearance: none; appearance: none; background: none; }
@@ -488,86 +433,63 @@
     background: var(--graphite); border-radius: var(--r-pill); box-shadow: 0 1px 2px rgba(0,0,0,.2);
   }
   input[type="range"]::-moz-range-track { height: 4px; border-radius: 2px; background: var(--track-2); }
-  input[type="range"]::-moz-range-progress { height: 4px; border-radius: 2px; background: var(--graphite); }
   input[type="range"]::-moz-range-thumb { width: 15px; height: 15px; border: none; background: var(--graphite); border-radius: var(--r-pill); }
 
-  .reset { display: flex; align-items: center; gap: 7px; margin: 14px 0 0 auto; font-size: 12.5px; color: var(--ink-3); }
+  .reset { display: flex; align-items: center; gap: 7px; margin: 14px 0 0; font-size: 12.5px; color: var(--ink-3); }
   .reset:hover { color: var(--ink-2); }
 
-  .sheetlink { display: block; width: 100%; padding: 12px; margin-top: 4px; font-size: 12.5px; color: var(--ink-3); text-align: center; }
-  .sheetlink:hover { color: var(--terre); }
-
-  /* ---------------- Surcouches ---------------- */
-  .veil {
-    position: absolute; inset: 0; z-index: 6; display: grid; place-items: center;
-    background: rgba(247, 247, 245, 0.95); backdrop-filter: blur(8px);
-    padding: 36px; text-align: center; border-radius: var(--r-panel);
-  }
-  .veil .box { max-width: 420px; }
-  .veil h2 { margin: 0 0 10px; font: 400 22px/1.25 Georgia, "Times New Roman", serif; }
-  .veil p { margin: 0; font-size: 14px; color: var(--ink-2); }
-  .veil .tip {
-    margin: 16px 0 20px; padding: 14px 16px; background: var(--surface);
-    border-radius: var(--r-card); box-shadow: var(--sh-1);
-    font-size: 13px; text-align: left; color: var(--ink-2);
-  }
-  .veil .acts { display: flex; gap: 10px; justify-content: center; }
-  .cta-2 {
-    display: flex; align-items: center; justify-content: center; gap: 9px;
-    padding: 12px 20px; background: var(--track); border-radius: var(--r-pill); font-size: 14px;
-    transition: background var(--t) var(--ease);
-  }
-  .cta-2:hover { background: var(--track-2); }
-  .cta-2.warm { background: var(--terre); color: #fff; }
-  .cta-2.warm:hover { background: #79523d; }
-
   #brush {
-    position: absolute; left: 50%; bottom: 18px; z-index: 5; transform: translateX(-50%);
+    position: absolute; left: 50%; bottom: 16px; z-index: 8; transform: translateX(-50%);
     display: flex; align-items: center; gap: 5px; padding: 6px;
-    background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(14px);
+    background: rgba(255, 255, 255, 0.96); backdrop-filter: blur(16px);
     border-radius: var(--r-pill); box-shadow: var(--sh-3);
   }
   #brush .b {
     display: flex; align-items: center; gap: 7px; padding: 9px 14px;
-    border-radius: var(--r-pill); font-size: 13.5px; color: var(--ink-2);
+    border-radius: var(--r-pill); font-size: 13px; color: var(--ink-2);
     transition: background var(--t) var(--ease), color var(--t) var(--ease);
   }
   #brush .b:hover { background: var(--track); }
   #brush .b[aria-pressed="true"] { background: var(--graphite); color: #fff; }
   #brush .sep { width: 1px; height: 20px; background: var(--line-2); }
-  #brush input[type="range"] { width: 76px; }
+  #brush input[type="range"] { width: 74px; }
 
-  #cmp { position: absolute; inset: 0; z-index: 7; background: var(--page); border-radius: var(--r-panel); display: flex; flex-direction: column; }
-  #cmp .bar { display: flex; align-items: center; gap: 12px; padding: 14px 16px; }
-  #cmp .bar h2 { margin: 0; font-size: 15.5px; font-weight: 600; }
-  #cmp .cells { flex: 1; display: flex; gap: 11px; padding: 0 16px; min-height: 0; }
-  #cmp .cell { flex: 1; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
-  #cmp .cell .fr { flex: 1; border-radius: var(--r-card); overflow: hidden; box-shadow: var(--sh-2); position: relative; background: var(--track); }
-  #cmp .cell .fr img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-  #cmp .cell .lg { display: flex; align-items: center; gap: 8px; justify-content: center; font-size: 13px; }
-  #cmp .cell .lg .k {
-    width: 19px; height: 19px; display: grid; place-items: center; border-radius: var(--r-pill);
-    background: var(--graphite); color: #fff; font-size: 10.5px; font-weight: 700;
+  /* La photo de l'utilisateur doit rester VISIBLE derriere le message : un
+     voile opaque la delavait, et « votre photo s'affiche » devenait faux. */
+  .veil {
+    position: absolute; inset: 0; z-index: 12; display: grid; place-items: center;
+    background: rgba(30, 28, 24, 0.34); backdrop-filter: blur(3px); padding: 36px; text-align: center;
   }
-  #cmp .cell .lg button { font-size: 12px; color: var(--ink-3); text-decoration: underline; }
-  #cmp .foot2 { display: flex; gap: 10px; align-items: center; padding: 14px 16px; }
-  #cmpSlider { position: relative; flex: 1; border-radius: var(--r-card); overflow: hidden; box-shadow: var(--sh-2); background: var(--track); }
-  #cmpSlider img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-  #cmpSlider .lay { position: absolute; inset: 0; }
-  #cmpHandle { position: absolute; top: 0; bottom: 0; width: 2px; background: #fff; z-index: 3; cursor: ew-resize; }
-  #cmpHandle::after {
-    content: ""; position: absolute; top: 50%; left: 50%; width: 32px; height: 32px;
-    transform: translate(-50%, -50%); background: #fff; border-radius: var(--r-pill); box-shadow: var(--sh-3);
+  .veil .box {
+    max-width: 540px; padding: 28px 30px; background: var(--surface);
+    border-radius: var(--r-lg); box-shadow: var(--sh-3);
   }
+  .veil h2 { margin: 0 0 10px; font: 400 23px/1.3 Georgia, "Times New Roman", serif; }
+  .veil p { margin: 0; font-size: 14px; color: var(--ink-2); }
+  .veil .tip {
+    margin: 16px 0 22px; padding: 14px 16px; background: var(--track);
+    border-radius: var(--r-md); font-size: 13px; text-align: left; color: var(--ink-2);
+  }
+  .veil .acts { display: flex; gap: 10px; justify-content: center; }
+  .btn {
+    display: flex; align-items: center; justify-content: center; gap: 9px;
+    padding: 12px 20px; background: var(--track); border-radius: var(--r-pill); font-size: 13.5px;
+    white-space: nowrap; transition: background var(--t) var(--ease);
+  }
+  .btn:hover { background: var(--track-2); }
+  .btn.warm { background: var(--terre); color: #fff; }
+  .btn.warm:hover { background: #79523d; }
+  .bar { width: 190px; height: 3px; margin: 18px auto 0; background: var(--track-2); border-radius: 2px; overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 40%; background: var(--terre); border-radius: 2px; animation: run 1.1s var(--ease) infinite; }
+  @keyframes run { from { transform: translateX(-100%); } to { transform: translateX(260%); } }
 
   #menu {
-    position: absolute; top: 56px; right: 24px; z-index: 20;
-    width: 258px; padding: 8px; background: var(--surface);
-    border-radius: var(--r-card); box-shadow: var(--sh-3);
+    position: absolute; top: 48px; right: 18px; z-index: 40; width: 254px; padding: 7px;
+    background: var(--surface); border-radius: var(--r-md); box-shadow: var(--sh-3);
   }
   #menu .mi {
     display: flex; align-items: center; justify-content: space-between; gap: 10px;
-    width: 100%; padding: 10px 12px; border-radius: 9px; font-size: 13.5px; text-align: left;
+    width: 100%; padding: 10px 12px; border-radius: var(--r-sm); font-size: 13.5px; text-align: left;
     transition: background var(--t) var(--ease);
   }
   #menu .mi:hover { background: var(--track); }
@@ -576,21 +498,20 @@
   #menu .mi[aria-pressed="true"] { color: var(--terre); font-weight: 600; }
 
   #toast {
-    position: fixed; left: 50%; bottom: 24px; z-index: 30;
+    position: fixed; left: 50%; bottom: 22px; z-index: 50;
     transform: translateX(-50%) translateY(10px);
-    padding: 11px 21px; background: rgba(28, 27, 22, 0.94); color: #fff;
+    padding: 11px 20px; background: rgba(26, 24, 20, 0.95); color: #fff;
     border-radius: var(--r-pill); font-size: 13px; box-shadow: var(--sh-3);
     opacity: 0; pointer-events: none;
-    transition: opacity 220ms var(--ease), transform 220ms var(--ease);
+    transition: opacity 200ms var(--ease), transform 200ms var(--ease);
   }
   #toast.on { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-  @media (max-width: 1500px) {
-    #shell { grid-template-columns: 228px minmax(0, 1fr) 340px; padding: 14px 16px 16px; }
-  }
-  @media (max-width: 1280px) {
-    #shell { grid-template-columns: 210px minmax(0, 1fr) 320px; }
-    .sug { width: 162px; }
+  @media (max-width: 1200px) {
+    #nav { width: 208px; }
+    #card, #cardB { width: 176px; }
+    .sheetp.right { width: 96%; }
+    .prods, .grid3 { grid-template-columns: repeat(2, 1fr); }
   }
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { transition-duration: 1ms !important; animation-duration: 1ms !important; }
@@ -599,12 +520,11 @@
 </head>
 <body>
 
-<div id="app">
-  <!-- En-tête : plus de stepper, plus de tunnel. Un espace de travail. -->
+<div style="display:flex;flex-direction:column;height:100%">
   <header>
     <div class="brand">
       <span class="mark" aria-hidden="true">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="#453f36">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="#453f36">
           <path d="M12 2l2.6 7.4L22 12l-7.4 2.6L12 22l-2.6-7.4L2 12l7.4-2.6z" />
         </svg>
       </span>
@@ -614,38 +534,37 @@
       </div>
     </div>
 
-    <span class="grow"></span>
-
-    <button class="plain edge hidden" id="swapBtn" type="button">
+    <button class="hbtn hidden" id="hSwap" type="button">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
            stroke-linecap="round" stroke-linejoin="round">
         <rect x="3" y="4" width="18" height="16" rx="2.5" /><path d="M3 16l4.5-4 3.5 3 3-2.5L21 17" />
       </svg>
       Changer de pièce
     </button>
-    <button class="plain" id="saveBtn" type="button">Enregistrer</button>
-    <button class="ico" id="favIco" type="button" aria-pressed="false" aria-label="Favoris">
-      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+    <button class="hbtn" id="hFav" type="button" aria-pressed="false">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
            stroke-linecap="round" stroke-linejoin="round">
         <path d="M12 20.5s-7.5-4.7-7.5-10.2A4.3 4.3 0 0112 7a4.3 4.3 0 017.5 3.3c0 5.5-7.5 10.2-7.5 10.2z" />
       </svg>
+      Favoris <span class="cnt hidden" id="favCount">0</span>
     </button>
-    <button class="ico" id="menuBtn" type="button" aria-expanded="false" aria-label="Menu">
-      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+    <button class="hbtn" id="hSave" type="button">Enregistrer</button>
+    <button class="hbtn" id="hMenu" type="button" aria-expanded="false" aria-label="Menu">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
            stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
     </button>
   </header>
 
-  <!-- ===================== Écran d'entrée ===================== -->
+  <!-- ===================== Entrée ===================== -->
   <section id="entry">
     <div class="entry-in">
-      <h2>Visualisez votre parquet dans une pièce</h2>
-      <p class="sub">Importez votre intérieur ou choisissez une pièce pour commencer.</p>
+      <h2>Visualisez votre parquet chez vous</h2>
+      <p class="sub">Importez votre intérieur ou essayez immédiatement avec une pièce.</p>
 
       <div class="doors">
         <button class="door" id="doorImport" type="button">
           <span class="gl">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
                  stroke-linecap="round" stroke-linejoin="round">
               <path d="M12 16V4M8 8l4-4 4 4" /><path d="M4 15v3a2 2 0 002 2h12a2 2 0 002-2v-3" />
             </svg>
@@ -654,271 +573,262 @@
           <span>Votre pièce, telle qu'elle est. Rien ne quitte votre ordinateur.</span>
         </button>
 
-        <button class="door" id="doorGallery" type="button">
+        <button class="door" id="doorRooms" type="button">
           <span class="gl">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
                  stroke-linecap="round" stroke-linejoin="round">
               <rect x="3" y="4" width="18" height="16" rx="2.5" />
               <circle cx="8.5" cy="9.5" r="1.5" /><path d="M3 16.5l4.5-4 3.5 3 3-2.5L21 17" />
             </svg>
           </span>
           <b>Choisir une pièce</b>
-          <span>Six intérieurs prêts à essayer, pour voir tout de suite.</span>
+          <span>Cinq intérieurs calibrés, prêts à essayer.</span>
         </button>
       </div>
 
-      <div id="gallery" class="hidden">
-        <h3>Choisissez une pièce</h3>
-        <div class="gal" id="galGrid"></div>
+      <div class="quick">
+        <h3>Ou essayez directement</h3>
+        <div class="quick-row" id="quickRooms"></div>
       </div>
     </div>
   </section>
 
   <input type="file" id="file" class="hidden" accept="image/jpeg,image/png,image/webp" />
 
-  <!-- ===================== Espace de travail ===================== -->
-  <div id="shell" class="hidden">
-    <div id="aside">
-      <section class="panel" id="roomCard">
-        <div class="shot" id="heroShot"></div>
-        <div class="room-id">
-          <h2>Votre pièce</h2>
-          <p id="fileName">sejour.jpg</p>
-        </div>
-        <div class="analysis" id="analysis"></div>
-        <button class="wide first" id="adjustBtn" type="button">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
-               stroke-linecap="round"><path d="M4 8h10M18 8h2M4 16h4M12 16h8" /><circle cx="16" cy="8" r="2" />
-            <circle cx="10" cy="16" r="2" /></svg>
-          Ajuster la détection
-        </button>
-        <button class="wide" id="swapBtn2" type="button">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
-               stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="4" width="18" height="16" rx="2.5" /><path d="M3 16l4.5-4 3.5 3 3-2.5L21 17" />
-          </svg>
-          Changer de pièce
-        </button>
-      </section>
+  <!-- ===================== Le visualiseur ===================== -->
+  <section id="stage" class="hidden">
+    <img id="photo" alt="Votre pièce" />
+    <div id="cmpLayer" style="position:absolute;inset:0;z-index:1">
+      <div id="cmpFloor" style="position:absolute;inset:0;background-size:cover;background-position:center"></div>
+      <div id="cmpJoints" style="position:absolute;inset:0;background-size:cover;background-position:center;mix-blend-mode:multiply"></div>
     </div>
+    <div id="after">
+      <div id="floor"></div>
+      <div id="joints"></div>
+    </div>
+    <div id="occl"></div>
+    <svg id="masks" aria-hidden="true"><defs>
+      <mask id="floorMask" maskUnits="userSpaceOnUse"><g id="floorShapes"></g></mask>
+      <mask id="occlMask" maskUnits="userSpaceOnUse"><g id="occlShapes"></g></mask>
+    </defs></svg>
 
-    <section class="panel" id="room">
-      <div id="canvasWrap">
-        <img id="photo" alt="Votre pièce" />
-        <!-- `data-floor` est ce qui borne le parquet au sol. Sans lui, la
-             couche couvre toute l'image : c'était le défaut de la V3. -->
-        <div id="after">
-          <div id="floor" data-floor></div>
-          <div id="joints" data-floor></div>
-        </div>
-      </div>
+    <nav id="nav">
+      <button type="button" id="navRoom">
+        <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="4" width="18" height="16" rx="2.5" /><path d="M3 16l4.5-4 3.5 3 3-2.5L21 17" /></svg></span>
+        <span class="tx"><b>Changer de pièce</b><span id="navRoomVal">—</span></span>
+        <span class="ch"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg></span>
+      </button>
+      <button type="button" id="navFloor">
+        <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 7h16M4 12h16M4 17h16" /><path d="M9 7v10M15 7v10" /></svg></span>
+        <span class="tx"><b>Choisir un parquet</b><span id="navFloorVal">—</span></span>
+        <span class="ch"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg></span>
+      </button>
+      <button type="button" id="navCustom">
+        <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="1.7" stroke-linecap="round"><path d="M4 8h9M17 8h3M4 16h3M11 16h9" />
+          <circle cx="15" cy="8" r="2" /><circle cx="9" cy="16" r="2" /></svg></span>
+        <span class="tx"><b>Personnaliser</b><span id="navCustomVal">—</span></span>
+        <span class="ch"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg></span>
+      </button>
+    </nav>
 
-      <button class="pill-dark" id="baBtn" type="button" aria-pressed="false">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+    <div id="tools">
+      <button type="button" id="baBtn" aria-pressed="false">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
              stroke-linecap="round" stroke-linejoin="round">
           <rect x="3.5" y="5" width="17" height="14" rx="2" /><path d="M12 5v14" />
         </svg>
-        Avant / Après
+        Avant / après
       </button>
-
-      <button class="round-light" id="fsBtn" type="button" aria-label="Plein écran">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+      <button type="button" id="cmpBtn">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+             stroke-linecap="round" stroke-linejoin="round"><path d="M8 6l-4 6 4 6M16 6l4 6-4 6" /></svg>
+        Comparer
+      </button>
+      <button type="button" id="fsBtn" aria-label="Plein écran">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
              stroke-linecap="round" stroke-linejoin="round">
           <path d="M4 9V5.5A1.5 1.5 0 015.5 4H9M15 4h3.5A1.5 1.5 0 0120 5.5V9M20 15v3.5a1.5 1.5 0 01-1.5 1.5H15M9 20H5.5A1.5 1.5 0 014 18.5V15" />
         </svg>
       </button>
+    </div>
 
-      <div id="stamp"></div>
-      <div id="split" class="hidden"></div>
-      <div id="ribbon" class="hidden"></div>
-      <div id="pickHint" class="hidden"></div>
+    <aside id="card"></aside>
+    <aside id="cardB" class="hidden"></aside>
+    <div id="status"></div>
+    <div id="split" class="hidden"></div>
+    <div class="vtag hidden" id="tagA">version A</div>
+    <div class="vtag hidden" id="tagB">version B</div>
 
-      <div id="analyzing" class="hidden">
-        <div class="box">
-          <b>Analyse de votre pièce…</b>
-          <span>Nous repérons le sol, la perspective et les obstacles.</span>
-          <div class="bar"><i></i></div>
+    <div id="brush" class="hidden">
+      <button class="b" id="brAdd" type="button" aria-pressed="true">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round"><path d="M12 5v14M5 12h14" /></svg> Ajouter
+      </button>
+      <button class="b" id="brDel" type="button" aria-pressed="false">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round"><path d="M5 12h14" /></svg> Retirer
+      </button>
+      <span class="sep"></span>
+      <input type="range" id="brSize" min="8" max="80" value="34" aria-label="Taille du pinceau" />
+      <span class="sep"></span>
+      <button class="b" type="button" aria-label="Annuler">↶</button>
+      <button class="b" type="button" aria-label="Rétablir">↷</button>
+      <span class="sep"></span>
+      <button class="b" id="brDone" type="button" aria-pressed="true">Terminer</button>
+    </div>
+
+    <div class="veil hidden" id="analyzing">
+      <div class="box">
+        <h2>Analyse de votre pièce…</h2>
+        <p>Nous repérons le sol, la perspective et les obstacles.</p>
+        <div class="bar"><i></i></div>
+      </div>
+    </div>
+
+    <!-- Photo inconnue : on le dit, on n'invente pas de masque -->
+    <div class="veil hidden" id="unknown">
+      <div class="box">
+        <h2>Analyse automatique non connectée</h2>
+        <p>Votre photo s'affiche, mais cette maquette ne sait pas encore
+          détecter le sol d'une pièce quelconque.</p>
+        <div class="tip">
+          Poser un contour approximatif donnerait un rendu faux, et laisserait
+          croire que la détection fonctionne mal. Les cinq pièces d'exemple
+          sont calibrées à la main : elles montrent le résultat réellement visé.
+        </div>
+        <div class="acts">
+          <button class="btn warm" id="unkRooms" type="button">Continuer avec une pièce d'exemple</button>
+          <button class="btn" id="unkOther" type="button">Essayer une autre photo</button>
         </div>
       </div>
+    </div>
 
-      <div id="brush" class="hidden">
-        <button class="b" id="brAdd" type="button" aria-pressed="true">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-               stroke-linecap="round"><path d="M12 5v14M5 12h14" /></svg> Ajouter au sol
-        </button>
-        <button class="b" id="brDel" type="button" aria-pressed="false">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-               stroke-linecap="round"><path d="M5 12h14" /></svg> Retirer du sol
-        </button>
-        <span class="sep"></span>
-        <input type="range" id="brSize" min="8" max="80" value="34" aria-label="Taille du pinceau" />
-        <span class="sep"></span>
-        <button class="b" type="button" aria-label="Annuler">↶</button>
-        <button class="b" type="button" aria-label="Rétablir">↷</button>
-        <span class="sep"></span>
-        <button class="b" id="brDone" type="button" aria-pressed="true">Terminé</button>
-      </div>
-
-      <div class="veil hidden" id="rejected">
-        <div class="box">
-          <h2>Nous ne pouvons pas travailler sur cette photo</h2>
-          <p>La photo est floue : le sol n'est pas assez net pour poser un parquet.</p>
-          <div class="tip">
-            <strong>Pour la reprendre :</strong> appuyez-vous contre un mur ou posez le téléphone,
-            et cadrez le sol au premier plan en reculant de deux pas.
-          </div>
-          <div class="acts">
-            <button class="cta-2 warm" id="rejRetry" type="button">Essayer une autre photo</button>
-            <button class="cta-2" id="rejPick" type="button">Choisir une pièce</button>
-          </div>
+    <div class="veil hidden" id="rejected">
+      <div class="box">
+        <h2>Nous ne pouvons pas travailler sur cette photo</h2>
+        <p>La photo est floue : le sol n'est pas assez net pour poser un parquet.</p>
+        <div class="tip">
+          <strong>Pour la reprendre :</strong> appuyez-vous contre un mur ou posez le
+          téléphone, et cadrez le sol au premier plan en reculant de deux pas.
+        </div>
+        <div class="acts">
+          <button class="btn warm" id="rejOther" type="button">Essayer une autre photo</button>
+          <button class="btn" id="rejRooms" type="button">Choisir une pièce</button>
         </div>
       </div>
+    </div>
+  </section>
+</div>
 
-      <div id="cmp" class="hidden">
-        <div class="bar">
-          <h2>Comparer vos parquets</h2>
-          <div class="seg" style="margin:0;width:220px">
-            <button type="button" id="cmpGridBtn" aria-pressed="true">Côte à côte</button>
-            <button type="button" id="cmpSlideBtn" aria-pressed="false">Curseur</button>
-          </div>
-          <span class="grow"></span>
-          <button class="cta-2" id="cmpClose" type="button" style="padding:10px 17px">Fermer</button>
-        </div>
-        <div class="cells" id="cmpCells"></div>
-        <div class="foot2">
-          <button class="cta-2" id="cmpAdd" type="button" style="padding:10px 17px">+ Ajouter un troisième</button>
-          <span class="grow"></span>
-          <span style="font-size:12px;color:var(--ink-3)">Vos sélections sont conservées.</span>
-        </div>
-      </div>
-    </section>
-
-    <section class="panel" id="strip">
-      <div class="strip-tabs" role="group" aria-label="Exploration">
-        <button type="button" data-rail="mine" aria-pressed="true">Pour votre pièce</button>
-        <button type="button" data-rail="hearts" aria-pressed="false">Coups de cœur</button>
-        <button type="button" data-rail="near" aria-pressed="false">Similaires</button>
-        <button type="button" data-rail="all" aria-pressed="false">Tous les parquets</button>
-      </div>
-      <div class="carousel">
-        <button class="arrow l" id="railPrev" type="button" aria-label="Précédent">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-               stroke-linecap="round" stroke-linejoin="round"><path d="M14 6l-6 6 6 6" /></svg>
-        </button>
-        <div id="rail"></div>
-        <button class="arrow r" id="railNext" type="button" aria-label="Suivant">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-               stroke-linecap="round" stroke-linejoin="round"><path d="M10 6l6 6-6 6" /></svg>
-        </button>
-      </div>
-    </section>
-
-    <section class="panel" id="config">
-      <div class="seg" role="tablist">
-        <button role="tab" type="button" data-tab="products" aria-selected="true">Parquets</button>
-        <button role="tab" type="button" data-tab="insp" aria-selected="false">Inspirations</button>
-        <button role="tab" type="button" data-tab="custom" aria-selected="false">Personnaliser</button>
-      </div>
-
-      <div class="panes">
-        <div id="active"></div>
-        <div id="actions"></div>
-
-        <div id="pane-products">
-          <div class="sect">
-            <h3 id="prodsTitle">Tous les parquets</h3>
-            <p class="lead" id="prodsLead">Cliquez : votre pièce change aussitôt.</p>
-            <div class="prods" id="prods"></div>
-          </div>
-        </div>
-
-        <div id="pane-insp" class="hidden">
-          <div class="sect">
-            <h3>Nos ambiances</h3>
-            <p class="lead">Une direction, puis les parquets qui lui correspondent.</p>
-            <div class="insp" id="insp"></div>
-          </div>
-        </div>
-
-        <div id="pane-custom" class="hidden">
-          <div class="sect">
-            <h3>Motif de pose</h3>
-            <div class="pats" id="patterns"></div>
-            <p class="lead" id="patternNote" style="margin:9px 0 0"></p>
-          </div>
-          <div class="sect">
-            <h3>Largeur des lames</h3>
-            <div class="chips" id="widths"></div>
-            <p class="lead" id="widthNote" style="margin:8px 0 0"></p>
-          </div>
-          <div class="sect">
-            <h3>Sens de pose</h3>
-            <div class="orient" id="orient"></div>
-          </div>
-          <div class="sect">
-            <h3>Finition</h3>
-            <div class="chips" id="finishes"></div>
-            <p class="lead" id="finishNote" style="margin:8px 0 0"></p>
-          </div>
-
-          <button id="advToggle" type="button" aria-expanded="false">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                 stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
-            Réglages avancés
-          </button>
-          <div id="adv" class="hidden">
-            <div class="slide">
-              <label for="grain">Intensité du veinage</label>
-              <input type="range" id="grain" min="0" max="100" value="70" />
-              <span class="num" id="grainVal">70 %</span>
-            </div>
-            <div class="slide">
-              <label for="contrast">Contraste</label>
-              <input type="range" id="contrast" min="0" max="100" value="50" />
-              <span class="num" id="contrastVal">50 %</span>
-            </div>
-            <div class="slide">
-              <label for="joint">Visibilité des joints</label>
-              <input type="range" id="joint" min="0" max="100" value="40" />
-              <span class="num" id="jointVal">40 %</span>
-            </div>
-            <div class="slide">
-              <label for="variation">Variation entre lames</label>
-              <input type="range" id="variation" min="0" max="100" value="45" />
-              <span class="num" id="variationVal">45 %</span>
-            </div>
-            <button class="reset" id="resetAdv" type="button">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
-                   stroke-linecap="round" stroke-linejoin="round">
-                <path d="M4 12a8 8 0 108-8 8 8 0 00-6.6 3.5" /><path d="M4 4v4h4" />
-              </svg>
-              Réinitialiser
-            </button>
-          </div>
-        </div>
-
-        <button class="sheetlink" id="sheetBtn" type="button">Voir la fiche du parquet</button>
-      </div>
-    </section>
+<!-- ===== Sélecteur de pièce ===== -->
+<div class="scrim hidden" id="roomScrim"></div>
+<div class="sheetp hidden" id="roomSheet" role="dialog" aria-label="Choisir une pièce">
+  <div class="head">
+    <h2>Choisir une pièce</h2>
+    <span class="n" id="roomCount"></span>
+    <span class="grow"></span>
+    <button class="close" id="roomClose" type="button" aria-label="Fermer">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+           stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+    </button>
+  </div>
+  <div class="body">
+    <div class="side">
+      <h3>Catégories</h3>
+      <div class="cats" id="roomCats"></div>
+      <button class="import-btn" id="sheetImport" type="button">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+             stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 16V4M8 8l4-4 4 4" /><path d="M4 15v3a2 2 0 002 2h12a2 2 0 002-2v-3" />
+        </svg>
+        Importer ma photo
+      </button>
+    </div>
+    <div class="main"><div class="grid3" id="roomGrid"></div></div>
   </div>
 </div>
 
-<!-- Changer de pièce : import + galerie, accessible à tout moment -->
-<div id="swap" class="hidden">
-  <h3>Changer de pièce</h3>
-  <button class="imp" id="swapImport" type="button">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
-         stroke-linecap="round" stroke-linejoin="round">
-      <path d="M12 16V4M8 8l4-4 4 4" /><path d="M4 15v3a2 2 0 002 2h12a2 2 0 002-2v-3" />
-    </svg>
-    Importer une nouvelle photo
-  </button>
-  <div class="gal" id="swapGrid"></div>
+<!-- ===== Catalogue ===== -->
+<div class="scrim hidden" id="catScrim"></div>
+<div class="sheetp right hidden" id="catSheet" role="dialog" aria-label="Choisir un parquet">
+  <div class="head">
+    <h2>Choisir un parquet</h2>
+    <span class="n" id="catCount"></span>
+    <span class="grow"></span>
+    <button class="close" id="catClose" type="button" aria-label="Fermer">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+           stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+    </button>
+  </div>
+  <div class="body">
+    <div class="side">
+      <div class="grp"><h3>Motif</h3><div class="chips" id="fPattern"></div></div>
+      <div class="grp"><h3>Teinte</h3><div class="dots" id="fTone"></div></div>
+      <div class="grp"><h3>Essence</h3><div class="chips" id="fSpecies"></div></div>
+      <button class="clearf" id="clearFilters" type="button">Réinitialiser les filtres</button>
+    </div>
+    <div class="main">
+      <div class="moods" id="moods"></div>
+      <div class="prods" id="prods"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Personnaliser ===== -->
+<div class="scrim hidden" id="cusScrim"></div>
+<div class="sheetp right hidden" id="cusSheet" role="dialog" aria-label="Personnaliser">
+  <div class="head">
+    <h2>Personnaliser</h2>
+    <span class="n" id="cusName"></span>
+    <span class="grow"></span>
+    <button class="close" id="cusClose" type="button" aria-label="Fermer">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+           stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+    </button>
+  </div>
+  <div class="body"><div class="main">
+    <div class="sect"><h3>Motif de pose</h3><div class="pats" id="patterns"></div>
+      <p class="note" id="patternNote"></p></div>
+    <div class="sect"><h3>Largeur des lames</h3><div class="chips" id="widths"></div>
+      <p class="note" id="widthNote"></p></div>
+    <div class="sect"><h3>Sens de pose</h3><div class="orient" id="orient"></div></div>
+    <div class="sect"><h3>Finition</h3><div class="chips" id="finishes"></div>
+      <p class="note" id="finishNote"></p></div>
+    <button id="advToggle" type="button" aria-expanded="false">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+      Réglages avancés
+    </button>
+    <div id="adv" class="hidden" style="padding-top:14px">
+      <div class="slide"><label for="grain">Intensité du veinage</label>
+        <input type="range" id="grain" min="0" max="100" value="70" /><span class="num" id="grainVal">70 %</span></div>
+      <div class="slide"><label for="contrast">Contraste</label>
+        <input type="range" id="contrast" min="0" max="100" value="50" /><span class="num" id="contrastVal">50 %</span></div>
+      <div class="slide"><label for="joint">Visibilité des joints</label>
+        <input type="range" id="joint" min="0" max="100" value="40" /><span class="num" id="jointVal">40 %</span></div>
+      <div class="slide"><label for="variation">Variation entre lames</label>
+        <input type="range" id="variation" min="0" max="100" value="45" /><span class="num" id="variationVal">45 %</span></div>
+      <button class="reset" id="resetAdv" type="button">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+             stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 12a8 8 0 108-8 8 8 0 00-6.6 3.5" /><path d="M4 4v4h4" /></svg>
+        Réinitialiser
+      </button>
+    </div>
+  </div></div>
 </div>
 
 <div id="menu" class="hidden">
   <button class="mi" id="menuImport" type="button">Importer une photo</button>
-  <button class="mi" id="menuGallery" type="button">Choisir une pièce</button>
+  <button class="mi" id="menuRooms" type="button">Choisir une pièce</button>
   <button class="mi" type="button">Partager le projet</button>
   <div class="sep"></div>
   <p class="cat">Mode démo · prototype</p>
@@ -934,309 +844,538 @@
 (() => {
   'use strict';
 
-  /* =====================================================================
-     Les pièces proposées par le site
-
-     Photos locales de `datasets/private-real/`, par chemin relatif. Ignorées
-     par Git, jamais copiées, jamais encodées. Chaque pièce porte SON polygone
-     de sol, relevé à la main et rentré à l'intérieur du sol réel : mieux vaut
-     une mince bande d'ancien sol au pied du mur qu'un parquet qui grimpe.
-     ===================================================================== */
   const PHOTOS = '../datasets/private-real/';
 
+  /* =====================================================================
+     DEMO_ROOMS — contours issus des VRAIES calibrations du front
+
+       source    : pose-parquet.com/data/scenes/<id>.json
+       commit lu : 124b553
+       lu le     : 8 septembre 2026, en lecture seule, aucune écriture
+       filtre    : scène présente dans data/scenes/index.json (brouillons
+                   exclus) ET contour de 8 points au moins. `salon` écartée
+                   (brouillon), `entree-cadree` écartée (5 points).
+
+     `zones` reprend TOUTES les `floorZones`, pas un quadrilatère simplifié :
+     le séjour en a deux, de part et d'autre d'une ouverture, sur une seule
+     dalle. `occluders` restaure les pixels d'origine par-dessus le parquet.
+
+     ## Trois scènes écartées après revue visuelle dans Chrome
+
+     Mesure : part de la dernière rangée visible du cadre que le masque
+     couvre. Au premier plan d'une photo d'intérieur prise debout, cette
+     rangée est du sol sur presque toute sa largeur ; un score faible
+     signifie donc que de l'ancien sol reste affiché.
+
+         sejour          100 %   retenue
+         piece-arcades   100 %   retenue
+         bureau-vide     100 %   retenue
+         chambre          94 %   retenue — les 6 % sont le seuil et la
+                                 grille encastrée, exclus à raison
+         piece-claire     80 %   retenue — les 20 % sont l'angle de mur
+                                 clair au bord droit du cadre
+         petite-piece     85 %   ÉCARTÉE — le sol visible se réduit à une
+                                 bande basse, en grande partie masquée par
+                                 le bureau et la chaise : on ne voit pas
+                                 le parquet
+         appartement-ancien
+                          63 %   ÉCARTÉE — un pan du sol de la pièce
+                                 elle-même reste d'origine le long du mur
+                                 droit, exactement le défaut refusé en V4
+         couloir          40 %   ÉCARTÉE — et son sol d'origine est un
+                                 carrelage gris moucheté que la
+                                 recoloration ne peut pas rendre en bois
+
+     Aucun contour n'a été retouché pour sauver une scène : ce serait
+     inventer de la donnée. Une scène passe ou sort.
+
+     ## Limite assumée du rendu de cette maquette
+
+     Le vrai moteur du front dessine des lames en perspective. Ici, la photo
+     est recolorée dans le masque puis recouverte de joints : la trame du sol
+     d'origine reste donc perceptible — la chambre garde sa lecture en point
+     de Hongrie même sur un produit « Lames ». C'est acceptable pour valider
+     un PARCOURS, pas pour juger un RENDU.
+     ===================================================================== */
   const DEMO_ROOMS = [
+    /* sejour · 2 zone(s), 0 occulteur(s), 43 points */
     {
-      id: 'sejour', label: 'Séjour', file: 'sejour.jpg', w: 1600, h: 1067,
-      floor: [[0, 1], [1, 1], [1, 0.70], [0.86, 0.655], [0.55, 0.635], [0.30, 0.655], [0.115, 0.66], [0, 0.685]],
+      id: 'sejour', label: 'Séjour et salle à manger', category: 'Séjour',
+      file: 'sejour.jpg', w: 1600, h: 1067,
+      zones: [
+        { poly: [[0.0963,0.5496],[0.1141,0.5491],[0.1399,0.5461],[0.2344,0.5315],[0.2501,0.5278],[0.2694,0.53],[0.2883,0.5354],[0.3224,0.549],[0.3353,0.5522],[0.3531,0.5734],[0.3619,0.5939],[0.2729,0.6212],[0.2294,0.6309],[0.196,0.6437],[0.1496,0.6556],[0.1221,0.6647],[0.0971,0.6777],[0.0954,0.6617],[0.0957,0.6235],[0.0936,0.5949],[0.0936,0.5806],[0.0953,0.5568]], holes: [] },
+        { poly: [[0,0.694],[0.0975,0.6715],[0.1496,0.6556],[0.196,0.6437],[0.2294,0.6309],[0.2729,0.6212],[0.3373,0.6009],[0.3625,0.5957],[0.3727,0.5867],[0.3815,0.5867],[0.4008,0.5837],[0.4136,0.5841],[0.4201,0.5849],[0.4354,0.5918],[0.5092,0.6184],[0.7,0.691],[0.9,0.762],[1,0.799],[1,1],[0,1],[0,0.6987]], holes: [] }
+      ],
+      occluders: [],
     },
+    /* chambre · 1 zone(s), 1 occulteur(s), 36 points */
     {
-      id: 'chambre', label: 'Chambre', file: 'chambre.jpg', w: 1600, h: 1067,
-      floor: [[0, 1], [1, 1], [1, 0.755], [0.72, 0.70], [0.40, 0.695], [0.20, 0.715], [0, 0.735]],
+      id: 'chambre', label: 'Chambre ouverte au jardin', category: 'Chambre',
+      file: 'chambre.jpg', w: 1600, h: 1067,
+      zones: [
+        { poly: [[0,0.8905],[0.0088,0.8866],[0.0312,0.8868],[0.0438,0.8849],[0.1063,0.8539],[0.1213,0.8476],[0.1702,0.832],[0.243,0.8058],[0.277,0.7972],[0.3013,0.7889],[0.3105,0.784],[0.3187,0.7522],[0.3311,0.7198],[0.3397,0.7169],[0.4206,0.6777],[0.5157,0.631],[0.5301,0.6223],[0.533,0.6223],[0.5515,0.6262],[0.5667,0.6321],[0.5913,0.6377],[0.6259,0.6364],[0.6351,0.6383],[0.8732,0.693],[0.8848,0.6955],[0.89,0.7105],[0.9,0.7435],[0.92,0.7495],[0.93,0.7945],[0.9434,0.8207],[0.985,0.9079],[0.996,0.9247],[1,0.926],[1,1],[0,1],[0,0.8967]], holes: [] }
+      ],
+      occluders: [
+        [[0,0.876],[0.315,0.779],[0.322,0.818],[0.026,0.913],[0,0.922]]
+      ],
     },
+    /* piece-claire · 1 zone(s), 2 occulteur(s), 37 points */
     {
-      id: 'salon', label: 'Salon', file: 'salon.jpg', w: 1600, h: 1067,
-      floor: [[0, 1], [1, 1], [1, 0.70], [0.80, 0.665], [0.52, 0.645], [0.26, 0.665], [0, 0.685]],
+      id: 'piece-claire', label: 'Grande pièce claire', category: 'Grande pièce',
+      file: 'piece-claire.jpg', w: 1600, h: 1067,
+      zones: [
+        { poly: [[0.0381,0.7001],[0.0633,0.6812],[0.0759,0.6699],[0.1061,0.6759],[0.1469,0.6675],[0.1812,0.6729],[0.2127,0.6658],[0.2221,0.665],[0.2565,0.6718],[0.2848,0.6731],[0.3192,0.6782],[0.3913,0.6798],[0.4226,0.6778],[0.4351,0.6807],[0.4537,0.6878],[0.463,0.6894],[0.4756,0.6881],[0.4945,0.6832],[0.5101,0.6837],[0.5504,0.6978],[0.5588,0.6997],[0.5757,0.7083],[0.6543,0.7401],[0.6631,0.7449],[0.6842,0.7656],[0.6924,0.7723],[0.7376,0.7906],[0.8228,0.8287],[0.8409,0.8341],[0.8422,0.8577],[0.841,1],[0.0411,1],[0.039,0.9986],[0.0405,0.9766],[0.0411,0.7844],[0.0407,0.7563],[0.0382,0.7047]], holes: [] }
+      ],
+      occluders: [
+        [[0.255,0.554],[0.349,0.551],[0.349,0.617],[0.255,0.627]],
+        [[0.361,0.569],[0.502,0.585],[0.502,0.699],[0.361,0.668]]
+      ],
     },
+    /* piece-arcades · 1 zone(s), 0 occulteur(s), 18 points */
     {
-      id: 'piece-claire', label: 'Pièce claire', file: 'piece-claire.jpg', w: 1600, h: 1067,
-      floor: [[0, 1], [1, 1], [1, 0.865], [0.74, 0.825], [0.44, 0.80], [0.20, 0.815], [0, 0.845]],
+      id: 'piece-arcades', label: 'Pièce aux arcades', category: 'Grande pièce',
+      file: 'piece-arcades.jpg', w: 1600, h: 1067,
+      zones: [
+        { poly: [[0,1],[0,0.6348],[0.5247,0.5954],[0.535,0.597],[0.555,0.6008],[0.575,0.6064],[0.615,0.6139],[0.655,0.6214],[0.695,0.6289],[0.735,0.6401],[0.775,0.6514],[0.815,0.6551],[0.855,0.6598],[0.895,0.6683],[0.935,0.6758],[0.975,0.6832],[1,0.6878],[1,1]], holes: [] }
+      ],
+      occluders: [],
     },
+    /* bureau-vide · 1 zone(s), 0 occulteur(s), 30 points */
     {
-      id: 'bureau-vide', label: 'Bureau', file: 'bureau-vide.jpg', w: 1600, h: 1067,
-      floor: [[0, 1], [1, 1], [1, 0.79], [0.78, 0.755], [0.48, 0.735], [0.24, 0.755], [0, 0.785]],
-    },
-    {
-      id: 'couloir', label: 'Couloir', file: 'couloir.jpg', w: 1600, h: 1067,
-      floor: [[0.10, 1], [1, 1], [1, 0.875], [0.72, 0.835], [0.46, 0.815], [0.28, 0.835], [0.14, 0.875]],
+      id: 'bureau-vide', label: 'Bureau, vue d’angle', category: 'Bureau',
+      file: 'bureau-vide.jpg', w: 1600, h: 1067,
+      zones: [
+        { poly: [[0,0.6945],[0.03,0.6915],[0.033,0.6885],[0.052,0.6862],[0.061,0.6851],[0.07,0.6847],[0.08,0.682],[0.09,0.6782],[0.1,0.6764],[0.11,0.6737],[0.121,0.6709],[0.136,0.6673],[0.16,0.6635],[0.19,0.6627],[0.22,0.6605],[0.25,0.6596],[0.28,0.6496],[0.31,0.6405],[0.34,0.6315],[0.4,0.6127],[0.44,0.601],[0.477,0.5897],[0.529,0.5978],[0.637,0.6185],[0.748,0.6373],[0.859,0.6569],[0.968,0.6764],[1,0.6821],[1,1],[0,1]], holes: [] }
+      ],
+      occluders: [],
     },
   ];
 
-  /* Une photo importée n'a pas de polygone relevé : on part d'une zone basse
-     prudente, et « Ajuster la détection » existe précisément pour ça. */
-  const DEFAULT_FLOOR = [[0, 1], [1, 1], [1, 0.76], [0.72, 0.71], [0.28, 0.71], [0, 0.76]];
+  const CATEGORIES = ['Séjour', 'Chambre', 'Grande pièce', 'Petite pièce', 'Bureau', 'Couloir'];
 
   /* =====================================================================
      DEMO_PRODUCTS — jeu de démonstration, PAS le catalogue Premibel
 
-     `availableWidths` et `availableFinishes` démontrent la règle qui comptera
-     à l'intégration : le produit définit ce qui est proposable. L'interface ne
-     doit jamais offrir une combinaison que le catalogue ne peut pas fournir.
+     La forme est celle qu'attendra l'intégration : `url` mènera à la fiche
+     produit, `availableWidths` et `availableFinishes` disent ce que le produit
+     sait réellement faire. Une combinaison inexistante n'est jamais proposée.
      ===================================================================== */
   const DEMO_PRODUCTS = [
-    { id: 'demo-oak-natural', name: 'Chêne naturel', species: 'oak', tone: 'natural', pattern: 'straight',
+    { id: 'demo-oak-natural', name: 'Chêne naturel', ref: 'DEMO · CHÊNE | NAT-140',
+      url: '#fiche/demo-oak-natural', species: 'Chêne', tone: 'natural', pattern: 'straight',
       availableWidths: [90, 140, 190], availableFinishes: ['matte', 'satin'], tags: ['light', 'natural'],
+      wood: { base: '#c8a476', light: '#e0c6a1', dark: '#a5804f' },
       filter: 'saturate(0.80) hue-rotate(4deg) brightness(1.14)' },
-    { id: 'demo-oak-sand', name: 'Chêne sable', species: 'oak', tone: 'sand', pattern: 'straight',
+    { id: 'demo-oak-sand', name: 'Chêne sable', ref: 'DEMO · CHÊNE | SAB-140',
+      url: '#fiche/demo-oak-sand', species: 'Chêne', tone: 'sand', pattern: 'straight',
       availableWidths: [90, 140], availableFinishes: ['matte', 'satin'], tags: ['light', 'natural'],
-      filter: 'saturate(0.48) hue-rotate(9deg) brightness(1.32)' },
-    { id: 'demo-oak-honey', name: 'Chêne miel', species: 'oak', tone: 'honey', pattern: 'straight',
+      wood: { base: '#d9c5a4', light: '#efe1c8', dark: '#bda67f' },
+      filter: 'saturate(0.52) hue-rotate(9deg) brightness(1.20)' },
+    { id: 'demo-oak-honey', name: 'Chêne miel', ref: 'DEMO · CHÊNE | MIE-190',
+      url: '#fiche/demo-oak-honey', species: 'Chêne', tone: 'honey', pattern: 'straight',
       availableWidths: [140, 190], availableFinishes: ['matte', 'satin', 'gloss'], tags: ['warm'],
+      wood: { base: '#c18b48', light: '#dcae70', dark: '#9c6c2e' },
       filter: 'saturate(1.34) hue-rotate(-4deg) brightness(1.02)' },
-    { id: 'demo-oak-grey', name: 'Chêne gris', species: 'oak', tone: 'grey', pattern: 'straight',
+    { id: 'demo-oak-grey', name: 'Chêne gris', ref: 'DEMO · CHÊNE | GRI-140',
+      url: '#fiche/demo-oak-grey', species: 'Chêne', tone: 'grey', pattern: 'straight',
       availableWidths: [90, 140], availableFinishes: ['satin'], tags: ['graphic', 'elegant'],
-      filter: 'saturate(0.10) hue-rotate(0deg) brightness(1.08)' },
-    { id: 'demo-oak-smoked', name: 'Chêne fumé', species: 'oak', tone: 'smoked', pattern: 'straight',
+      wood: { base: '#a9a49c', light: '#c8c3bb', dark: '#87827b' },
+      filter: 'saturate(0.10) brightness(1.08)' },
+    { id: 'demo-oak-smoked', name: 'Chêne fumé', ref: 'DEMO · CHÊNE | FUM-190',
+      url: '#fiche/demo-oak-smoked', species: 'Chêne', tone: 'smoked', pattern: 'straight',
       availableWidths: [140, 190], availableFinishes: ['matte'], tags: ['character'],
+      wood: { base: '#5f4a3a', light: '#7d6551', dark: '#423326' },
       filter: 'saturate(1.05) hue-rotate(-10deg) brightness(0.64)' },
-    { id: 'demo-walnut', name: 'Noyer', species: 'walnut', tone: 'brown', pattern: 'straight',
+    { id: 'demo-walnut', name: 'Noyer', ref: 'DEMO · NOYER | NOY-140',
+      url: '#fiche/demo-walnut', species: 'Noyer', tone: 'brown', pattern: 'straight',
       availableWidths: [140], availableFinishes: ['satin', 'gloss'], tags: ['character', 'elegant'],
+      wood: { base: '#6b4a33', light: '#8b6446', dark: '#4c3221' },
       filter: 'saturate(1.20) hue-rotate(-14deg) brightness(0.58)' },
-    { id: 'demo-hb-natural', name: 'Point de Hongrie naturel', species: 'oak', tone: 'natural', pattern: 'chevron',
+    { id: 'demo-ash-pale', name: 'Frêne blanchi', ref: 'DEMO · FRÊNE | BLA-190',
+      url: '#fiche/demo-ash-pale', species: 'Frêne', tone: 'pale', pattern: 'straight',
+      availableWidths: [140, 190], availableFinishes: ['matte', 'satin'], tags: ['light'],
+      wood: { base: '#ded5c5', light: '#f2ebdd', dark: '#c2b7a3' },
+      filter: 'saturate(0.34) hue-rotate(6deg) brightness(1.24)' },
+    { id: 'demo-hb-natural', name: 'Point de Hongrie naturel', ref: 'DEMO · CHÊNE | PDH-90',
+      url: '#fiche/demo-hb-natural', species: 'Chêne', tone: 'natural', pattern: 'chevron',
       availableWidths: [90], availableFinishes: ['matte', 'satin'], tags: ['graphic', 'hongrie', 'natural'],
+      wood: { base: '#c8a476', light: '#e0c6a1', dark: '#a5804f' },
       filter: 'saturate(0.80) hue-rotate(4deg) brightness(1.14)' },
-    { id: 'demo-hb-honey', name: 'Point de Hongrie miel', species: 'oak', tone: 'honey', pattern: 'chevron',
+    { id: 'demo-hb-honey', name: 'Point de Hongrie miel', ref: 'DEMO · CHÊNE | PDH-90M',
+      url: '#fiche/demo-hb-honey', species: 'Chêne', tone: 'honey', pattern: 'chevron',
       availableWidths: [90], availableFinishes: ['satin'], tags: ['warm', 'hongrie'],
+      wood: { base: '#c18b48', light: '#dcae70', dark: '#9c6c2e' },
       filter: 'saturate(1.34) hue-rotate(-4deg) brightness(1.02)' },
-    { id: 'demo-herring-honey', name: 'Bâton rompu miel', species: 'oak', tone: 'honey', pattern: 'herringbone',
+    { id: 'demo-herring-honey', name: 'Bâton rompu miel', ref: 'DEMO · CHÊNE | BAR-90',
+      url: '#fiche/demo-herring-honey', species: 'Chêne', tone: 'honey', pattern: 'herringbone',
       availableWidths: [90], availableFinishes: ['matte'], tags: ['warm', 'rompu'],
-      filter: 'saturate(1.28) hue-rotate(-5deg) brightness(1.00)' },
-    { id: 'demo-herring-grey', name: 'Bâton rompu gris', species: 'oak', tone: 'grey', pattern: 'herringbone',
+      wood: { base: '#c18b48', light: '#dcae70', dark: '#9c6c2e' },
+      filter: 'saturate(1.28) hue-rotate(-5deg)' },
+    { id: 'demo-herring-grey', name: 'Bâton rompu gris', ref: 'DEMO · CHÊNE | BAR-90G',
+      url: '#fiche/demo-herring-grey', species: 'Chêne', tone: 'grey', pattern: 'herringbone',
       availableWidths: [90, 140], availableFinishes: ['matte', 'satin'], tags: ['graphic', 'rompu'],
-      filter: 'saturate(0.12) hue-rotate(0deg) brightness(1.06)' },
+      wood: { base: '#a9a49c', light: '#c8c3bb', dark: '#87827b' },
+      filter: 'saturate(0.12) brightness(1.06)' },
   ];
 
-  /* Le moteur du front ne connaît que trois motifs (`KNOWN_PATTERNS`).
-     `seam` est l'angle des joints longs, `butt` celui des aboutements. */
+  /* Le moteur du front ne connaît que trois motifs (`KNOWN_PATTERNS`). */
   const PATTERNS = {
     straight: { label: 'Lames', seam: 94, butt: 4 },
     chevron: { label: 'Point de Hongrie', seam: 45, butt: -45 },
     herringbone: { label: 'Bâton rompu', seam: 40, butt: -50 },
   };
-
   const FINISHES = {
-    matte: { label: 'Mate', sheen: 0.0 },
+    matte: { label: 'Mate', sheen: 0 },
     satin: { label: 'Satinée', sheen: 0.05 },
     gloss: { label: 'Brillante', sheen: 0.12 },
   };
-
-  const TONE_LABELS = {
-    natural: 'Naturel', honey: 'Miel', sand: 'Sable', grey: 'Gris', smoked: 'Fumé', brown: 'Brun',
-  };
-
-  const INSPIRATIONS = [
-    { id: 'light', title: 'Clair et lumineux', tag: 'light' },
-    { id: 'warm', title: 'Chaleureux', tag: 'warm' },
-    { id: 'natural', title: 'Naturel', tag: 'natural' },
-    { id: 'elegant', title: 'Élégant', tag: 'elegant' },
-    { id: 'character', title: 'Caractère', tag: 'character' },
-    { id: 'graphic', title: 'Graphique', tag: 'graphic' },
-    { id: 'hongrie', title: 'Point de Hongrie', tag: 'hongrie' },
-    { id: 'rompu', title: 'Bâton rompu', tag: 'rompu' },
+  const TONES = [
+    ['pale', 'Blanchi'], ['sand', 'Sable'], ['natural', 'Naturel'],
+    ['honey', 'Miel'], ['grey', 'Gris'], ['brown', 'Brun'], ['smoked', 'Fumé'],
+  ];
+  /* Une inspiration conduit toujours au catalogue : ce sont des filtres. */
+  const MOODS = [
+    ['light', 'Clair et lumineux'], ['warm', 'Chaleureux'], ['natural', 'Naturel'],
+    ['elegant', 'Élégant'], ['character', 'Caractère'], ['graphic', 'Graphique'],
   ];
 
   const ANALYSIS = {
-    success: { kind: 'ok', title: 'Analyse terminée',
-      sub: 'Sol, perspective et obstacles détectés.', ribbon: null, blocked: false },
-    partial: { kind: 'doubt', title: 'Analyse terminée, avec une réserve',
-      sub: 'Un coin du fond reste incertain.',
-      ribbon: 'Le coin gauche au fond est incertain — le parquet peut y déborder.', blocked: false },
-    manual: { kind: 'doubt', title: 'Une retouche est utile',
-      sub: 'Le sol est partiellement détecté.',
-      ribbon: "Le sol n'est pas tout à fait juste. Deux minutes de retouche suffisent.", blocked: false },
-    rejected: { kind: 'todo', title: 'Photo inexploitable',
-      sub: "Aucun sol n'a pu être identifié.", ribbon: null, blocked: true },
+    success: { kind: 'ok', text: 'Pièce prête', act: null },
+    partial: { kind: 'doubt', text: 'Un coin reste incertain', act: 'Ajuster' },
+    manual: { kind: 'doubt', text: 'Le sol demande une retouche', act: 'Ajuster' },
+    rejected: { kind: 'todo', text: 'Photo inexploitable', act: null },
   };
 
   const $ = (id) => document.getElementById(id);
+  const SVGNS = 'http://www.w3.org/2000/svg';
 
   const state = {
-    /* `demo` = pièce du site, `uploaded` = photo de l'utilisateur. Ce n'est
-       PAS SceneData : c'est l'état de l'interface, et rien d'autre. */
+    /* `demo` | `uploaded` — état d'interface, PAS SceneData. */
     source: null,
     roomId: null,
-    uploaded: null,          // { url, name, w, h } — vit dans l'onglet, nulle part ailleurs
+    uploaded: null,
     productId: 'demo-oak-natural',
-    width: 140,
-    finish: 'matte',
-    orient: 'long',
+    width: 140, finish: 'matte', orient: 'long',
     grain: 70, contrast: 50, joint: 40, variation: 45,
-    inspiration: null,
-    rail: 'mine',
-    tab: 'products',
+    filters: { pattern: null, tone: null, species: null, mood: null },
+    category: 'Séjour',
     analysis: 'success',
     ba: false, split: 0.5,
     favourites: new Set(),
-    slots: [], picking: false, replacing: null,
-    cmpMode: 'grid', cmpSplit: 0.5,
+    compare: null,
+    picking: false,
   };
 
-  /** La pièce active, quelle que soit sa source. */
+  const product = (id) => DEMO_PRODUCTS.find((p) => p.id === (id || state.productId));
+  const toneLabel = (t) => (TONES.find(([k]) => k === t) || [null, t])[1];
+
   function room() {
     if (state.source === 'uploaded' && state.uploaded) {
-      return {
-        id: 'uploaded', label: 'Ma photo', url: state.uploaded.url,
-        w: state.uploaded.w, h: state.uploaded.h, floor: DEFAULT_FLOOR,
-      };
+      return { id: 'uploaded', label: state.uploaded.name, url: state.uploaded.url,
+        w: state.uploaded.w, h: state.uploaded.h, zones: null, occluders: [] };
     }
     const entry = DEMO_ROOMS.find((r) => r.id === state.roomId) || DEMO_ROOMS[0];
     return { ...entry, url: PHOTOS + entry.file };
   }
 
-  const product = (id) => DEMO_PRODUCTS.find((p) => p.id === (id || state.productId));
-  const toneLabel = (p) => TONE_LABELS[p.tone] || p.tone;
+  /** Peignable seulement si la pièce porte une calibration réelle. */
+  const calibrated = () => {
+    const z = room().zones;
+    return Array.isArray(z) && z.length > 0;
+  };
 
   /* =====================================================================
-     Le sol, et rien que le sol
+     Masques : les zones réelles, du repère PHOTO vers l'écran
 
-     Le polygone est exprimé en coordonnées de la PHOTO puis converti vers le
-     conteneur en tenant compte du recadrage `cover` — sans quoi il dérive dès
-     que les proportions changent.
+     `cover` recadre l'image ; sans en tenir compte, le contour dériverait dès
+     que les proportions changent. Un masque SVG réunit toutes les zones et
+     retire les trous — ce qu'un `clip-path` unique ne sait pas faire.
      ===================================================================== */
-  function coverPolygon(box, entry) {
+  function mapper(box, entry) {
     const scale = Math.max(box.width / entry.w, box.height / entry.h);
     const dw = entry.w * scale;
     const dh = entry.h * scale;
     const ox = (box.width - dw) / 2;
     const oy = (box.height - dh) / 2;
-    const pts = entry.floor.map(([x, y]) => `${(ox + x * dw).toFixed(1)}px ${(oy + y * dh).toFixed(1)}px`);
-    return `polygon(${pts.join(', ')})`;
+    return ([x, y]) => [ox + x * dw, oy + y * dh];
   }
 
-  /** Toute couche de sol porte `data-floor`, et toutes sont découpées ici. */
-  function applyFloorClips() {
+  function polyEl(points, fill) {
+    const el = document.createElementNS(SVGNS, 'polygon');
+    el.setAttribute('points', points.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' '));
+    el.setAttribute('fill', fill);
+    return el;
+  }
+
+  function buildMasks() {
     const entry = room();
-    document.querySelectorAll('[data-floor]').forEach((el) => {
-      const host = el.parentElement || el;
-      const box = host.getBoundingClientRect();
-      if (!box.width || !box.height) return;
-      el.style.clipPath = coverPolygon(box, entry);
+    const box = $('stage').getBoundingClientRect();
+    $('floorShapes').innerHTML = '';
+    $('occlShapes').innerHTML = '';
+    if (!box.width || !box.height || !calibrated()) return 0;
+
+    const to = mapper(box, entry);
+    let zones = 0;
+    entry.zones.forEach((zone) => {
+      $('floorShapes').appendChild(polyEl(zone.poly.map(to), '#fff'));
+      zones += 1;
+      (zone.holes || []).forEach((hole) => {
+        $('floorShapes').appendChild(polyEl(hole.map(to), '#000'));
+      });
     });
+    (entry.occluders || []).forEach((poly) => {
+      $('occlShapes').appendChild(polyEl(poly.map(to), '#fff'));
+    });
+    $('masks').setAttribute('width', String(box.width));
+    $('masks').setAttribute('height', String(box.height));
+    return zones;
   }
 
   /* =====================================================================
-     Le motif : un parquet, pas une grille
-
-     La V3 dessinait des lignes nettes qui ressemblaient à un calque de
-     calibration. Ici : joints très doux avec un chanfrein clair juste après,
-     aboutements espacés, veinage dans le sens des lames, contraste faible.
-     Le rendu réel viendra du moteur du front et de ses cartes de relief.
+     Le motif : un parquet, pas un quadrillage
      ===================================================================== */
-  function woodCss(pattern, opts) {
+  function woodCss(pattern, o) {
     const p = PATTERNS[pattern] || PATTERNS.straight;
     const turn = state.orient === 'cross' ? 90 : 0;
     const seam = p.seam + turn;
     const butt = p.butt + turn;
-
-    /* Alphas volontairement bas : un joint se devine, il ne se dessine pas. */
-    const j = 0.05 + (opts.joint / 100) * 0.14;
-    const grain = 0.02 + (opts.grain / 100) * 0.05;
-    const step = (16 + (opts.width - 90) * 0.16) * (1 + opts.variation / 400);
+    const j = 0.05 + (o.joint / 100) * 0.13;
+    const g = 0.02 + (o.grain / 100) * 0.05;
+    const step = (17 + (o.width - 90) * 0.15) * (1 + o.variation / 420);
     const dark = (v) => `rgba(52, 33, 18, ${v.toFixed(3)})`;
-    const lift = `rgba(255, 248, 236, ${(j * 0.55).toFixed(3)})`;
+    const lift = `rgba(255, 248, 236, ${(j * 0.5).toFixed(3)})`;
     const clear = 'rgba(0, 0, 0, 0)';
 
     const layers = [
-      /* joint long + chanfrein clair : c'est ce couple qui fait « lame » */
       `repeating-linear-gradient(${seam}deg, ${dark(j)} 0 1px, ${lift} 1px 2.5px, ${clear} 2.5px ${step.toFixed(1)}px)`,
-      /* veinage, dans le sens des lames */
-      `repeating-linear-gradient(${seam}deg, ${dark(grain)} 0 1px, ${clear} 1px 5px)`,
+      `repeating-linear-gradient(${seam}deg, ${dark(g)} 0 1px, ${clear} 1px 5px)`,
     ];
-
     if (pattern === 'straight') {
-      /* aboutements très espacés : un plancher n'est pas un damier */
-      layers.push(`repeating-linear-gradient(${butt}deg, ${dark(j * 0.7)} 0 1px, ${clear} 1px ${(step * 8).toFixed(1)}px)`);
+      layers.push(`repeating-linear-gradient(${butt}deg, ${dark(j * 0.65)} 0 1px, ${clear} 1px ${(step * 8).toFixed(1)}px)`);
     } else {
-      /* chevrons : la seconde famille est aussi douce que la première */
-      layers.push(`repeating-linear-gradient(${butt}deg, ${dark(j * 0.85)} 0 1px, ${lift} 1px 2px, ${clear} 2px ${step.toFixed(1)}px)`);
+      layers.push(`repeating-linear-gradient(${butt}deg, ${dark(j * 0.8)} 0 1px, ${lift} 1px 2px, ${clear} 2px ${step.toFixed(1)}px)`);
     }
     return layers.join(', ');
   }
 
-  function floorFilter(entry, opts) {
-    const sat = 0.62 + (opts.grain / 100) * 0.76;
-    const con = 0.82 + (opts.contrast / 100) * 0.42;
-    const sheen = 1 + FINISHES[state.finish].sheen;
-    return `${entry.filter} saturate(${sat.toFixed(2)}) contrast(${con.toFixed(2)}) brightness(${sheen.toFixed(2)})`;
+  function floorFilter(entry, o) {
+    const sat = 0.62 + (o.grain / 100) * 0.76;
+    const con = 0.82 + (o.contrast / 100) * 0.42;
+    return `${entry.filter} saturate(${sat.toFixed(2)}) contrast(${con.toFixed(2)}) `
+      + `brightness(${(1 + FINISHES[state.finish].sheen).toFixed(2)})`;
   }
 
-  const opts = () => ({
-    grain: state.grain, contrast: state.contrast, joint: state.joint,
-    variation: state.variation, width: state.width,
-  });
+  const opts = () => ({ grain: state.grain, contrast: state.contrast, joint: state.joint,
+    variation: state.variation, width: state.width });
 
-  /* Vignette matière : la zone de sol de la photo, agrandie et filtrée, avec
-     le motif par-dessus. Chaque produit devient reconnaissable. */
-  /* Guillemets SIMPLES dans url() : cette chaîne part dans un attribut
-     `style="…"`, et un guillemet double le fermerait — le fond restait vide. */
-  function matter(entry, size) {
-    return `background-image:url('${room().url}');background-size:${size}px;`
-      + `background-position:46% 97%;filter:${entry.filter} saturate(1.12) contrast(1.10)`;
+  /* Texture de produit : gradients procéduraux, indépendants de la photo —
+     une pastille doit rester lisible même quand la pièce est sombre. */
+  function texture(p, size) {
+    const w = p.wood;
+    const a = PATTERNS[p.pattern].seam;
+    const b = PATTERNS[p.pattern].butt;
+    const px = size || 1;
+    return [
+      `repeating-linear-gradient(${a}deg, rgba(60,40,22,.16) 0 1px, rgba(255,250,240,.22) 1px 2px, transparent 2px ${(13 * px).toFixed(1)}px)`,
+      `repeating-linear-gradient(${a}deg, rgba(60,40,22,.07) 0 1px, transparent 1px ${(4 * px).toFixed(1)}px)`,
+      `repeating-linear-gradient(${b}deg, rgba(60,40,22,.10) 0 1px, transparent 1px ${((p.pattern === 'straight' ? 74 : 13) * px).toFixed(1)}px)`,
+      `linear-gradient(168deg, ${w.light} 0%, ${w.base} 46%, ${w.dark} 100%)`,
+    ].join(', ');
   }
 
-  function matterCard(entry, size, jointLevel) {
-    const wood = woodCss(entry.pattern, { joint: jointLevel, grain: 70, variation: 40, width: 140 });
-    return `<span style="${matter(entry, size)};position:absolute;inset:0"></span>`
-      + `<i style="background-image:${wood};mix-blend-mode:multiply"></i>`;
-  }
-
-  /** La pièce avec un produit posé — vue centrale, miniatures, comparaison. */
-  function roomWithFloor(entry, extra) {
-    const url = room().url;
-    const merged = { ...opts(), ...(extra || {}) };
-    return `<img alt="" src="${url}" />
-      <span data-floor style="position:absolute;inset:0;background:url('${url}') center/cover;
-        filter:${floorFilter(entry, merged)}"></span>
-      <span data-floor style="position:absolute;inset:0;mix-blend-mode:multiply;
-        background-image:${woodCss(entry.pattern, merged)}"></span>`;
-  }
-
+  /* Une photo absente ne doit pas laisser un trou : le porteur prend un
+     aplati lisible. `error` ne remonte pas, on l'ecoute donc sur l'image. */
   function fallbackPhoto(img, holder) {
     if (!img || !img.addEventListener) return;
     img.addEventListener('error', () => {
-      holder.classList.add('fallback');
+      if (holder && holder.classList) holder.classList.add('fallback');
       img.style.visibility = 'hidden';
     });
   }
 
-  /* =====================================================================
-     Entrée : importer sa photo, ou choisir une pièce
-     ===================================================================== */
-  function roomCards(hostId, onPick) {
-    $(hostId).innerHTML = DEMO_ROOMS.map((r) => `
-      <button class="gc" type="button" data-id="${r.id}">
-        <span class="ph"><img alt="" src="${PHOTOS + r.file}" /></span>
-        <span class="nm">${r.label}</span>
-      </button>`).join('');
-    $(hostId).querySelectorAll('.gc').forEach((card) => {
-      const holder = card.children[0];
-      fallbackPhoto(holder && holder.firstChild, holder);
+  function markFallbacks(container) {
+    container.querySelectorAll('img').forEach((img) => {
+      fallbackPhoto(img, img.parentElement);
     });
-    $(hostId).onclick = (event) => {
-      const card = event.target.closest('.gc');
-      if (card) onPick(card.dataset.id);
-    };
   }
 
-  function openDemoRoom(id) {
+  /* =====================================================================
+     Rendu de la scène
+     ===================================================================== */
+  function paint() {
+    const entry = product();
+    const url = room().url;
+    $('photo').src = url;
+
+    const ok = calibrated();
+    $('after').classList.toggle('hidden', !ok);
+    $('occl').classList.toggle('hidden', !ok);
+    $('cmpLayer').classList.toggle('hidden', !ok || !state.compare);
+
+    if (ok) {
+      buildMasks();
+      $('floor').style.backgroundImage = `url('${url}')`;
+      $('floor').style.filter = floorFilter(entry, opts());
+      $('joints').style.backgroundImage = woodCss(entry.pattern, opts());
+      $('occl').style.backgroundImage = `url('${url}')`;
+      ['floor', 'joints'].forEach((id) => {
+        $(id).style.mask = 'url(#floorMask)';
+        $(id).style.webkitMask = 'url(#floorMask)';
+      });
+      $('occl').style.mask = 'url(#occlMask)';
+      $('occl').style.webkitMask = 'url(#occlMask)';
+    }
+
+    /* Avant/après et comparaison partagent le même séparateur : un seul
+       geste, jamais deux contrôles concurrents. */
+    const cut = state.ba || state.compare;
+    $('after').style.clipPath = cut
+      ? `inset(0 ${((1 - state.split) * 100).toFixed(2)}% 0 0)` : 'none';
+
+    if (state.compare && ok) {
+      const b = product(state.compare.b);
+      $('cmpFloor').style.backgroundImage = `url('${url}')`;
+      $('cmpFloor').style.filter = floorFilter(b, opts());
+      $('cmpJoints').style.backgroundImage = woodCss(b.pattern, opts());
+      ['cmpFloor', 'cmpJoints'].forEach((id) => {
+        $(id).style.mask = 'url(#floorMask)';
+        $(id).style.webkitMask = 'url(#floorMask)';
+      });
+    }
+
+    $('split').classList.toggle('hidden', !cut);
+    if (cut) $('split').style.left = `${state.split * 100}%`;
+    paintCard();
+    paintStatus();
+    paintNav();
+  }
+
+  const heart = (on, s) => `<svg width="${s || 14}" height="${s || 14}" viewBox="0 0 24 24"
+    fill="${on ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.8"
+    stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 20.5s-7.5-4.7-7.5-10.2A4.3 4.3 0 0112 7a4.3 4.3 0 017.5 3.3c0 5.5-7.5 10.2-7.5 10.2z" /></svg>`;
+
+  /* Carte produit avec flèches précédent/suivant : on essaie en rafale sans
+     rouvrir le catalogue. */
+  function cardHtml(entry, side) {
+    const on = state.favourites.has(entry.id);
+    return `<span class="sw" style="background:${texture(entry)}"></span>
+      <b>${entry.name}</b>
+      <span class="ref">${entry.ref}</span>
+      <span class="dim">${PATTERNS[entry.pattern].label} · ${state.width} mm · ${FINISHES[state.finish].label}</span>
+      <button class="sheet" type="button" data-sheet="${entry.id}">VOIR LA FICHE</button>
+      <span class="row">
+        <button type="button" data-step="prev${side}" aria-label="Parquet précédent">‹</button>
+        <span class="sep"></span>
+        <button class="fav" type="button" data-fav="${entry.id}" aria-pressed="${on}"
+                aria-label="Favori">${heart(on)}</button>
+        <span class="sep"></span>
+        <button type="button" data-step="next${side}" aria-label="Parquet suivant">›</button>
+      </span>`;
+  }
+
+  function paintCard() {
+    $('card').innerHTML = cardHtml(product(), 'A');
+    if (state.compare) {
+      $('cardB').innerHTML = cardHtml(product(state.compare.b), 'B');
+      $('cardB').classList.remove('hidden');
+      $('card').style.right = 'auto';
+      $('card').style.left = '16px';
+      $('nav').classList.add('hidden');
+      $('tagA').classList.remove('hidden');
+      $('tagB').classList.remove('hidden');
+      $('tagA').style.left = `calc(${state.split * 100}% - 84px)`;
+      $('tagB').style.left = `calc(${state.split * 100}% + 12px)`;
+    } else {
+      $('cardB').classList.add('hidden');
+      $('card').style.right = '16px';
+      $('card').style.left = 'auto';
+      $('nav').classList.remove('hidden');
+      $('tagA').classList.add('hidden');
+      $('tagB').classList.add('hidden');
+    }
+  }
+
+  function paintStatus() {
+    const conf = ANALYSIS[state.analysis];
+    const glyph = conf.kind === 'ok'
+      ? '<path d="M20 6L9 17l-5-5" />'
+      : conf.kind === 'doubt'
+        ? '<path d="M12 8v5" /><path d="M12 16.4v.2" />'
+        : '<circle cx="12" cy="12" r="8" stroke-dasharray="3 3" />';
+    $('status').dataset.kind = conf.kind;
+    $('status').classList.toggle('urge', state.analysis === 'manual');
+    $('status').innerHTML = `<span class="dot"><svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">${glyph}</svg></span>
+      ${conf.text}${conf.act ? ` · <button type="button" id="stAct">${conf.act}</button>` : ''}`;
+    if (conf.act) $('stAct').onclick = openBrush;
+    $('rejected').classList.toggle('hidden', state.analysis !== 'rejected');
+    $('status').classList.toggle('hidden', !calibrated());
+  }
+
+  function paintNav() {
+    $('navRoomVal').textContent = state.source === 'uploaded' ? state.uploaded.name : room().label;
+    $('navFloorVal').textContent = product().name;
+    $('navCustomVal').textContent =
+      `${PATTERNS[product().pattern].label} · ${state.width} mm · ${FINISHES[state.finish].label}`;
+  }
+
+  /* =====================================================================
+     Sélecteur de pièce — catégories + import, comme chez Quick-Step
+     ===================================================================== */
+  function paintRoomSheet() {
+    const cats = CATEGORIES.filter((c) => DEMO_ROOMS.some((r) => r.category === c));
+    $('roomCats').innerHTML = cats.map((c) => {
+      const n = DEMO_ROOMS.filter((r) => r.category === c).length;
+      return `<button type="button" data-cat="${c}" aria-pressed="${c === state.category}">
+        ${c} <span style="color:var(--ink-4);font-weight:400">${n}</span></button>`;
+    }).join('');
+
+    const list = DEMO_ROOMS.filter((r) => r.category === state.category);
+    $('roomCount').textContent = `(${DEMO_ROOMS.length} pièces calibrées)`;
+    $('roomGrid').innerHTML = list.map((r) => `
+      <button class="rcard" type="button" data-room="${r.id}">
+        <span class="ph"><img alt="" src="${PHOTOS + r.file}" />${
+          r.id === state.roomId ? `<span class="tick"><svg width="12" height="12" viewBox="0 0 24 24"
+          fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"
+          stroke-linejoin="round"><path d="M20 6L9 17l-5-5" /></svg></span>` : ''}</span>
+        <span class="nm">${r.label}</span>
+        <span class="cat">${r.zones.length} zone${r.zones.length > 1 ? 's' : ''} de sol${
+          r.occluders.length ? ` · ${r.occluders.length} obstacle${r.occluders.length > 1 ? 's' : ''}` : ''}</span>
+      </button>`).join('');
+    markFallbacks($('roomGrid'));
+  }
+
+  function paintQuick() {
+    $('quickRooms').innerHTML = DEMO_ROOMS.slice(0, 3).map((r) => `
+      <button class="rcard" type="button" data-room="${r.id}">
+        <span class="ph"><img alt="" src="${PHOTOS + r.file}" /></span>
+        <span class="nm">${r.label}</span>
+        <span class="cat">${r.category}</span>
+      </button>`).join('');
+    markFallbacks($('quickRooms'));
+  }
+
+  /** Changer de pièce CONSERVE le parquet : on juge le même bois ailleurs. */
+  function openRoom(id) {
     state.source = 'demo';
     state.roomId = id;
-    if (state.uploaded) { releaseUpload(); }
-    enterWorkspace();
+    releaseUpload();
+    state.category = room().category;
+    closeAll();
+    enter();
+    setDemo('success', true);
     toast(room().label);
   }
 
-  /* La photo de l'utilisateur : lue en local, jamais envoyée, jamais écrite.
-     L'URL d'objet est révoquée dès qu'on change de pièce — rien ne reste. */
+  function enter() {
+    $('entry').classList.add('hidden');
+    $('stage').classList.remove('hidden');
+    $('hSwap').classList.remove('hidden');
+    paint();
+  }
+
+  /* La photo de l'utilisateur : lue en local, jamais envoyée, jamais écrite. */
   function loadUpload(file) {
     if (!file) return;
     if (!/^image\/(jpeg|png|webp)$/.test(file.type || '')) {
@@ -1249,8 +1388,18 @@
     probe.onload = () => {
       state.uploaded = { url, name: file.name, w: probe.naturalWidth || 1600, h: probe.naturalHeight || 1067 };
       state.source = 'uploaded';
-      enterWorkspace();
-      simulateAnalysis();
+      state.compare = null;
+      state.ba = false;
+      closeAll();
+      enter();
+      $('analyzing').classList.remove('hidden');
+      setTimeout(() => {
+        $('analyzing').classList.add('hidden');
+        /* Aucune calibration pour cette photo : on le DIT. Poser un contour
+           approximatif donnerait un rendu faux et laisserait croire que la
+           détection fonctionne mal. Le LOT IA 2B n'existe pas. */
+        $('unknown').classList.remove('hidden');
+      }, 1300);
     };
     probe.onerror = () => { toast("Cette image n'a pas pu être lue"); URL.revokeObjectURL(url); };
     probe.src = url;
@@ -1259,526 +1408,312 @@
   function releaseUpload() {
     if (state.uploaded && state.uploaded.url) URL.revokeObjectURL(state.uploaded.url);
     state.uploaded = null;
+    $('unknown').classList.add('hidden');
+    $('analyzing').classList.add('hidden');
   }
-
-  /* Une temporisation, pas un calcul : le prototype n'analyse rien. */
-  function simulateAnalysis() {
-    $('analyzing').classList.remove('hidden');
-    setTimeout(() => {
-      $('analyzing').classList.add('hidden');
-      setDemo('success');
-      toast('Votre pièce est prête');
-    }, 1300);
-  }
-
-  function enterWorkspace() {
-    $('entry').classList.add('hidden');
-    $('shell').classList.remove('hidden');
-    $('swapBtn').classList.remove('hidden');
-    $('fileName').textContent = state.source === 'uploaded' ? state.uploaded.name : room().file;
-    $('swap').classList.add('hidden');
-    refresh();
-  }
-
-  $('doorImport').onclick = () => $('file').click();
-  $('swapImport').onclick = () => $('file').click();
-  $('menuImport').onclick = () => { $('menu').classList.add('hidden'); $('file').click(); };
-  $('file').onchange = (event) => loadUpload(event.target.files && event.target.files[0]);
-
-  $('doorGallery').onclick = () => {
-    $('gallery').classList.remove('hidden');
-    roomCards('galGrid', openDemoRoom);
-  };
-  $('menuGallery').onclick = () => {
-    $('menu').classList.add('hidden');
-    $('shell').classList.add('hidden');
-    $('entry').classList.remove('hidden');
-    $('gallery').classList.remove('hidden');
-    roomCards('galGrid', openDemoRoom);
-  };
-
-  const openSwap = () => {
-    roomCards('swapGrid', openDemoRoom);
-    $('swap').classList.remove('hidden');
-  };
-  $('swapBtn').onclick = openSwap;
-  $('swapBtn2').onclick = openSwap;
-  document.addEventListener('pointerdown', (event) => {
-    if ($('swap').classList.contains('hidden')) return;
-    if (event.target.closest && (event.target.closest('#swap') || event.target.closest('#swapBtn')
-      || event.target.closest('#swapBtn2'))) return;
-    $('swap').classList.add('hidden');
-  });
-
-  /* Glisser-déposer, sur toute la page. */
-  ['dragover', 'dragenter'].forEach((type) => {
-    document.addEventListener(type, (event) => event.preventDefault());
-  });
-  document.addEventListener('drop', (event) => {
-    event.preventDefault();
-    const file = event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files[0];
-    if (file) loadUpload(file);
-  });
 
   /* =====================================================================
-     Rendu
+     Catalogue
      ===================================================================== */
-  function paintRoom() {
-    const entry = product();
-    const url = room().url;
-    $('photo').src = url;
-    $('floor').style.backgroundImage = `url("${url}")`;
-    $('floor').style.filter = floorFilter(entry, opts());
-    $('joints').style.backgroundImage = woodCss(entry.pattern, opts());
-
-    $('after').style.clipPath = state.ba
-      ? `inset(0 ${((1 - state.split) * 100).toFixed(2)}% 0 0)`
-      : 'none';
-    $('split').classList.toggle('hidden', !state.ba);
-    if (state.ba) $('split').style.left = `${state.split * 100}%`;
-
-    $('stamp').innerHTML = `<span class="sw">${matterCard(entry, 200, 55)}</span>
-      <span><b>${entry.name}</b> <i>· ${state.width} mm</i></span>`;
-
-    $('heroShot').innerHTML = `<img alt="Aperçu de votre pièce" src="${url}" />`;
-    fallbackPhoto($('heroShot').firstChild, $('heroShot'));
-    applyFloorClips();
+  function visible() {
+    const f = state.filters;
+    return DEMO_PRODUCTS.filter((p) =>
+      (!f.pattern || p.pattern === f.pattern)
+      && (!f.tone || p.tone === f.tone)
+      && (!f.species || p.species === f.species)
+      && (!f.mood || p.tags.includes(f.mood)));
   }
 
-  const heart = (on) => `<svg width="13" height="13" viewBox="0 0 24 24"
-    fill="${on ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.8"
-    stroke-linecap="round" stroke-linejoin="round">
-    <path d="M12 20.5s-7.5-4.7-7.5-10.2A4.3 4.3 0 0112 7a4.3 4.3 0 017.5 3.3c0 5.5-7.5 10.2-7.5 10.2z" /></svg>`;
-
-  function visibleProducts() {
-    if (!state.inspiration) return DEMO_PRODUCTS;
-    const insp = INSPIRATIONS.find((i) => i.id === state.inspiration);
-    return DEMO_PRODUCTS.filter((p) => p.tags.includes(insp.tag));
-  }
-
-  function paintActive() {
-    const entry = product();
-    const hearted = state.favourites.has(entry.id);
-    $('active').innerHTML = `<span class="sw">${matterCard(entry, 260, 55)}</span>
-      <span class="grow"><b>${entry.name}</b>
-        <span class="spec">${PATTERNS[entry.pattern].label} · ${state.width} mm · ${FINISHES[state.finish].label}</span>
-      </span>`;
-    $('actions').innerHTML = `
-      <button type="button" id="toCustom">Personnaliser</button>
-      <button type="button" id="toCompare">Comparer</button>
-      <button type="button" id="toFav" class="${hearted ? 'on' : ''}">${hearted ? '♥ Favori' : '♡ Favori'}</button>`;
-    $('toCustom').onclick = () => openTab('custom');
-    $('toCompare').onclick = startCompare;
-    $('toFav').onclick = () => toggleFav(entry.id);
-  }
-
-  function paintProducts() {
-    const list = visibleProducts();
-    const insp = state.inspiration && INSPIRATIONS.find((i) => i.id === state.inspiration);
-    $('prodsTitle').textContent = insp ? insp.title : 'Tous les parquets';
-    $('prodsLead').textContent = insp
-      ? `${list.length} parquet${list.length > 1 ? 's' : ''} · cliquez pour l'essayer`
-      : 'Cliquez : votre pièce change aussitôt.';
-
-    $('prods').innerHTML = list.map((p) => `
-      <button class="pd" type="button" data-id="${p.id}" aria-pressed="${p.id === state.productId}">
-        <span class="mat">${matterCard(p, 420, 60)}</span>
-        <span class="hh" data-fav="${p.id}" role="button" aria-pressed="${state.favourites.has(p.id)}"
-              aria-label="Favori">${heart(state.favourites.has(p.id))}</span>
-        <span class="nm">${p.name}</span>
-        <span class="mt">${PATTERNS[p.pattern].label} · ${toneLabel(p)}</span>
-      </button>`).join('');
-
-    $('prods').onclick = (event) => {
-      const fav = event.target.closest('[data-fav]');
-      if (fav) { toggleFav(fav.dataset.fav); return; }
-      const card = event.target.closest('.pd');
-      if (card) select(card.dataset.id);
-    };
-  }
-
-  function paintInspirations() {
-    $('insp').innerHTML = INSPIRATIONS.map((i) => {
-      const matches = DEMO_PRODUCTS.filter((p) => p.tags.includes(i.tag));
-      const face = matches[0] || DEMO_PRODUCTS[0];
-      return `<button class="in" type="button" data-id="${i.id}" aria-pressed="${i.id === state.inspiration}">
-        <span class="ph">${roomWithFloor(face, { joint: 40 })}</span>
-        <span class="cap"><span class="t">${i.title}</span>
-          <span class="s">${face.name} · ${matches.length} parquet${matches.length > 1 ? 's' : ''}</span></span>
-      </button>`;
+  function paintCatalogue() {
+    const f = state.filters;
+    $('fPattern').innerHTML = Object.entries(PATTERNS).map(([k, v]) =>
+      `<button class="chip" type="button" data-f="pattern" data-v="${k}"
+        aria-pressed="${f.pattern === k}">${v.label}</button>`).join('');
+    $('fTone').innerHTML = TONES.filter(([k]) => DEMO_PRODUCTS.some((p) => p.tone === k))
+      .map(([k, label]) => {
+        const p = DEMO_PRODUCTS.find((x) => x.tone === k);
+        return `<button class="dot-b" type="button" data-f="tone" data-v="${k}" title="${label}"
+          aria-label="${label}" aria-pressed="${f.tone === k}"
+          style="background:linear-gradient(160deg,${p.wood.light},${p.wood.base} 55%,${p.wood.dark})"></button>`;
+      }).join('');
+    const species = [...new Set(DEMO_PRODUCTS.map((p) => p.species))];
+    $('fSpecies').innerHTML = species.map((s) =>
+      `<button class="chip" type="button" data-f="species" data-v="${s}"
+        aria-pressed="${f.species === s}">${s}</button>`).join('');
+    $('moods').innerHTML = MOODS.map(([k, label]) => {
+      const n = DEMO_PRODUCTS.filter((p) => p.tags.includes(k)).length;
+      return `<button class="mood" type="button" data-f="mood" data-v="${k}"
+        aria-pressed="${f.mood === k}">${label} · ${n}</button>`;
     }).join('');
-    $('insp').onclick = (event) => {
-      const button = event.target.closest('.in');
-      if (!button) return;
-      state.inspiration = state.inspiration === button.dataset.id ? null : button.dataset.id;
-      const list = visibleProducts();
-      if (list.length && !list.some((p) => p.id === state.productId)) select(list[0].id, true);
-      openTab('products');
-      refresh();
-      const insp = INSPIRATIONS.find((i) => i.id === state.inspiration);
-      toast(insp ? `${insp.title} · ${list.length} parquets` : 'Tous les parquets');
-    };
+
+    const list = visible();
+    $('catCount').textContent = `(${list.length})`;
+    $('prods').innerHTML = list.length ? list.map((p) => {
+      const on = state.favourites.has(p.id);
+      return `<button class="pd" type="button" data-id="${p.id}" aria-pressed="${p.id === state.productId}">
+        <span class="tex" style="background:${texture(p, 1.5)}"></span>
+        <span class="hh" data-fav="${p.id}" role="button" aria-pressed="${on}"
+              aria-label="Favori">${heart(on, 13)}</span>
+        <span class="nm">${p.name}</span>
+        <span class="ref">${PATTERNS[p.pattern].label.toUpperCase()} · ${toneLabel(p.tone).toUpperCase()} | ${p.ref.split('| ')[1]}</span>
+      </button>`;
+    }).join('') : '<p class="empty">Aucun parquet ne correspond à ces filtres.</p>';
   }
 
+  function toggleFilter(kind, value) {
+    state.filters[kind] = state.filters[kind] === value ? null : value;
+    paintCatalogue();
+  }
+
+  /* =====================================================================
+     Personnaliser — seules les capacités réelles du produit
+     ===================================================================== */
   function paintCustom() {
     const entry = product();
+    $('cusName').textContent = entry.name;
     const family = DEMO_PRODUCTS.filter((p) => p.species === entry.species && p.tone === entry.tone);
 
     $('patterns').innerHTML = Object.keys(PATTERNS)
-      .filter((key) => family.some((p) => p.pattern === key))
-      .map((key) => {
-        const target = family.find((p) => p.pattern === key);
-        return `<button class="pt" type="button" data-target="${target.id}" aria-pressed="${key === entry.pattern}">
-          <span class="mat">${matterCard(target, 320, 65)}</span>
-          <span class="cap">${PATTERNS[key].label}</span>
-        </button>`;
+      .filter((k) => family.some((p) => p.pattern === k))
+      .map((k) => {
+        const t = family.find((p) => p.pattern === k);
+        return `<button class="pt" type="button" data-target="${t.id}" aria-pressed="${k === entry.pattern}">
+          <span class="dg" style="background:${texture(t, 0.85)}"></span>
+          <span class="cap">${PATTERNS[k].label}</span></button>`;
       }).join('');
     const missing = Object.keys(PATTERNS).length - family.length;
     $('patternNote').textContent = missing > 0
-      ? `${missing} motif${missing > 1 ? 's' : ''} non disponible${missing > 1 ? 's' : ''} pour ${entry.name.toLowerCase()}.`
+      ? `${missing} motif${missing > 1 ? 's' : ''} indisponible${missing > 1 ? 's' : ''} pour ${entry.name.toLowerCase()}.`
       : '';
-    $('patterns').onclick = (event) => {
-      const button = event.target.closest('.pt');
-      if (button) select(button.dataset.target);
-    };
 
-    $('widths').innerHTML = entry.availableWidths
-      .map((mm) => `<button class="chip" type="button" data-mm="${mm}"
-        aria-pressed="${mm === state.width}">${mm} mm</button>`).join('');
+    $('widths').innerHTML = entry.availableWidths.map((mm) =>
+      `<button class="chip" type="button" data-mm="${mm}" aria-pressed="${mm === state.width}">${mm} mm</button>`).join('');
     $('widthNote').textContent = entry.availableWidths.length < 3
       ? `${entry.name} n'existe qu'en ${entry.availableWidths.join(' et ')} mm.` : '';
-    $('widths').onclick = (event) => {
-      const button = event.target.closest('.chip');
-      if (!button) return;
-      state.width = Number(button.dataset.mm);
-      refresh();
-      toast(`Lames ${state.width} mm`);
-    };
 
     $('orient').innerHTML = [['long', 'Dans la longueur'], ['cross', 'Dans la largeur']]
-      .map(([id, label]) => `<button class="or" type="button" data-id="${id}" aria-pressed="${id === state.orient}">
+      .map(([id, label]) => `<button class="or" type="button" data-or="${id}" aria-pressed="${id === state.orient}">
         <svg width="32" height="18" viewBox="0 0 34 20" fill="none" stroke="currentColor" stroke-width="1.6"
              stroke-linecap="round" style="color:var(--ink-3)">
           ${id === 'long' ? '<path d="M3 5h28M3 10h28M3 15h28" />' : '<path d="M7 3v14M17 3v14M27 3v14" />'}
         </svg><span>${label}</span></button>`).join('');
-    $('orient').onclick = (event) => {
-      const button = event.target.closest('.or');
-      if (!button) return;
-      state.orient = button.dataset.id;
-      refresh();
-    };
 
-    $('finishes').innerHTML = entry.availableFinishes
-      .map((key) => `<button class="chip" type="button" data-id="${key}"
-        aria-pressed="${key === state.finish}">${FINISHES[key].label}</button>`).join('');
+    $('finishes').innerHTML = entry.availableFinishes.map((k) =>
+      `<button class="chip" type="button" data-fin="${k}" aria-pressed="${k === state.finish}">${FINISHES[k].label}</button>`).join('');
     $('finishNote').textContent = entry.availableFinishes.length < 3
       ? `Finitions proposées : ${entry.availableFinishes.map((k) => FINISHES[k].label).join(', ')}.` : '';
-    $('finishes').onclick = (event) => {
-      const button = event.target.closest('.chip');
-      if (!button) return;
-      state.finish = button.dataset.id;
-      refresh();
-    };
-  }
 
-  /* Bande basse : « Pour votre pièce » montre des ambiances avec leur compte,
-     les autres onglets montrent des produits. Dans les deux cas, la pièce de
-     l'utilisateur avec le parquet posé — pas un aplat. */
-  function paintRail() {
-    if (state.rail === 'mine') {
-      $('rail').innerHTML = INSPIRATIONS.slice(0, 6).map((i) => {
-        const matches = DEMO_PRODUCTS.filter((p) => p.tags.includes(i.tag));
-        const face = matches[0] || DEMO_PRODUCTS[0];
-        return `<button class="sug" type="button" data-id="${face.id}" data-insp="${i.id}"
-                aria-pressed="${face.id === state.productId}">
-          <span class="tile">${roomWithFloor(face, { joint: 40 })}</span>
-          <span class="t">${i.title}</span>
-          <span class="s">${face.name}</span>
-          <span class="n">${matches.length} parquet${matches.length > 1 ? 's' : ''}</span>
-        </button>`;
-      }).join('');
-    } else {
-      const source = state.rail === 'hearts'
-        ? DEMO_PRODUCTS.filter((p) => state.favourites.has(p.id))
-        : state.rail === 'near'
-          ? DEMO_PRODUCTS.filter((p) => p.id !== state.productId
-            && p.tags.some((t) => product().tags.includes(t)))
-          : DEMO_PRODUCTS;
-
-      if (!source.length) {
-        $('rail').innerHTML = `<p class="empty">${state.rail === 'hearts'
-          ? 'Touchez un cœur pour retrouver un parquet ici.'
-          : 'Aucun parquet proche pour le moment.'}</p>`;
-        return;
-      }
-
-      $('rail').innerHTML = source.map((p) => `
-        <button class="sug" type="button" data-id="${p.id}" aria-pressed="${p.id === state.productId}">
-          <span class="tile">${roomWithFloor(p, { joint: 40 })}</span>
-          <span class="hh" data-fav="${p.id}" role="button" aria-pressed="${state.favourites.has(p.id)}"
-                aria-label="Favori">${heart(state.favourites.has(p.id))}</span>
-          <span class="t">${p.name}</span>
-          <span class="s">${PATTERNS[p.pattern].label} · ${toneLabel(p)}</span>
-        </button>`).join('');
-    }
-
-    $('rail').onclick = (event) => {
-      const fav = event.target.closest('[data-fav]');
-      if (fav) { toggleFav(fav.dataset.fav); return; }
-      const card = event.target.closest('.sug');
-      if (!card) return;
-      if (card.dataset.insp) state.inspiration = card.dataset.insp;
-      select(card.dataset.id);
-    };
-  }
-
-  function paintAnalysis() {
-    const conf = ANALYSIS[state.analysis];
-    $('analysis').dataset.kind = conf.kind;
-    const glyph = conf.kind === 'ok'
-      ? '<path d="M20 6L9 17l-5-5" />'
-      : conf.kind === 'doubt'
-        ? '<path d="M12 8v5" /><path d="M12 16.4v.2" />'
-        : '<circle cx="12" cy="12" r="8" stroke-dasharray="3 3" />';
-    $('analysis').innerHTML = `<span class="dot"><svg width="11" height="11" viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">${glyph}</svg></span>
-      <span><strong>${conf.title}</strong><span>${conf.sub}</span></span>`;
-
-    if (conf.ribbon) {
-      $('ribbon').innerHTML = `<span class="wd"></span><span class="grow">${conf.ribbon}</span>
-        <button type="button" id="ribAdjust">Ajuster</button>`;
-      $('ribbon').classList.remove('hidden');
-      $('ribAdjust').onclick = openBrush;
-    } else {
-      $('ribbon').classList.add('hidden');
-    }
-
-    $('rejected').classList.toggle('hidden', !conf.blocked);
-    $('stamp').classList.toggle('hidden', conf.blocked);
-  }
-
-  function refresh() {
-    paintActive();
-    paintProducts();
-    paintInspirations();
-    paintCustom();
-    paintRail();
-    paintAnalysis();
     $('grainVal').textContent = `${state.grain} %`;
     $('contrastVal').textContent = `${state.contrast} %`;
     $('jointVal').textContent = `${state.joint} %`;
     $('variationVal').textContent = `${state.variation} %`;
-    paintRoom();
   }
 
   /* =====================================================================
-     Sélection — le clic EST l'action, et aucun appel réseau
+     Sélection — le clic EST l'action, aucun bouton « Appliquer »
      ===================================================================== */
   function select(id, silent) {
     const entry = product(id);
     if (!entry) return;
-
     if (state.picking) {
-      if (state.replacing !== null) state.slots[state.replacing] = id;
-      else state.slots.push(id);
+      state.compare = { b: id };
       state.picking = false;
-      state.replacing = null;
-      $('pickHint').classList.add('hidden');
-      openCompare();
+      state.split = 0.5;
+      closeAll();
+      paint();
+      toast('Faites glisser le séparateur');
       return;
     }
-
     state.productId = id;
     if (!entry.availableWidths.includes(state.width)) {
       state.width = entry.availableWidths.includes(140) ? 140 : entry.availableWidths[0];
     }
     if (!entry.availableFinishes.includes(state.finish)) state.finish = entry.availableFinishes[0];
-    refresh();
+    paint();
+    paintCatalogue();
+    paintCustom();
     if (!silent) toast(`${entry.name} · ${PATTERNS[entry.pattern].label}`);
+  }
+
+  function stepProduct(dir, side) {
+    const list = visible().length ? visible() : DEMO_PRODUCTS;
+    const current = side === 'B' && state.compare ? state.compare.b : state.productId;
+    const i = list.findIndex((p) => p.id === current);
+    const next = list[(i + dir + list.length) % list.length];
+    if (side === 'B' && state.compare) {
+      state.compare.b = next.id;
+      paint();
+      toast(next.name);
+      return;
+    }
+    select(next.id);
   }
 
   function toggleFav(id) {
     if (state.favourites.has(id)) state.favourites.delete(id);
     else state.favourites.add(id);
-    $('favIco').setAttribute('aria-pressed', String(state.favourites.size > 0));
-    $('favIco').classList.add('beat');
-    setTimeout(() => $('favIco').classList.remove('beat'), 200);
-    refresh();
+    const n = state.favourites.size;
+    $('favCount').textContent = String(n);
+    $('favCount').classList.toggle('hidden', n === 0);
+    $('hFav').setAttribute('aria-pressed', String(n > 0));
+    paint();
+    paintCatalogue();
     toast(state.favourites.has(id)
-      ? `${product(id).name} ajouté aux favoris`
-      : `${product(id).name} retiré des favoris`);
+      ? `${product(id).name} ajouté aux favoris` : `${product(id).name} retiré des favoris`);
   }
 
   /* =====================================================================
-     Comparaison
+     Modales
      ===================================================================== */
-  function startCompare() {
-    state.slots = [state.productId];
-    state.picking = true;
-    state.replacing = null;
-    $('pickHint').textContent = 'Choisissez un second parquet à comparer';
-    $('pickHint').classList.remove('hidden');
-    openTab('products');
-    toast('Cliquez un second parquet');
+  function closeAll() {
+    ['roomSheet', 'roomScrim', 'catSheet', 'catScrim', 'cusSheet', 'cusScrim', 'menu']
+      .forEach((id) => $(id).classList.add('hidden'));
+    $('hMenu').setAttribute('aria-expanded', 'false');
   }
+  function openRooms() { closeAll(); paintRoomSheet(); $('roomScrim').classList.remove('hidden'); $('roomSheet').classList.remove('hidden'); }
+  function openCat() { closeAll(); paintCatalogue(); $('catScrim').classList.remove('hidden'); $('catSheet').classList.remove('hidden'); }
+  function openCus() { closeAll(); paintCustom(); $('cusScrim').classList.remove('hidden'); $('cusSheet').classList.remove('hidden'); }
 
-  function openCompare() {
-    paintCompare();
-    $('cmp').classList.remove('hidden');
-  }
+  ['doorRooms', 'navRoom', 'hSwap', 'menuRooms', 'unkRooms', 'rejRooms'].forEach((id) => {
+    $(id).onclick = openRooms;
+  });
+  $('roomClose').onclick = closeAll;
+  $('roomScrim').onclick = closeAll;
+  $('navFloor').onclick = openCat;
+  $('catClose').onclick = closeAll;
+  $('catScrim').onclick = closeAll;
+  $('navCustom').onclick = openCus;
+  $('cusClose').onclick = closeAll;
+  $('cusScrim').onclick = closeAll;
 
-  function paintCompare() {
-    const keys = ['A', 'B', 'C'];
-    $('cmpGridBtn').setAttribute('aria-pressed', String(state.cmpMode === 'grid'));
-    $('cmpSlideBtn').setAttribute('aria-pressed', String(state.cmpMode === 'slider'));
-    $('cmpAdd').classList.toggle('hidden', state.slots.length >= 3);
+  ['doorImport', 'sheetImport', 'menuImport', 'unkOther', 'rejOther'].forEach((id) => {
+    $(id).onclick = () => { closeAll(); $('file').click(); };
+  });
+  $('file').onchange = (e) => loadUpload(e.target.files && e.target.files[0]);
 
-    if (state.cmpMode === 'slider' && state.slots.length === 2) {
-      const [a, b] = state.slots.map((id) => product(id));
-      $('cmpCells').innerHTML = `
-        <div id="cmpSlider">
-          ${roomWithFloor(a, { joint: 40 })}
-          <div class="lay" id="cmpTop" style="clip-path:inset(0 ${(1 - state.cmpSplit) * 100}% 0 0)">
-            ${roomWithFloor(b, { joint: 40 })}
-          </div>
-          <div id="cmpHandle" style="left:${state.cmpSplit * 100}%"></div>
-        </div>`;
-      wireSlider();
-    } else {
-      $('cmpCells').innerHTML = state.slots.map((id, index) => {
-        const entry = product(id);
-        return `<div class="cell">
-          <div class="fr">${roomWithFloor(entry, { joint: 40 })}</div>
-          <p class="lg"><span class="k">${keys[index]}</span> ${entry.name}
-            <button type="button" data-replace="${index}">Remplacer</button></p>
-        </div>`;
-      }).join('');
-    }
-
-    $('cmpCells').onclick = (event) => {
-      const button = event.target.closest('[data-replace]');
-      if (!button) return;
-      state.replacing = Number(button.dataset.replace);
-      state.picking = true;
-      $('pickHint').textContent = `Choisissez le parquet ${keys[state.replacing]}`;
-      $('pickHint').classList.remove('hidden');
-      $('cmp').classList.add('hidden');
-      openTab('products');
-    };
-    applyFloorClips();
-  }
-
-  function wireSlider() {
-    const handle = $('cmpHandle');
-    if (!handle || !handle.addEventListener) return;
-    let dragging = false;
-    handle.addEventListener('pointerdown', (event) => {
-      dragging = true;
-      if (handle.setPointerCapture) handle.setPointerCapture(event.pointerId);
-    });
-    handle.addEventListener('pointerup', () => { dragging = false; });
-    $('cmpSlider').addEventListener('pointermove', (event) => {
-      if (!dragging) return;
-      const box = $('cmpSlider').getBoundingClientRect();
-      state.cmpSplit = Math.max(0.02, Math.min(0.98, (event.clientX - box.left) / box.width));
-      $('cmpTop').style.clipPath = `inset(0 ${(1 - state.cmpSplit) * 100}% 0 0)`;
-      handle.style.left = `${state.cmpSplit * 100}%`;
-    });
-  }
-
-  $('cmpGridBtn').onclick = () => { state.cmpMode = 'grid'; paintCompare(); };
-  $('cmpSlideBtn').onclick = () => {
-    if (state.slots.length !== 2) { toast('Le curseur compare deux parquets'); return; }
-    state.cmpMode = 'slider';
-    paintCompare();
-  };
-  $('cmpAdd').onclick = () => {
-    state.picking = true;
-    state.replacing = null;
-    $('pickHint').textContent = 'Choisissez un troisième parquet';
-    $('pickHint').classList.remove('hidden');
-    $('cmp').classList.add('hidden');
-    openTab('products');
-  };
-  $('cmpClose').onclick = () => {
-    $('cmp').classList.add('hidden');
-    toast('Vos sélections sont conservées');
-  };
-
-  /* =====================================================================
-     Onglets, avant/après, retouche, menu
-     ===================================================================== */
-  function openTab(name) {
-    state.tab = name;
-    document.querySelectorAll('[role="tab"]').forEach((tab) => {
-      tab.setAttribute('aria-selected', String(tab.dataset.tab === name));
-    });
-    ['products', 'insp', 'custom'].forEach((key) => {
-      $(`pane-${key}`).classList.toggle('hidden', key !== name);
-    });
-  }
-  document.querySelectorAll('[role="tab"]').forEach((tab) => {
-    tab.onclick = () => openTab(tab.dataset.tab);
+  ['dragover', 'dragenter'].forEach((t) => document.addEventListener(t, (e) => e.preventDefault()));
+  document.addEventListener('drop', (e) => {
+    e.preventDefault();
+    const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (f) loadUpload(f);
   });
 
-  document.querySelectorAll('.strip-tabs button').forEach((button) => {
-    button.onclick = () => {
-      state.rail = button.dataset.rail;
-      document.querySelectorAll('.strip-tabs button').forEach((other) => {
-        other.setAttribute('aria-pressed', String(other === button));
-      });
-      paintRail();
-      applyFloorClips();
+  $('roomCats').onclick = (e) => {
+    const b = e.target.closest('[data-cat]');
+    if (!b) return;
+    state.category = b.dataset.cat;
+    paintRoomSheet();
+  };
+  ['roomGrid', 'quickRooms'].forEach((id) => {
+    $(id).onclick = (e) => {
+      const b = e.target.closest('[data-room]');
+      if (b) openRoom(b.dataset.room);
     };
   });
 
-  ['grain', 'contrast', 'joint', 'variation'].forEach((key) => {
-    $(key).oninput = (event) => { state[key] = Number(event.target.value); refresh(); };
+  ['fPattern', 'fTone', 'fSpecies', 'moods'].forEach((id) => {
+    $(id).onclick = (e) => {
+      const b = e.target.closest('[data-f]');
+      if (b) toggleFilter(b.dataset.f, b.dataset.v);
+    };
+  });
+  $('clearFilters').onclick = () => {
+    state.filters = { pattern: null, tone: null, species: null, mood: null };
+    paintCatalogue();
+  };
+  $('prods').onclick = (e) => {
+    const fav = e.target.closest('[data-fav]');
+    if (fav) { toggleFav(fav.dataset.fav); return; }
+    const card = e.target.closest('[data-id]');
+    if (!card) return;
+    const wasPicking = state.picking;
+    select(card.dataset.id);
+    if (!wasPicking) closeAll();
+  };
+
+  ['card', 'cardB'].forEach((id) => {
+    $(id).onclick = (e) => {
+      const fav = e.target.closest('[data-fav]');
+      if (fav) { toggleFav(fav.dataset.fav); return; }
+      const step = e.target.closest('[data-step]');
+      if (step) {
+        const v = step.dataset.step;
+        stepProduct(v.startsWith('prev') ? -1 : 1, v.slice(-1));
+        return;
+      }
+      if (e.target.closest('[data-sheet]')) toast('Fiche produit : futur lien vers le catalogue Premibel');
+    };
   });
 
+  $('patterns').onclick = (e) => { const b = e.target.closest('[data-target]'); if (b) select(b.dataset.target); };
+  $('widths').onclick = (e) => {
+    const b = e.target.closest('[data-mm]');
+    if (!b) return;
+    state.width = Number(b.dataset.mm);
+    paint(); paintCustom(); toast(`Lames ${state.width} mm`);
+  };
+  $('orient').onclick = (e) => {
+    const b = e.target.closest('[data-or]');
+    if (!b) return;
+    state.orient = b.dataset.or;
+    paint(); paintCustom();
+  };
+  $('finishes').onclick = (e) => {
+    const b = e.target.closest('[data-fin]');
+    if (!b) return;
+    state.finish = b.dataset.fin;
+    paint(); paintCustom();
+  };
+  ['grain', 'contrast', 'joint', 'variation'].forEach((k) => {
+    $(k).oninput = (e) => { state[k] = Number(e.target.value); paint(); paintCustom(); };
+  });
   $('advToggle').onclick = () => {
     const closed = $('adv').classList.toggle('hidden');
     $('advToggle').setAttribute('aria-expanded', String(!closed));
   };
-
   $('resetAdv').onclick = () => {
     Object.assign(state, { grain: 70, contrast: 50, joint: 40, variation: 45 });
-    ['grain', 'contrast', 'joint', 'variation'].forEach((key) => { $(key).value = String(state[key]); });
-    refresh();
-    toast('Réglages réinitialisés');
+    ['grain', 'contrast', 'joint', 'variation'].forEach((k) => { $(k).value = String(state[k]); });
+    paint(); paintCustom(); toast('Réglages réinitialisés');
   };
 
   $('baBtn').onclick = () => {
+    if (state.compare) state.compare = null;
     state.ba = !state.ba;
     state.split = 0.5;
     $('baBtn').setAttribute('aria-pressed', String(state.ba));
-    paintRoom();
+    paint();
+  };
+  $('cmpBtn').onclick = () => {
+    if (state.compare) { state.compare = null; paint(); toast('Comparaison fermée'); return; }
+    state.ba = false;
+    $('baBtn').setAttribute('aria-pressed', 'false');
+    state.picking = true;
+    openCat();
+    toast('Choisissez le second parquet');
   };
 
   let dragging = false;
-  $('split').addEventListener('pointerdown', (event) => {
+  $('split').addEventListener('pointerdown', (e) => {
     dragging = true;
-    if ($('split').setPointerCapture) $('split').setPointerCapture(event.pointerId);
+    if ($('split').setPointerCapture) $('split').setPointerCapture(e.pointerId);
   });
   $('split').addEventListener('pointerup', () => { dragging = false; });
-  $('canvasWrap').addEventListener('pointermove', (event) => {
+  $('stage').addEventListener('pointermove', (e) => {
     if (!dragging) return;
-    const box = $('canvasWrap').getBoundingClientRect();
-    state.split = Math.max(0.02, Math.min(0.98, (event.clientX - box.left) / box.width));
-    paintRoom();
+    const box = $('stage').getBoundingClientRect();
+    state.split = Math.max(0.02, Math.min(0.98, (e.clientX - box.left) / box.width));
+    paint();
   });
 
   function openBrush() {
     $('brush').classList.remove('hidden');
-    $('ribbon').classList.add('hidden');
-    $('stamp').classList.add('hidden');
+    $('status').classList.add('hidden');
     toast('Peignez ce qui manque, effacez ce qui dépasse');
   }
-  $('adjustBtn').onclick = openBrush;
   $('brDone').onclick = () => {
     $('brush').classList.add('hidden');
-    $('stamp').classList.remove('hidden');
-    paintAnalysis();
+    setDemo('success');
     toast('Détection ajustée');
   };
   $('brAdd').onclick = () => {
@@ -1790,69 +1725,66 @@
     $('brAdd').setAttribute('aria-pressed', 'false');
   };
 
-  $('favIco').onclick = () => {
-    state.rail = 'hearts';
-    document.querySelectorAll('.strip-tabs button').forEach((other) => {
-      other.setAttribute('aria-pressed', String(other.dataset.rail === 'hearts'));
-    });
-    paintRail();
-    applyFloorClips();
-    toast('Vos favoris');
+  $('hFav').onclick = () => {
+    if (!state.favourites.size) { toast('Touchez un cœur pour garder un parquet'); return; }
+    state.filters = { pattern: null, tone: null, species: null, mood: null };
+    openCat();
+    $('catCount').textContent = `(${state.favourites.size} en favoris)`;
+    $('prods').innerHTML = [...state.favourites].map((id) => {
+      const p = product(id);
+      return `<button class="pd" type="button" data-id="${p.id}" aria-pressed="${p.id === state.productId}">
+        <span class="tex" style="background:${texture(p, 1.5)}"></span>
+        <span class="hh" data-fav="${p.id}" role="button" aria-pressed="true" aria-label="Favori">${heart(true, 13)}</span>
+        <span class="nm">${p.name}</span><span class="ref">${p.ref}</span></button>`;
+    }).join('');
   };
-  $('saveBtn').onclick = () => toast('Enregistrement : besoin documenté, pas développé ici');
-  $('sheetBtn').onclick = () => toast('Fiche produit : futur lien vers le catalogue');
+  $('hSave').onclick = () => toast('Enregistrement : besoin documenté, pas développé ici');
   $('fsBtn').onclick = () => toast('Plein écran');
-  $('rejRetry').onclick = () => $('file').click();
-  $('rejPick').onclick = () => { setDemo('success'); openSwap(); };
 
-  $('menuBtn').onclick = () => {
+  $('hMenu').onclick = () => {
     const closed = $('menu').classList.toggle('hidden');
-    $('menuBtn').setAttribute('aria-expanded', String(!closed));
+    $('hMenu').setAttribute('aria-expanded', String(!closed));
   };
-  document.addEventListener('pointerdown', (event) => {
+  document.addEventListener('pointerdown', (e) => {
     if ($('menu').classList.contains('hidden')) return;
-    if (event.target.closest && (event.target.closest('#menu') || event.target.closest('#menuBtn'))) return;
-    $('menu').classList.add('hidden');
-    $('menuBtn').setAttribute('aria-expanded', 'false');
+    if (e.target.closest && (e.target.closest('#menu') || e.target.closest('#hMenu'))) return;
+    closeAll();
   });
 
-  function setDemo(value) {
+  function setDemo(value, silent) {
     state.analysis = value;
-    if (value === 'rejected') { state.ba = false; $('baBtn').setAttribute('aria-pressed', 'false'); }
-    $('menu').querySelectorAll('[data-demo]').forEach((item) => {
-      item.setAttribute('aria-pressed', String(item.dataset.demo === value));
-    });
-    $('menu').classList.add('hidden');
-    refresh();
+    if (value === 'rejected') { state.ba = false; state.compare = null; }
+    $('menu').querySelectorAll('[data-demo]').forEach((i) =>
+      i.setAttribute('aria-pressed', String(i.dataset.demo === value)));
+    if (!silent) closeAll();
+    paint();
   }
-  $('menu').querySelectorAll('[data-demo]').forEach((item) => {
-    item.onclick = () => setDemo(item.dataset.demo);
+  $('menu').querySelectorAll('[data-demo]').forEach((i) => {
+    i.onclick = () => setDemo(i.dataset.demo);
   });
 
-  $('railPrev').onclick = () => { $('rail').scrollLeft -= 400; };
-  $('railNext').onclick = () => { $('rail').scrollLeft += 400; };
-
-  window.addEventListener('resize', applyFloorClips);
+  window.addEventListener('resize', () => { if (state.source) paint(); });
 
   let toastTimer = null;
   function toast(message) {
     $('toast').textContent = message;
     $('toast').classList.add('on');
     if (toastTimer) clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => $('toast').classList.remove('on'), 1800);
+    toastTimer = setTimeout(() => $('toast').classList.remove('on'), 1700);
   }
 
-  fallbackPhoto($('photo'), $('canvasWrap'));
-  roomCards('galGrid', openDemoRoom);
+  fallbackPhoto($('photo'), $('stage'));
+  paintQuick();
 
   /* Exposé pour les tests : le vrai script est exécuté sous Node avec un DOM
      minimal, et un test qui réimplémenterait cette logique ne testerait rien. */
   window.__concept = {
-    state, DEMO_PRODUCTS, DEMO_ROOMS, DEFAULT_FLOOR, INSPIRATIONS, PATTERNS,
-    FINISHES, PHOTOS, refresh, setDemo, select, toggleFav, startCompare,
-    openCompare, paintCompare, openTab, paintRoom, paintRail, woodCss,
-    floorFilter, coverPolygon, applyFloorClips, visibleProducts, product, room,
-    opts, openDemoRoom, loadUpload, releaseUpload, enterWorkspace, roomCards,
+    state, DEMO_ROOMS, DEMO_PRODUCTS, PATTERNS, FINISHES, TONES, MOODS, CATEGORIES,
+    PHOTOS, room, product, calibrated, buildMasks, mapper, woodCss, floorFilter,
+    texture, opts, paint, paintCard, paintCatalogue, paintCustom, paintRoomSheet,
+    paintQuick, markFallbacks,
+    openRoom, loadUpload, releaseUpload, select, stepProduct, toggleFav,
+    toggleFilter, visible, setDemo, closeAll, openRooms, openCat, openCus,
   };
 })();
 </script>
