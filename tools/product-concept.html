@@ -9,61 +9,62 @@
   Concept du Visualiseur public. Illustre `docs/product-visualizer-ux.md` et
   applique `docs/benchmark-quickstep-karndean.md`.
 
-  ## V5 — ce que le benchmark a changé
+  ## Ce fichier ne dessine PAS de parquet
 
-  Quick-Step RoomViewer et Karndean Floorstyle ont été manipulés dans un
-  navigateur. Les deux laissent la photo occuper **tout** le cadre. Quick-Step
-  n'a aucun panneau permanent : trois entrées empilées, chacune portant sa
-  valeur courante, remplacent une sidebar entière.
+  C'était l'erreur des versions précédentes. À force de vouloir un rendu
+  crédible, la maquette s'était mise à contenir un troisième moteur de rendu :
+  masques SVG, recomposition de `floorZones`, recoloration, joints simulés,
+  motifs synthétiques, occulteurs, retouches de couverture. Chaque défaut
+  corrigé en révélait un autre, et le résultat restait un faux parquet —
+  parfois partiel, parfois mal masqué.
 
-  Conséquences ici :
+  L'architecture du projet dit qui fait quoi :
 
-  * la colonne de gauche est **supprimée**, le configurateur permanent aussi ;
-  * navigation en trois entrées qui affichent leur valeur ;
-  * catalogue en modale — filtres à gauche, grille de TEXTURES à droite,
-    compte dans le titre, application au clic sans bouton « Appliquer » ;
-  * flèches produit précédent/suivant directement sur la scène ;
-  * import de sa photo placé DANS le sélecteur de pièce, au même niveau que
-    les exemples ;
-  * comparaison dans une **seule photo scindée**, versions A/B étiquetées,
-    une carte produit par côté.
+      Python                comprend la pièce
+      le JS/WebGL du front  dessine le parquet
+      ce fichier            valide l'UX du futur produit
 
-  ## Le sol vient des VRAIES calibrations du front
+  Un troisième moteur n'a donc pas lieu d'être. Ici, changer de parquet
+  **change d'image** : les rendus sont préfabriqués par le vrai moteur.
 
-  Le polygone approximatif de la V4 laissait de l'ancien sol visible : refusé,
-  et à juste titre. Les contours ci-dessous sont ceux des scènes calibrées à
-  la main du front.
+  ## D'où viennent les images
 
-      source    : pose-parquet.com/data/scenes/<id>.json
-      commit lu : 124b553, sur la branche feature/home-visualizer
-      arbre lu  : data/scenes/ = 2f5bfc7 — c'est CETTE empreinte qui compte.
-                  Le front bouge sous nos pieds (l'utilisateur y travaille) ;
-                  un numéro de commit vieillit, une empreinte d'arbre se
-                  revérifie d'un `git rev-parse <ref>:data/scenes`.
-      lu le     : 8 septembre 2026, en lecture seule, aucune écriture
-      filtre    : scène présente dans data/scenes/index.json (brouillons
-                  exclus) ET contour de 8 points au moins. `salon` est écartée
-                  (brouillon), `entree-cadree` aussi (5 points, trop grossier).
+  Du Visualiseur du front, lancé en local et piloté par son propre point
+  d'accroche `window.__studio`, que `?perf=1` expose (voir
+  `js/utils/perf.js`). Pour chaque scène et chaque produit : `openRoom`,
+  `selectMaterial`, `setPattern` ; on attend que le rendu ait changé PUIS
+  qu'il se stabilise, et on relit le canevas — créé avec
+  `preserveDrawingBuffer: true`, donc relisible.
 
-  Chaque scène apporte TOUTES ses `floorZones`, leurs `holes` et ses
-  `occluders`. Le sol est peint par un **masque SVG** qui réunit les zones et
-  retire les trous ; les occulteurs restaurent les pixels d'origine
-  par-dessus, de sorte qu'un meuble n'est jamais repeint.
+  Le front n'a été que LU et lancé. Aucune écriture, aucun commit.
 
-  ## Ce que ce fichier n'est pas
+  Provenance des images, telle qu'elle se revérifie :
 
-  * **Pas un moteur de rendu.** Le vrai moteur est dans le front
-    (`js/scene/renderer-gl.js` et son repli logiciel). Ici, la photo est
-    filtrée dans le masque puis recouverte d'un motif discret. Aucun WebGL.
-  * **Pas une analyse.** Une photo inconnue n'est PAS masquée au hasard : le
-    prototype dit que l'analyse automatique n'est pas connectée. Le LOT IA 2B
-    n'existe pas, et prétendre le contraire donnerait l'impression que notre
-    détection fonctionne mal.
-  * **Pas le catalogue.** `DEMO_PRODUCTS` est un jeu de démonstration.
+      moteur   pose-parquet.com/assets/dist/9685ef637e  (le bundle chargé par
+               outils/studio.html — c'est l'empreinte du RENDERER, donc le bon
+               repère ; un numéro de commit bouge, celui-ci identifie le code
+               qui a réellement dessiné)
+      capturé  8 septembre 2026, 5 scènes × 6 produits + 5 originaux
+      taille   1200 px de large, JPEG q0,82 — la maquette les affiche en plein
+               cadre, pas en impression
+
+  Les images vivent dans `datasets/private-real/_renders/`, hors de Git :
+  elles dérivent de photos non redistribuables. Un clone frais n'en a donc
+  aucune, et la maquette retombe proprement sur la photo d'origine.
+
+  ## Ce que ce fichier n'est toujours pas
+
+  * **Pas une analyse.** Une photo inconnue ne reçoit aucun parquet. La
+    maquette dit que le moteur IA n'est pas connecté. Le LOT IA 2B n'existe
+    pas, et faire semblant donnerait l'impression que notre détection
+    fonctionne mal.
+  * **Pas le catalogue.** Six produits de démonstration, nommés d'après le
+    catalogue du front pour rester cohérents.
   * **Pas une copie.** Aucun asset, aucune capture, aucune ligne de code de
     Quick-Step ou Karndean : des patterns d'interaction, pas une identité.
 
-  Autonome : un fichier, aucune dépendance, aucune requête réseau, file://.
+  Autonome : un fichier, aucune dépendance, aucune requête réseau.
+  `?dev=1` ajoute les mentions de développement (rendu manquant).
 -->
 
 <style>
@@ -192,28 +193,19 @@
     background: linear-gradient(150deg, #ded7c9, #c8bfae);
   }
 
-  /* ---------------- La pièce : tout l'espace ---------------- */
+  /* ---------------- La pièce : tout l'espace ----------------
+     Trois images superposées, et c'est tout. Ni masque, ni couche de joints,
+     ni filtre : le parquet est déjà dans l'image.
+       #photo  la scène d'origine
+       #cmpB   la version B de la comparaison
+       #after  le rendu sélectionné, découpé par le séparateur */
   #stage { flex: 1; min-height: 0; position: relative; overflow: hidden; background: #dcd7cd; }
-  #photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-  /* Ordre des couches, du fond vers l'avant : la photo, la version B de la
-     comparaison, la version A par-dessus (c'est elle que le separateur
-     decoupe), puis les occulteurs qui rendent les meubles. Sans z-index
-     explicite sur #after, la version B recouvrait les DEUX moities. */
-  #after { position: absolute; inset: 0; z-index: 2; }
-  #floor, #joints, #occl {
-    position: absolute; inset: 0; background-size: cover; background-position: center;
+  #photo, #cmpB, #after {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    object-fit: cover; display: block;
   }
-  #floor { transition: filter var(--t) var(--ease); }
-  #joints { mix-blend-mode: multiply; }
-  /* Les occulteurs restaurent les pixels d'origine PAR-DESSUS le parquet :
-     un meuble, un tapis ou un pied de chaise n'est jamais repeint. */
-  #occl { z-index: 3; }
-  /* Couche du mode debug inverse : n'existe qu'avec ?debug=outside. */
-  #outside { position: absolute; inset: 0; z-index: 4; background: rgba(6, 6, 10, 0.82); }
-  /* Le SVG porte-masques doit occuper la scene : en 0x0, Chrome ne resout
-     pas `mask: url(#floorMask)` et le sol disparait entierement. Il ne
-     contient que des <defs>, donc il ne peint rien. */
-  #masks { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  #cmpB { z-index: 1; }
+  #after { z-index: 2; }
 
   /* Trois entrées de navigation — le pattern Quick-Step */
   #nav {
@@ -258,7 +250,8 @@
   }
   #card .sw, #cardB .sw {
     display: block; width: 72px; height: 72px; margin: 0 auto 10px;
-    border-radius: var(--r-pill); box-shadow: inset 0 0 0 1px var(--line-2);
+    border-radius: var(--r-pill); background-size: cover; background-position: center;
+    box-shadow: inset 0 0 0 1px var(--line-2);
   }
   #card b, #cardB b { display: block; font-size: 13.5px; font-weight: 600; line-height: 1.3; }
   #card .ref, #cardB .ref { display: block; margin-top: 4px; font-size: 10.5px; letter-spacing: 0.03em; color: var(--ink-4); }
@@ -291,9 +284,13 @@
     background: rgba(85, 177, 131, 0.18); color: var(--vert); flex: none;
   }
   #status[data-kind="doubt"] .dot { background: rgba(176, 125, 43, 0.18); color: #b07d2b; }
-  #status[data-kind="todo"] .dot { background: var(--track); color: var(--ink-4); }
-  #status button { color: var(--terre); font-weight: 600; font-size: 12.5px; }
-  #status.urge { box-shadow: 0 0 0 1px rgba(176, 125, 43, 0.4), var(--sh-2); }
+
+  /* Mention de développement : n'apparaît qu'avec ?dev=1. */
+  #devnote {
+    position: absolute; right: 16px; bottom: 16px; z-index: 6;
+    padding: 7px 13px; border-radius: var(--r-pill);
+    background: rgba(26, 24, 20, 0.9); color: #ffd9a8; font-size: 12px;
+  }
 
   #split { position: absolute; top: 0; bottom: 0; width: 2px; background: rgba(255,255,255,.96); z-index: 4; cursor: ew-resize; }
   #split::after {
@@ -306,10 +303,9 @@
     background: var(--graphite); color: #fff; font-size: 11.5px; font-weight: 600;
   }
 
-  /* ---------------- Modales ---------------- */
-  /* Les modales sont ancrees a la page, pas a la scene : sur l'ecran
-     d'entree, #stage est masque, et une modale imbriquee ne s'ouvrirait
-     pas. Elles laissent l'en-tete visible. */
+  /* ---------------- Modales ----------------
+     Ancrées à la page, pas à la scène : sur l'écran d'entrée #stage est
+     masqué, et une modale imbriquée ne s'ouvrirait pas. */
   .scrim { position: fixed; inset: 54px 0 0; z-index: 20; background: rgba(30, 28, 24, 0.28); }
   .sheetp {
     position: fixed; inset: 54px 0 0; z-index: 21; display: flex; flex-direction: column;
@@ -357,22 +353,14 @@
   .chip:hover { box-shadow: 0 0 0 1px var(--line-2); }
   .chip[aria-pressed="true"] { background: var(--graphite); color: #fff; box-shadow: none; font-weight: 550; }
 
-  .dots { display: flex; flex-wrap: wrap; gap: 8px; }
-  .dot-b {
-    width: 30px; height: 30px; border-radius: var(--r-pill);
-    box-shadow: inset 0 0 0 1px var(--line-2);
-    transition: transform var(--t) var(--ease), box-shadow var(--t) var(--ease);
-  }
-  .dot-b:hover { transform: scale(1.08); }
-  .dot-b[aria-pressed="true"] { box-shadow: inset 0 0 0 1px var(--line-2), 0 0 0 2px var(--terre); }
-
   .clearf { margin-top: 4px; font-size: 12px; color: var(--terre); text-decoration: underline; }
 
   .prods { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
   .pd { text-align: left; position: relative; }
   .pd .tex {
     display: block; width: 100%; aspect-ratio: 1 / 0.78;
-    border-radius: var(--r-md); box-shadow: 0 0 0 1px var(--line);
+    border-radius: var(--r-md); background-size: cover; background-position: center;
+    box-shadow: 0 0 0 1px var(--line);
     transition: box-shadow var(--t) var(--ease), transform var(--t) var(--ease);
   }
   .pd:hover .tex { transform: translateY(-2px); box-shadow: var(--sh-2); }
@@ -387,15 +375,6 @@
   .pd .hh[aria-pressed="true"] { color: var(--terre); }
   .pd .hh[aria-pressed="true"] svg { fill: var(--terre); }
 
-  .moods { display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 16px; }
-  .mood {
-    padding: 8px 14px; border-radius: var(--r-pill); font-size: 12.5px;
-    background: var(--track); color: var(--ink-2);
-    transition: background var(--t) var(--ease), color var(--t) var(--ease);
-  }
-  .mood:hover { background: var(--track-2); }
-  .mood[aria-pressed="true"] { background: var(--terre); color: #fff; font-weight: 550; }
-
   .empty { padding: 30px 4px; font-size: 13.5px; color: var(--ink-3); }
 
   .sect { margin-bottom: 22px; }
@@ -406,6 +385,7 @@
   .pt { text-align: center; }
   .pt .dg {
     display: block; width: 100%; aspect-ratio: 1; border-radius: var(--r-md);
+    background-size: cover; background-position: center;
     box-shadow: 0 0 0 1px var(--line); transition: box-shadow var(--t) var(--ease);
   }
   .pt[aria-pressed="true"] .dg { box-shadow: 0 0 0 2px var(--terre); }
@@ -421,47 +401,11 @@
   .or span { font-size: 11.5px; color: var(--ink-3); }
   .or[aria-pressed="true"] span { color: var(--ink); font-weight: 600; }
 
-  #advToggle {
-    display: flex; align-items: center; gap: 8px; width: 100%;
-    padding: 13px 2px; font-size: 13px; color: var(--ink-2); border-top: 1px solid var(--line);
+  .honest {
+    margin: 0 0 20px; padding: 11px 13px; background: var(--track);
+    border-radius: var(--r-md); font-size: 12.5px; color: var(--ink-2);
   }
-  #advToggle svg { transition: transform var(--t) var(--ease); }
-  #advToggle[aria-expanded="true"] svg { transform: rotate(90deg); }
 
-  .slide { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; max-width: 420px; }
-  .slide label { width: 130px; flex: none; font-size: 13px; }
-  .slide .num { width: 44px; flex: none; text-align: right; font-size: 12.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
-
-  input[type="range"] { flex: 1; min-width: 0; height: 18px; -webkit-appearance: none; appearance: none; background: none; }
-  input[type="range"]::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: var(--track-2); }
-  input[type="range"]::-webkit-slider-thumb {
-    -webkit-appearance: none; width: 15px; height: 15px; margin-top: -5.5px;
-    background: var(--graphite); border-radius: var(--r-pill); box-shadow: 0 1px 2px rgba(0,0,0,.2);
-  }
-  input[type="range"]::-moz-range-track { height: 4px; border-radius: 2px; background: var(--track-2); }
-  input[type="range"]::-moz-range-thumb { width: 15px; height: 15px; border: none; background: var(--graphite); border-radius: var(--r-pill); }
-
-  .reset { display: flex; align-items: center; gap: 7px; margin: 14px 0 0; font-size: 12.5px; color: var(--ink-3); }
-  .reset:hover { color: var(--ink-2); }
-
-  #brush {
-    position: absolute; left: 50%; bottom: 16px; z-index: 8; transform: translateX(-50%);
-    display: flex; align-items: center; gap: 5px; padding: 6px;
-    background: rgba(255, 255, 255, 0.96); backdrop-filter: blur(16px);
-    border-radius: var(--r-pill); box-shadow: var(--sh-3);
-  }
-  #brush .b {
-    display: flex; align-items: center; gap: 7px; padding: 9px 14px;
-    border-radius: var(--r-pill); font-size: 13px; color: var(--ink-2);
-    transition: background var(--t) var(--ease), color var(--t) var(--ease);
-  }
-  #brush .b:hover { background: var(--track); }
-  #brush .b[aria-pressed="true"] { background: var(--graphite); color: #fff; }
-  #brush .sep { width: 1px; height: 20px; background: var(--line-2); }
-  #brush input[type="range"] { width: 74px; }
-
-  /* La photo de l'utilisateur doit rester VISIBLE derriere le message : un
-     voile opaque la delavait, et « votre photo s'affiche » devenait faux. */
   .veil {
     position: absolute; inset: 0; z-index: 12; display: grid; place-items: center;
     background: rgba(30, 28, 24, 0.34); backdrop-filter: blur(3px); padding: 36px; text-align: center;
@@ -588,7 +532,7 @@
             </svg>
           </span>
           <b>Choisir une pièce</b>
-          <span>Cinq intérieurs calibrés, prêts à essayer.</span>
+          <span>Cinq intérieurs prêts à essayer.</span>
         </button>
       </div>
 
@@ -604,21 +548,8 @@
   <!-- ===================== Le visualiseur ===================== -->
   <section id="stage" class="hidden">
     <img id="photo" alt="Votre pièce" />
-    <div id="cmpLayer" style="position:absolute;inset:0;z-index:1">
-      <div id="cmpFloor" style="position:absolute;inset:0;background-size:cover;background-position:center"></div>
-      <div id="cmpJoints" style="position:absolute;inset:0;background-size:cover;background-position:center;mix-blend-mode:multiply"></div>
-    </div>
-    <div id="after">
-      <div id="floor"></div>
-      <div id="joints"></div>
-    </div>
-    <div id="occl"></div>
-    <div id="outside" class="hidden"></div>
-    <svg id="masks" aria-hidden="true"><defs>
-      <mask id="floorMask" maskUnits="userSpaceOnUse"><g id="floorShapes"></g></mask>
-      <mask id="occlMask" maskUnits="userSpaceOnUse"><g id="occlShapes"></g></mask>
-      <mask id="outsideMask" maskUnits="userSpaceOnUse"><g id="outsideShapes"></g></mask>
-    </defs></svg>
+    <img id="cmpB" class="hidden" alt="" />
+    <img id="after" class="hidden" alt="" />
 
     <nav id="nav">
       <button type="button" id="navRoom">
@@ -671,27 +602,10 @@
     <aside id="card"></aside>
     <aside id="cardB" class="hidden"></aside>
     <div id="status"></div>
+    <div id="devnote" class="hidden"></div>
     <div id="split" class="hidden"></div>
     <div class="vtag hidden" id="tagA">version A</div>
     <div class="vtag hidden" id="tagB">version B</div>
-
-    <div id="brush" class="hidden">
-      <button class="b" id="brAdd" type="button" aria-pressed="true">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-             stroke-linecap="round"><path d="M12 5v14M5 12h14" /></svg> Ajouter
-      </button>
-      <button class="b" id="brDel" type="button" aria-pressed="false">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-             stroke-linecap="round"><path d="M5 12h14" /></svg> Retirer
-      </button>
-      <span class="sep"></span>
-      <input type="range" id="brSize" min="8" max="80" value="34" aria-label="Taille du pinceau" />
-      <span class="sep"></span>
-      <button class="b" type="button" aria-label="Annuler">↶</button>
-      <button class="b" type="button" aria-label="Rétablir">↷</button>
-      <span class="sep"></span>
-      <button class="b" id="brDone" type="button" aria-pressed="true">Terminer</button>
-    </div>
 
     <div class="veil hidden" id="analyzing">
       <div class="box">
@@ -701,19 +615,21 @@
       </div>
     </div>
 
-    <!-- Photo inconnue : on le dit, on n'invente pas de masque -->
+    <!-- Photo inconnue : on le dit, on ne pose aucun parquet -->
     <div class="veil hidden" id="unknown">
       <div class="box">
-        <h2>Analyse automatique non connectée</h2>
+        <h2>Le moteur IA n'est pas connecté à cette maquette</h2>
         <p>Votre photo s'affiche, mais cette maquette ne sait pas encore
           détecter le sol d'une pièce quelconque.</p>
         <div class="tip">
-          Poser un contour approximatif donnerait un rendu faux, et laisserait
+          Poser un parquet approximatif donnerait un rendu faux et laisserait
           croire que la détection fonctionne mal. Les cinq pièces d'exemple
-          sont calibrées à la main : elles montrent le résultat réellement visé.
+          arrivent avec des rendus produits par le vrai moteur : elles montrent
+          le résultat réellement visé. Dans le produit final, cette limite
+          disparaîtra.
         </div>
         <div class="acts">
-          <button class="btn warm" id="unkRooms" type="button">Continuer avec une pièce d'exemple</button>
+          <button class="btn warm" id="unkRooms" type="button">Tester avec une pièce d'exemple</button>
           <button class="btn" id="unkOther" type="button">Essayer une autre photo</button>
         </div>
       </div>
@@ -779,14 +695,10 @@
   <div class="body">
     <div class="side">
       <div class="grp"><h3>Motif</h3><div class="chips" id="fPattern"></div></div>
-      <div class="grp"><h3>Teinte</h3><div class="dots" id="fTone"></div></div>
-      <div class="grp"><h3>Essence</h3><div class="chips" id="fSpecies"></div></div>
+      <div class="grp"><h3>Teinte</h3><div class="chips" id="fTone"></div></div>
       <button class="clearf" id="clearFilters" type="button">Réinitialiser les filtres</button>
     </div>
-    <div class="main">
-      <div class="moods" id="moods"></div>
-      <div class="prods" id="prods"></div>
-    </div>
+    <div class="main"><div class="prods" id="prods"></div></div>
   </div>
 </div>
 
@@ -803,6 +715,10 @@
     </button>
   </div>
   <div class="body"><div class="main">
+    <p class="honest">Le motif et la teinte changent l'image, parce qu'un rendu
+      existe pour cette combinaison. La largeur, le sens de pose et la finition
+      mettent à jour la fiche du produit : le vrai moteur les calcule, cette
+      maquette ne redessine rien.</p>
     <div class="sect"><h3>Motif de pose</h3><div class="pats" id="patterns"></div>
       <p class="note" id="patternNote"></p></div>
     <div class="sect"><h3>Largeur des lames</h3><div class="chips" id="widths"></div>
@@ -810,27 +726,6 @@
     <div class="sect"><h3>Sens de pose</h3><div class="orient" id="orient"></div></div>
     <div class="sect"><h3>Finition</h3><div class="chips" id="finishes"></div>
       <p class="note" id="finishNote"></p></div>
-    <button id="advToggle" type="button" aria-expanded="false">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-           stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
-      Réglages avancés
-    </button>
-    <div id="adv" class="hidden" style="padding-top:14px">
-      <div class="slide"><label for="grain">Intensité du veinage</label>
-        <input type="range" id="grain" min="0" max="100" value="70" /><span class="num" id="grainVal">70 %</span></div>
-      <div class="slide"><label for="contrast">Contraste</label>
-        <input type="range" id="contrast" min="0" max="100" value="50" /><span class="num" id="contrastVal">50 %</span></div>
-      <div class="slide"><label for="joint">Visibilité des joints</label>
-        <input type="range" id="joint" min="0" max="100" value="40" /><span class="num" id="jointVal">40 %</span></div>
-      <div class="slide"><label for="variation">Variation entre lames</label>
-        <input type="range" id="variation" min="0" max="100" value="45" /><span class="num" id="variationVal">45 %</span></div>
-      <button class="reset" id="resetAdv" type="button">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
-             stroke-linecap="round" stroke-linejoin="round">
-          <path d="M4 12a8 8 0 108-8 8 8 0 00-6.6 3.5" /><path d="M4 4v4h4" /></svg>
-        Réinitialiser
-      </button>
-    </div>
   </div></div>
 </div>
 
@@ -842,7 +737,6 @@
   <p class="cat">Mode démo · prototype</p>
   <button class="mi" type="button" data-demo="success" aria-pressed="true">Analyse réussie</button>
   <button class="mi" type="button" data-demo="partial" aria-pressed="false">Analyse partielle</button>
-  <button class="mi" type="button" data-demo="manual" aria-pressed="false">Retouche nécessaire</button>
   <button class="mi" type="button" data-demo="rejected" aria-pressed="false">Photo refusée</button>
 </div>
 
@@ -852,544 +746,204 @@
 (() => {
   'use strict';
 
+  const RENDERS = '../datasets/private-real/_renders/';
   const PHOTOS = '../datasets/private-real/';
 
+  /* `?dev=1` affiche les mentions de développement — jamais dans l'UX. */
+  const DEV = (() => {
+    try { return new URLSearchParams(window.location.search).get('dev') === '1'; }
+    catch { return false; }
+  })();
+
   /* =====================================================================
-     DEMO_ROOMS — contours issus des VRAIES calibrations du front
+     DEMO_ROOMS — les scènes, sans aucune géométrie
 
-       source    : pose-parquet.com/data/scenes/<id>.json
-       commit lu : 124b553
-       lu le     : 8 septembre 2026, en lecture seule, aucune écriture
-       filtre    : scène présente dans data/scenes/index.json (brouillons
-                   exclus) ET contour de 8 points au moins. `salon` écartée
-                   (brouillon), `entree-cadree` écartée (5 points).
-
-     `zones` reprend TOUTES les `floorZones`, pas un quadrilatère simplifié :
-     le séjour en a deux, de part et d'autre d'une ouverture, sur une seule
-     dalle. `occluders` restaure les pixels d'origine par-dessus le parquet.
-
-     ## Trois scènes écartées après revue visuelle dans Chrome
-
-     Mesure : part de la dernière rangée visible du cadre que le masque
-     couvre. Au premier plan d'une photo d'intérieur prise debout, cette
-     rangée est du sol sur presque toute sa largeur ; un score faible
-     signifie donc que de l'ancien sol reste affiché.
-
-         sejour          100 %   retenue
-         piece-arcades   100 %   retenue
-         bureau-vide     100 %   retenue
-         chambre          94 %   retenue — les 6 % sont le seuil et la
-                                 grille encastrée, exclus à raison
-         piece-claire     80 %   retenue — les 20 % sont l'angle de mur
-                                 clair au bord droit du cadre
-         petite-piece     85 %   ÉCARTÉE — le sol visible se réduit à une
-                                 bande basse, en grande partie masquée par
-                                 le bureau et la chaise : on ne voit pas
-                                 le parquet
-         appartement-ancien
-                          63 %   ÉCARTÉE — un pan du sol de la pièce
-                                 elle-même reste d'origine le long du mur
-                                 droit, exactement le défaut refusé en V4
-         couloir          40 %   ÉCARTÉE — et son sol d'origine est un
-                                 carrelage gris moucheté que la
-                                 recoloration ne peut pas rendre en bois
-
-     Aucun contour n'a été retouché pour sauver une scène : ce serait
-     inventer de la donnée. Une scène passe ou sort.
-
-     ## Limite assumée du rendu de cette maquette
-
-     Le vrai moteur du front dessine des lames en perspective. Ici, la photo
-     est recolorée dans le masque puis recouverte de joints : la trame du sol
-     d'origine reste donc perceptible — la chambre garde sa lecture en point
-     de Hongrie même sur un produit « Lames ». C'est acceptable pour valider
-     un PARCOURS, pas pour juger un RENDU.
+     Plus de `floorZones`, plus d'occulteurs, plus de masque : la maquette
+     n'a pas à savoir où est le sol. Elle affiche une image déjà rendue.
      ===================================================================== */
   const DEMO_ROOMS = [
-    /* sejour · 2 zone(s), 0 occulteur(s), 43 points */
-    {
-      id: 'sejour', label: 'Séjour et salle à manger', category: 'Séjour',
-      file: 'sejour.jpg', w: 1600, h: 1067,
-      zones: [
-        { poly: [[0.0963,0.5496],[0.1141,0.5491],[0.1399,0.5461],[0.2344,0.5315],[0.2501,0.5278],[0.2694,0.53],[0.2883,0.5354],[0.3224,0.549],[0.3353,0.5522],[0.3531,0.5734],[0.3619,0.5939],[0.2729,0.6212],[0.2294,0.6309],[0.196,0.6437],[0.1496,0.6556],[0.1221,0.6647],[0.0971,0.6777],[0.0954,0.6617],[0.0957,0.6235],[0.0936,0.5949],[0.0936,0.5806],[0.0953,0.5568]], holes: [] },
-        { poly: [[0,0.694],[0.0975,0.6715],[0.1496,0.6556],[0.196,0.6437],[0.2294,0.6309],[0.2729,0.6212],[0.3373,0.6009],[0.3625,0.5957],[0.3727,0.5867],[0.3815,0.5867],[0.4008,0.5837],[0.4136,0.5841],[0.4201,0.5849],[0.4354,0.5918],[0.5092,0.6184],[0.7,0.691],[0.9,0.762],[1,0.799],[1,1],[0,1],[0,0.6987]], holes: [] }
-      ],
-      occluders: [],
-    },
-    /* chambre · 1 zone(s), 1 occulteur(s), 36 points */
-    {
-      id: 'chambre', label: 'Chambre ouverte au jardin', category: 'Chambre',
-      file: 'chambre.jpg', w: 1600, h: 1067,
-      zones: [
-        { poly: [[0,0.8905],[0.0088,0.8866],[0.0312,0.8868],[0.0438,0.8849],[0.1063,0.8539],[0.1213,0.8476],[0.1702,0.832],[0.243,0.8058],[0.277,0.7972],[0.3013,0.7889],[0.3105,0.784],[0.3187,0.7522],[0.3311,0.7198],[0.3397,0.7169],[0.4206,0.6777],[0.5157,0.631],[0.5301,0.6223],[0.533,0.6223],[0.5515,0.6262],[0.5667,0.6321],[0.5913,0.6377],[0.6259,0.6364],[0.6351,0.6383],[0.8732,0.693],[0.8848,0.6955],[0.89,0.7105],[0.9,0.7435],[0.92,0.7495],[0.93,0.7945],[0.9434,0.8207],[0.985,0.9079],[0.996,0.9247],[1,0.926],[1,1],[0,1],[0,0.8967]], holes: [] }
-      ],
-      occluders: [
-        [[0,0.876],[0.315,0.779],[0.322,0.818],[0.026,0.913],[0,0.922]]
-      ],
-    },
-    /* piece-claire · 1 zone(s), 2 occulteur(s), 37 points */
-    {
-      id: 'piece-claire', label: 'Grande pièce claire', category: 'Grande pièce',
-      file: 'piece-claire.jpg', w: 1600, h: 1067,
-      zones: [
-        { poly: [[0.0381,0.7001],[0.0633,0.6812],[0.0759,0.6699],[0.1061,0.6759],[0.1469,0.6675],[0.1812,0.6729],[0.2127,0.6658],[0.2221,0.665],[0.2565,0.6718],[0.2848,0.6731],[0.3192,0.6782],[0.3913,0.6798],[0.4226,0.6778],[0.4351,0.6807],[0.4537,0.6878],[0.463,0.6894],[0.4756,0.6881],[0.4945,0.6832],[0.5101,0.6837],[0.5504,0.6978],[0.5588,0.6997],[0.5757,0.7083],[0.6543,0.7401],[0.6631,0.7449],[0.6842,0.7656],[0.6924,0.7723],[0.7376,0.7906],[0.8228,0.8287],[0.8409,0.8341],[0.8422,0.8577],[0.841,1],[0.0411,1],[0.039,0.9986],[0.0405,0.9766],[0.0411,0.7844],[0.0407,0.7563],[0.0382,0.7047]], holes: [] }
-      ],
-      occluders: [
-        [[0.255,0.554],[0.349,0.551],[0.349,0.617],[0.255,0.627]],
-        [[0.361,0.569],[0.502,0.585],[0.502,0.699],[0.361,0.668]]
-      ],
-    },
-    /* piece-arcades · 1 zone(s), 0 occulteur(s), 18 points */
-    {
-      id: 'piece-arcades', label: 'Pièce aux arcades', category: 'Grande pièce',
-      file: 'piece-arcades.jpg', w: 1600, h: 1067,
-      zones: [
-        { poly: [[0,1],[0,0.6348],[0.5247,0.5954],[0.535,0.597],[0.555,0.6008],[0.575,0.6064],[0.615,0.6139],[0.655,0.6214],[0.695,0.6289],[0.735,0.6401],[0.775,0.6514],[0.815,0.6551],[0.855,0.6598],[0.895,0.6683],[0.935,0.6758],[0.975,0.6832],[1,0.6878],[1,1]], holes: [] }
-      ],
-      occluders: [],
-    },
-    /* bureau-vide · 1 zone(s), 0 occulteur(s), 30 points */
-    {
-      id: 'bureau-vide', label: 'Bureau, vue d’angle', category: 'Bureau',
-      file: 'bureau-vide.jpg', w: 1600, h: 1067,
-      zones: [
-        { poly: [[0,0.6945],[0.03,0.6915],[0.033,0.6885],[0.052,0.6862],[0.061,0.6851],[0.07,0.6847],[0.08,0.682],[0.09,0.6782],[0.1,0.6764],[0.11,0.6737],[0.121,0.6709],[0.136,0.6673],[0.16,0.6635],[0.19,0.6627],[0.22,0.6605],[0.25,0.6596],[0.28,0.6496],[0.31,0.6405],[0.34,0.6315],[0.4,0.6127],[0.44,0.601],[0.477,0.5897],[0.529,0.5978],[0.637,0.6185],[0.748,0.6373],[0.859,0.6569],[0.968,0.6764],[1,0.6821],[1,1],[0,1]], holes: [] }
-      ],
-      occluders: [],
-    },
+    { id: 'sejour', label: 'Séjour et salle à manger', category: 'Séjour' },
+    { id: 'chambre', label: 'Chambre ouverte au jardin', category: 'Chambre' },
+    { id: 'piece-claire', label: 'Grande pièce claire', category: 'Grande pièce' },
+    { id: 'piece-arcades', label: 'Pièce aux arcades', category: 'Grande pièce' },
+    { id: 'bureau-vide', label: 'Bureau, vue d’angle', category: 'Bureau' },
   ];
 
-  /* =====================================================================
-     demoFloorMask — RETOUCHES PROPRES À LA MAQUETTE, PAS UNE VÉRITÉ TERRAIN
+  const CATEGORIES = ['Séjour', 'Chambre', 'Grande pièce', 'Bureau'];
 
-     ## Ce que c'est, et ce que ce n'est pas
-
-     Ces retouches n'existent que pour `tools/product-concept.html`. Elles
-     n'entrent PAS dans `datasets/`, PAS dans `annotations/`, PAS dans
-     `floor-annotation@1`, ne sortent PAS du service Python, et ne servent à
-     mesurer AUCUN modèle. Elles rendent une scène de démonstration
-     visuellement crédible, rien de plus.
-
-         Prototype-only visual mask — not AI ground truth.
-
-     `DEMO_ROOMS` juste au-dessus reste la donnée du front, mot pour mot. Les
-     retouches sont déclarées à part, une par une, avec leur mesure : on peut
-     donc toujours dire ce qui vient du front et ce qui vient de nous.
-
-     ## Pourquoi il en faut
-
-     Le contour du front est recalé sur le maximum de gradient, puis lissé par
-     un filtre médian et une moyenne glissante (sa propre note le dit). Ce
-     lissage arrondit les angles : là où la base d'un mur forme un coin franc,
-     le contour coupe au court et perd une bande de sol. Le front s'en
-     accommode — son visiteur peut corriger au pinceau. La maquette n'a pas de
-     pinceau : elle affiche la bande.
-
-     ## Comment chaque retouche a été mesurée
-
-     Sur la photo brute, en scrutant une colonne de pixels : le sol bois est
-     chaud (R−B élevé), un mur gris ou bleu ne l'est pas. La jonction est
-     relevée par persistance de la teinte chaude sur 8 lignes, règle vérifiée
-     d'abord sur deux colonnes où le contour du front est exact (`piece-claire`
-     x=0,52 → jonction 0,686, contour 0,684). Puis vérification à l'œil, dans
-     Chrome, masque peint en magenta.
-
-     Les scènes absentes de cette table n'ont RIEN eu : `sejour`,
-     `piece-arcades` et `bureau-vide` ont été mesurées de la même façon et
-     leur contour tombe à ±5 px de la jonction, plinthes comprises.
-     ===================================================================== */
-  const DEMO_MASK_FIX = {
-    'piece-claire': {
-      pourquoi: "Le lissage du front a arrondi le coin de la base du mur du "
-        + "fond : le contour s'affaissait de 20 à 56 px sous la jonction entre "
-        + "x=0,16 et x=0,40, laissant une bande d'ancien sol sous le radiateur. "
-        + "La base du mur y est rectiligne — droite ajustée par moindres carrés "
-        + "sur 22 relevés, résidu max 4 px, RMS 2 px.",
-      remplaceChaineHaute: { de: 0.145, a: 0.36, y0: 0.6592, y1: 0.624 },
-    },
-    chambre: {
-      pourquoi: "L'occulteur de la grille encastrée est décalé vers le bas : il "
-        + "restitue la grille — que le contour exclut déjà — ET une bande de "
-        + "parquet sous elle, large de ~0,03 en y sur toute la baie. Il est donc "
-        + "redondant et nuisible ici. La grille reste hors du sol par le contour.",
-      retireOcculteurs: [0],
-    },
+  /* Les trois motifs que le moteur du front connaît (`KNOWN_PATTERNS`). */
+  const PATTERNS = {
+    lames: 'Lames',
+    'point-de-hongrie': 'Point de Hongrie',
+    'baton-rompu': 'Bâton rompu',
   };
-
-  /* Applique les retouches. `DEMO_ROOMS` n'est jamais modifié : les tests
-     comparent les deux pour prouver ce qui vient de nous. */
-  function applyMaskFix(entry) {
-    const fix = DEMO_MASK_FIX[entry.id];
-    if (!fix) return entry;
-    let zones = entry.zones;
-    if (fix.remplaceChaineHaute) {
-      const { de, a, y0, y1 } = fix.remplaceChaineHaute;
-      zones = entry.zones.map((zone, zi) => {
-        if (zi !== 0) return zone;
-        /* On retire les sommets de la chaîne haute compris dans l'intervalle,
-           puis on insère les deux bouts de la droite mesurée. */
-        const kept = zone.poly.filter(([x, y]) => !(x > de && x < a && y > 0.58 && y < 0.72));
-        const poly = [];
-        let done = false;
-        kept.forEach(([x, y], i) => {
-          const nx = kept[(i + 1) % kept.length][0];
-          poly.push([x, y]);
-          if (!done && x <= de && nx >= a) { poly.push([de, y0], [a, y1]); done = true; }
-        });
-        return { poly, holes: zone.holes };
-      });
-    }
-    const occluders = fix.retireOcculteurs
-      ? entry.occluders.filter((_, i) => !fix.retireOcculteurs.includes(i))
-      : entry.occluders;
-    return { ...entry, zones, occluders, retouche: true };
-  }
-
-  const ROOMS = DEMO_ROOMS.map(applyMaskFix);
-
-  const CATEGORIES = ['Séjour', 'Chambre', 'Grande pièce', 'Petite pièce', 'Bureau', 'Couloir'];
+  const TONES = { clair: 'Clair', naturel: 'Naturel', chaud: 'Chaud', fonce: 'Foncé' };
+  const FINISHES = { matte: 'Mate', satin: 'Satinée', gloss: 'Brillante' };
 
   /* =====================================================================
-     DEMO_PRODUCTS — jeu de démonstration, PAS le catalogue Premibel
+     DEMO_PRODUCTS — six produits de démonstration
 
-     La forme est celle qu'attendra l'intégration : `url` mènera à la fiche
-     produit, `availableWidths` et `availableFinishes` disent ce que le produit
-     sait réellement faire. Une combinaison inexistante n'est jamais proposée.
+     Noms et teintes reprennent le catalogue du front, pour que la maquette
+     et le vrai Visualiseur parlent de la même chose. `id` est aussi la CLÉ
+     du rendu préfabriqué : il n'y a pas de recette de rendu ici, seulement
+     un nom de fichier. `tint` ne sert qu'à la pastille quand son vignettage
+     manque.
      ===================================================================== */
   const DEMO_PRODUCTS = [
-    { id: 'demo-oak-natural', name: 'Chêne naturel', ref: 'DEMO · CHÊNE | NAT-140',
-      url: '#fiche/demo-oak-natural', species: 'Chêne', tone: 'natural', pattern: 'straight',
-      availableWidths: [90, 140, 190], availableFinishes: ['matte', 'satin'], tags: ['light', 'natural'],
-      wood: { base: '#c8a476', light: '#e0c6a1', dark: '#a5804f' },
-      filter: 'saturate(0.80) hue-rotate(4deg) brightness(1.14)' },
-    { id: 'demo-oak-sand', name: 'Chêne sable', ref: 'DEMO · CHÊNE | SAB-140',
-      url: '#fiche/demo-oak-sand', species: 'Chêne', tone: 'sand', pattern: 'straight',
-      availableWidths: [90, 140], availableFinishes: ['matte', 'satin'], tags: ['light', 'natural'],
-      wood: { base: '#d9c5a4', light: '#efe1c8', dark: '#bda67f' },
-      filter: 'saturate(0.52) hue-rotate(9deg) brightness(1.20)' },
-    { id: 'demo-oak-honey', name: 'Chêne miel', ref: 'DEMO · CHÊNE | MIE-190',
-      url: '#fiche/demo-oak-honey', species: 'Chêne', tone: 'honey', pattern: 'straight',
-      availableWidths: [140, 190], availableFinishes: ['matte', 'satin', 'gloss'], tags: ['warm'],
-      wood: { base: '#c18b48', light: '#dcae70', dark: '#9c6c2e' },
-      filter: 'saturate(1.34) hue-rotate(-4deg) brightness(1.02)' },
-    { id: 'demo-oak-grey', name: 'Chêne gris', ref: 'DEMO · CHÊNE | GRI-140',
-      url: '#fiche/demo-oak-grey', species: 'Chêne', tone: 'grey', pattern: 'straight',
-      availableWidths: [90, 140], availableFinishes: ['satin'], tags: ['graphic', 'elegant'],
-      wood: { base: '#a9a49c', light: '#c8c3bb', dark: '#87827b' },
-      filter: 'saturate(0.10) brightness(1.08)' },
-    { id: 'demo-oak-smoked', name: 'Chêne fumé', ref: 'DEMO · CHÊNE | FUM-190',
-      url: '#fiche/demo-oak-smoked', species: 'Chêne', tone: 'smoked', pattern: 'straight',
-      availableWidths: [140, 190], availableFinishes: ['matte'], tags: ['character'],
-      wood: { base: '#5f4a3a', light: '#7d6551', dark: '#423326' },
-      filter: 'saturate(1.05) hue-rotate(-10deg) brightness(0.64)' },
-    { id: 'demo-walnut', name: 'Noyer', ref: 'DEMO · NOYER | NOY-140',
-      url: '#fiche/demo-walnut', species: 'Noyer', tone: 'brown', pattern: 'straight',
-      availableWidths: [140], availableFinishes: ['satin', 'gloss'], tags: ['character', 'elegant'],
-      wood: { base: '#6b4a33', light: '#8b6446', dark: '#4c3221' },
-      filter: 'saturate(1.20) hue-rotate(-14deg) brightness(0.58)' },
-    { id: 'demo-ash-pale', name: 'Frêne blanchi', ref: 'DEMO · FRÊNE | BLA-190',
-      url: '#fiche/demo-ash-pale', species: 'Frêne', tone: 'pale', pattern: 'straight',
-      availableWidths: [140, 190], availableFinishes: ['matte', 'satin'], tags: ['light'],
-      wood: { base: '#ded5c5', light: '#f2ebdd', dark: '#c2b7a3' },
-      filter: 'saturate(0.34) hue-rotate(6deg) brightness(1.24)' },
-    { id: 'demo-hb-natural', name: 'Point de Hongrie naturel', ref: 'DEMO · CHÊNE | PDH-90',
-      url: '#fiche/demo-hb-natural', species: 'Chêne', tone: 'natural', pattern: 'chevron',
-      availableWidths: [90], availableFinishes: ['matte', 'satin'], tags: ['graphic', 'hongrie', 'natural'],
-      wood: { base: '#c8a476', light: '#e0c6a1', dark: '#a5804f' },
-      filter: 'saturate(0.80) hue-rotate(4deg) brightness(1.14)' },
-    { id: 'demo-hb-honey', name: 'Point de Hongrie miel', ref: 'DEMO · CHÊNE | PDH-90M',
-      url: '#fiche/demo-hb-honey', species: 'Chêne', tone: 'honey', pattern: 'chevron',
-      availableWidths: [90], availableFinishes: ['satin'], tags: ['warm', 'hongrie'],
-      wood: { base: '#c18b48', light: '#dcae70', dark: '#9c6c2e' },
-      filter: 'saturate(1.34) hue-rotate(-4deg) brightness(1.02)' },
-    { id: 'demo-herring-honey', name: 'Bâton rompu miel', ref: 'DEMO · CHÊNE | BAR-90',
-      url: '#fiche/demo-herring-honey', species: 'Chêne', tone: 'honey', pattern: 'herringbone',
-      availableWidths: [90], availableFinishes: ['matte'], tags: ['warm', 'rompu'],
-      wood: { base: '#c18b48', light: '#dcae70', dark: '#9c6c2e' },
-      filter: 'saturate(1.28) hue-rotate(-5deg)' },
-    { id: 'demo-herring-grey', name: 'Bâton rompu gris', ref: 'DEMO · CHÊNE | BAR-90G',
-      url: '#fiche/demo-herring-grey', species: 'Chêne', tone: 'grey', pattern: 'herringbone',
-      availableWidths: [90, 140], availableFinishes: ['matte', 'satin'], tags: ['graphic', 'rompu'],
-      wood: { base: '#a9a49c', light: '#c8c3bb', dark: '#87827b' },
-      filter: 'saturate(0.12) brightness(1.06)' },
+    { id: 'oakChalk', name: 'Chêne Craie', ref: 'DEMO · CHÊNE | CRAIE',
+      url: '#fiche/chene-craie', tone: 'clair', pattern: 'lames',
+      availableWidths: [140, 190], availableFinishes: ['matte', 'satin'], tint: '#ded5c5' },
+    { id: 'oakNatural', name: 'Chêne Naturel', ref: 'DEMO · CHÊNE | NATUREL',
+      url: '#fiche/chene-naturel', tone: 'naturel', pattern: 'lames',
+      availableWidths: [90, 140, 190], availableFinishes: ['matte', 'satin'], tint: '#c8a476' },
+    { id: 'oakHoney', name: 'Chêne Miel', ref: 'DEMO · CHÊNE | MIEL',
+      url: '#fiche/chene-miel', tone: 'chaud', pattern: 'lames',
+      availableWidths: [140, 190], availableFinishes: ['matte', 'satin', 'gloss'], tint: '#c18b48' },
+    { id: 'oakSmoked', name: 'Chêne Fumé', ref: 'DEMO · CHÊNE | FUMÉ',
+      url: '#fiche/chene-fume', tone: 'fonce', pattern: 'lames',
+      availableWidths: [140, 190], availableFinishes: ['matte'], tint: '#5f4a3a' },
+    { id: 'chevronNatural', name: 'Point de Hongrie naturel', ref: 'DEMO · CHÊNE | PDH',
+      url: '#fiche/point-de-hongrie-naturel', tone: 'naturel', pattern: 'point-de-hongrie',
+      availableWidths: [90], availableFinishes: ['matte', 'satin'], tint: '#c8a476' },
+    { id: 'herringboneHoney', name: 'Bâton rompu miel', ref: 'DEMO · CHÊNE | BAR',
+      url: '#fiche/baton-rompu-miel', tone: 'chaud', pattern: 'baton-rompu',
+      availableWidths: [90, 140], availableFinishes: ['matte'], tint: '#c18b48' },
   ];
 
-  /* Le moteur du front ne connaît que trois motifs (`KNOWN_PATTERNS`). */
-  const PATTERNS = {
-    straight: { label: 'Lames', seam: 94, butt: 4 },
-    chevron: { label: 'Point de Hongrie', seam: 45, butt: -45 },
-    herringbone: { label: 'Bâton rompu', seam: 40, butt: -50 },
-  };
-  const FINISHES = {
-    matte: { label: 'Mate', sheen: 0 },
-    satin: { label: 'Satinée', sheen: 0.05 },
-    gloss: { label: 'Brillante', sheen: 0.12 },
-  };
-  const TONES = [
-    ['pale', 'Blanchi'], ['sand', 'Sable'], ['natural', 'Naturel'],
-    ['honey', 'Miel'], ['grey', 'Gris'], ['brown', 'Brun'], ['smoked', 'Fumé'],
-  ];
-  /* Une inspiration conduit toujours au catalogue : ce sont des filtres. */
-  const MOODS = [
-    ['light', 'Clair et lumineux'], ['warm', 'Chaleureux'], ['natural', 'Naturel'],
-    ['elegant', 'Élégant'], ['character', 'Caractère'], ['graphic', 'Graphique'],
-  ];
+  /* =====================================================================
+     DEMO_RENDERINGS — l'unique source d'image de la maquette
+
+     Une entrée par scène : la photo d'origine, puis un rendu par produit.
+     Produits par le Visualiseur du front lancé en local (voir l'en-tête du
+     fichier). Hors de Git, parce qu'ils dérivent de photos non
+     redistribuables : sans eux la maquette montre la photo d'origine.
+     ===================================================================== */
+  const DEMO_RENDERINGS = {};
+  DEMO_ROOMS.forEach((room) => {
+    const set = { original: `${RENDERS}${room.id}.original.jpg` };
+    DEMO_PRODUCTS.forEach((p) => { set[p.id] = `${RENDERS}${room.id}.${p.id}.jpg`; });
+    DEMO_RENDERINGS[room.id] = set;
+  });
+
+  /* Vignette du catalogue : un détail d'un vrai rendu, donc une vraie
+     texture — et non un motif que la maquette aurait dessiné. */
+  const swatch = (p) => `${RENDERS}swatch.${p.id}.jpg`;
 
   const ANALYSIS = {
-    success: { kind: 'ok', text: 'Pièce prête', act: null },
-    partial: { kind: 'doubt', text: 'Un coin reste incertain', act: 'Ajuster' },
-    manual: { kind: 'doubt', text: 'Le sol demande une retouche', act: 'Ajuster' },
-    rejected: { kind: 'todo', text: 'Photo inexploitable', act: null },
+    success: { kind: 'ok', text: 'Pièce prête' },
+    partial: { kind: 'doubt', text: 'Un coin reste incertain' },
+    rejected: { kind: 'doubt', text: 'Photo inexploitable' },
   };
 
   const $ = (id) => document.getElementById(id);
-  const SVGNS = 'http://www.w3.org/2000/svg';
-
-  /* =====================================================================
-     Mode debug — hors de l'UX, jamais atteignable par un visiteur
-
-     `?debug=mask`     le sol devient magenta uni : tout pixel de sol resté
-                       photographique saute aux yeux.
-     `?debug=outside`  l'inverse est assombri : on voit d'un coup un trou
-                       dans le sol, un morceau de mur inclus par erreur.
-
-     Pourquoi ces deux modes : un masque incomplet est INVISIBLE quand le
-     parquet choisi ressemble à l'ancien sol. Juger « à l'œil » sur un chêne
-     naturel pose sur un sol en chêne ne prouve rien.
-     ===================================================================== */
-  const DEBUG = (() => {
-    try {
-      const v = new URLSearchParams(window.location.search).get('debug');
-      return v === 'mask' || v === 'outside' ? v : null;
-    } catch { return null; }
-  })();
 
   const state = {
-    /* `demo` | `uploaded` — état d'interface, PAS SceneData. */
+    /* `demo` | `uploaded` — état d'interface, pas SceneData. */
     source: null,
     roomId: null,
     uploaded: null,
-    productId: 'demo-oak-natural',
-    width: 140, finish: 'matte', orient: 'long',
-    grain: 70, contrast: 50, joint: 40, variation: 45,
-    filters: { pattern: null, tone: null, species: null, mood: null },
+    productId: 'oakNatural',
+    width: 190, finish: 'matte', orient: 'long',
+    filters: { pattern: null, tone: null },
     category: 'Séjour',
     analysis: 'success',
     ba: false, split: 0.5,
     favourites: new Set(),
     compare: null,
     picking: false,
+    /* Rendus dont le chargement a échoué : notés une fois, plus redemandés. */
+    missing: new Set(),
   };
 
   const product = (id) => DEMO_PRODUCTS.find((p) => p.id === (id || state.productId));
-  const toneLabel = (t) => (TONES.find(([k]) => k === t) || [null, t])[1];
 
   function room() {
     if (state.source === 'uploaded' && state.uploaded) {
-      return { id: 'uploaded', label: state.uploaded.name, url: state.uploaded.url,
-        w: state.uploaded.w, h: state.uploaded.h, zones: null, occluders: [] };
+      return { id: 'uploaded', label: state.uploaded.name, category: null };
     }
-    const entry = ROOMS.find((r) => r.id === state.roomId) || ROOMS[0];
-    return { ...entry, url: PHOTOS + entry.file };
+    return DEMO_ROOMS.find((r) => r.id === state.roomId) || DEMO_ROOMS[0];
   }
 
-  /** Peignable seulement si la pièce porte une calibration réelle. */
-  const calibrated = () => {
-    const z = room().zones;
-    return Array.isArray(z) && z.length > 0;
-  };
-
-  /* =====================================================================
-     Masques : les zones réelles, du repère PHOTO vers l'écran
-
-     `cover` recadre l'image ; sans en tenir compte, le contour dériverait dès
-     que les proportions changent. Un masque SVG réunit toutes les zones et
-     retire les trous — ce qu'un `clip-path` unique ne sait pas faire.
-     ===================================================================== */
-  function mapper(box, entry) {
-    const scale = Math.max(box.width / entry.w, box.height / entry.h);
-    const dw = entry.w * scale;
-    const dh = entry.h * scale;
-    const ox = (box.width - dw) / 2;
-    const oy = (box.height - dh) / 2;
-    return ([x, y]) => [ox + x * dw, oy + y * dh];
+  /** Chemin du rendu demandé, ou `null` s'il manque. */
+  function renderUrl(roomId, key) {
+    const set = DEMO_RENDERINGS[roomId];
+    if (!set || !set[key]) return null;
+    return state.missing.has(set[key]) ? null : set[key];
   }
 
-  function polyEl(points, fill) {
-    const el = document.createElementNS(SVGNS, 'polygon');
-    el.setAttribute('points', points.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' '));
-    el.setAttribute('fill', fill);
-    return el;
+  const originalUrl = (roomId) => renderUrl(roomId, 'original') || `${PHOTOS}${roomId}.jpg`;
+
+  function watch(img, url, after) {
+    img.onerror = () => {
+      state.missing.add(url);
+      img.onerror = null;
+      if (after) after();
+    };
   }
 
-  function buildMasks() {
-    const entry = room();
-    const box = $('stage').getBoundingClientRect();
-    $('floorShapes').innerHTML = '';
-    $('occlShapes').innerHTML = '';
-    if (!box.width || !box.height || !calibrated()) return 0;
-
-    const to = mapper(box, entry);
-    let zones = 0;
-    entry.zones.forEach((zone) => {
-      $('floorShapes').appendChild(polyEl(zone.poly.map(to), '#fff'));
-      zones += 1;
-      (zone.holes || []).forEach((hole) => {
-        $('floorShapes').appendChild(polyEl(hole.map(to), '#000'));
-      });
-    });
-    (entry.occluders || []).forEach((poly) => {
-      $('occlShapes').appendChild(polyEl(poly.map(to), '#fff'));
-    });
-    /* Masque inverse : le cadre entier en blanc, les zones en noir. Un
-       `mask` SVG ne sait pas s'inverser tout seul. */
-    $('outsideShapes').innerHTML = '';
-    const frame = document.createElementNS(SVGNS, 'rect');
-    frame.setAttribute('width', String(box.width));
-    frame.setAttribute('height', String(box.height));
-    frame.setAttribute('fill', '#fff');
-    $('outsideShapes').appendChild(frame);
-    entry.zones.forEach((zone) => {
-      $('outsideShapes').appendChild(polyEl(zone.poly.map(to), '#000'));
-      (zone.holes || []).forEach((hole) => {
-        $('outsideShapes').appendChild(polyEl(hole.map(to), '#fff'));
-      });
-    });
-
-    $('masks').setAttribute('width', String(box.width));
-    $('masks').setAttribute('height', String(box.height));
-    return zones;
-  }
-
-  /* =====================================================================
-     Le motif : un parquet, pas un quadrillage
-     ===================================================================== */
-  function woodCss(pattern, o) {
-    const p = PATTERNS[pattern] || PATTERNS.straight;
-    const turn = state.orient === 'cross' ? 90 : 0;
-    const seam = p.seam + turn;
-    const butt = p.butt + turn;
-    const j = 0.05 + (o.joint / 100) * 0.13;
-    const g = 0.02 + (o.grain / 100) * 0.05;
-    const step = (17 + (o.width - 90) * 0.15) * (1 + o.variation / 420);
-    const dark = (v) => `rgba(52, 33, 18, ${v.toFixed(3)})`;
-    const lift = `rgba(255, 248, 236, ${(j * 0.5).toFixed(3)})`;
-    const clear = 'rgba(0, 0, 0, 0)';
-
-    const layers = [
-      `repeating-linear-gradient(${seam}deg, ${dark(j)} 0 1px, ${lift} 1px 2.5px, ${clear} 2.5px ${step.toFixed(1)}px)`,
-      `repeating-linear-gradient(${seam}deg, ${dark(g)} 0 1px, ${clear} 1px 5px)`,
-    ];
-    if (pattern === 'straight') {
-      layers.push(`repeating-linear-gradient(${butt}deg, ${dark(j * 0.65)} 0 1px, ${clear} 1px ${(step * 8).toFixed(1)}px)`);
-    } else {
-      layers.push(`repeating-linear-gradient(${butt}deg, ${dark(j * 0.8)} 0 1px, ${lift} 1px 2px, ${clear} 2px ${step.toFixed(1)}px)`);
-    }
-    return layers.join(', ');
-  }
-
-  function floorFilter(entry, o) {
-    const sat = 0.62 + (o.grain / 100) * 0.76;
-    const con = 0.82 + (o.contrast / 100) * 0.42;
-    return `${entry.filter} saturate(${sat.toFixed(2)}) contrast(${con.toFixed(2)}) `
-      + `brightness(${(1 + FINISHES[state.finish].sheen).toFixed(2)})`;
-  }
-
-  const opts = () => ({ grain: state.grain, contrast: state.contrast, joint: state.joint,
-    variation: state.variation, width: state.width });
-
-  /* Texture de produit : gradients procéduraux, indépendants de la photo —
-     une pastille doit rester lisible même quand la pièce est sombre. */
-  function texture(p, size) {
-    const w = p.wood;
-    const a = PATTERNS[p.pattern].seam;
-    const b = PATTERNS[p.pattern].butt;
-    const px = size || 1;
-    return [
-      `repeating-linear-gradient(${a}deg, rgba(60,40,22,.16) 0 1px, rgba(255,250,240,.22) 1px 2px, transparent 2px ${(13 * px).toFixed(1)}px)`,
-      `repeating-linear-gradient(${a}deg, rgba(60,40,22,.07) 0 1px, transparent 1px ${(4 * px).toFixed(1)}px)`,
-      `repeating-linear-gradient(${b}deg, rgba(60,40,22,.10) 0 1px, transparent 1px ${((p.pattern === 'straight' ? 74 : 13) * px).toFixed(1)}px)`,
-      `linear-gradient(168deg, ${w.light} 0%, ${w.base} 46%, ${w.dark} 100%)`,
-    ].join(', ');
-  }
-
-  /* Une photo absente ne doit pas laisser un trou : le porteur prend un
-     aplati lisible. `error` ne remonte pas, on l'ecoute donc sur l'image. */
-  function fallbackPhoto(img, holder) {
-    if (!img || !img.addEventListener) return;
-    img.addEventListener('error', () => {
-      if (holder && holder.classList) holder.classList.add('fallback');
-      img.style.visibility = 'hidden';
-    });
-  }
-
-  function markFallbacks(container) {
-    container.querySelectorAll('img').forEach((img) => {
-      fallbackPhoto(img, img.parentElement);
+  /* Précharge les rendus d'une pièce : éviter le clignotement au clic. */
+  function preload(roomId) {
+    const set = DEMO_RENDERINGS[roomId];
+    if (!set) return;
+    Object.values(set).forEach((url) => {
+      if (state.missing.has(url)) return;
+      const im = new Image();
+      watch(im, url);
+      im.src = url;
     });
   }
 
   /* =====================================================================
-     Rendu de la scène
+     Rendu de la scène — trois images, aucun calcul
      ===================================================================== */
   function paint() {
-    const entry = product();
-    const url = room().url;
-    $('photo').src = url;
+    const entry = room();
+    const uploaded = state.source === 'uploaded';
+    const orig = uploaded ? state.uploaded.url : originalUrl(entry.id);
+    if ($('photo').getAttribute('src') !== orig) $('photo').src = orig;
 
-    const ok = calibrated();
-    $('after').classList.toggle('hidden', !ok);
-    $('occl').classList.toggle('hidden', !ok);
-    $('cmpLayer').classList.toggle('hidden', !ok || !state.compare);
+    const url = uploaded ? null : renderUrl(entry.id, state.productId);
+    const hasRender = Boolean(url);
 
-    if (ok) {
-      buildMasks();
-      $('floor').style.backgroundImage = `url('${url}')`;
-      $('floor').style.filter = floorFilter(entry, opts());
-      $('joints').style.backgroundImage = woodCss(entry.pattern, opts());
-      $('occl').style.backgroundImage = `url('${url}')`;
-      ['floor', 'joints'].forEach((id) => {
-        $(id).style.mask = 'url(#floorMask)';
-        $(id).style.webkitMask = 'url(#floorMask)';
-      });
-      $('occl').style.mask = 'url(#occlMask)';
-      $('occl').style.webkitMask = 'url(#occlMask)';
-
-      if (DEBUG === 'mask') {
-        $('floor').style.backgroundImage = 'none';
-        $('floor').style.backgroundColor = '#ff00c8';
-        $('floor').style.filter = 'none';
-        $('joints').style.backgroundImage = 'none';
-      }
-      $('outside').classList.toggle('hidden', DEBUG !== 'outside');
-      if (DEBUG === 'outside') {
-        $('outside').style.mask = 'url(#outsideMask)';
-        $('outside').style.webkitMask = 'url(#outsideMask)';
-      }
+    $('after').classList.toggle('hidden', !hasRender);
+    if (hasRender && $('after').getAttribute('src') !== url) {
+      watch($('after'), url, paint);
+      $('after').src = url;
     }
 
     /* Avant/après et comparaison partagent le même séparateur : un seul
        geste, jamais deux contrôles concurrents. */
-    const cut = state.ba || state.compare;
+    const cut = state.ba || Boolean(state.compare);
     $('after').style.clipPath = cut
       ? `inset(0 ${((1 - state.split) * 100).toFixed(2)}% 0 0)` : 'none';
 
-    if (state.compare && ok) {
-      const b = product(state.compare.b);
-      $('cmpFloor').style.backgroundImage = `url('${url}')`;
-      $('cmpFloor').style.filter = floorFilter(b, opts());
-      $('cmpJoints').style.backgroundImage = woodCss(b.pattern, opts());
-      ['cmpFloor', 'cmpJoints'].forEach((id) => {
-        $(id).style.mask = 'url(#floorMask)';
-        $(id).style.webkitMask = 'url(#floorMask)';
-      });
+    const bUrl = state.compare && !uploaded ? renderUrl(entry.id, state.compare.b) : null;
+    $('cmpB').classList.toggle('hidden', !bUrl);
+    if (bUrl && $('cmpB').getAttribute('src') !== bUrl) {
+      watch($('cmpB'), bUrl, paint);
+      $('cmpB').src = bUrl;
     }
 
-    $('split').classList.toggle('hidden', !cut);
+    $('split').classList.toggle('hidden', !cut || !hasRender);
     if (cut) $('split').style.left = `${state.split * 100}%`;
+
+    /* Sans rendu, la carte produit et les outils mentiraient : aucun parquet
+       n'est posé, il n'y a donc rien à comparer ni à montrer « après ». */
+    $('card').classList.toggle('hidden', !hasRender);
+    $('tools').classList.toggle('hidden', !hasRender);
+
     paintCard();
     paintStatus();
     paintNav();
+    paintDev(uploaded, hasRender);
+  }
+
+  function paintDev(uploaded, hasRender) {
+    if (!DEV || uploaded) { $('devnote').classList.add('hidden'); return; }
+    $('devnote').classList.toggle('hidden', hasRender);
+    if (!hasRender) {
+      $('devnote').textContent = `Rendu demo indisponible — ${room().id}.${state.productId}.jpg`;
+    }
   }
 
   const heart = (on, s) => `<svg width="${s || 14}" height="${s || 14}" viewBox="0 0 24 24"
@@ -1397,14 +951,16 @@
     stroke-linecap="round" stroke-linejoin="round">
     <path d="M12 20.5s-7.5-4.7-7.5-10.2A4.3 4.3 0 0112 7a4.3 4.3 0 017.5 3.3c0 5.5-7.5 10.2-7.5 10.2z" /></svg>`;
 
+  const swatchStyle = (p) => `background-color:${p.tint};background-image:url('${swatch(p)}')`;
+
   /* Carte produit avec flèches précédent/suivant : on essaie en rafale sans
      rouvrir le catalogue. */
   function cardHtml(entry, side) {
     const on = state.favourites.has(entry.id);
-    return `<span class="sw" style="background:${texture(entry)}"></span>
+    return `<span class="sw" style="${swatchStyle(entry)}"></span>
       <b>${entry.name}</b>
       <span class="ref">${entry.ref}</span>
-      <span class="dim">${PATTERNS[entry.pattern].label} · ${state.width} mm · ${FINISHES[state.finish].label}</span>
+      <span class="dim">${PATTERNS[entry.pattern]} · ${state.width} mm · ${FINISHES[state.finish]}</span>
       <button class="sheet" type="button" data-sheet="${entry.id}">VOIR LA FICHE</button>
       <span class="row">
         <button type="button" data-step="prev${side}" aria-label="Parquet précédent">‹</button>
@@ -1442,56 +998,61 @@
     const conf = ANALYSIS[state.analysis];
     const glyph = conf.kind === 'ok'
       ? '<path d="M20 6L9 17l-5-5" />'
-      : conf.kind === 'doubt'
-        ? '<path d="M12 8v5" /><path d="M12 16.4v.2" />'
-        : '<circle cx="12" cy="12" r="8" stroke-dasharray="3 3" />';
+      : '<path d="M12 8v5" /><path d="M12 16.4v.2" />';
     $('status').dataset.kind = conf.kind;
-    $('status').classList.toggle('urge', state.analysis === 'manual');
     $('status').innerHTML = `<span class="dot"><svg width="11" height="11" viewBox="0 0 24 24" fill="none"
       stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">${glyph}</svg></span>
-      ${conf.text}${conf.act ? ` · <button type="button" id="stAct">${conf.act}</button>` : ''}`;
-    if (conf.act) $('stAct').onclick = openBrush;
+      ${conf.text}`;
     $('rejected').classList.toggle('hidden', state.analysis !== 'rejected');
-    $('status').classList.toggle('hidden', !calibrated());
+    $('status').classList.toggle('hidden', state.source === 'uploaded');
   }
 
   function paintNav() {
-    $('navRoomVal').textContent = state.source === 'uploaded' ? state.uploaded.name : room().label;
+    $('navRoomVal').textContent = room().label;
     $('navFloorVal').textContent = product().name;
     $('navCustomVal').textContent =
-      `${PATTERNS[product().pattern].label} · ${state.width} mm · ${FINISHES[state.finish].label}`;
+      `${PATTERNS[product().pattern]} · ${state.width} mm · ${FINISHES[state.finish]}`;
   }
 
   /* =====================================================================
      Sélecteur de pièce — catégories + import, comme chez Quick-Step
      ===================================================================== */
+  function markFallbacks(container) {
+    container.querySelectorAll('img').forEach((img) => {
+      img.addEventListener('error', () => {
+        const holder = img.parentElement;
+        if (holder && holder.classList) holder.classList.add('fallback');
+        img.style.visibility = 'hidden';
+      });
+    });
+  }
+
   function paintRoomSheet() {
-    const cats = CATEGORIES.filter((c) => ROOMS.some((r) => r.category === c));
+    const cats = CATEGORIES.filter((c) => DEMO_ROOMS.some((r) => r.category === c));
     $('roomCats').innerHTML = cats.map((c) => {
-      const n = ROOMS.filter((r) => r.category === c).length;
+      const n = DEMO_ROOMS.filter((r) => r.category === c).length;
       return `<button type="button" data-cat="${c}" aria-pressed="${c === state.category}">
         ${c} <span style="color:var(--ink-4);font-weight:400">${n}</span></button>`;
     }).join('');
 
-    const list = ROOMS.filter((r) => r.category === state.category);
-    $('roomCount').textContent = `(${ROOMS.length} pièces calibrées)`;
+    const list = DEMO_ROOMS.filter((r) => r.category === state.category);
+    $('roomCount').textContent = `(${DEMO_ROOMS.length} pièces)`;
     $('roomGrid').innerHTML = list.map((r) => `
       <button class="rcard" type="button" data-room="${r.id}">
-        <span class="ph"><img alt="" src="${PHOTOS + r.file}" />${
+        <span class="ph"><img alt="" src="${originalUrl(r.id)}" />${
           r.id === state.roomId ? `<span class="tick"><svg width="12" height="12" viewBox="0 0 24 24"
           fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"
           stroke-linejoin="round"><path d="M20 6L9 17l-5-5" /></svg></span>` : ''}</span>
         <span class="nm">${r.label}</span>
-        <span class="cat">${r.zones.length} zone${r.zones.length > 1 ? 's' : ''} de sol${
-          r.occluders.length ? ` · ${r.occluders.length} obstacle${r.occluders.length > 1 ? 's' : ''}` : ''}</span>
+        <span class="cat">${r.category}</span>
       </button>`).join('');
     markFallbacks($('roomGrid'));
   }
 
   function paintQuick() {
-    $('quickRooms').innerHTML = ROOMS.slice(0, 3).map((r) => `
+    $('quickRooms').innerHTML = DEMO_ROOMS.slice(0, 3).map((r) => `
       <button class="rcard" type="button" data-room="${r.id}">
-        <span class="ph"><img alt="" src="${PHOTOS + r.file}" /></span>
+        <span class="ph"><img alt="" src="${originalUrl(r.id)}" /></span>
         <span class="nm">${r.label}</span>
         <span class="cat">${r.category}</span>
       </button>`).join('');
@@ -1504,6 +1065,7 @@
     state.roomId = id;
     releaseUpload();
     state.category = room().category;
+    preload(id);
     closeAll();
     enter();
     setDemo('success', true);
@@ -1528,7 +1090,7 @@
     const url = URL.createObjectURL(file);
     const probe = new Image();
     probe.onload = () => {
-      state.uploaded = { url, name: file.name, w: probe.naturalWidth || 1600, h: probe.naturalHeight || 1067 };
+      state.uploaded = { url, name: file.name, w: probe.naturalWidth, h: probe.naturalHeight };
       state.source = 'uploaded';
       state.compare = null;
       state.ba = false;
@@ -1537,9 +1099,8 @@
       $('analyzing').classList.remove('hidden');
       setTimeout(() => {
         $('analyzing').classList.add('hidden');
-        /* Aucune calibration pour cette photo : on le DIT. Poser un contour
-           approximatif donnerait un rendu faux et laisserait croire que la
-           détection fonctionne mal. Le LOT IA 2B n'existe pas. */
+        /* Aucun rendu n'existe pour cette photo, et il n'y a pas de moteur
+           ici pour en produire un : on le DIT. */
         $('unknown').classList.remove('hidden');
       }, 1300);
     };
@@ -1560,44 +1121,28 @@
   function visible() {
     const f = state.filters;
     return DEMO_PRODUCTS.filter((p) =>
-      (!f.pattern || p.pattern === f.pattern)
-      && (!f.tone || p.tone === f.tone)
-      && (!f.species || p.species === f.species)
-      && (!f.mood || p.tags.includes(f.mood)));
+      (!f.pattern || p.pattern === f.pattern) && (!f.tone || p.tone === f.tone));
   }
 
   function paintCatalogue() {
     const f = state.filters;
-    $('fPattern').innerHTML = Object.entries(PATTERNS).map(([k, v]) =>
+    $('fPattern').innerHTML = Object.entries(PATTERNS).map(([k, label]) =>
       `<button class="chip" type="button" data-f="pattern" data-v="${k}"
-        aria-pressed="${f.pattern === k}">${v.label}</button>`).join('');
-    $('fTone').innerHTML = TONES.filter(([k]) => DEMO_PRODUCTS.some((p) => p.tone === k))
-      .map(([k, label]) => {
-        const p = DEMO_PRODUCTS.find((x) => x.tone === k);
-        return `<button class="dot-b" type="button" data-f="tone" data-v="${k}" title="${label}"
-          aria-label="${label}" aria-pressed="${f.tone === k}"
-          style="background:linear-gradient(160deg,${p.wood.light},${p.wood.base} 55%,${p.wood.dark})"></button>`;
-      }).join('');
-    const species = [...new Set(DEMO_PRODUCTS.map((p) => p.species))];
-    $('fSpecies').innerHTML = species.map((s) =>
-      `<button class="chip" type="button" data-f="species" data-v="${s}"
-        aria-pressed="${f.species === s}">${s}</button>`).join('');
-    $('moods').innerHTML = MOODS.map(([k, label]) => {
-      const n = DEMO_PRODUCTS.filter((p) => p.tags.includes(k)).length;
-      return `<button class="mood" type="button" data-f="mood" data-v="${k}"
-        aria-pressed="${f.mood === k}">${label} · ${n}</button>`;
-    }).join('');
+        aria-pressed="${f.pattern === k}">${label}</button>`).join('');
+    $('fTone').innerHTML = Object.entries(TONES).map(([k, label]) =>
+      `<button class="chip" type="button" data-f="tone" data-v="${k}"
+        aria-pressed="${f.tone === k}">${label}</button>`).join('');
 
     const list = visible();
     $('catCount').textContent = `(${list.length})`;
     $('prods').innerHTML = list.length ? list.map((p) => {
       const on = state.favourites.has(p.id);
       return `<button class="pd" type="button" data-id="${p.id}" aria-pressed="${p.id === state.productId}">
-        <span class="tex" style="background:${texture(p, 1.5)}"></span>
+        <span class="tex" style="${swatchStyle(p)}"></span>
         <span class="hh" data-fav="${p.id}" role="button" aria-pressed="${on}"
               aria-label="Favori">${heart(on, 13)}</span>
         <span class="nm">${p.name}</span>
-        <span class="ref">${PATTERNS[p.pattern].label.toUpperCase()} · ${toneLabel(p.tone).toUpperCase()} | ${p.ref.split('| ')[1]}</span>
+        <span class="ref">${PATTERNS[p.pattern].toUpperCase()} · ${TONES[p.tone].toUpperCase()}</span>
       </button>`;
     }).join('') : '<p class="empty">Aucun parquet ne correspond à ces filtres.</p>';
   }
@@ -1608,25 +1153,27 @@
   }
 
   /* =====================================================================
-     Personnaliser — seules les capacités réelles du produit
+     Personnaliser — le motif choisit un rendu, il n'en calcule aucun
      ===================================================================== */
   function paintCustom() {
     const entry = product();
     $('cusName').textContent = entry.name;
-    const family = DEMO_PRODUCTS.filter((p) => p.species === entry.species && p.tone === entry.tone);
 
+    /* Un motif n'est proposé que s'il existe un produit de la même teinte
+       qui le porte : sinon il n'y aurait aucun rendu à montrer. */
+    const family = DEMO_PRODUCTS.filter((p) => p.tone === entry.tone);
     $('patterns').innerHTML = Object.keys(PATTERNS)
       .filter((k) => family.some((p) => p.pattern === k))
       .map((k) => {
         const t = family.find((p) => p.pattern === k);
         return `<button class="pt" type="button" data-target="${t.id}" aria-pressed="${k === entry.pattern}">
-          <span class="dg" style="background:${texture(t, 0.85)}"></span>
-          <span class="cap">${PATTERNS[k].label}</span></button>`;
+          <span class="dg" style="${swatchStyle(t)}"></span>
+          <span class="cap">${PATTERNS[k]}</span></button>`;
       }).join('');
-    const missing = Object.keys(PATTERNS).length - family.length;
+    const shown = family.map((p) => p.pattern);
+    const missing = Object.keys(PATTERNS).filter((k) => !shown.includes(k)).length;
     $('patternNote').textContent = missing > 0
-      ? `${missing} motif${missing > 1 ? 's' : ''} indisponible${missing > 1 ? 's' : ''} pour ${entry.name.toLowerCase()}.`
-      : '';
+      ? `${missing} motif${missing > 1 ? 's' : ''} sans rendu pour cette teinte.` : '';
 
     $('widths').innerHTML = entry.availableWidths.map((mm) =>
       `<button class="chip" type="button" data-mm="${mm}" aria-pressed="${mm === state.width}">${mm} mm</button>`).join('');
@@ -1641,14 +1188,9 @@
         </svg><span>${label}</span></button>`).join('');
 
     $('finishes').innerHTML = entry.availableFinishes.map((k) =>
-      `<button class="chip" type="button" data-fin="${k}" aria-pressed="${k === state.finish}">${FINISHES[k].label}</button>`).join('');
+      `<button class="chip" type="button" data-fin="${k}" aria-pressed="${k === state.finish}">${FINISHES[k]}</button>`).join('');
     $('finishNote').textContent = entry.availableFinishes.length < 3
-      ? `Finitions proposées : ${entry.availableFinishes.map((k) => FINISHES[k].label).join(', ')}.` : '';
-
-    $('grainVal').textContent = `${state.grain} %`;
-    $('contrastVal').textContent = `${state.contrast} %`;
-    $('jointVal').textContent = `${state.joint} %`;
-    $('variationVal').textContent = `${state.variation} %`;
+      ? `Finitions proposées : ${entry.availableFinishes.map((k) => FINISHES[k]).join(', ')}.` : '';
   }
 
   /* =====================================================================
@@ -1668,13 +1210,13 @@
     }
     state.productId = id;
     if (!entry.availableWidths.includes(state.width)) {
-      state.width = entry.availableWidths.includes(140) ? 140 : entry.availableWidths[0];
+      state.width = entry.availableWidths.includes(190) ? 190 : entry.availableWidths[0];
     }
     if (!entry.availableFinishes.includes(state.finish)) state.finish = entry.availableFinishes[0];
     paint();
     paintCatalogue();
     paintCustom();
-    if (!silent) toast(`${entry.name} · ${PATTERNS[entry.pattern].label}`);
+    if (!silent) toast(`${entry.name} · ${PATTERNS[entry.pattern]}`);
   }
 
   function stepProduct(dir, side) {
@@ -1753,14 +1295,14 @@
     };
   });
 
-  ['fPattern', 'fTone', 'fSpecies', 'moods'].forEach((id) => {
+  ['fPattern', 'fTone'].forEach((id) => {
     $(id).onclick = (e) => {
       const b = e.target.closest('[data-f]');
       if (b) toggleFilter(b.dataset.f, b.dataset.v);
     };
   });
   $('clearFilters').onclick = () => {
-    state.filters = { pattern: null, tone: null, species: null, mood: null };
+    state.filters = { pattern: null, tone: null };
     paintCatalogue();
   };
   $('prods').onclick = (e) => {
@@ -1806,18 +1348,6 @@
     state.finish = b.dataset.fin;
     paint(); paintCustom();
   };
-  ['grain', 'contrast', 'joint', 'variation'].forEach((k) => {
-    $(k).oninput = (e) => { state[k] = Number(e.target.value); paint(); paintCustom(); };
-  });
-  $('advToggle').onclick = () => {
-    const closed = $('adv').classList.toggle('hidden');
-    $('advToggle').setAttribute('aria-expanded', String(!closed));
-  };
-  $('resetAdv').onclick = () => {
-    Object.assign(state, { grain: 70, contrast: 50, joint: 40, variation: 45 });
-    ['grain', 'contrast', 'joint', 'variation'].forEach((k) => { $(k).value = String(state[k]); });
-    paint(); paintCustom(); toast('Réglages réinitialisés');
-  };
 
   $('baBtn').onclick = () => {
     if (state.compare) state.compare = null;
@@ -1848,34 +1378,15 @@
     paint();
   });
 
-  function openBrush() {
-    $('brush').classList.remove('hidden');
-    $('status').classList.add('hidden');
-    toast('Peignez ce qui manque, effacez ce qui dépasse');
-  }
-  $('brDone').onclick = () => {
-    $('brush').classList.add('hidden');
-    setDemo('success');
-    toast('Détection ajustée');
-  };
-  $('brAdd').onclick = () => {
-    $('brAdd').setAttribute('aria-pressed', 'true');
-    $('brDel').setAttribute('aria-pressed', 'false');
-  };
-  $('brDel').onclick = () => {
-    $('brDel').setAttribute('aria-pressed', 'true');
-    $('brAdd').setAttribute('aria-pressed', 'false');
-  };
-
   $('hFav').onclick = () => {
     if (!state.favourites.size) { toast('Touchez un cœur pour garder un parquet'); return; }
-    state.filters = { pattern: null, tone: null, species: null, mood: null };
+    state.filters = { pattern: null, tone: null };
     openCat();
     $('catCount').textContent = `(${state.favourites.size} en favoris)`;
     $('prods').innerHTML = [...state.favourites].map((id) => {
       const p = product(id);
       return `<button class="pd" type="button" data-id="${p.id}" aria-pressed="${p.id === state.productId}">
-        <span class="tex" style="background:${texture(p, 1.5)}"></span>
+        <span class="tex" style="${swatchStyle(p)}"></span>
         <span class="hh" data-fav="${p.id}" role="button" aria-pressed="true" aria-label="Favori">${heart(true, 13)}</span>
         <span class="nm">${p.name}</span><span class="ref">${p.ref}</span></button>`;
     }).join('');
@@ -1905,8 +1416,6 @@
     i.onclick = () => setDemo(i.dataset.demo);
   });
 
-  window.addEventListener('resize', () => { if (state.source) paint(); });
-
   let toastTimer = null;
   function toast(message) {
     $('toast').textContent = message;
@@ -1915,17 +1424,15 @@
     toastTimer = setTimeout(() => $('toast').classList.remove('on'), 1700);
   }
 
-  fallbackPhoto($('photo'), $('stage'));
   paintQuick();
 
   /* Exposé pour les tests : le vrai script est exécuté sous Node avec un DOM
      minimal, et un test qui réimplémenterait cette logique ne testerait rien. */
   window.__concept = {
-    state, DEMO_ROOMS, ROOMS, DEMO_MASK_FIX, applyMaskFix,
-    DEMO_PRODUCTS, PATTERNS, FINISHES, TONES, MOODS, CATEGORIES,
-    PHOTOS, DEBUG, room, product, calibrated, buildMasks, mapper, woodCss, floorFilter,
-    texture, opts, paint, paintCard, paintCatalogue, paintCustom, paintRoomSheet,
-    paintQuick, markFallbacks,
+    state, DEV, DEMO_ROOMS, DEMO_PRODUCTS, DEMO_RENDERINGS, CATEGORIES,
+    PATTERNS, TONES, FINISHES, RENDERS, PHOTOS,
+    room, product, renderUrl, originalUrl, swatch, preload,
+    paint, paintCard, paintCatalogue, paintCustom, paintRoomSheet, paintQuick,
     openRoom, loadUpload, releaseUpload, select, stepProduct, toggleFav,
     toggleFilter, visible, setDemo, closeAll, openRooms, openCat, openCus,
   };

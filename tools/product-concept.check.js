@@ -5,15 +5,15 @@
 
   Elle lit le fichier comme du texte, puis exécute son <script> sur un DOM
   minimal. Les deux niveaux servent : la lecture de texte attrape ce que
-  l'exécution ne voit pas (un `width: 0` sur le porte-masques, un `<div>`
-  orphelin, un z-index inversé), et l'exécution attrape ce que la lecture ne
-  voit pas (un masque vide, une largeur non proposée par le produit).
+  l'exécution ne voit pas (un moteur de rendu qui repousse, un masque CSS, une
+  requête réseau), et l'exécution attrape ce que la lecture ne voit pas (un
+  rendu qui manque, une largeur non proposée par le produit).
+
+  Le premier bloc est le plus important : il monte la garde contre le retour
+  du faux moteur de rendu. Le parquet se dessine dans le front, en WebGL ;
+  ici on change d'image, et rien de plus.
 
   Ce que la batterie ne remplace pas : l'ouverture réelle dans un navigateur.
-  Trois défauts de cette version-ci n'étaient visibles que là — le sol
-  entièrement masqué, les modales enfermées dans une section masquée, et la
-  version B recouvrant les deux moitiés du comparateur. Chacun a laissé ici
-  un test de non-régression, mais aucun n'aurait été trouvé sans Chrome.
 */
 const fs = require('fs');
 const html = fs.readFileSync('tools/product-concept.html', 'utf8');
@@ -23,7 +23,41 @@ const ok = (n, c, d) => {
   console.log(`${c ? 'OK  ' : 'ECHEC'} ${n}${d !== undefined ? '  -> ' + d : ''}`);
 };
 
-/* ================= Autonomie et confidentialite ================= */
+/* Le code seul, commentaires retires. Les gardes ci-dessous doivent juger ce
+   que le fichier FAIT, pas ce que ses commentaires racontent : l'en-tete parle
+   justement de `floorZones` et de WebGL pour dire qu'ils n'y sont plus. */
+const code = html
+  .replace(/<!--[\s\S]*?-->/g, '')
+  .replace(/\/\*[\s\S]*?\*\//g, '')
+  .replace(/^\s*\/\/.*$/gm, '');
+
+/* ================= 1. Aucun moteur de rendu ici =================
+   La liste vient des versions precedentes : chaque entree a reellement
+   existe dans ce fichier, et a du en sortir. */
+for (const [quoi, re] of [
+  ['<mask> SVG', /<mask\b/i],
+  ['masque CSS', /(^|[^-\w])mask\s*:|webkitMask|-webkit-mask/],
+  ['clip-path polygonal', /clip-path:\s*polygon/i],
+  ['floorZones', /floorZones/],
+  ['occulteurs', /occluder|occlShapes/i],
+  ['demoFloorMask', /demoFloorMask|DEMO_MASK_FIX|applyMaskFix/],
+  ['recoloration du sol', /floorFilter|hue-rotate|saturate\(/],
+  ['generation de joints', /woodCss|jointCss|repeating-linear-gradient/],
+  ['texture calculee', /function texture\b/],
+  ['canevas', /createElement\(\s*['"]canvas|getContext\(/],
+  ['WebGL', /webgl/i],
+  ['perspective calculee', /perspective\(|function mapper|buildMasks/],
+  ['calibration du front recopiee', /data\/scenes|runtimeMask|planeRef/],
+]) ok(`aucun ${quoi}`, !re.test(code));
+
+/* Un seul usage legitime du decoupage : le separateur avant/apres, et il
+   est rectangulaire. */
+const clips = code.match(/clipPath|clip-path/g) || [];
+ok('decoupage uniquement pour le separateur',
+  clips.length === 1 && /inset\(0 \$\{/.test(code) && !/polygon\(/.test(code),
+  `${clips.length} occurrence(s)`);
+
+/* ================= 2. Autonomie et confidentialite ================= */
 for (const [label, re] of [
   ['<script src', /<script\s+[^>]*src=/i],
   ['<link', /<link\s/i],
@@ -39,90 +73,45 @@ for (const [label, re] of [
   ['localStorage', /localStorage/],
   ['sessionStorage', /sessionStorage/],
   ['indexedDB', /indexedDB/i],
-  ['WebGL', /getContext\(\s*['"]webgl/i],
   ['data URI', /;base64,/i],
   ['FileReader', /FileReader/],
 ]) ok(`aucun ${label}`, !re.test(html));
 ok('un seul <script>', (html.match(/<script/g) || []).length === 1);
 ok('polices systeme uniquement', /-apple-system/.test(html) && /Georgia/.test(html));
 ok('prefers-reduced-motion', /prefers-reduced-motion/.test(html));
-ok('aucun asset concurrent',
-  !/quick-?step/i.test(html.replace(/quick-step and karndean/i, '')) || !/logo|\.svg"|\.png"/i.test(html));
-ok('aucune donnee privee embarquee', !/datasets\/private-real\/[a-z-]+\.jpg["']/.test(
-  html.replace(/PHOTOS \+/g, '')) || /const PHOTOS = '\.\.\/datasets\/private-real\/';/.test(html));
+ok('aucune photo privee en dur',
+  /const PHOTOS = '\.\.\/datasets\/private-real\/';/.test(html)
+  && !/datasets\/private-real\/[a-z-]+\.jpg["']/.test(html));
 
-/* ================= 1. Plus aucun assistant, plus aucun panneau ================= */
+/* ================= 3. L'UX V5, conservee ================= */
 ok('aucun stepper', !/class="steps"/.test(html) && !/data-state="now"/.test(html));
-ok('aucune etape numerotee', !/Étape [1-4]/.test(html) && !/étape 1/i.test(html));
 ok('« Voir le résultat » absent', !/Voir le résultat/.test(html));
-ok('aucune colonne de gauche permanente', !/id="left"/.test(html) && !/class="left"/.test(html));
-ok('aucun configurateur permanent', !/id="panel"/.test(html) && !/id="config"/.test(html));
+ok('aucune sidebar permanente', !/id="left"/.test(html) && !/id="panel"/.test(html));
 ok('la piece occupe tout sous l en-tete', /#stage \{ flex: 1;/.test(html));
 ok('en-tete de 54 px', /height: 54px/.test(html));
 ok('en-tete minimal : 4 actions',
   (html.match(/class="hbtn/g) || []).length === 4, `${(html.match(/class="hbtn/g) || []).length} boutons`);
-
-/* ================= 2. Navigation en trois entrees portant leur valeur ========= */
 ok('trois entrees de navigation',
   /id="navRoom"/.test(html) && /id="navFloor"/.test(html) && /id="navCustom"/.test(html));
 ok('chaque entree affiche sa valeur',
   /id="navRoomVal"/.test(html) && /id="navFloorVal"/.test(html) && /id="navCustomVal"/.test(html));
 ok('barre centrale a trois outils',
   /id="baBtn"/.test(html) && /id="cmpBtn"/.test(html) && /id="fsBtn"/.test(html));
+ok('petite carte produit flottante', /#card, #cardB \{[\s\S]*?width: 196px/.test(html));
+ok('aucun bouton « Appliquer »', !/>Appliquer</.test(html) && !/<button[^>]*>[^<]*Appliquer/.test(html));
 
-/* ================= 3. Deux entrees dans le visualiseur ================= */
-ok('porte « Importer ma photo »', /id="doorImport"/.test(html));
-ok('porte « Choisir une pièce »', /id="doorRooms"/.test(html));
-ok('import present DANS le selecteur de piece', /id="sheetImport"/.test(html));
-ok('input fichier JPEG/PNG/WebP', /accept="image\/jpeg,image\/png,image\/webp"/.test(html));
-ok('lecture locale par ObjectURL', /URL\.createObjectURL/.test(html));
-ok('URL d objet revoquee', /revokeObjectURL/.test(html));
-ok('glisser-deposer', /dataTransfer/.test(html));
-ok('analyse simulee, pas calculee', /Analyse de votre pièce…/.test(html));
-ok('repli si photo absente', /fallbackPhoto/.test(html) && /photo indisponible/.test(html));
-
-/* ================= 4. Le sol vient des vraies calibrations ================= */
-ok('source des calibrations documentee',
-  /data\/scenes\/<id>\.json/.test(html) && /commit lu\s*:\s*124b553/.test(html)
-  && /lu le\s*:\s*8 septembre 2026/.test(html));
-/* Et l'etat du front au moment ou on l'ecrit : sans ca, « commit lu »
-   laisse croire que c'est la derniere version. */
-ok('l empreinte de l arbre lu est donnee', /arbre lu\s*:\s*data\/scenes\/ = 2f5bfc7/.test(html));
-ok('filtre de selection documente', /contour de 8 points au moins/.test(html));
-ok('scenes ecartees nommees', /entree-cadree/.test(html) && /salon/.test(html));
-ok('aucun polygone generique de repli',
-  !/DEFAULT_FLOOR/.test(html) && !/FALLBACK_FLOOR/.test(html)
-  && /calibrated\(\) gates|Peignable seulement si/.test(html));
-ok('masques SVG, pas clip-path', /<mask id="floorMask"/.test(html) && /<mask id="occlMask"/.test(html));
-ok('les trous sont soustraits', /zone\.holes/.test(html));
-ok('occulteurs restaurant la photo', /id="occl"/.test(html) && /entry\.occluders/.test(html));
-ok('le recadrage cover est pris en compte', /Math\.max\(box\.width \/ entry\.w/.test(html));
-/* Regression : un SVG porte-masques en 0x0 empeche Chrome de resoudre
-   `mask: url(#floorMask)`, et le sol disparait tout entier. */
-ok('le SVG porte-masques occupe la scene',
-  /#masks \{[^}]*inset: 0[^}]*\}/.test(html) && !/#masks \{[^}]*width: 0/.test(html));
-
-/* Regression : les modales vivaient dans #stage, masque sur l'ecran
-   d'entree — « Choisir une piece » n'ouvrait rien depuis l'accueil. */
-const bodyMarkup = html.split('</style>')[1].split('<script>')[0];
-ok('les modales sont hors de la scene',
-  bodyMarkup.indexOf('id="roomSheet"') > bodyMarkup.indexOf('</section>')
-  && bodyMarkup.indexOf('id="catSheet"') > bodyMarkup.indexOf('</section>')
-  && bodyMarkup.indexOf('id="cusSheet"') > bodyMarkup.indexOf('</section>'));
-ok('les modales sont ancrees a la page', /\.scrim \{ position: fixed/.test(html)
-  && /\.sheetp \{\s*position: fixed/.test(html));
-/* Et le balisage doit rester equilibre : un <div> orphelin casserait la
-   superposition du sol sans qu'aucun test de chaine ne le voie. */
-(() => {
-  const stack = [];
-  let extra = 0;
-  for (const tok of bodyMarkup.match(/<\/?div[^>]*>/g) || []) {
-    if (tok.startsWith('</')) { if (stack.length) stack.pop(); else extra += 1; }
-    else stack.push(tok);
-  }
-  ok('balisage equilibre', stack.length === 0 && extra === 0,
-    `${stack.length} non ferme(s), ${extra} en trop`);
-})();
+/* ================= 4. Trois images, et c'est tout ================= */
+ok('trois couches d image', /<img id="photo"/.test(html) && /<img id="cmpB"/.test(html)
+  && /<img id="after"/.test(html));
+ok('elles sont en object-fit cover', /#photo, #cmpB, #after \{[\s\S]*?object-fit: cover/.test(html));
+ok('la version A est au-dessus de la version B',
+  /#cmpB \{ z-index: 1; \}/.test(html) && /#after \{ z-index: 2; \}/.test(html));
+ok('la provenance des rendus est documentee',
+  /window\.__studio/.test(html) && /\?perf=1/.test(html) && /preserveDrawingBuffer/.test(html));
+ok('le front est dit lu et lance seulement', /Aucune écriture, aucun commit/.test(html));
+ok('les rendus sont dits hors de Git', /hors de Git/.test(html));
+ok('l empreinte du moteur qui a dessine est notee',
+  /assets\/dist\/9685ef637e/.test(html) && /empreinte du RENDERER/.test(html));
 
 /* ================= DOM minimal ================= */
 const nodes = {};
@@ -165,15 +154,15 @@ function parseKids(markup) {
 function make(key) {
   return {
     id: key, tagName: 'DIV', dataset: {}, value: '', textContent: '', _h: '',
-    attrs: {}, classList: classList(), children: [], files: [], kids: [],
+    attrs: {}, classList: classList(), children: [], files: [],
     style: { setProperty() {} }, parentElement: null,
-    firstChild: { addEventListener() {}, style: {} },
     get innerHTML() { return this._h; },
-    set innerHTML(v) { this._h = String(v); this.children = parseKids(String(v)); this.kids = []; },
+    set innerHTML(v) { this._h = String(v); this.children = parseKids(String(v)); },
+    get src() { return this.attrs.src || ''; },
+    set src(v) { this.attrs.src = String(v); },
     addEventListener(t, f) { (listeners[key] ??= {})[t] = f; },
     setAttribute(n, v) { this.attrs[n] = String(v); },
     getAttribute(n) { return this.attrs[n] ?? null; },
-    appendChild(c) { this.kids.push(c); },
     focus() {}, setPointerCapture() {}, click() { this._clicked = true; },
     querySelectorAll(sel) {
       if (sel === 'img') {
@@ -195,12 +184,6 @@ global.document = {
   querySelector: (s) => (nodes[s] ??= make(s)),
   querySelectorAll: () => [],
   createElement: (t) => make(t),
-  createElementNS: (ns, t) => {
-    const n = make(t);
-    n.ns = ns;
-    n.tagName = t;
-    return n;
-  },
   addEventListener() {},
   body: make('body'),
 };
@@ -212,6 +195,8 @@ global.URL = {
   createObjectURL: () => 'blob:local-only',
   revokeObjectURL: (u) => revoked.push(u),
 };
+/* Les Image() du prechargement ne doivent jamais echouer ici, sinon tous les
+   rendus seraient marques manquants. */
 class FakeImage {
   set src(v) { this._src = v; this.naturalWidth = 1920; this.naturalHeight = 1280; if (this.onload) this.onload(); }
   get src() { return this._src; }
@@ -233,396 +218,258 @@ if (!api) { console.log('\nARRET : le script ne s est pas execute'); process.exi
 const el = (id) => global.document.getElementById(id);
 const h = (id) => el(id).innerHTML || '';
 const count = (id, re) => (h(id).match(re) || []).length;
+const R = '../datasets/private-real/_renders/';
 
-/* ================= 5. Les huit pieces calibrees ================= */
-ok('cinq pieces retenues', api.DEMO_ROOMS.length === 5, `${api.DEMO_ROOMS.length}`);
-ok('chaque piece a au moins une zone reelle',
-  api.DEMO_ROOMS.every((r) => r.zones.length >= 1));
-ok('aucun contour grossier',
-  api.DEMO_ROOMS.every((r) => r.zones.reduce((n, z) => n + z.poly.length, 0) >= 8),
-  `min = ${Math.min(...api.DEMO_ROOMS.map((r) => r.zones.reduce((n, z) => n + z.poly.length, 0)))} points`);
-ok('le sejour porte bien ses DEUX zones',
-  api.DEMO_ROOMS.find((r) => r.id === 'sejour').zones.length === 2);
-const totalZones = api.DEMO_ROOMS.reduce((n, r) => n + r.zones.length, 0);
-ok('six zones de sol au total', totalZones === 6, `${totalZones}`);
-const totalOccl = api.DEMO_ROOMS.reduce((n, r) => n + r.occluders.length, 0);
-ok('occulteurs issus des donnees reelles', totalOccl === 3, `${totalOccl}`);
-ok('coordonnees normalisees',
-  api.DEMO_ROOMS.every((r) => r.zones.every((z) => z.poly.every(([x, y]) =>
-    x >= 0 && x <= 1 && y >= 0 && y <= 1))));
-/* Ecartees a l extraction : brouillon ou contour trop grossier.
-   Ecartees a la revue visuelle : ancien sol encore visible, sol reduit a une
-   bande, ou sol d origine carrele que la recoloration ne rend pas en bois. */
-const ECARTEES = ['salon', 'entree-cadree', 'appartement-ancien', 'petite-piece', 'couloir'];
-ok('les pieces ecartees sont absentes',
-  !api.DEMO_ROOMS.some((r) => ECARTEES.includes(r.id)));
-ok('chaque exclusion est motivee dans le fichier',
-  ECARTEES.every((id) => html.includes(id)));
-ok('la revue visuelle est chiffree', /dernière rangée visible du cadre/.test(html));
-ok('la limite de rendu est assumee', /pas pour juger un RENDU/.test(html));
+/* ================= 5. DEMO_RENDERINGS ================= */
+ok('cinq scenes', api.DEMO_ROOMS.length === 5, `${api.DEMO_ROOMS.length}`);
+ok('six produits', api.DEMO_PRODUCTS.length === 6, `${api.DEMO_PRODUCTS.length}`);
+ok('les scenes n ont aucune geometrie',
+  api.DEMO_ROOMS.every((r) => !('zones' in r) && !('occluders' in r) && !('w' in r)));
+ok('un jeu de rendus par scene', api.DEMO_ROOMS.every((r) => api.DEMO_RENDERINGS[r.id]));
+ok('chaque jeu a original + un rendu par produit',
+  api.DEMO_ROOMS.every((r) => {
+    const set = api.DEMO_RENDERINGS[r.id];
+    return Object.keys(set).length === api.DEMO_PRODUCTS.length + 1
+      && set.original && api.DEMO_PRODUCTS.every((p) => set[p.id]);
+  }), `${Object.keys(api.DEMO_RENDERINGS.sejour).length} cles par scene`);
+ok('les rendus vivent hors de Git',
+  Object.values(api.DEMO_RENDERINGS).every((set) =>
+    Object.values(set).every((u) => u.startsWith(R))));
+ok('seuls les trois motifs du moteur du front',
+  api.DEMO_PRODUCTS.every((p) => ['lames', 'point-de-hongrie', 'baton-rompu'].includes(p.pattern))
+  && Object.keys(api.PATTERNS).length === 3);
+ok('les quatre teintes du front', Object.keys(api.TONES).join(',') === 'clair,naturel,chaud,fonce');
+ok('un produit ne porte aucune recette de rendu',
+  api.DEMO_PRODUCTS.every((p) => !('filter' in p) && !('wood' in p)));
 
-/* Le sol doit descendre jusqu au bas du cadre : sinon l ancien sol reste
-   visible au premier plan, ce qui a fait refuser la V4. */
-const deep = api.DEMO_ROOMS.map((r) => Math.max(...r.zones.flatMap((z) => z.poly.map(([, y]) => y))));
-ok('chaque sol atteint le bas du cadre', Math.min(...deep) >= 0.97,
-  `plus haut = ${Math.min(...deep).toFixed(3)}`);
-const wide = api.DEMO_ROOMS.map((r) => {
-  const xs = r.zones.flatMap((z) => z.poly.map(([x]) => x));
-  return Math.max(...xs) - Math.min(...xs);
-});
-ok('chaque sol couvre une large part de la largeur', Math.min(...wide) >= 0.45,
-  `plus etroit = ${Math.min(...wide).toFixed(2)}`);
-/* Et il ne doit PAS remonter dans les murs. */
-const high = api.DEMO_ROOMS.map((r) => Math.min(...r.zones.flatMap((z) => z.poly.map(([, y]) => y))));
-ok('aucun sommet dans le tiers haut', Math.min(...high) >= 0.33,
-  `plus haut = ${Math.min(...high).toFixed(3)}`);
-
-/* ================= 6. Les masques ================= */
+/* ================= 6. Ouvrir une piece ================= */
+ok('aucune piece au depart', api.state.source === null);
 api.openRoom('sejour');
 ok('choisir une piece ouvre le visualiseur', el('stage').classList.contains('hidden') === false);
 ok('la source est demo', api.state.source === 'demo', api.state.source);
-ok('la photo affichee est celle choisie', String(el('photo').src).includes('sejour.jpg'), el('photo').src);
-const zones = api.buildMasks();
-ok('le masque reprend les deux zones du sejour', zones === 2, `${zones}`);
-ok('les polygones sont poses dans le masque', el('floorShapes').kids.length === 2);
-ok('les polygones du masque sont blancs',
-  el('floorShapes').kids.every((k) => k.attrs.fill === '#fff'));
-const pts = el('floorShapes').kids[0].attrs.points.split(' ').map((p) => p.split(',').map(Number));
-ok('les points sont en pixels ecran',
-  pts.every(([x, y]) => x >= -600 && x <= 1800 && y >= -400 && y <= 1100),
-  `${pts.length} points`);
-ok('le sol descend jusqu au bord bas a l ecran',
-  Math.max(...el('floorShapes').kids.flatMap((k) => k.attrs.points.split(' ').map((p) => Number(p.split(',')[1])))) >= 700 * 0.97);
-ok('les couches de sol portent le masque',
-  el('floor').style.mask === 'url(#floorMask)' && el('joints').style.mask === 'url(#floorMask)');
-ok('la couche occulteur porte son propre masque', el('occl').style.mask === 'url(#occlMask)');
-ok('le masque est dimensionne', el('masks').attrs.width === '1200' && el('masks').attrs.height === '700');
+ok("l'image de fond est le rendu original",
+  el('photo').getAttribute('src') === `${R}sejour.original.jpg`, el('photo').getAttribute('src'));
+ok('la couche du parquet porte le rendu du produit',
+  el('after').getAttribute('src') === `${R}sejour.oakNatural.jpg`, el('after').getAttribute('src'));
+ok('elle est visible', el('after').classList.contains('hidden') === false);
+ok('aucun decoupage hors avant/apres', el('after').style.clipPath === 'none');
 
-/* Une piece a occulteurs : ils doivent etre poses, sinon un meuble serait
-   repeint en parquet. */
-api.openRoom('piece-claire');
-api.buildMasks();
-ok('les occulteurs de la grande piece claire sont poses', el('occlShapes').kids.length === 2,
-  `${el('occlShapes').kids.length}`);
-api.openRoom('chambre');
-api.buildMasks();
-/* La grille de la chambre est le seul occulteur retire par demoFloorMask :
-   il restituait la grille — deja hors du contour — ET une bande de parquet. */
-ok('la grille de la chambre n est plus restauree', el('occlShapes').kids.length === 0);
-api.openRoom('sejour');
-api.buildMasks();
-ok('une piece sans occulteur n en pose aucun', el('occlShapes').kids.length === 0);
-
-/* ================= 7. Une photo inconnue n est PAS masquee ================= */
-api.loadUpload({ type: 'image/jpeg', name: 'ma-piece.jpg' });
-ok('la source devient uploaded', api.state.source === 'uploaded', api.state.source);
-ok('la photo importee devient la scene', String(el('photo').src).includes('blob:local-only'));
-ok('ses dimensions reelles sont relevees', api.room().w === 1920 && api.room().h === 1280);
-ok('elle n est PAS consideree calibree', api.calibrated() === false);
-ok('aucun polygone fabrique', api.buildMasks() === 0);
-ok('les couches de parquet sont masquees', el('after').classList.contains('hidden') === true);
-ok('le message d honnetete est affiche', /Analyse automatique non connectée/.test(html));
-ok('une sortie est proposee', /id="unkRooms"/.test(html) && /id="unkOther"/.test(html));
-/* Et la photo doit rester visible derriere le message, sinon « votre photo
-   s'affiche » est faux : voile translucide, carte opaque. */
-ok('la photo reste visible sous le voile',
-  /\.veil \{[^}]*background: rgba\(30, 28, 24, 0\.34\)/.test(html)
-  && /\.veil \.box \{[^}]*background: var\(--surface\)/.test(html));
-api.loadUpload({ type: 'image/gif', name: 'anim.gif' });
-ok('un format refuse ne remplace pas la scene', api.state.uploaded.name === 'ma-piece.jpg',
-  api.state.uploaded.name);
-
-/* ================= 8. Rien n est conserve ================= */
-api.openRoom('chambre');
-ok('changer de piece libere la photo importee', api.state.uploaded === null);
-ok("l'URL d'objet est revoquee", revoked.includes('blob:local-only'));
-ok('aucune persistance', !/localStorage|sessionStorage|indexedDB/.test(html));
-
-/* ================= 9. Le catalogue, coeur du parcours ================= */
-ok('onze produits demo', api.DEMO_PRODUCTS.length === 11, `${api.DEMO_PRODUCTS.length}`);
-ok('chaque produit a une reference', api.DEMO_PRODUCTS.every((p) => /DEMO · /.test(p.ref)));
-ok('chaque produit a une future fiche', api.DEMO_PRODUCTS.every((p) => /^#fiche\//.test(p.url)));
-ok('seuls les trois motifs du moteur du front',
-  api.DEMO_PRODUCTS.every((p) => ['straight', 'chevron', 'herringbone'].includes(p.pattern)));
-ok('les trois motifs du front sont connus',
-  Object.keys(api.PATTERNS).length === 3 && /point-de-hongrie|Point de Hongrie/.test(html));
-api.openCat();
-ok('la grille montre tous les produits', count('prods', /class="pd"/g) === 11);
-ok('les vignettes sont des textures, pas du texte', count('prods', /class="tex"/g) === 11);
-ok('le compte figure dans le titre', el('catCount').textContent === '(11)', el('catCount').textContent);
-/* Les deux seules occurrences de « Appliquer » sont des commentaires qui
-   rappellent qu'il n'y en a pas : ce test cherche un vrai bouton. */
-ok('aucun bouton « Appliquer »',
-  !/<button[^>]*>[^<]*Appliquer/.test(html) && !/>Appliquer</.test(html));
-ok('filtre motif', count('fPattern', /class="chip"/g) === 3);
-ok('teintes en pastilles', count('fTone', /class="dot-b"/g) >= 6);
-ok('filtre essence', count('fSpecies', /class="chip"/g) === 3);
-ok('inspirations = filtres du catalogue', count('moods', /class="mood"/g) === 6);
-
-const before = api.visible().length;
-api.toggleFilter('pattern', 'herringbone');
-ok('un filtre reduit la grille', api.visible().length === 2, `${before} -> ${api.visible().length}`);
-ok('le compte suit le filtre', el('catCount').textContent === '(2)', el('catCount').textContent);
-api.toggleFilter('pattern', 'herringbone');
-ok('le meme filtre se retire', api.visible().length === before);
-api.toggleFilter('mood', 'hongrie');
-ok('une inspiration filtre aussi', api.visible().length === 2, `${api.visible().length}`);
-api.toggleFilter('mood', 'hongrie');
-
-/* ================= 10. Le clic EST l action ================= */
-api.select('demo-oak-smoked');
-ok('choisir un parquet le pose immediatement', api.state.productId === 'demo-oak-smoked');
+/* ================= 7. Selection produit : le clic change l image ========= */
+api.select('oakSmoked');
+ok('choisir un parquet change l image',
+  el('after').getAttribute('src') === `${R}sejour.oakSmoked.jpg`, el('after').getAttribute('src'));
 ok('la largeur retombe sur une largeur reelle',
   api.product().availableWidths.includes(api.state.width), `${api.state.width} mm`);
 ok('la finition retombe sur une finition reelle',
   api.product().availableFinishes.includes(api.state.finish), api.state.finish);
-ok('la navigation affiche le parquet pose',
-  el('navFloorVal').textContent === 'Chêne fumé', el('navFloorVal').textContent);
-ok('la carte produit est petite et flottante',
-  /#card, #cardB \{[\s\S]*?width: 196px/.test(html));
-ok('la carte porte la reference', /class="ref"/.test(h('card')));
-ok('la carte propose la fiche', /VOIR LA FICHE/.test(h('card')));
-ok('la carte porte precedent / favori / suivant',
-  /data-step="prevA"/.test(h('card')) && /data-fav=/.test(h('card')) && /data-step="nextA"/.test(h('card')));
-
-const current = api.state.productId;
+ok('la navigation suit', el('navFloorVal').textContent === 'Chêne Fumé', el('navFloorVal').textContent);
+const before = api.state.productId;
 api.stepProduct(1, 'A');
-ok('la fleche suivant change de parquet', api.state.productId !== current, api.state.productId);
+ok('la fleche suivant change de parquet', api.state.productId !== before, api.state.productId);
 api.stepProduct(-1, 'A');
-ok('la fleche precedent revient', api.state.productId === current, api.state.productId);
+ok('la fleche precedent revient', api.state.productId === before);
 
-/* ================= 11. Personnaliser : capacites reelles seulement ========= */
-api.select('demo-oak-natural');
-api.paintCustom();
-ok('deux motifs pour le chene naturel', count('patterns', /class="pt"/g) === 2,
-  `${count('patterns', /class="pt"/g)}`);
-ok('les motifs absents sont annonces', /indisponible/.test(el('patternNote').textContent),
-  el('patternNote').textContent);
-ok('trois largeurs pour le chene naturel', count('widths', /class="chip"/g) === 3);
-api.select('demo-oak-smoked');
-api.paintCustom();
-ok('deux largeurs pour le chene fume', count('widths', /class="chip"/g) === 2);
-ok('une seule finition pour le chene fume', count('finishes', /class="chip"/g) === 1);
-ok('la restriction est expliquee', /Finitions proposées/.test(el('finishNote').textContent));
-ok('deux sens de pose', count('orient', /class="or"/g) === 2);
-ok('reglages avances replies', /<div id="adv" class="hidden"/.test(html));
-ok('quatre reglages avances', (html.match(/class="slide"/g) || []).length === 4);
-
-/* ================= 12. Favoris, comparaison, avant/apres ================= */
-ok('aucun favori au depart', api.state.favourites.size === 0);
-api.toggleFav('demo-walnut');
-ok('un favori se pose', api.state.favourites.has('demo-walnut'));
-ok('le compteur d en-tete suit', el('favCount').textContent === '1');
-api.toggleFav('demo-walnut');
-ok('un favori se retire', api.state.favourites.size === 0);
-
-api.state.compare = { b: 'demo-walnut' };
-api.paint();
-ok('la comparaison affiche deux cartes', el('cardB').classList.contains('hidden') === false);
-ok('les versions sont etiquetees', el('tagA').classList.contains('hidden') === false
-  && el('tagB').classList.contains('hidden') === false);
-ok('la navigation s efface pendant la comparaison', el('nav').classList.contains('hidden') === true);
-ok('la comparaison est UNE photo scindee', /id="split"/.test(html) && !/grid-template-columns: repeat\(3/.test(
-  (html.match(/#cmp[\s\S]{0,200}/) || [''])[0]));
-ok('le second parquet est rendu', /url\('/.test(String(el('cmpFloor').style.backgroundImage)));
-/* Regression : #cmpLayer (z-index 1) peignait au-dessus de #after sans
-   z-index, et la version B recouvrait les DEUX moities du separateur.
-   Les deux couches ne se declarent pas au meme endroit : #cmpLayer porte son
-   z-index en attribut style, #after dans la feuille. */
-const zOf = (id) => {
-  const inline = html.match(new RegExp('id="' + id + '"[^>]*style="[^"]*z-index:[ ]*([0-9]+)'));
-  if (inline) return Number(inline[1]);
-  const sheet = html.match(new RegExp('#' + id + '[^{]*[{][^}]*z-index:[ ]*([0-9]+)'));
-  return sheet ? Number(sheet[1]) : null;
-};
-ok('la version A est au-dessus de la version B',
-  zOf('cmpLayer') !== null && zOf('after') !== null && zOf('cmpLayer') < zOf('after'),
-  `cmpLayer ${zOf('cmpLayer')} < after ${zOf('after')}`);
-ok('les occulteurs restent au-dessus des deux',
-  zOf('occl') > zOf('after'), `occl ${zOf('occl')} > after ${zOf('after')}`);
-api.stepProduct(1, 'B');
-ok('le cote B change seul', api.state.compare.b !== 'demo-walnut' && api.state.productId === 'demo-oak-smoked',
-  `${api.state.compare.b} / ${api.state.productId}`);
-api.state.compare = null;
-api.paint();
-ok('fermer la comparaison rend la navigation', el('nav').classList.contains('hidden') === false);
-
+/* ================= 8. Avant / apres : deux images de la meme scene ======= */
 api.state.ba = true;
 api.state.split = 0.4;
 api.paint();
-ok('avant/apres decoupe le parquet', el('after').style.clipPath === 'inset(0 60.00% 0 0)',
-  el('after').style.clipPath);
+ok('avant/apres decoupe la couche du parquet',
+  el('after').style.clipPath === 'inset(0 60.00% 0 0)', el('after').style.clipPath);
+ok('le fond reste la scene d origine',
+  el('photo').getAttribute('src').endsWith('sejour.original.jpg'));
 ok('le separateur est visible', el('split').classList.contains('hidden') === false);
 api.state.ba = false;
 api.paint();
 ok('avant/apres se desactive', el('after').style.clipPath === 'none');
-ok('le separateur disparait', el('split').classList.contains('hidden') === true);
 
-/* ================= 13. Changer de piece conserve le parquet ================= */
+/* ================= 9. Comparaison : deux rendus, une seule photo ========= */
+api.state.compare = { b: 'oakChalk' };
+api.state.split = 0.5;
+api.paint();
+ok('la version B est chargee',
+  el('cmpB').getAttribute('src') === `${R}sejour.oakChalk.jpg`, el('cmpB').getAttribute('src'));
+ok('la version B est visible', el('cmpB').classList.contains('hidden') === false);
+ok('la version A reste decoupee', el('after').style.clipPath === 'inset(0 50.00% 0 0)');
+ok('deux cartes produit', el('cardB').classList.contains('hidden') === false);
+ok('les versions sont etiquetees',
+  el('tagA').classList.contains('hidden') === false && el('tagB').classList.contains('hidden') === false);
+ok('la navigation s efface pendant la comparaison', el('nav').classList.contains('hidden') === true);
+api.stepProduct(1, 'B');
+ok('le cote B change seul',
+  api.state.compare.b !== 'oakChalk' && api.state.productId === before,
+  `${api.state.compare.b} / ${api.state.productId}`);
+api.state.compare = null;
+api.paint();
+ok('fermer la comparaison masque la version B', el('cmpB').classList.contains('hidden') === true);
+ok('fermer la comparaison rend la navigation', el('nav').classList.contains('hidden') === false);
+
+/* ================= 10. Changer de piece ================= */
 const kept = api.state.productId;
-api.openRoom('bureau-vide');
+api.openRoom('piece-arcades');
 ok('le parquet survit au changement de piece', api.state.productId === kept, api.state.productId);
-ok('la nouvelle piece est peinte', String(el('photo').src).includes('bureau-vide.jpg'));
-ok('le masque est reconstruit', el('floorShapes').kids.length === 1);
+ok('la nouvelle scene est chargee',
+  el('photo').getAttribute('src').endsWith('piece-arcades.original.jpg'));
+ok('le rendu de la nouvelle scene est charge',
+  el('after').getAttribute('src') === `${R}piece-arcades.${kept}.jpg`, el('after').getAttribute('src'));
+ok('aucun rendu n est reutilise d une piece a l autre',
+  api.renderUrl('sejour', kept) !== api.renderUrl('piece-arcades', kept));
 
-/* ================= 14. Etats d analyse ================= */
+/* ================= 11. Repli quand un rendu manque ================= */
+api.state.missing.add(`${R}piece-arcades.oakHoney.jpg`);
+api.select('oakHoney', true);
+ok('un rendu manquant masque la couche du parquet',
+  el('after').classList.contains('hidden') === true);
+ok('la photo d origine reste affichee',
+  el('photo').getAttribute('src').endsWith('piece-arcades.original.jpg'));
+ok('aucun faux parquet en repli', el('after').style.clipPath === 'none');
+ok('la mention de repli est reservee au mode dev',
+  api.DEV === false && el('devnote').classList.contains('hidden') === true);
+ok('le texte de repli existe dans le fichier', /Rendu demo indisponible/.test(html));
+api.state.missing.clear();
+api.select('oakNatural', true);
+ok('le rendu revient une fois disponible', el('after').classList.contains('hidden') === false);
+
+/* Si meme l original manque, on retombe sur la photo brute. */
+api.state.missing.add(`${R}piece-arcades.original.jpg`);
+api.paint();
+ok('sans original, la photo brute prend le relais',
+  el('photo').getAttribute('src') === '../datasets/private-real/piece-arcades.jpg',
+  el('photo').getAttribute('src'));
+api.state.missing.clear();
+
+/* ================= 12. Photo importee inconnue ================= */
+api.loadUpload({ type: 'image/jpeg', name: 'ma-piece.jpg' });
+ok('la source devient uploaded', api.state.source === 'uploaded', api.state.source);
+ok('la photo importee devient la scene',
+  el('photo').getAttribute('src') === 'blob:local-only', el('photo').getAttribute('src'));
+ok('aucun parquet pose dessus', el('after').classList.contains('hidden') === true);
+ok('ni carte produit ni outils quand rien n est pose',
+  el('card').classList.contains('hidden') === true
+  && el('tools').classList.contains('hidden') === true);
+ok('aucun rendu inconnu invente', api.renderUrl('uploaded', 'oakNatural') === null);
+ok('le message d honnetete est present', /moteur IA n'est pas connecté/.test(html));
+ok('la limite est dite temporaire', /cette limite[\s\S]{0,20}dispara/.test(html));
+ok('deux sorties sont proposees', /id="unkRooms"/.test(html) && /id="unkOther"/.test(html));
+api.loadUpload({ type: 'image/gif', name: 'anim.gif' });
+ok('un format refuse ne remplace pas la scene', api.state.uploaded.name === 'ma-piece.jpg',
+  api.state.uploaded.name);
+
+/* ================= 13. Rien n est conserve ================= */
+api.openRoom('chambre');
+ok('changer de piece libere la photo importee', api.state.uploaded === null);
+ok("l'URL d'objet est revoquee", revoked.includes('blob:local-only'));
+ok('aucune persistance de la photo', !/localStorage|sessionStorage|indexedDB/.test(html));
+
+/* ================= 14. Catalogue ================= */
+api.openCat();
+ok('la grille montre les six produits', count('prods', /class="pd"/g) === 6);
+ok('les vignettes sont des images', count('prods', /class="tex"/g) === 6);
+ok('la vignette vient d un vrai rendu', /_renders\/swatch\./.test(h('prods')));
+ok('une couleur de repli derriere la vignette', /background-color:#/.test(h('prods')));
+ok('le compte figure dans le titre', el('catCount').textContent === '(6)', el('catCount').textContent);
+ok('filtre motif', count('fPattern', /class="chip"/g) === 3);
+ok('filtre teinte', count('fTone', /class="chip"/g) === 4);
+api.toggleFilter('pattern', 'baton-rompu');
+ok('un filtre reduit la grille', api.visible().length === 1, `${api.visible().length}`);
+ok('le compte suit le filtre', el('catCount').textContent === '(1)');
+api.toggleFilter('pattern', 'baton-rompu');
+ok('le meme filtre se retire', api.visible().length === 6);
+api.toggleFilter('tone', 'chaud');
+ok('la teinte filtre aussi', api.visible().length === 2, `${api.visible().length}`);
+api.toggleFilter('tone', 'chaud');
+
+/* ================= 15. Personnaliser ================= */
+api.openRoom('sejour');
+api.select('oakNatural', true);
+api.paintCustom();
+ok('deux motifs pour le chene naturel', count('patterns', /class="pt"/g) === 2,
+  `${count('patterns', /class="pt"/g)}`);
+ok('le motif absent est annonce', /sans rendu pour cette teinte/.test(el('patternNote').textContent),
+  el('patternNote').textContent);
+ok('trois largeurs pour le chene naturel', count('widths', /class="chip"/g) === 3);
+ok('deux sens de pose', count('orient', /class="or"/g) === 2);
+ok('la limite de la maquette est ecrite',
+  /class="honest"/.test(html) && /ne redessine rien/.test(html));
+
+/* Changer de motif choisit un AUTRE rendu, il n'en calcule aucun. */
+const avant = el('after').getAttribute('src');
+const cible = (h('patterns').match(/data-target="([^"]+)"/g) || [])
+  .map((s) => s.replace(/.*"([^"]+)"/, '$1')).find((id) => id !== 'oakNatural');
+api.select(cible, true);
+ok('changer de motif change de rendu',
+  el('after').getAttribute('src') !== avant
+  && el('after').getAttribute('src').endsWith(`sejour.${cible}.jpg`),
+  el('after').getAttribute('src'));
+
+api.select('oakNatural', true);
+const largeurAvant = el('after').getAttribute('src');
+api.state.width = 90;
+api.paint();
+ok('changer de largeur ne change pas l image',
+  el('after').getAttribute('src') === largeurAvant);
+ok('mais la fiche produit suit', /90 mm/.test(h('card')));
+
+/* ================= 16. Favoris ================= */
+ok('aucun favori au depart', api.state.favourites.size === 0);
+api.toggleFav('oakSmoked');
+ok('un favori se pose', api.state.favourites.has('oakSmoked'));
+ok('le compteur d en-tete suit', el('favCount').textContent === '1');
+api.toggleFav('oakSmoked');
+ok('un favori se retire', api.state.favourites.size === 0);
+
+/* ================= 17. Etats d analyse ================= */
 api.setDemo('success', true);
 ok('« Pièce prête » est une petite capsule',
   /Pièce prête/.test(h('status')) && /#status \{[\s\S]*?border-radius: var\(--r-pill\)/.test(html));
 ok('aucun bandeau plein cadre pour un succes', el('rejected').classList.contains('hidden') === true);
 api.setDemo('partial', true);
-ok('partial propose un ajustement', /Ajuster/.test(h('status')));
-api.setDemo('manual', true);
-ok('manual insiste visuellement', el('status').classList.contains('urge') === true);
+ok('partial reste une capsule, sans action a inventer',
+  /incertain/.test(h('status')) && !/Ajuster/.test(h('status')));
 api.setDemo('rejected', true);
 ok('rejected explique et propose une reprise', el('rejected').classList.contains('hidden') === false);
 ok('le conseil de reprise est concret', /appuyez-vous contre un mur/.test(html));
 api.setDemo('success', true);
-ok('la retouche au pinceau existe', /id="brush"/.test(html) && /Ajouter/.test(html) && /Retirer/.test(html));
+ok('aucun pinceau de retouche de masque', !/id="brush"/.test(html) && !/brAdd|brDel/.test(html));
 
-/* ================= 15. Le selecteur de piece ================= */
+/* ================= 18. Selecteur de piece ================= */
 api.openRooms();
 ok('les categories sont listees', count('roomCats', /data-cat=/g) === 4,
-  `${count('roomCats', /data-cat=/g)} categories`);
-ok('le compte des pieces est affiche', /5 pièces calibrées/.test(el('roomCount').textContent),
+  `${count('roomCats', /data-cat=/g)}`);
+ok('le compte des pieces est affiche', /5 pièces/.test(el('roomCount').textContent),
   el('roomCount').textContent);
-ok('la grille montre de vraies photos', count('roomGrid', /<img/g) >= 1);
+ok('la grille montre les scenes', count('roomGrid', /<img/g) >= 1);
 ok('la piece courante est cochee', /class="tick"/.test(h('roomGrid')));
-ok('le nombre de zones est annonce', /zone/.test(h('roomGrid')));
+ok('l import est dans le selecteur', /id="sheetImport"/.test(html));
+ok('repli si image absente', /markFallbacks/.test(html) && /photo indisponible/.test(html));
 
-/* ================= 14 bis. demoFloorMask : retouches de maquette ==========
-   Autorisees pour rendre une scene DEMO credible, interdites comme verite
-   terrain. Les tests verifient les deux moities de cette phrase. */
-ok('les retouches sont declarees a part',
-  /const DEMO_MASK_FIX = \{/.test(html) && /const ROOMS = DEMO_ROOMS\.map\(applyMaskFix\)/.test(html));
-ok('elles sont annoncees comme hors verite terrain',
-  /Prototype-only visual mask — not AI ground truth/.test(html)
-  && /n'entrent PAS dans `datasets\/`/.test(html));
-ok('chaque retouche porte son pourquoi et sa mesure',
-  Object.values(api.DEMO_MASK_FIX).every((f) => typeof f.pourquoi === 'string' && f.pourquoi.length > 80));
-ok('la donnee du front reste intacte a cote',
-  api.DEMO_ROOMS.find((r) => r.id === 'piece-claire').zones[0].poly.length === 37
-  && api.DEMO_ROOMS.find((r) => r.id === 'chambre').occluders.length === 1);
-ok('seules deux scenes sont retouchees',
-  api.ROOMS.filter((r) => r.retouche).map((r) => r.id).join(',') === 'chambre,piece-claire',
-  api.ROOMS.filter((r) => r.retouche).map((r) => r.id).join(','));
-ok('les trois scenes exactes ne sont pas touchees',
-  ['sejour', 'piece-arcades', 'bureau-vide'].every((id) =>
-    api.ROOMS.find((r) => r.id === id) === api.DEMO_ROOMS.find((r) => r.id === id)));
-ok('la retouche de piece-claire remonte bien le contour',
-  (() => {
-    const z = api.ROOMS.find((r) => r.id === 'piece-claire').zones[0].poly;
-    const seg = z.filter(([x]) => x >= 0.14 && x <= 0.37);
-    return seg.length === 2 && Math.abs(seg[0][1] - 0.6592) < 1e-6 && Math.abs(seg[1][1] - 0.624) < 1e-6;
-  })());
-ok('la retouche ne remonte jamais dans le mur',
-  api.ROOMS.every((r) => r.zones.every((z) => z.poly.every(([, y]) => y >= 0.33))));
-/* Aucune retouche ne doit avoir fui vers le corpus ni vers un schema. */
-ok('aucune sortie vers le dataset',
-  !/datasets\/(annotations|private-real|public)\//.test(html.split('<script>')[1] || '')
-  || /const PHOTOS = '\.\.\/datasets\/private-real\/';/.test(html));
-/* La seule mention des schemas est le commentaire qui dit qu'on n'y touche
-   pas ; ce test cherche un usage reel, entre guillemets. */
-ok('aucun schema d annotation invoque',
-  !/['"](pose-parquet(-ai)?\/)?(floor-annotation|floor-draw|dataset|analysis)@/.test(html));
-ok('le refus d y entrer est ecrit', /floor-annotation@1., ne sortent PAS/.test(html));
-
-/* ================= 14 ter. Modes debug, hors UX ================= */
-ok('deux modes debug existent', /\?debug=mask/.test(html) && /\?debug=outside/.test(html));
-ok('ils ne s activent que par l URL',
-  /new URLSearchParams\(window\.location\.search\)\.get\('debug'\)/.test(html));
-ok('aucun bouton ne les expose', !/>debug</i.test(html) && !/data-debug=/.test(html));
-ok('le mode debug est nul par defaut', api.DEBUG === null, String(api.DEBUG));
-ok('le masque inverse existe', /<mask id="outsideMask"/.test(html) && /id="outsideShapes"/.test(html));
-ok('le calque inverse est masque par defaut', /<div id="outside" class="hidden">/.test(html));
-
-/* ================= 15 bis. La couverture du sol, mesuree =================
-   Point-dans-polygone sur la derniere rangee visible du cadre : au premier
-   plan, une photo d interieur prise debout montre du sol sur presque toute
-   la largeur. Un score faible signifie que de l ancien sol reste affiche —
-   le defaut qui a fait refuser la V4. */
-const STAGE = { left: 0, top: 0, width: 1200, height: 700 };
-function inside(pt, poly) {
-  let c = false;
-  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-    const [xi, yi] = poly[i]; const [xj, yj] = poly[j];
-    if (((yi > pt[1]) !== (yj > pt[1])) && (pt[0] < (xj - xi) * (pt[1] - yi) / (yj - yi) + xi)) c = !c;
+/* ================= 19. Modales hors de la scene =================
+   Regression : elles vivaient dans #stage, masque sur l'ecran d'entree, et
+   « Choisir une piece » n'ouvrait rien depuis l'accueil. */
+const body = html.split('</style>')[1].split('<script>')[0];
+ok('les modales sont hors de la scene',
+  ['roomSheet', 'catSheet', 'cusSheet'].every((id) =>
+    body.indexOf(`id="${id}"`) > body.indexOf('</section>')));
+ok('les modales sont ancrees a la page',
+  /\.scrim \{ position: fixed/.test(html) && /\.sheetp \{\s*position: fixed/.test(html));
+(() => {
+  const stack = [];
+  let extra = 0;
+  for (const tok of body.match(/<\/?div[^>]*>/g) || []) {
+    if (tok.startsWith('</')) { if (stack.length) stack.pop(); else extra += 1; }
+    else stack.push(tok);
   }
-  return c;
-}
-const coverage = api.DEMO_ROOMS.map((r) => {
-  const to = api.mapper(STAGE, r);
-  const polys = r.zones.map((z) => z.poly.map(to));
-  const y = STAGE.height - 3;
-  let on = 0;
-  for (let i = 0; i < 200; i++) {
-    const x = (i + 0.5) * STAGE.width / 200;
-    if (polys.some((p) => inside([x, y], p))) on += 1;
-  }
-  return { id: r.id, pct: on / 2 };
-});
-/* Ce chiffre est un GARDE-FOU, pas une preuve : il ne dit pas que tout le sol
-   est remplace, seulement qu'aucune scene n'a subitement perdu son premier
-   plan. `piece-claire` plafonne a 80 % parce que la bande droite du cadre est
-   un MUR — verifie au pixel : x>0,845 est neutre (R-B de -7 a -18) sur toute
-   la hauteur, contre R-B de +26 a +40 pour le bois. Le verdict de couverture
-   se prend dans Chrome, masque en magenta. */
-ok('garde-fou : aucune scene n a perdu son premier plan',
-  coverage.every((c) => c.pct >= 80),
-  coverage.map((c) => `${c.id} ${c.pct.toFixed(0)}%`).join(', '));
+  ok('balisage equilibre', stack.length === 0 && extra === 0,
+    `${stack.length} non ferme(s), ${extra} en trop`);
+})();
 
-/* ================= 16. Le motif, pas une grille ================= */
-const wood = api.woodCss('straight', { joint: 100, grain: 100, variation: 100, width: 190 });
-const alphas = [...wood.matchAll(/rgba\(52, 33, 18, ([\d.]+)\)/g)].map((m) => Number(m[1]));
-ok('joints doux meme au maximum', Math.max(...alphas) <= 0.2, `alpha max = ${Math.max(...alphas)}`);
-ok('aucun noir pur dans le motif', !/rgba\(0, 0, 0, [1-9]/.test(wood) && !/#000/.test(wood));
-ok('le motif porte un veinage', wood.split('repeating-linear-gradient').length - 1 >= 3);
-ok('le point de Hongrie est a 45 deg', /45deg/.test(api.woodCss('chevron', api.opts())));
-ok('le sens de pose fait tourner le motif',
-  api.woodCss('straight', api.opts()) !== (() => {
-    api.state.orient = 'cross';
-    const c = api.woodCss('straight', api.opts());
-    api.state.orient = 'long';
-    return c;
-  })());
-
-/* ================= 17. Textures de produit lisibles ================= */
-const tex = api.texture(api.product('demo-walnut'), 1.5);
-ok('la texture produit est procedurale', /linear-gradient/.test(tex) && !/url\(/.test(tex));
-ok('la texture ne depend pas de la photo', !/blob:|\.jpg/.test(tex));
-ok('aucune apostrophe double dans un attribut style', !/style="[^"]*url\("/.test(html));
-ok('les pastilles ne sont pas en display inline',
-  /\.pd \.tex \{[\s\S]*?display: block/.test(html) && /#card \.sw[\s\S]*?display: block/.test(html));
-
-/* ================= Diagnostic par scene =================
-   Utile pour reperer une anomalie de donnee. Ce n'est PAS une preuve de
-   qualite visuelle : un masque peut etre grand, connexe et bien forme tout en
-   laissant une bande d'ancien sol. Chrome reste l'arbitre. */
-const shoelace = (poly) => {
-  let a = 0;
-  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-    a += poly[j][0] * poly[i][1] - poly[i][0] * poly[j][1];
-  }
-  return Math.abs(a) / 2;
-};
+/* ================= Inventaire des rendus attendus ================= */
 console.log('');
-console.log('Diagnostic (donnee, pas qualite visuelle)');
-console.log('  scene              aire%  bbox x / y              zones trous occl  retouche');
-api.ROOMS.forEach((r) => {
-  const pts = r.zones.flatMap((z) => z.poly);
-  const xs = pts.map((q) => q[0]);
-  const ys = pts.map((q) => q[1]);
-  const area = r.zones.reduce((sum, z) => sum + shoelace(z.poly)
-    - (z.holes || []).reduce((h, hole) => h + shoelace(hole), 0), 0);
-  const holes = r.zones.reduce((n, z) => n + (z.holes || []).length, 0);
-  console.log('  ' + r.id.padEnd(18)
-    + (area * 100).toFixed(1).padStart(5) + '  '
-    + r.zones.length + ' comp.  '
-    + Math.min(...xs).toFixed(2) + '-' + Math.max(...xs).toFixed(2) + ' / '
-    + Math.min(...ys).toFixed(2) + '-' + Math.max(...ys).toFixed(2) + '  '
-    + String(r.zones.length).padStart(4) + String(holes).padStart(6)
-    + String(r.occluders.length).padStart(5) + '  ' + (r.retouche ? 'oui' : '-'));
+console.log('Rendus attendus (hors de Git, produits par le Visualiseur du front)');
+api.DEMO_ROOMS.forEach((r) => {
+  console.log(`  ${r.id.padEnd(16)} ${Object.keys(api.DEMO_RENDERINGS[r.id]).length} fichiers  ${r.category}`);
 });
+console.log(`  total ${api.DEMO_ROOMS.length * (api.DEMO_PRODUCTS.length + 1)} fichiers`
+  + ` + ${api.DEMO_PRODUCTS.length} vignettes`);
 
 console.log(bad ? `\n${bad} ECHEC(S)` : '\nAUCUN ECHEC');
 process.exit(bad ? 1 : 0);
