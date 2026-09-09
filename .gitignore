@@ -60,3 +60,17 @@ benchmarks/out/
 Thumbs.db
 desktop.ini
 .DS_Store
+
+# Cache de démonstration locale, hors Git.
+#
+#   local-demo-assets/premibel/    images produit récupérées sur premibel.fr
+#                                  pour une revue visuelle locale. Ce ne sont
+#                                  pas nos images : elles ne sont ni
+#                                  versionnées, ni redistribuées. Les URL
+#                                  sources et la date de relevé, elles, sont
+#                                  versionnées dans le catalogue et dans
+#                                  docs/premibel-demo-catalog.md.
+#   local-demo-assets/renderings/  rendus produits par le Visualiseur du front
+#                                  sur nos scènes privées : ils en dérivent,
+#                                  donc même régime que private-real/.
+tools/local-demo-assets/

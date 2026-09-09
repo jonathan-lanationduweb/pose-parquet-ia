@@ -83,6 +83,21 @@ ok('aucune photo privee en dur',
   /const PHOTOS = '\.\.\/datasets\/private-real\/';/.test(html)
   && !/datasets\/private-real\/[a-z-]+\.jpg["']/.test(html));
 
+/* ================= 2 bis. Premibel : source, pas dependance ================= */
+ok('aucune image Premibel en hotlink',
+  !/src=["']https:\/\/www\.premibel\.fr/.test(html)
+  && !/url\(['"]?https:\/\/www\.premibel/.test(html));
+ok('les images produit viennent du cache local',
+  /const PREMIBEL = 'local-demo-assets\/premibel\/';/.test(html));
+ok('aucun prix, remise, promo ni stock',
+  !/\d[\d ,.]*\s*€/.test(html) && !/\bprix\b/i.test(code)
+  && !/remise|promotion|\bpromo\b|en stock/i.test(code));
+ok('aucun scraper',
+  !/for\s*\([^)]*of\s*(pages|urls|refs)\b/i.test(code)
+  && !/crawl|scrap/i.test(code));
+ok('aucun asset concurrent',
+  !/quick-?step|karndean/i.test(code));
+
 /* ================= 3. L'UX V5, conservee ================= */
 ok('aucun stepper', !/class="steps"/.test(html) && !/data-state="now"/.test(html));
 ok('« Voir le résultat » absent', !/Voir le résultat/.test(html));
@@ -218,29 +233,87 @@ if (!api) { console.log('\nARRET : le script ne s est pas execute'); process.exi
 const el = (id) => global.document.getElementById(id);
 const h = (id) => el(id).innerHTML || '';
 const count = (id, re) => (h(id).match(re) || []).length;
-const R = '../datasets/private-real/_renders/';
+const R = 'local-demo-assets/renderings/';
+const REFS = ['POINF36005', 'BTRPF39009', 'CHENF39031', 'CHENF36014', 'CHENF36015'];
 
-/* ================= 5. DEMO_RENDERINGS ================= */
+/* ================= 5. Le mini-catalogue Premibel ================= */
 ok('cinq scenes', api.DEMO_ROOMS.length === 5, `${api.DEMO_ROOMS.length}`);
-ok('six produits', api.DEMO_PRODUCTS.length === 6, `${api.DEMO_PRODUCTS.length}`);
+const P = api.PREMIBEL_DEMO_PRODUCTS;
+ok('cinq produits Premibel', P.length === 5, `${P.length}`);
+ok('les cinq references attendues',
+  P.map((x) => x.ref).sort().join(',') === REFS.slice().sort().join(','),
+  P.map((x) => x.ref).join(','));
+ok('references uniques', new Set(P.map((x) => x.ref)).size === 5);
+ok('chaque produit se dit Premibel', P.every((x) => x.source === 'premibel'));
+ok('chaque produit a une URL de fiche reelle',
+  P.every((x) => /^https:\/\/www\.premibel\.fr\/parquet-flottant-chene-verni\/[A-Z0-9_]+\/$/.test(x.productUrl)));
+ok('l URL contient la reference du produit',
+  P.every((x) => x.productUrl.includes(x.ref)));
+ok('chaque produit garde son image source',
+  P.every((x) => /^https:\/\/www\.premibel\.fr\/wp-content\/uploads\//.test(x.imageSourceUrl)));
+ok('chaque produit garde sa date de releve',
+  P.every((x) => /^2026-09-\d\d$/.test(x.checkedAt)));
+ok('chaque image pointe le cache local',
+  P.every((x) => x.image.startsWith('local-demo-assets/premibel/')));
+ok('proprietes reelles renseignees',
+  P.every((x) => x.species && x.widthMm > 0 && x.lengthMm > 0 && x.thicknessMm > 0
+    && x.finish && x.aspect && x.premibelFamily));
+ok('aucun prix sur les produits',
+  P.every((x) => !('price' in x) && !('prix' in x) && !('stock' in x)));
+ok('la substitution de Piccadilly est declaree',
+  P.find((x) => x.ref === 'BTRPF39009').substituteFor.includes('BTRPF39008'));
+ok('l incoherence de longueur de Houston est consignee',
+  /non arbitr/.test(P.find((x) => x.ref === 'CHENF39031').lengthNote));
+
+/* ================= 5 bis. Mappage renderer, explicite ================= */
+ok('chaque produit porte son mappage',
+  P.every((x) => x.rendererMapping && x.rendererMapping.familyId && x.rendererMapping.pattern));
+ok('aucun mappage ne se pretend exact',
+  P.every((x) => x.rendererMapping.status === 'approximate'
+    && x.visualAccuracy === 'approximate'),
+  P.map((x) => x.rendererMapping.status).join(','));
+ok('le mappage dit ce qui est exact et ce qui ne l est pas',
+  P.every((x) => x.rendererMapping.exact.includes('pattern')
+    && x.rendererMapping.approximate.includes('tone')
+    && x.rendererMapping.unavailable.includes('albedo')));
+ok('la largeur du mappage est celle du produit',
+  P.every((x) => Math.round(x.rendererMapping.widthM * 1000) === x.widthMm));
+ok('le motif du mappage est celui du produit',
+  P.every((x) => x.rendererMapping.pattern === x.pattern));
+ok('l origine de chaque famille est dite',
+  P.every((x) => /pilote du front|le n/.test(x.rendererMapping.familySource)));
+ok('la famille non validee est signalee',
+  /non valid/.test(P.find((x) => x.ref === 'CHENF39031').rendererMapping.familySource));
+ok('les documents de provenance existent',
+  require('fs').existsSync('docs/premibel-demo-catalog.md'));
 ok('les scenes n ont aucune geometrie',
   api.DEMO_ROOMS.every((r) => !('zones' in r) && !('occluders' in r) && !('w' in r)));
 ok('un jeu de rendus par scene', api.DEMO_ROOMS.every((r) => api.DEMO_RENDERINGS[r.id]));
-ok('chaque jeu a original + un rendu par produit',
-  api.DEMO_ROOMS.every((r) => {
-    const set = api.DEMO_RENDERINGS[r.id];
-    return Object.keys(set).length === api.DEMO_PRODUCTS.length + 1
-      && set.original && api.DEMO_PRODUCTS.every((p) => set[p.id]);
-  }), `${Object.keys(api.DEMO_RENDERINGS.sejour).length} cles par scene`);
+ok('trois scenes portent les rendus Premibel',
+  api.RENDERED_ROOMS.length === 3
+  && api.RENDERED_ROOMS.every((id) => Object.keys(api.DEMO_RENDERINGS[id]).length === 6),
+  api.RENDERED_ROOMS.join(','));
+ok('les deux autres scenes n ont que leur original',
+  api.DEMO_ROOMS.filter((r) => !api.RENDERED_ROOMS.includes(r.id))
+    .every((r) => Object.keys(api.DEMO_RENDERINGS[r.id]).join(',') === 'original'));
+ok('un rendu par reference dans les scenes couvertes',
+  api.RENDERED_ROOMS.every((id) => REFS.every((ref) => api.DEMO_RENDERINGS[id][ref])));
 ok('les rendus vivent hors de Git',
   Object.values(api.DEMO_RENDERINGS).every((set) =>
     Object.values(set).every((u) => u.startsWith(R))));
 ok('seuls les trois motifs du moteur du front',
-  api.DEMO_PRODUCTS.every((p) => ['lames', 'point-de-hongrie', 'baton-rompu'].includes(p.pattern))
+  P.every((p) => ['lames', 'point-de-hongrie', 'baton-rompu'].includes(p.pattern))
   && Object.keys(api.PATTERNS).length === 3);
-ok('les quatre teintes du front', Object.keys(api.TONES).join(',') === 'clair,naturel,chaud,fonce');
 ok('un produit ne porte aucune recette de rendu',
-  api.DEMO_PRODUCTS.every((p) => !('filter' in p) && !('wood' in p)));
+  P.every((p) => !('filter' in p) && !('wood' in p) && !('tint' in p)));
+/* La couche du sol ne peut recevoir QUE l'URL d'un rendu : une seule
+   affectation dans tout le fichier, et sa source est `renderUrl`. Une photo
+   produit Premibel ne peut donc pas se retrouver plaquee au sol. */
+const afterAssigns = code.match(/\$\('after'\)\.src = [^;]+;/g) || [];
+ok('la couche du sol ne recoit que le rendu',
+  afterAssigns.length === 1 && afterAssigns[0].indexOf('= url;') > 0,
+  afterAssigns.join(' | '));
+ok('le role de la photo produit est ecrit', /JAMAIS de texture[\s\S]{0,12}de sol/.test(html));
 
 /* ================= 6. Ouvrir une piece ================= */
 ok('aucune piece au depart', api.state.source === null);
@@ -249,20 +322,24 @@ ok('choisir une piece ouvre le visualiseur', el('stage').classList.contains('hid
 ok('la source est demo', api.state.source === 'demo', api.state.source);
 ok("l'image de fond est le rendu original",
   el('photo').getAttribute('src') === `${R}sejour.original.jpg`, el('photo').getAttribute('src'));
-ok('la couche du parquet porte le rendu du produit',
-  el('after').getAttribute('src') === `${R}sejour.oakNatural.jpg`, el('after').getAttribute('src'));
+ok('la couche du parquet porte le rendu de la reference',
+  el('after').getAttribute('src') === `${R}sejour.POINF36005.jpg`, el('after').getAttribute('src'));
 ok('elle est visible', el('after').classList.contains('hidden') === false);
 ok('aucun decoupage hors avant/apres', el('after').style.clipPath === 'none');
 
 /* ================= 7. Selection produit : le clic change l image ========= */
-api.select('oakSmoked');
-ok('choisir un parquet change l image',
-  el('after').getAttribute('src') === `${R}sejour.oakSmoked.jpg`, el('after').getAttribute('src'));
-ok('la largeur retombe sur une largeur reelle',
-  api.product().availableWidths.includes(api.state.width), `${api.state.width} mm`);
-ok('la finition retombe sur une finition reelle',
-  api.product().availableFinishes.includes(api.state.finish), api.state.finish);
-ok('la navigation suit', el('navFloorVal').textContent === 'Chêne Fumé', el('navFloorVal').textContent);
+api.select('CHENF36015');
+ok('choisir une reference change l image',
+  el('after').getAttribute('src') === `${R}sejour.CHENF36015.jpg`, el('after').getAttribute('src'));
+ok('la navigation suit', el('navFloorVal').textContent === 'Chêne Invisible Pivoine',
+  el('navFloorVal').textContent);
+ok('la fiche produit affiche motif, largeur et reference',
+  /Lames · 150 mm/.test(h('card')) && /Réf\. CHENF36015/.test(h('card')));
+ok('le lien de fiche est un vrai lien, en nouvel onglet',
+  /<a class="sheet" href="https:\/\/www\.premibel\.fr\/[^"]*CHENF36015\/"/.test(h('card'))
+  && /target="_blank"/.test(h('card')) && /rel="noopener noreferrer"/.test(h('card')));
+ok('la carte porte Personnaliser et Comparer',
+  /data-open="cus"/.test(h('card')) && /data-open="cmpA"/.test(h('card')));
 const before = api.state.productId;
 api.stepProduct(1, 'A');
 ok('la fleche suivant change de parquet', api.state.productId !== before, api.state.productId);
@@ -283,11 +360,13 @@ api.paint();
 ok('avant/apres se desactive', el('after').style.clipPath === 'none');
 
 /* ================= 9. Comparaison : deux rendus, une seule photo ========= */
-api.state.compare = { b: 'oakChalk' };
+api.state.compare = { b: 'CHENF36014' };
 api.state.split = 0.5;
 api.paint();
 ok('la version B est chargee',
-  el('cmpB').getAttribute('src') === `${R}sejour.oakChalk.jpg`, el('cmpB').getAttribute('src'));
+  el('cmpB').getAttribute('src') === `${R}sejour.CHENF36014.jpg`, el('cmpB').getAttribute('src'));
+ok('les deux cartes portent de vraies references',
+  /Réf\. CHENF36015/.test(h('card')) && /Réf\. CHENF36014/.test(h('cardB')));
 ok('la version B est visible', el('cmpB').classList.contains('hidden') === false);
 ok('la version A reste decoupee', el('after').style.clipPath === 'inset(0 50.00% 0 0)');
 ok('deux cartes produit', el('cardB').classList.contains('hidden') === false);
@@ -296,7 +375,7 @@ ok('les versions sont etiquetees',
 ok('la navigation s efface pendant la comparaison', el('nav').classList.contains('hidden') === true);
 api.stepProduct(1, 'B');
 ok('le cote B change seul',
-  api.state.compare.b !== 'oakChalk' && api.state.productId === before,
+  api.state.compare.b !== 'CHENF36014' && api.state.productId === before,
   `${api.state.compare.b} / ${api.state.productId}`);
 api.state.compare = null;
 api.paint();
@@ -305,37 +384,52 @@ ok('fermer la comparaison rend la navigation', el('nav').classList.contains('hid
 
 /* ================= 10. Changer de piece ================= */
 const kept = api.state.productId;
-api.openRoom('piece-arcades');
-ok('le parquet survit au changement de piece', api.state.productId === kept, api.state.productId);
+api.openRoom('chambre');
+ok('la reference survit au changement de piece', api.state.productId === kept, api.state.productId);
 ok('la nouvelle scene est chargee',
-  el('photo').getAttribute('src').endsWith('piece-arcades.original.jpg'));
+  el('photo').getAttribute('src').endsWith('chambre.original.jpg'));
 ok('le rendu de la nouvelle scene est charge',
-  el('after').getAttribute('src') === `${R}piece-arcades.${kept}.jpg`, el('after').getAttribute('src'));
+  el('after').getAttribute('src') === `${R}chambre.${kept}.jpg`, el('after').getAttribute('src'));
 ok('aucun rendu n est reutilise d une piece a l autre',
-  api.renderUrl('sejour', kept) !== api.renderUrl('piece-arcades', kept));
+  api.renderUrl('sejour', kept) !== api.renderUrl('chambre', kept));
+/* Une scene sans rendu Premibel doit retomber, pas inventer. */
+api.openRoom('piece-arcades');
+ok('une scene non couverte n a aucun rendu', api.renderUrl('piece-arcades', kept) === null);
+ok('elle montre la photo, sans parquet',
+  el('after').classList.contains('hidden') === true
+  && el('photo').getAttribute('src').endsWith('piece-arcades.original.jpg'));
+api.openRoom('sejour');
 
 /* ================= 11. Repli quand un rendu manque ================= */
-api.state.missing.add(`${R}piece-arcades.oakHoney.jpg`);
-api.select('oakHoney', true);
+api.openRoom('piece-claire');
+api.state.missing.add(`${R}piece-claire.CHENF36014.jpg`);
+api.select('CHENF36014', true);
 ok('un rendu manquant masque la couche du parquet',
   el('after').classList.contains('hidden') === true);
 ok('la photo d origine reste affichee',
-  el('photo').getAttribute('src').endsWith('piece-arcades.original.jpg'));
+  el('photo').getAttribute('src').endsWith('piece-claire.original.jpg'));
 ok('aucun faux parquet en repli', el('after').style.clipPath === 'none');
 ok('la mention de repli est reservee au mode dev',
   api.DEV === false && el('devnote').classList.contains('hidden') === true);
 ok('le texte de repli existe dans le fichier', /Rendu demo indisponible/.test(html));
 api.state.missing.clear();
-api.select('oakNatural', true);
+api.select('CHENF36014', true);
 ok('le rendu revient une fois disponible', el('after').classList.contains('hidden') === false);
 
 /* Si meme l original manque, on retombe sur la photo brute. */
-api.state.missing.add(`${R}piece-arcades.original.jpg`);
+api.state.missing.add(`${R}piece-claire.original.jpg`);
 api.paint();
 ok('sans original, la photo brute prend le relais',
-  el('photo').getAttribute('src') === '../datasets/private-real/piece-arcades.jpg',
+  el('photo').getAttribute('src') === '../datasets/private-real/piece-claire.jpg',
   el('photo').getAttribute('src'));
 api.state.missing.clear();
+/* Et sans image produit locale, la vignette prend un cadre, pas un vide. */
+api.state.missingImg.add(api.product('CHENF36014').image);
+api.paintCard();
+ok('une image produit absente donne un cadre', /class="sw noimg"/.test(h('card')));
+ok('le cadre est explicite', /image produit absente/.test(html));
+api.state.missingImg.clear();
+api.paintCard();
 
 /* ================= 12. Photo importee inconnue ================= */
 api.loadUpload({ type: 'image/jpeg', name: 'ma-piece.jpg' });
@@ -346,7 +440,7 @@ ok('aucun parquet pose dessus', el('after').classList.contains('hidden') === tru
 ok('ni carte produit ni outils quand rien n est pose',
   el('card').classList.contains('hidden') === true
   && el('tools').classList.contains('hidden') === true);
-ok('aucun rendu inconnu invente', api.renderUrl('uploaded', 'oakNatural') === null);
+ok('aucun rendu inconnu invente', api.renderUrl('uploaded', 'POINF36005') === null);
 ok('le message d honnetete est present', /moteur IA n'est pas connecté/.test(html));
 ok('la limite est dite temporaire', /cette limite[\s\S]{0,20}dispara/.test(html));
 ok('deux sorties sont proposees', /id="unkRooms"/.test(html) && /id="unkOther"/.test(html));
@@ -362,59 +456,91 @@ ok('aucune persistance de la photo', !/localStorage|sessionStorage|indexedDB/.te
 
 /* ================= 14. Catalogue ================= */
 api.openCat();
-ok('la grille montre les six produits', count('prods', /class="pd"/g) === 6);
-ok('les vignettes sont des images', count('prods', /class="tex"/g) === 6);
-ok('la vignette vient d un vrai rendu', /_renders\/swatch\./.test(h('prods')));
-ok('une couleur de repli derriere la vignette', /background-color:#/.test(h('prods')));
-ok('le compte figure dans le titre', el('catCount').textContent === '(6)', el('catCount').textContent);
-ok('filtre motif', count('fPattern', /class="chip"/g) === 3);
-ok('filtre teinte', count('fTone', /class="chip"/g) === 4);
+ok('la grille montre les cinq references', count('prods', /class="pd"/g) === 5);
+ok('les vignettes sont les photos produit',
+  count('prods', /local-demo-assets\/premibel\//g) === 5);
+ok('chaque carte porte nom, motif, largeur et reference',
+  /Point de Hongrie Zeus Naturel/.test(h('prods'))
+  && /Point de Hongrie · 92 mm — Réf\. POINF36005/.test(h('prods')));
+ok('aucun prix sur les cartes', !/€/.test(h('prods')));
+ok('le compte figure dans le titre', el('catCount').textContent === '(5)', el('catCount').textContent);
+ok('filtre motif limite aux motifs presents',
+  count('fPattern', /class="chip"/g) === api.presentPatterns().length
+  && api.presentPatterns().length === 3);
+ok('filtre teinte limite aux teintes presentes',
+  count('fTone', /class="chip"/g) === api.presentTones().length
+  && api.presentTones().length === 3, api.presentTones().join(','));
+ok('filtre largeur derive du catalogue',
+  api.presentWidths().join(',') === '90,92,150,190', api.presentWidths().join(','));
+ok('aucune largeur absente proposee',
+  api.presentWidths().every((mm) => P.some((x) => x.widthMm === mm)));
 api.toggleFilter('pattern', 'baton-rompu');
 ok('un filtre reduit la grille', api.visible().length === 1, `${api.visible().length}`);
 ok('le compte suit le filtre', el('catCount').textContent === '(1)');
 api.toggleFilter('pattern', 'baton-rompu');
-ok('le meme filtre se retire', api.visible().length === 6);
-api.toggleFilter('tone', 'chaud');
-ok('la teinte filtre aussi', api.visible().length === 2, `${api.visible().length}`);
-api.toggleFilter('tone', 'chaud');
+ok('le meme filtre se retire', api.visible().length === 5);
+api.toggleFilter('widthMm', 150);
+ok('la largeur filtre aussi', api.visible().length === 2, `${api.visible().length}`);
+api.toggleFilter('widthMm', 150);
 
-/* ================= 15. Personnaliser ================= */
+/* Inspirations : editoriales, et dites comme telles. */
+ok('trois inspirations', api.MOODS.length === 3);
+ok('elles pointent de vraies references',
+  api.MOODS.every((m) => m.refs.every((r) => REFS.includes(r))));
+ok('elles sont annoncees comme editoriales',
+  /sélection éditoriale, écrite à la main/.test(h('moods')));
+ok('aucune pretention d IA', !/recommand|intelligence artificielle/i.test(h('moods')));
+api.toggleFilter('mood', 'graphique');
+ok('une inspiration filtre le catalogue',
+  api.visible().map((x) => x.ref).sort().join(',') === 'BTRPF39009,POINF36005',
+  api.visible().map((x) => x.ref).join(','));
+api.toggleFilter('mood', 'graphique');
+
+/* ================= 15. Personnaliser : chercher une variante ==============
+   Un vrai produit n'est pas configurable. Changer un critere doit conduire a
+   une AUTRE reference, jamais transformer celle-ci. */
 api.openRoom('sejour');
-api.select('oakNatural', true);
+api.select('POINF36005', true);
 api.paintCustom();
-ok('deux motifs pour le chene naturel', count('patterns', /class="pt"/g) === 2,
-  `${count('patterns', /class="pt"/g)}`);
-ok('le motif absent est annonce', /sans rendu pour cette teinte/.test(el('patternNote').textContent),
-  el('patternNote').textContent);
-ok('trois largeurs pour le chene naturel', count('widths', /class="chip"/g) === 3);
+ok('le panneau nomme la reference active',
+  /Réf\. POINF36005/.test(el('cusName').textContent), el('cusName').textContent);
+ok('il explique qu une reference est definie',
+  /une référence\s*\n?\s*définie/.test(el('cusIntro').innerHTML));
+ok('les trois motifs sont proposes', count('patterns', /class="pt"/g) === 3);
+ok('chaque motif mene a une reference', count('patterns', /data-variant="[A-Z]/g) === 3);
+ok('les quatre largeurs du catalogue', count('widths', /class="chip"/g) === 4);
+ok('les trois teintes du catalogue', count('tones', /class="chip"/g) === 3);
+ok('la finition est unique et non modifiable',
+  count('finishes', /class="chip"/g) === 1 && /Verni/.test(h('finishes')));
+ok('la note dit pourquoi', /pas de/.test(el('finishNote').textContent));
+
+/* Zeus est un point de Hongrie 92 mm : demander des lames doit donner une
+   AUTRE reference, pas un Zeus en lames. */
+const vLames = api.findVariant({ pattern: 'lames' });
+ok('demander des lames renvoie une autre reference',
+  vLames && vLames.ref !== 'POINF36005' && vLames.pattern === 'lames', vLames && vLames.ref);
+const v190 = api.findVariant({ widthMm: 190 });
+ok('demander 190 mm renvoie Houston', v190 && v190.ref === 'CHENF39031', v190 && v190.ref);
+const vChaud = api.findVariant({ tone: 'chaud' });
+ok('demander la teinte chaude renvoie Pivoine',
+  vChaud && vChaud.ref === 'CHENF36015', vChaud && vChaud.ref);
+ok('un critere absent du catalogue ne renvoie rien',
+  api.findVariant({ widthMm: 220 }) === null);
+ok('la variante ne transforme jamais le produit actif',
+  api.product('POINF36005').widthMm === 92
+  && api.product('POINF36005').pattern === 'point-de-hongrie');
+
+/* Le sens de pose reste un reglage du rendu, pas une autre reference. */
 ok('deux sens de pose', count('orient', /class="or"/g) === 2);
-ok('la limite de la maquette est ecrite',
-  /class="honest"/.test(html) && /ne redessine rien/.test(html));
-
-/* Changer de motif choisit un AUTRE rendu, il n'en calcule aucun. */
-const avant = el('after').getAttribute('src');
-const cible = (h('patterns').match(/data-target="([^"]+)"/g) || [])
-  .map((s) => s.replace(/.*"([^"]+)"/, '$1')).find((id) => id !== 'oakNatural');
-api.select(cible, true);
-ok('changer de motif change de rendu',
-  el('after').getAttribute('src') !== avant
-  && el('after').getAttribute('src').endsWith(`sejour.${cible}.jpg`),
-  el('after').getAttribute('src'));
-
-api.select('oakNatural', true);
-const largeurAvant = el('after').getAttribute('src');
-api.state.width = 90;
-api.paint();
-ok('changer de largeur ne change pas l image',
-  el('after').getAttribute('src') === largeurAvant);
-ok('mais la fiche produit suit', /90 mm/.test(h('card')));
+ok('le sens de pose est dit reglage de rendu',
+  /pas une autre\s*\n?\s*référence/.test(html));
 
 /* ================= 16. Favoris ================= */
 ok('aucun favori au depart', api.state.favourites.size === 0);
-api.toggleFav('oakSmoked');
-ok('un favori se pose', api.state.favourites.has('oakSmoked'));
+api.toggleFav('POINF36005');
+ok('un favori memorise la vraie reference', api.state.favourites.has('POINF36005'));
 ok('le compteur d en-tete suit', el('favCount').textContent === '1');
-api.toggleFav('oakSmoked');
+api.toggleFav('POINF36005');
 ok('un favori se retire', api.state.favourites.size === 0);
 
 /* ================= 17. Etats d analyse ================= */
@@ -464,12 +590,22 @@ ok('les modales sont ancrees a la page',
 
 /* ================= Inventaire des rendus attendus ================= */
 console.log('');
+console.log('Mini-catalogue Premibel (metadonnees versionnees, binaires non)');
+console.log('  reference     motif              largeur  famille de rendu   mappage');
+P.forEach((x) => {
+  console.log(`  ${x.ref.padEnd(13)} ${api.PATTERNS[x.pattern].padEnd(18)}`
+    + ` ${String(x.widthMm + ' mm').padStart(7)}  ${x.rendererMapping.familyId.padEnd(18)}`
+    + ` ${x.rendererMapping.status}`);
+});
+console.log('');
 console.log('Rendus attendus (hors de Git, produits par le Visualiseur du front)');
 api.DEMO_ROOMS.forEach((r) => {
-  console.log(`  ${r.id.padEnd(16)} ${Object.keys(api.DEMO_RENDERINGS[r.id]).length} fichiers  ${r.category}`);
+  const n = Object.keys(api.DEMO_RENDERINGS[r.id]).length;
+  console.log(`  ${r.id.padEnd(16)} ${n} fichier(s)`
+    + `${api.RENDERED_ROOMS.includes(r.id) ? '' : '  — original seul, repli exerce'}`);
 });
-console.log(`  total ${api.DEMO_ROOMS.length * (api.DEMO_PRODUCTS.length + 1)} fichiers`
-  + ` + ${api.DEMO_PRODUCTS.length} vignettes`);
+console.log(`  total ${api.RENDERED_ROOMS.length * P.length} rendus`
+  + ` + ${api.DEMO_ROOMS.length} originaux + ${P.length} images produit`);
 
 console.log(bad ? `\n${bad} ECHEC(S)` : '\nAUCUN ECHEC');
 process.exit(bad ? 1 : 0);

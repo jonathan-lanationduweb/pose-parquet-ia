@@ -249,9 +249,18 @@
     border-radius: var(--r-md); box-shadow: var(--sh-2);
   }
   #card .sw, #cardB .sw {
-    display: block; width: 72px; height: 72px; margin: 0 auto 10px;
-    border-radius: var(--r-pill); background-size: cover; background-position: center;
-    box-shadow: inset 0 0 0 1px var(--line-2);
+    display: block; width: 100%; aspect-ratio: 4 / 3; margin: 0 0 10px;
+    border-radius: var(--r-sm); background-size: cover; background-position: center;
+    background-color: var(--track); box-shadow: inset 0 0 0 1px var(--line-2);
+  }
+  /* Le cadre de remplacement quand l'image produit locale manque. */
+  .noimg { position: relative; }
+  .noimg::after {
+    content: "image produit absente"; position: absolute; inset: 0;
+    display: grid; place-items: center; padding: 6px; text-align: center;
+    font-size: 10.5px; line-height: 1.3; color: var(--ink-4);
+    background: var(--track-2);
+    border-radius: inherit;
   }
   #card b, #cardB b { display: block; font-size: 13.5px; font-weight: 600; line-height: 1.3; }
   #card .ref, #cardB .ref { display: block; margin-top: 4px; font-size: 10.5px; letter-spacing: 0.03em; color: var(--ink-4); }
@@ -267,7 +276,9 @@
     display: flex; align-items: center; margin-top: 7px;
     border-top: 1px solid var(--line); padding-top: 5px;
   }
-  #card .row button, #cardB .row button { flex: 1; padding: 6px 0; color: var(--ink-3); }
+  #card .row button, #cardB .row button {
+    flex: 1; padding: 6px 0; color: var(--ink-3); font-size: 11.5px;
+  }
   #card .row button:hover, #cardB .row button:hover { color: var(--ink); }
   #card .row .fav[aria-pressed="true"], #cardB .row .fav[aria-pressed="true"] { color: var(--terre); }
   #card .row .fav[aria-pressed="true"] svg, #cardB .row .fav[aria-pressed="true"] svg { fill: var(--terre); }
@@ -358,7 +369,7 @@
   .prods { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
   .pd { text-align: left; position: relative; }
   .pd .tex {
-    display: block; width: 100%; aspect-ratio: 1 / 0.78;
+    display: block; width: 100%; aspect-ratio: 4 / 3;
     border-radius: var(--r-md); background-size: cover; background-position: center;
     box-shadow: 0 0 0 1px var(--line);
     transition: box-shadow var(--t) var(--ease), transform var(--t) var(--ease);
@@ -376,6 +387,18 @@
   .pd .hh[aria-pressed="true"] svg { fill: var(--terre); }
 
   .empty { padding: 30px 4px; font-size: 13.5px; color: var(--ink-3); }
+
+  /* Inspirations : une sélection éditoriale, pas une recommandation calculée. */
+  .moods { margin-bottom: 18px; }
+  .moods .lead { margin: 0 0 8px; font-size: 12px; color: var(--ink-4); }
+  .moods .row { display: flex; gap: 7px; flex-wrap: wrap; }
+  .mood {
+    padding: 8px 14px; border-radius: var(--r-pill); font-size: 12.5px;
+    background: var(--track); color: var(--ink-2);
+    transition: background var(--t) var(--ease), color var(--t) var(--ease);
+  }
+  .mood:hover { background: var(--track-2); }
+  .mood[aria-pressed="true"] { background: var(--terre); color: #fff; font-weight: 550; }
 
   .sect { margin-bottom: 22px; }
   .sect h3 { margin: 0 0 10px; font-size: 13.5px; font-weight: 600; }
@@ -696,9 +719,13 @@
     <div class="side">
       <div class="grp"><h3>Motif</h3><div class="chips" id="fPattern"></div></div>
       <div class="grp"><h3>Teinte</h3><div class="chips" id="fTone"></div></div>
+      <div class="grp"><h3>Largeur</h3><div class="chips" id="fWidth"></div></div>
       <button class="clearf" id="clearFilters" type="button">Réinitialiser les filtres</button>
     </div>
-    <div class="main"><div class="prods" id="prods"></div></div>
+    <div class="main">
+      <div class="moods" id="moods"></div>
+      <div class="prods" id="prods"></div>
+    </div>
   </div>
 </div>
 
@@ -715,15 +742,16 @@
     </button>
   </div>
   <div class="body"><div class="main">
-    <p class="honest">Le motif et la teinte changent l'image, parce qu'un rendu
-      existe pour cette combinaison. La largeur, le sens de pose et la finition
-      mettent à jour la fiche du produit : le vrai moteur les calcule, cette
-      maquette ne redessine rien.</p>
+    <p class="honest" id="cusIntro"></p>
     <div class="sect"><h3>Motif de pose</h3><div class="pats" id="patterns"></div>
       <p class="note" id="patternNote"></p></div>
     <div class="sect"><h3>Largeur des lames</h3><div class="chips" id="widths"></div>
       <p class="note" id="widthNote"></p></div>
-    <div class="sect"><h3>Sens de pose</h3><div class="orient" id="orient"></div></div>
+    <div class="sect"><h3>Teinte</h3><div class="chips" id="tones"></div>
+      <p class="note" id="toneNote"></p></div>
+    <div class="sect"><h3>Sens de pose</h3><div class="orient" id="orient"></div>
+      <p class="note">Le sens de pose est un réglage du rendu, pas une autre
+        référence : il ne change pas de produit.</p></div>
     <div class="sect"><h3>Finition</h3><div class="chips" id="finishes"></div>
       <p class="note" id="finishNote"></p></div>
   </div></div>
@@ -746,7 +774,6 @@
 (() => {
   'use strict';
 
-  const RENDERS = '../datasets/private-real/_renders/';
   const PHOTOS = '../datasets/private-real/';
 
   /* `?dev=1` affiche les mentions de développement — jamais dans l'UX. */
@@ -771,63 +798,178 @@
 
   const CATEGORIES = ['Séjour', 'Chambre', 'Grande pièce', 'Bureau'];
 
-  /* Les trois motifs que le moteur du front connaît (`KNOWN_PATTERNS`). */
+  /* Les trois motifs que le moteur du front connaît (`KNOWN_PATTERNS`) — et
+     ce sont exactement les trois motifs de nos cinq produits Premibel. */
   const PATTERNS = {
     lames: 'Lames',
     'point-de-hongrie': 'Point de Hongrie',
     'baton-rompu': 'Bâton rompu',
   };
   const TONES = { clair: 'Clair', naturel: 'Naturel', chaud: 'Chaud', fonce: 'Foncé' };
-  const FINISHES = { matte: 'Mate', satin: 'Satinée', gloss: 'Brillante' };
+  const FINISHES = { verni: 'Verni', huile: 'Huilé', brut: 'Brut' };
 
   /* =====================================================================
-     DEMO_PRODUCTS — six produits de démonstration
+     PREMIBEL_DEMO_PRODUCTS — cinq références RÉELLES
 
-     Noms et teintes reprennent le catalogue du front, pour que la maquette
-     et le vrai Visualiseur parlent de la même chose. `id` est aussi la CLÉ
-     du rendu préfabriqué : il n'y a pas de recette de rendu ici, seulement
-     un nom de fichier. `tint` ne sert qu'à la pastille quand son vignettage
-     manque.
+     Relevées à la main le 8 septembre 2026 sur les fiches en ligne : tableau
+     de spécifications (Essence, Largeur, Longueur, Épaisseur, Finition,
+     Aspect) et JSON-LD (name, #primaryimage, canonical). Le détail et les
+     réserves sont dans `docs/premibel-demo-catalog.md`.
+
+     Pas de prix, pas de remise, pas de stock : la maquette sert à voir un
+     parquet dans une pièce, pas à vendre.
+
+     ## Deux écarts, consignés et non arbitrés
+
+     * `BTRPF39008` « Piccadilly » n'existe plus : la fiche renvoie 404 et la
+       recherche interne rend « 0 produits ». Remplacé par `BTRPF39009`
+       Notting Hill, bâton rompu chêne verni 90 mm — le plus proche réel.
+       Ce choix est le nôtre.
+     * `CHENF39031` s'intitule « …190X15X400mm » alors que son tableau dit
+       « Longueur : 1900mm ». Les deux sont notés, aucun n'est tranché.
+
+     ## `visualAccuracy` : jamais « exact »
+
+     La photo produit sert la carte et la fiche. Le rendu de la pièce vient de
+     NOTRE moteur, avec une famille de texture de démonstration : la géométrie
+     (motif, largeur, sens de pose) est juste, la matière est approchée. Aucun
+     mappage n'est donc exact, et l'interface parle d'« aperçu ».
      ===================================================================== */
-  const DEMO_PRODUCTS = [
-    { id: 'oakChalk', name: 'Chêne Craie', ref: 'DEMO · CHÊNE | CRAIE',
-      url: '#fiche/chene-craie', tone: 'clair', pattern: 'lames',
-      availableWidths: [140, 190], availableFinishes: ['matte', 'satin'], tint: '#ded5c5' },
-    { id: 'oakNatural', name: 'Chêne Naturel', ref: 'DEMO · CHÊNE | NATUREL',
-      url: '#fiche/chene-naturel', tone: 'naturel', pattern: 'lames',
-      availableWidths: [90, 140, 190], availableFinishes: ['matte', 'satin'], tint: '#c8a476' },
-    { id: 'oakHoney', name: 'Chêne Miel', ref: 'DEMO · CHÊNE | MIEL',
-      url: '#fiche/chene-miel', tone: 'chaud', pattern: 'lames',
-      availableWidths: [140, 190], availableFinishes: ['matte', 'satin', 'gloss'], tint: '#c18b48' },
-    { id: 'oakSmoked', name: 'Chêne Fumé', ref: 'DEMO · CHÊNE | FUMÉ',
-      url: '#fiche/chene-fume', tone: 'fonce', pattern: 'lames',
-      availableWidths: [140, 190], availableFinishes: ['matte'], tint: '#5f4a3a' },
-    { id: 'chevronNatural', name: 'Point de Hongrie naturel', ref: 'DEMO · CHÊNE | PDH',
-      url: '#fiche/point-de-hongrie-naturel', tone: 'naturel', pattern: 'point-de-hongrie',
-      availableWidths: [90], availableFinishes: ['matte', 'satin'], tint: '#c8a476' },
-    { id: 'herringboneHoney', name: 'Bâton rompu miel', ref: 'DEMO · CHÊNE | BAR',
-      url: '#fiche/baton-rompu-miel', tone: 'chaud', pattern: 'baton-rompu',
-      availableWidths: [90, 140], availableFinishes: ['matte'], tint: '#c18b48' },
+  const PREMIBEL = 'local-demo-assets/premibel/';
+  const RENDERS = 'local-demo-assets/renderings/';
+
+  const PREMIBEL_DEMO_PRODUCTS = [
+    {
+      id: 'POINF36005', ref: 'POINF36005', source: 'premibel',
+      name: 'Point de Hongrie Zeus Naturel',
+      fullTitle: 'POINT DE HONGRIE ZEUS NATUREL 92X12X520',
+      productUrl: 'https://www.premibel.fr/parquet-flottant-chene-verni/POINF36005/',
+      imageSourceUrl: 'https://www.premibel.fr/wp-content/uploads/2026/07/POINF36005.jpg',
+      image: PREMIBEL + 'POINF36005.jpg',
+      checkedAt: '2026-09-08',
+      species: 'Chêne', pattern: 'point-de-hongrie', widthMm: 92, lengthMm: 520,
+      thicknessMm: 12, finish: 'verni', aspect: 'Brossé', premibelFamily: 'FLCHEN08',
+      tone: 'clair',
+      rendererMapping: {
+        status: 'approximate', familyId: 'chene-sable', pattern: 'point-de-hongrie',
+        widthM: 0.092, familySource: 'pilote du front (products.premibel-pilot.json)',
+        exact: ['pattern', 'widthMm', 'angle'],
+        approximate: ['tone', 'grain', 'finish'],
+        unavailable: ['albedo', 'normal', 'roughness'],
+      },
+      visualAccuracy: 'approximate',
+    },
+    {
+      id: 'BTRPF39009', ref: 'BTRPF39009', source: 'premibel',
+      name: 'Bâton rompu Notting Hill Invisible',
+      fullTitle: 'Baton rompu notting hill invisible 90X15X600mm',
+      productUrl: 'https://www.premibel.fr/parquet-flottant-chene-verni/BTRPF39009/',
+      imageSourceUrl: 'https://www.premibel.fr/wp-content/uploads/2026/04/BTRPF39009.png',
+      image: PREMIBEL + 'BTRPF39009.png',
+      checkedAt: '2026-09-08',
+      species: 'Chêne', pattern: 'baton-rompu', widthMm: 90, lengthMm: 600,
+      thicknessMm: 15, finish: 'verni', aspect: 'Brossé', premibelFamily: 'FLCHEN08',
+      tone: 'clair',
+      substituteFor: 'BTRPF39008 « Piccadilly », introuvable au 8 septembre 2026',
+      rendererMapping: {
+        status: 'approximate', familyId: 'chene-craie', pattern: 'baton-rompu',
+        widthM: 0.09, familySource: 'pilote du front (products.premibel-pilot.json)',
+        exact: ['pattern', 'widthMm', 'angle'],
+        approximate: ['tone', 'grain', 'finish'],
+        unavailable: ['albedo', 'normal', 'roughness'],
+      },
+      visualAccuracy: 'approximate',
+    },
+    {
+      id: 'CHENF39031', ref: 'CHENF39031', source: 'premibel',
+      name: 'Chêne naturel Houston',
+      fullTitle: 'Chêne naturel houston 190X15X400mm',
+      productUrl: 'https://www.premibel.fr/parquet-flottant-chene-verni/CHENF39031/',
+      imageSourceUrl: 'https://www.premibel.fr/wp-content/uploads/2025/11/CHENF39031.jpg',
+      image: PREMIBEL + 'CHENF39031.jpg',
+      checkedAt: '2026-09-08',
+      species: 'Chêne', pattern: 'lames', widthMm: 190, lengthMm: 1900,
+      lengthNote: 'tableau : 1900 mm · titre de la fiche : 400 mm — non arbitré',
+      thicknessMm: 15, finish: 'verni', aspect: 'Brossé, Satiné', premibelFamily: 'FLCHEN08',
+      tone: 'naturel',
+      rendererMapping: {
+        status: 'approximate', familyId: 'chene-naturel', pattern: 'lames',
+        widthM: 0.19, familySource: 'le nôtre, absent du pilote du front, non validé',
+        exact: ['pattern', 'widthMm', 'angle'],
+        approximate: ['tone', 'grain', 'finish'],
+        unavailable: ['albedo', 'normal', 'roughness'],
+      },
+      visualAccuracy: 'approximate',
+    },
+    {
+      id: 'CHENF36014', ref: 'CHENF36014', source: 'premibel',
+      name: 'Chêne Colza',
+      fullTitle: 'CHENE COLZA 150X15',
+      productUrl: 'https://www.premibel.fr/parquet-flottant-chene-verni/CHENF36014/',
+      imageSourceUrl: 'https://www.premibel.fr/wp-content/uploads/2026/07/CHENF36014.jpg',
+      image: PREMIBEL + 'CHENF36014.jpg',
+      checkedAt: '2026-09-08',
+      species: 'Chêne', pattern: 'lames', widthMm: 150, lengthMm: 1900,
+      thicknessMm: 15, finish: 'verni', aspect: 'Brossé, Mat', premibelFamily: 'FLCHEN08',
+      tone: 'clair',
+      rendererMapping: {
+        status: 'approximate', familyId: 'chene-sable', pattern: 'lames',
+        widthM: 0.15, familySource: 'pilote du front (products.premibel-pilot.json)',
+        exact: ['pattern', 'widthMm', 'angle'],
+        approximate: ['tone', 'grain', 'finish'],
+        unavailable: ['albedo', 'normal', 'roughness'],
+      },
+      visualAccuracy: 'approximate',
+    },
+    {
+      id: 'CHENF36015', ref: 'CHENF36015', source: 'premibel',
+      name: 'Chêne Invisible Pivoine',
+      fullTitle: 'CHENE INVISIBLE PIVOINE 150X15',
+      productUrl: 'https://www.premibel.fr/parquet-flottant-chene-verni/CHENF36015/',
+      imageSourceUrl: 'https://www.premibel.fr/wp-content/uploads/2026/07/CHENF36015.jpg',
+      image: PREMIBEL + 'CHENF36015.jpg',
+      checkedAt: '2026-09-08',
+      species: 'Chêne', pattern: 'lames', widthMm: 150, lengthMm: 1900,
+      thicknessMm: 15, finish: 'verni', aspect: 'Brossé, Mat', premibelFamily: 'FLCHEN08',
+      tone: 'chaud',
+      rendererMapping: {
+        status: 'approximate', familyId: 'chene-rustique', pattern: 'lames',
+        widthM: 0.15, familySource: 'pilote du front (products.premibel-pilot.json)',
+        exact: ['pattern', 'widthMm', 'angle'],
+        approximate: ['tone', 'grain', 'finish'],
+        unavailable: ['albedo', 'normal', 'roughness'],
+      },
+      visualAccuracy: 'approximate',
+    },
+  ];
+
+  /* Inspirations : une SÉLECTION ÉDITORIALE, écrite à la main. Aucune IA ne
+     les a recommandées, et l'interface le dit. */
+  const MOODS = [
+    { id: 'clair', label: 'Clair et lumineux', refs: ['CHENF36015', 'CHENF39031'] },
+    { id: 'graphique', label: 'Graphique', refs: ['POINF36005', 'BTRPF39009'] },
+    { id: 'large', label: 'Larges lames', refs: ['CHENF39031'] },
   ];
 
   /* =====================================================================
-     DEMO_RENDERINGS — l'unique source d'image de la maquette
+     DEMO_RENDERINGS — l'unique source d'image de la pièce
 
-     Une entrée par scène : la photo d'origine, puis un rendu par produit.
-     Produits par le Visualiseur du front lancé en local (voir l'en-tête du
-     fichier). Hors de Git, parce qu'ils dérivent de photos non
-     redistribuables : sans eux la maquette montre la photo d'origine.
+     Une entrée par scène : la photo d'origine, puis un rendu par référence
+     Premibel. Produits par le Visualiseur du front (voir l'en-tête). Trois
+     scènes sont couvertes ; les deux autres retombent sur la photo d'origine,
+     ce qui exerce le repli pour de vrai.
      ===================================================================== */
+  const RENDERED_ROOMS = ['sejour', 'chambre', 'piece-claire'];
   const DEMO_RENDERINGS = {};
   DEMO_ROOMS.forEach((room) => {
-    const set = { original: `${RENDERS}${room.id}.original.jpg` };
-    DEMO_PRODUCTS.forEach((p) => { set[p.id] = `${RENDERS}${room.id}.${p.id}.jpg`; });
+    const set = { original: RENDERS + room.id + '.original.jpg' };
+    if (RENDERED_ROOMS.includes(room.id)) {
+      PREMIBEL_DEMO_PRODUCTS.forEach((p) => {
+        set[p.id] = RENDERS + room.id + '.' + p.id + '.jpg';
+      });
+    }
     DEMO_RENDERINGS[room.id] = set;
   });
-
-  /* Vignette du catalogue : un détail d'un vrai rendu, donc une vraie
-     texture — et non un motif que la maquette aurait dessiné. */
-  const swatch = (p) => `${RENDERS}swatch.${p.id}.jpg`;
 
   const ANALYSIS = {
     success: { kind: 'ok', text: 'Pièce prête' },
@@ -842,9 +984,11 @@
     source: null,
     roomId: null,
     uploaded: null,
-    productId: 'oakNatural',
-    width: 190, finish: 'matte', orient: 'long',
-    filters: { pattern: null, tone: null },
+    productId: 'POINF36005',
+    /* Un vrai produit porte sa largeur et sa finition : elles ne sont plus
+       des réglages. Seul le sens de pose en est un. */
+    orient: 'long',
+    filters: { pattern: null, tone: null, widthMm: null, mood: null },
     category: 'Séjour',
     analysis: 'success',
     ba: false, split: 0.5,
@@ -853,9 +997,45 @@
     picking: false,
     /* Rendus dont le chargement a échoué : notés une fois, plus redemandés. */
     missing: new Set(),
+    /* Images produit absentes du cache local : la vignette prend un cadre. */
+    missingImg: new Set(),
   };
 
-  const product = (id) => DEMO_PRODUCTS.find((p) => p.id === (id || state.productId));
+  const product = (id) => PREMIBEL_DEMO_PRODUCTS.find((p) => p.id === (id || state.productId));
+
+  /* Les valeurs réellement présentes dans le mini-catalogue : on ne propose
+     jamais un filtre qui ne mène à rien. */
+  const presentPatterns = () => Object.keys(PATTERNS)
+    .filter((k) => PREMIBEL_DEMO_PRODUCTS.some((p) => p.pattern === k));
+  const presentTones = () => Object.keys(TONES)
+    .filter((k) => PREMIBEL_DEMO_PRODUCTS.some((p) => p.tone === k));
+  const presentWidths = () => [...new Set(PREMIBEL_DEMO_PRODUCTS.map((p) => p.widthMm))]
+    .sort((a, b) => a - b);
+
+  /* =====================================================================
+     Chercher une VARIANTE, et non transformer le produit
+
+     Zeus Naturel est un point de Hongrie 92 mm. Le passer en « lames 190 mm »
+     en ferait un produit qui n'existe pas. On cherche donc une autre
+     référence du catalogue qui porte le changement demandé, en conservant le
+     reste autant que possible. Si rien ne correspond, on le dit.
+     ===================================================================== */
+  function findVariant(change) {
+    const cur = product();
+    const want = {
+      pattern: change.pattern || cur.pattern,
+      tone: change.tone || cur.tone,
+      widthMm: change.widthMm || cur.widthMm,
+    };
+    const score = (p) => (p.pattern === want.pattern ? 4 : 0)
+      + (p.tone === want.tone ? 2 : 0) + (p.widthMm === want.widthMm ? 1 : 0);
+    /* Le critère demandé n'est pas négociable ; le reste départage. */
+    const keys = Object.keys(change);
+    const eligible = PREMIBEL_DEMO_PRODUCTS
+      .filter((p) => keys.every((k) => p[k] === change[k]));
+    if (!eligible.length) return null;
+    return eligible.slice().sort((a, b) => score(b) - score(a))[0];
+  }
 
   function room() {
     if (state.source === 'uploaded' && state.uploaded) {
@@ -951,24 +1131,44 @@
     stroke-linecap="round" stroke-linejoin="round">
     <path d="M12 20.5s-7.5-4.7-7.5-10.2A4.3 4.3 0 0112 7a4.3 4.3 0 017.5 3.3c0 5.5-7.5 10.2-7.5 10.2z" /></svg>`;
 
-  const swatchStyle = (p) => `background-color:${p.tint};background-image:url('${swatch(p)}')`;
+  /* La photo produit Premibel sert la carte et la fiche — JAMAIS de texture
+     de sol. Le sol vient du rendu de notre moteur, et de lui seul. */
+  const imgMissing = (p) => state.missingImg.has(p.image);
+  const swatchStyle = (p) => (imgMissing(p) ? '' : `background-image:url('${p.image}')`);
+  const swatchClass = (p) => (imgMissing(p) ? ' noimg' : '');
+
+  /* Sonde les images produit une fois : sans elles, on montre un cadre au
+     lieu d'un carré vide. */
+  function probeImages() {
+    PREMIBEL_DEMO_PRODUCTS.forEach((p) => {
+      const im = new Image();
+      im.onerror = () => {
+        state.missingImg.add(p.image);
+        if (state.source) { paintCard(); paintCatalogue(); }
+      };
+      im.src = p.image;
+    });
+  }
 
   /* Carte produit avec flèches précédent/suivant : on essaie en rafale sans
      rouvrir le catalogue. */
+  /* Carte du produit actif : photo, nom, motif et largeur réels, référence
+     discrète, puis le lien vers la vraie fiche Premibel. */
   function cardHtml(entry, side) {
     const on = state.favourites.has(entry.id);
-    return `<span class="sw" style="${swatchStyle(entry)}"></span>
+    return `<span class="sw${swatchClass(entry)}" style="${swatchStyle(entry)}"></span>
       <b>${entry.name}</b>
-      <span class="ref">${entry.ref}</span>
-      <span class="dim">${PATTERNS[entry.pattern]} · ${state.width} mm · ${FINISHES[state.finish]}</span>
-      <button class="sheet" type="button" data-sheet="${entry.id}">VOIR LA FICHE</button>
+      <span class="dim">${PATTERNS[entry.pattern]} · ${entry.widthMm} mm</span>
+      <span class="ref">Réf. ${entry.ref}</span>
+      <a class="sheet" href="${entry.productUrl}" target="_blank"
+         rel="noopener noreferrer" data-sheet="${entry.ref}">VOIR LA FICHE PREMIBEL</a>
       <span class="row">
-        <button type="button" data-step="prev${side}" aria-label="Parquet précédent">‹</button>
+        <button type="button" data-open="cus">Personnaliser</button>
         <span class="sep"></span>
         <button class="fav" type="button" data-fav="${entry.id}" aria-pressed="${on}"
                 aria-label="Favori">${heart(on)}</button>
         <span class="sep"></span>
-        <button type="button" data-step="next${side}" aria-label="Parquet suivant">›</button>
+        <button type="button" data-open="cmp${side}">Comparer</button>
       </span>`;
   }
 
@@ -1011,7 +1211,7 @@
     $('navRoomVal').textContent = room().label;
     $('navFloorVal').textContent = product().name;
     $('navCustomVal').textContent =
-      `${PATTERNS[product().pattern]} · ${state.width} mm · ${FINISHES[state.finish]}`;
+      `${PATTERNS[product().pattern]} · ${product().widthMm} mm · ${FINISHES[product().finish]}`;
   }
 
   /* =====================================================================
@@ -1120,35 +1320,48 @@
      ===================================================================== */
   function visible() {
     const f = state.filters;
-    return DEMO_PRODUCTS.filter((p) =>
-      (!f.pattern || p.pattern === f.pattern) && (!f.tone || p.tone === f.tone));
+    const mood = f.mood && MOODS.find((m) => m.id === f.mood);
+    return PREMIBEL_DEMO_PRODUCTS.filter((p) =>
+      (!f.pattern || p.pattern === f.pattern)
+      && (!f.tone || p.tone === f.tone)
+      && (!f.widthMm || p.widthMm === f.widthMm)
+      && (!mood || mood.refs.includes(p.ref)));
   }
 
   function paintCatalogue() {
     const f = state.filters;
-    $('fPattern').innerHTML = Object.entries(PATTERNS).map(([k, label]) =>
+    $('fPattern').innerHTML = presentPatterns().map((k) =>
       `<button class="chip" type="button" data-f="pattern" data-v="${k}"
-        aria-pressed="${f.pattern === k}">${label}</button>`).join('');
-    $('fTone').innerHTML = Object.entries(TONES).map(([k, label]) =>
+        aria-pressed="${f.pattern === k}">${PATTERNS[k]}</button>`).join('');
+    $('fTone').innerHTML = presentTones().map((k) =>
       `<button class="chip" type="button" data-f="tone" data-v="${k}"
-        aria-pressed="${f.tone === k}">${label}</button>`).join('');
+        aria-pressed="${f.tone === k}">${TONES[k]}</button>`).join('');
+    $('fWidth').innerHTML = presentWidths().map((mm) =>
+      `<button class="chip" type="button" data-f="widthMm" data-v="${mm}"
+        aria-pressed="${f.widthMm === mm}">${mm} mm</button>`).join('');
+
+    $('moods').innerHTML = `<p class="lead">Inspirations — sélection éditoriale, écrite à la main</p>
+      <div class="row">${MOODS.map((m) =>
+        `<button class="mood" type="button" data-f="mood" data-v="${m.id}"
+          aria-pressed="${f.mood === m.id}">${m.label} · ${m.refs.length}</button>`).join('')}</div>`;
 
     const list = visible();
     $('catCount').textContent = `(${list.length})`;
     $('prods').innerHTML = list.length ? list.map((p) => {
       const on = state.favourites.has(p.id);
       return `<button class="pd" type="button" data-id="${p.id}" aria-pressed="${p.id === state.productId}">
-        <span class="tex" style="${swatchStyle(p)}"></span>
+        <span class="tex${swatchClass(p)}" style="${swatchStyle(p)}"></span>
         <span class="hh" data-fav="${p.id}" role="button" aria-pressed="${on}"
               aria-label="Favori">${heart(on, 13)}</span>
         <span class="nm">${p.name}</span>
-        <span class="ref">${PATTERNS[p.pattern].toUpperCase()} · ${TONES[p.tone].toUpperCase()}</span>
+        <span class="ref">${PATTERNS[p.pattern]} · ${p.widthMm} mm — Réf. ${p.ref}</span>
       </button>`;
-    }).join('') : '<p class="empty">Aucun parquet ne correspond à ces filtres.</p>';
+    }).join('') : '<p class="empty">Aucune référence du catalogue ne correspond à ces filtres.</p>';
   }
 
   function toggleFilter(kind, value) {
-    state.filters[kind] = state.filters[kind] === value ? null : value;
+    const v = kind === 'widthMm' ? Number(value) : value;
+    state.filters[kind] = state.filters[kind] === v ? null : v;
     paintCatalogue();
   }
 
@@ -1157,28 +1370,42 @@
      ===================================================================== */
   function paintCustom() {
     const entry = product();
-    $('cusName').textContent = entry.name;
+    $('cusName').textContent = `${entry.name} · Réf. ${entry.ref}`;
+    $('cusIntro').innerHTML = `<strong>${entry.fullTitle}</strong> est une référence
+      définie : ${PATTERNS[entry.pattern].toLowerCase()}, ${entry.widthMm} mm,
+      finition ${FINISHES[entry.finish].toLowerCase()}. La changer en ferait un
+      produit qui n'existe pas. Ici, modifier un critère cherche donc une
+      <em>autre référence</em> du catalogue — le sens de pose excepté, qui est
+      un réglage du rendu.`;
 
-    /* Un motif n'est proposé que s'il existe un produit de la même teinte
-       qui le porte : sinon il n'y aurait aucun rendu à montrer. */
-    const family = DEMO_PRODUCTS.filter((p) => p.tone === entry.tone);
-    $('patterns').innerHTML = Object.keys(PATTERNS)
-      .filter((k) => family.some((p) => p.pattern === k))
-      .map((k) => {
-        const t = family.find((p) => p.pattern === k);
-        return `<button class="pt" type="button" data-target="${t.id}" aria-pressed="${k === entry.pattern}">
-          <span class="dg" style="${swatchStyle(t)}"></span>
-          <span class="cap">${PATTERNS[k]}</span></button>`;
-      }).join('');
-    const shown = family.map((p) => p.pattern);
-    const missing = Object.keys(PATTERNS).filter((k) => !shown.includes(k)).length;
-    $('patternNote').textContent = missing > 0
-      ? `${missing} motif${missing > 1 ? 's' : ''} sans rendu pour cette teinte.` : '';
+    /* Chaque pastille de motif mène à la référence qui le porte. */
+    $('patterns').innerHTML = presentPatterns().map((k) => {
+      const t = findVariant({ pattern: k });
+      return `<button class="pt" type="button" data-variant="${t ? t.id : ''}"
+        aria-pressed="${k === entry.pattern}">
+        <span class="dg${t ? swatchClass(t) : ' noimg'}" style="${t ? swatchStyle(t) : ''}"></span>
+        <span class="cap">${PATTERNS[k]}</span></button>`;
+    }).join('');
+    $('patternNote').textContent = 'Changer de motif change de référence.';
 
-    $('widths').innerHTML = entry.availableWidths.map((mm) =>
-      `<button class="chip" type="button" data-mm="${mm}" aria-pressed="${mm === state.width}">${mm} mm</button>`).join('');
-    $('widthNote').textContent = entry.availableWidths.length < 3
-      ? `${entry.name} n'existe qu'en ${entry.availableWidths.join(' et ')} mm.` : '';
+    $('widths').innerHTML = presentWidths().map((mm) => {
+      const t = findVariant({ widthMm: mm });
+      return `<button class="chip" type="button" data-variant="${t ? t.id : ''}"
+        aria-pressed="${mm === entry.widthMm}">${mm} mm</button>`;
+    }).join('');
+    const others = presentWidths().filter((mm) => mm !== entry.widthMm);
+    $('widthNote').textContent = others.length
+      ? `${entry.name} n'existe qu'en ${entry.widthMm} mm ; les autres largeurs `
+        + `du catalogue sont ${others.join(', ')} mm.`
+      : '';
+
+    $('tones').innerHTML = presentTones().map((k) => {
+      const t = findVariant({ tone: k });
+      return `<button class="chip" type="button" data-variant="${t ? t.id : ''}"
+        aria-pressed="${k === entry.tone}">${TONES[k]}</button>`;
+    }).join('');
+    $('toneNote').textContent = 'La teinte reprend la famille de rendu que nous avons '
+      + 'associée au produit : Premibel ne catégorise pas la teinte de ces références.';
 
     $('orient').innerHTML = [['long', 'Dans la longueur'], ['cross', 'Dans la largeur']]
       .map(([id, label]) => `<button class="or" type="button" data-or="${id}" aria-pressed="${id === state.orient}">
@@ -1187,10 +1414,11 @@
           ${id === 'long' ? '<path d="M3 5h28M3 10h28M3 15h28" />' : '<path d="M7 3v14M17 3v14M27 3v14" />'}
         </svg><span>${label}</span></button>`).join('');
 
-    $('finishes').innerHTML = entry.availableFinishes.map((k) =>
-      `<button class="chip" type="button" data-fin="${k}" aria-pressed="${k === state.finish}">${FINISHES[k]}</button>`).join('');
-    $('finishNote').textContent = entry.availableFinishes.length < 3
-      ? `Finitions proposées : ${entry.availableFinishes.map((k) => FINISHES[k]).join(', ')}.` : '';
+    $('finishes').innerHTML = `<button class="chip" type="button"
+      aria-pressed="true">${FINISHES[entry.finish]}</button>`;
+    $('finishNote').textContent = `Aspect relevé sur la fiche : ${entry.aspect}. `
+      + 'Les cinq références du mini-catalogue sont vernies : il n\'y a pas de '
+      + 'choix de finition à offrir ici.';
   }
 
   /* =====================================================================
@@ -1209,10 +1437,6 @@
       return;
     }
     state.productId = id;
-    if (!entry.availableWidths.includes(state.width)) {
-      state.width = entry.availableWidths.includes(190) ? 190 : entry.availableWidths[0];
-    }
-    if (!entry.availableFinishes.includes(state.finish)) state.finish = entry.availableFinishes[0];
     paint();
     paintCatalogue();
     paintCustom();
@@ -1220,7 +1444,7 @@
   }
 
   function stepProduct(dir, side) {
-    const list = visible().length ? visible() : DEMO_PRODUCTS;
+    const list = visible().length ? visible() : PREMIBEL_DEMO_PRODUCTS;
     const current = side === 'B' && state.compare ? state.compare.b : state.productId;
     const i = list.findIndex((p) => p.id === current);
     const next = list[(i + dir + list.length) % list.length];
@@ -1295,14 +1519,14 @@
     };
   });
 
-  ['fPattern', 'fTone'].forEach((id) => {
+  ['fPattern', 'fTone', 'fWidth', 'moods'].forEach((id) => {
     $(id).onclick = (e) => {
       const b = e.target.closest('[data-f]');
       if (b) toggleFilter(b.dataset.f, b.dataset.v);
     };
   });
   $('clearFilters').onclick = () => {
-    state.filters = { pattern: null, tone: null };
+    state.filters = { pattern: null, tone: null, widthMm: null, mood: null };
     paintCatalogue();
   };
   $('prods').onclick = (e) => {
@@ -1319,33 +1543,37 @@
     $(id).onclick = (e) => {
       const fav = e.target.closest('[data-fav]');
       if (fav) { toggleFav(fav.dataset.fav); return; }
-      const step = e.target.closest('[data-step]');
-      if (step) {
-        const v = step.dataset.step;
-        stepProduct(v.startsWith('prev') ? -1 : 1, v.slice(-1));
+      const open = e.target.closest('[data-open]');
+      if (open) {
+        if (open.dataset.open === 'cus') openCus();
+        else startCompare();
         return;
       }
-      if (e.target.closest('[data-sheet]')) toast('Fiche produit : futur lien vers le catalogue Premibel');
+      /* Le lien de fiche est un vrai <a target="_blank"> : on le laisse
+         faire, on ne fait que le signaler. */
+      if (e.target.closest('[data-sheet]')) toast('Fiche Premibel dans un nouvel onglet');
     };
   });
 
-  $('patterns').onclick = (e) => { const b = e.target.closest('[data-target]'); if (b) select(b.dataset.target); };
-  $('widths').onclick = (e) => {
-    const b = e.target.closest('[data-mm]');
-    if (!b) return;
-    state.width = Number(b.dataset.mm);
-    paint(); paintCustom(); toast(`Lames ${state.width} mm`);
-  };
+  /* Motif, largeur et teinte mènent tous à une AUTRE référence. */
+  ['patterns', 'widths', 'tones'].forEach((id) => {
+    $(id).onclick = (e) => {
+      const b = e.target.closest('[data-variant]');
+      if (!b) return;
+      if (!b.dataset.variant) {
+        toast('Aucune référence du catalogue ne porte ce critère');
+        return;
+      }
+      if (b.dataset.variant === state.productId) return;
+      const p = product(b.dataset.variant);
+      select(p.id, true);
+      toast(`${p.name} · Réf. ${p.ref}`);
+    };
+  });
   $('orient').onclick = (e) => {
     const b = e.target.closest('[data-or]');
     if (!b) return;
     state.orient = b.dataset.or;
-    paint(); paintCustom();
-  };
-  $('finishes').onclick = (e) => {
-    const b = e.target.closest('[data-fin]');
-    if (!b) return;
-    state.finish = b.dataset.fin;
     paint(); paintCustom();
   };
 
@@ -1356,14 +1584,15 @@
     $('baBtn').setAttribute('aria-pressed', String(state.ba));
     paint();
   };
-  $('cmpBtn').onclick = () => {
+  function startCompare() {
     if (state.compare) { state.compare = null; paint(); toast('Comparaison fermée'); return; }
     state.ba = false;
     $('baBtn').setAttribute('aria-pressed', 'false');
     state.picking = true;
     openCat();
-    toast('Choisissez le second parquet');
-  };
+    toast('Choisissez la seconde référence');
+  }
+  $('cmpBtn').onclick = startCompare;
 
   let dragging = false;
   $('split').addEventListener('pointerdown', (e) => {
@@ -1379,16 +1608,17 @@
   });
 
   $('hFav').onclick = () => {
-    if (!state.favourites.size) { toast('Touchez un cœur pour garder un parquet'); return; }
-    state.filters = { pattern: null, tone: null };
+    if (!state.favourites.size) { toast('Touchez un cœur pour garder une référence'); return; }
+    state.filters = { pattern: null, tone: null, widthMm: null, mood: null };
     openCat();
     $('catCount').textContent = `(${state.favourites.size} en favoris)`;
     $('prods').innerHTML = [...state.favourites].map((id) => {
       const p = product(id);
       return `<button class="pd" type="button" data-id="${p.id}" aria-pressed="${p.id === state.productId}">
-        <span class="tex" style="${swatchStyle(p)}"></span>
+        <span class="tex${swatchClass(p)}" style="${swatchStyle(p)}"></span>
         <span class="hh" data-fav="${p.id}" role="button" aria-pressed="true" aria-label="Favori">${heart(true, 13)}</span>
-        <span class="nm">${p.name}</span><span class="ref">${p.ref}</span></button>`;
+        <span class="nm">${p.name}</span>
+        <span class="ref">${PATTERNS[p.pattern]} · ${p.widthMm} mm — Réf. ${p.ref}</span></button>`;
     }).join('');
   };
   $('hSave').onclick = () => toast('Enregistrement : besoin documenté, pas développé ici');
@@ -1425,13 +1655,16 @@
   }
 
   paintQuick();
+  probeImages();
 
   /* Exposé pour les tests : le vrai script est exécuté sous Node avec un DOM
      minimal, et un test qui réimplémenterait cette logique ne testerait rien. */
   window.__concept = {
-    state, DEV, DEMO_ROOMS, DEMO_PRODUCTS, DEMO_RENDERINGS, CATEGORIES,
-    PATTERNS, TONES, FINISHES, RENDERS, PHOTOS,
-    room, product, renderUrl, originalUrl, swatch, preload,
+    state, DEV, DEMO_ROOMS, DEMO_RENDERINGS, CATEGORIES, RENDERED_ROOMS,
+    PREMIBEL_DEMO_PRODUCTS, MOODS, PATTERNS, TONES, FINISHES,
+    RENDERS, PREMIBEL, PHOTOS,
+    room, product, renderUrl, originalUrl, preload, probeImages,
+    findVariant, presentPatterns, presentTones, presentWidths, startCompare,
     paint, paintCard, paintCatalogue, paintCustom, paintRoomSheet, paintQuick,
     openRoom, loadUpload, releaseUpload, select, stepProduct, toggleFav,
     toggleFilter, visible, setDemo, closeAll, openRooms, openCat, openCus,
