@@ -1,5 +1,15 @@
 # Expérience publique du Visualiseur — spécification UX
 
+> **UX concept only — not production integration.**
+> `tools/product-concept.html` est une **référence UX**, pas une base technique.
+> Il pilotait le Studio dans une iframe par `window.__studio`, avec des
+> captures statiques en amorce : trop fragile pour un produit. Le Visualiseur
+> produit fonctionnel vit désormais dans `pose-parquet.com`
+> (`outils/visualiseur-produit.html`, `js/product/`), branché directement sur
+> le vrai moteur — voir `docs/product-visualizer-integration-v1.md` là-bas.
+> Le prototype n'est plus modifié ; on le consulte pour la direction visuelle,
+> les libellés et les interactions validées.
+
 Ce document décrit l'expérience **publique cible** : ce que voit un visiteur de
 pose-parquet.com qui envoie une photo de sa pièce.
 
