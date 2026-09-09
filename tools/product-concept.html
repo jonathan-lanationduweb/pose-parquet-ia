@@ -1423,6 +1423,9 @@
     let ready = null;
     let lastMs = null;
     let lastHit = null;      /* la derniere application venait-elle du cache ? */
+    let lastKey = null;      /* la clef d'etat de la derniere application */
+    let refus = null;        /* une commande refusee par le moteur, en clair */
+    let engineScene = null;  /* la piece ouverte DANS le moteur */
     let reason = null;       /* pourquoi on est en `static`, mot pour mot */
     let apiVersion = null;
 
@@ -1436,20 +1439,58 @@
        et nous recopions le canevas. Retenir le RESULTAT, c'est ne rien
        refaire du tout — un `drawImage` au lieu d'un rendu.
 
-       Clef : la scene, la reference, l'orientation. Ce sont exactement les
-       trois choses qui changent les pixels ; le motif et la largeur sont
-       determines par la reference, ils n'ont pas a figurer dans la clef.
+       Clef : voir `getRenderStateKey`. Elle decrit L'ETAT DU RENDERER, pas
+       la reference produit. La version precedente utilisait
+       `scene|reference|orientation`, ce qui marchait par accident : chaque
+       reference pilote aujourd'hui son motif, sa largeur et sa matiere. Le
+       jour ou le profil d'une reference change sans que la reference change —
+       une largeur corrigee sur la fiche Premibel, une famille de texture
+       reaffectee — ce cache aurait rendu l'ancienne image, et rien ne
+       l'aurait dit.
 
-       Invalidation : par la clef elle-meme. Rien d'autre ne peut changer le
-       rendu d'un triplet donne, le moteur etant deterministe pour une scene
-       et une configuration. Le cache est vide a l'import d'une photo, ou
-       quand le moteur devient joignable apres coup — la, les pixels
-       changeraient sans que la clef bouge.
+       Invalidation : par la clef elle-meme, puisqu'elle enumere tout ce que
+       l'on envoie au moteur. Le cache est vide en plus a l'import d'une
+       photo et quand le moteur devient joignable apres un repli — les deux
+       seuls cas ou les pixels changeraient sans que la clef bouge.
 
        Eviction : la moins recemment utilisee. Un `Map` conserve l'ordre
        d'insertion ; relire une entree la reinsere, la plus ancienne clef est
        donc bien la moins recemment servie. */
     const renderCache = new Map();
+
+    /**
+     * Clef d'un etat de rendu.
+     *
+     * Enumere ce qui est REELLEMENT envoye au moteur, et rien d'autre :
+     *
+     *   apiN            la version du contrat. Gratuite, et elle evite qu'un
+     *                   changement de semantique du contrat serve une image
+     *                   fabriquee sous l'ancienne.
+     *   scene           la piece ouverte
+     *   materialFamily  la famille de texture
+     *   pattern         lames | point-de-hongrie | baton-rompu
+     *   width           en metres, ou `auto` quand on laisse le motif decider
+     *   angle           le sens de pose
+     *
+     * Ce qui n'y figure PAS, et pourquoi :
+     *
+     *   la reference produit   metadonnee. Deux references de meme profil
+     *                          donnent le meme rendu : ce serait deux entrees
+     *                          pour une seule image.
+     *   `lengthM`              le profil le porte, l'adaptateur ne l'envoie
+     *                          pas — aucun pixel n'en depend. A ajouter ici
+     *                          le jour ou une commande l'accepte.
+     *   `scale`                aucune commande, capacite `false`.
+     *   l'empreinte du bundle  le cache vit en memoire et meurt avec la page :
+     *                          un autre bundle implique un autre chargement,
+     *                          donc un cache vide. Rien a mettre dans la clef.
+     */
+    function getRenderStateKey(profile, orientationDeg) {
+      const width = Number.isFinite(profile.widthM) ? profile.widthM.toFixed(4) : 'auto';
+      return [`api${ENGINE_API_VERSION}`, engineScene || 'aucune',
+        profile.materialFamily, profile.pattern, width,
+        Number(orientationDeg) || 0].join('|');
+    }
 
     function cacheGet(key) {
       if (!renderCache.has(key)) return null;
@@ -1516,13 +1557,16 @@
       if (ready) return ready;
       ready = new Promise((resolve) => {
         const frame = $('engine');
-        let done = false;
+        /* L'ecouteur `load` reste attache : le moteur peut etre recharge, et
+           il faut alors renegocier au lieu de continuer a parler a un
+           document mort. La promesse, elle, ne se resout qu'une fois. */
+        let resolu = false;
         const give = (m, caps, why) => {
-          if (done) return;
-          done = true;
           mode = m;
           capabilities = caps;
           reason = why || null;
+          if (resolu) return;
+          resolu = true;
           resolve(mode);
         };
         const refuser = (why) => give('static', { ...CAPABILITIES_NONE }, why);
@@ -1571,8 +1615,12 @@
               return;
             }
             studio = st;
-            /* Le mode live change les pixels sans changer les clefs : ce qui
-               a ete retenu en statique ne vaut plus rien. */
+            /* Un moteur qui vient de se charger n'a aucune piece ouverte, et
+               ce qui a ete retenu appartient a l'instance precedente. Sans
+               ces deux lignes, le pont croit la piece ouverte, ne la
+               reouvre pas, et le sol reste sur la capture de repli — mesure
+               apres un rechargement de l'iframe. */
+            engineScene = null;
             renderCache.clear();
             give('live', caps, null);
           } catch (e) {
@@ -1602,42 +1650,71 @@
         if (mode !== 'live' || !studio) return false;
         const attente = nextRender(20000);
         studio.openRoom(sceneId);
+        engineScene = sceneId;
         await attente;
         return true;
       },
+
+      get scene() { return engineScene; },
+      get lastKey() { return lastKey; },
+      get refus() { return refus; },
+      getRenderStateKey,
 
       /**
        * Applique un profil produit et renvoie un canevas pret a recopier.
        * `null` si le mode live n'est pas disponible.
        *
-       * Le triplet (scene, reference, orientation) deja rendu revient du
-       * cache sans toucher au moteur : c'est la difference entre « chaud » et
-       * « froid » dans les mesures.
+       * La clef du cache est calculee ICI, a partir du profil qu'on va
+       * vraiment envoyer — pas fournie par l'appelant. C'est ce qui garantit
+       * qu'une image retenue correspond a l'etat qui l'a produite : un
+       * appelant qui se tromperait de clef ne peut pas nous faire servir la
+       * mauvaise image.
+       *
+       * Un etat deja rendu revient du cache sans toucher au moteur : c'est la
+       * difference entre « chaud » et « froid » dans les mesures.
        */
-      async applyProfile(profile, orientationDeg, key) {
+      async applyProfile(profile, orientationDeg) {
         if (mode !== 'live' || !studio) return null;
         const t0 = performance.now();
-        const deja = key ? cacheGet(key) : null;
+        const key = getRenderStateKey(profile, orientationDeg);
+        lastKey = key;
+        const deja = cacheGet(key);
         if (deja) {
           lastHit = true;
           lastMs = Math.round(performance.now() - t0);
           return deja;
         }
         lastHit = false;
-        /* L'abonnement est pris AVANT la premiere commande : un rendu tres
-           rapide ne doit pas passer entre les deux. */
+
+        /* Une largeur que le moteur refuse est une largeur qu'il n'appliquera
+           pas. Continuer reviendrait a rendre l'ancienne largeur puis a la
+           retenir sous une clef qui en annonce une autre : le cache
+           mentirait, et pour toute la session. On abandonne donc, et la
+           capture de repli reste a l'ecran.
+
+           Le refus est verifie AVANT de s'abonner : rien n'a encore ete
+           demande au moteur, il n'y a donc rien a annuler. */
+        if (capabilities.width) {
+          const voulue = Number.isFinite(profile.widthM) ? profile.widthM : null;
+          if (studio.setWidth(voulue) !== true) {
+            refus = `largeur refusee par le moteur : ${profile.widthM}`;
+            lastMs = Math.round(performance.now() - t0);
+            return null;
+          }
+        }
+        refus = null;
+
+        /* L'abonnement est pris AVANT les commandes qui declenchent un
+           rendu : un rendu tres rapide ne doit pas passer entre les deux. */
         const attente = nextRender(20000);
         studio.selectMaterial(profile.materialFamily);
-        if (capabilities.width) {
-          studio.setWidth(Number.isFinite(profile.widthM) ? profile.widthM : null);
-        }
         if (capabilities.orientation) studio.setAngle(orientationDeg || 0);
         studio.setPattern(profile.pattern);
         const abouti = await attente;
         lastMs = Math.round(performance.now() - t0);
         /* On ne retient que ce que le moteur a fini de peindre. */
         if (abouti !== 'fin') return studio.canvas;
-        return (key && cachePut(key, studio.canvas)) || studio.canvas;
+        return cachePut(key, studio.canvas) || studio.canvas;
       },
 
       get canvas() { return studio && studio.canvas; },
@@ -2002,11 +2079,11 @@
     state.pendingApply = false;
     paintChrome();
     try {
-      if (engineRoom !== entry.id) {
-        await adapter.openRoom(entry.id);
-        engineRoom = entry.id;
-      }
-      const canvas = await adapter.applyProfile(product().renderProfile, state.orientationDeg, key);
+      /* La piece ouverte dans le moteur est un etat DU MOTEUR : c'est
+         l'adaptateur qui la connait, et la clef du cache s'en sert. En tenir
+         un second compte ici, c'est se donner deux verites a desynchroniser. */
+      if (adapter.scene !== entry.id) await adapter.openRoom(entry.id);
+      const canvas = await adapter.applyProfile(product().renderProfile, state.orientationDeg);
       if (canvas && appliedKey() === key) {
         beginFade();
         if (paintLayer('after', canvas)) {
@@ -2023,7 +2100,6 @@
        rien. */
     if (state.pendingApply) { state.pendingApply = false; applyFloor(); }
   }
-  let engineRoom = null;
 
   function reapply() { applyFloor(); applyCompareB(); }
 
@@ -2045,7 +2121,7 @@
     /* Un seul moteur : on applique B, on le photographie, puis on remet A.
        Sans ce retour, les deux cotes montreraient le meme etat. */
     const b = product(state.compare.b);
-    const canvasB = await adapter.applyProfile(b.renderProfile, state.orientationDeg, key);
+    const canvasB = await adapter.applyProfile(b.renderProfile, state.orientationDeg);
     if (canvasB && paintLayer('cmpB', canvasB)) {
       state.appliedB = { key, source: 'live' };
       $('vpB').classList.remove('hidden');
@@ -2106,12 +2182,14 @@
     /* Le repli est muet dans l'interface, jamais ici : une degradation
        silencieuse ET inexplicable est un piege pose a son successeur. */
     if (adapter.mode !== 'live' && adapter.reason) bits.push(adapter.reason);
+    if (adapter.refus) bits.push(adapter.refus);
     if (!hasRender) bits.push('aucun rendu');
     else bits.push(src === 'live' ? 'rendu live' : 'capture de repli');
     if (adapter.lastMs != null) {
       bits.push(`${adapter.lastMs} ms${adapter.lastHit ? ' (retenu)' : ''}`);
     }
     if (adapter.mode === 'live') bits.push(`${adapter.cacheSize} en cache`);
+    if (DEV && adapter.lastKey) bits.push(adapter.lastKey);
     $('devnote').textContent = bits.join(' · ');
     $('devnote').classList.remove('hidden');
   }
@@ -2700,6 +2778,7 @@
     room, product, renderUrl, originalUrl, preload, probeImages,
     findMatchingProduct, findVariant: findMatchingProduct, presentPatterns, presentTones, presentWidths, startCompare,
     adapter, paintLayer, applyFloor, applyCompareB, appliedKey, paintChrome,
+    getRenderStateKey: (profile, deg) => adapter.getRenderStateKey(profile, deg),
     ORIENTATIONS, ENGINE_URL, CAPABILITIES_NONE,
     ZOOM_MIN, ZOOM_MAX, sceneSize, fitScale, cssScale, clamp, applyTransform,
     setVp, fitToView, zoomAt, setImmersive, onWheel, onDown, onMove, onUp, onDouble,

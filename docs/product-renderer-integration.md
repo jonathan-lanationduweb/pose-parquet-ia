@@ -47,6 +47,11 @@ contrat propre — rien de plus.
 | `renderer` | l'objet moteur (`backend`, `ready`) | |
 | `catalog`, `config`, `setContext` | lecture, diagnostic | |
 
+Les quatre derniers membres — `config`, `renderer`, `catalog`, `setContext` —
+ne sont **pas** dans le contrat. Ils servent à lire un état depuis la console
+pendant une mesure ; ils n'ont ni version ni garantie, et le pont n'y touche
+pas. Une garde automatique le vérifie : voir §12.
+
 Ce qui a été **délibérément écarté** :
 
 - **`setScale`.** Le moteur honore `config.scale`, mais le prototype ne s'en
@@ -410,23 +415,87 @@ pose-parquet-ai — celui des **résultats** :
 
 | | |
 | --- | --- |
-| clef | `scène│référence│orientation` |
+| clef | `getRenderStateKey()` — voir plus bas |
 | contenu | un canevas, copie du rendu du moteur |
 | borne | **8 entrées** |
 | éviction | la moins récemment utilisée (un `Map` relu est réinséré) |
 | coût mémoire | hauteur × largeur × 4 octets par entrée : 3,2 Mo en 1100 × 734, 6,8 Mo en 1600 × 1067 — soit **26 à 55 Mo** pour huit entrées |
-| invalidation | par la clef ; vidé à l'import d'une photo et quand le moteur devient joignable après coup |
+| invalidation | par la clef ; vidé à l'import d'une photo, et à chaque (re)connexion du moteur |
 
-Pourquoi ces trois termes dans la clef, et pas plus : ce sont exactement les
-trois choses qui changent les pixels. Le motif et la largeur sont déterminés
-par la référence, les remettre dans la clef n'ajouterait rien. Pourquoi huit :
-l'utilisateur ne fait pas d'aller-retour entre douze produits, il en compare
-deux ou trois ; au-delà le gain se dilue et la mémoire, non.
+### La clef décrit un état de rendu, pas une référence
 
-Pourquoi deux vidages explicites : ce sont les deux seuls cas où **les pixels
+```
+api1|sejour|chene-naturel|lames|0.1900|0
+ │     │        │           │      │    └─ angle, en degrés
+ │     │        │           │      └────── largeur en mètres, ou `auto`
+ │     │        │           └───────────── motif
+ │     │        └───────────────────────── famille de texture
+ │     └────────────────────────────────── scène ouverte dans le moteur
+ └──────────────────────────────────────── version du contrat
+```
+
+La première version utilisait `scène│référence│orientation`. Ça marchait — par
+accident : chaque référence pilote aujourd'hui son motif, sa largeur et sa
+matière, donc la référence *résumait* l'état. Le jour où le profil d'une
+référence change sans que la référence change — une largeur corrigée sur la
+fiche Premibel, une famille de texture réaffectée — ce cache aurait rendu
+l'ancienne image, et **rien ne l'aurait dit**. La clef énumère donc
+maintenant ce qu'on envoie vraiment au moteur.
+
+La référence produit reste une métadonnée : deux références de même profil
+donnent le même rendu, et ce serait deux entrées pour une seule image.
+
+Ce qui n'y figure pas, et pourquoi :
+
+| exclu | raison |
+| --- | --- |
+| `lengthM` | le profil le porte, l'adaptateur ne l'envoie pas — aucun pixel n'en dépend. À ajouter le jour où une commande l'accepte. |
+| `scale` | aucune commande, capacité `false`. |
+| l'empreinte du bundle | le cache vit en mémoire et meurt avec la page : un autre bundle implique un autre chargement, donc un cache vide. Rien à mettre dans la clef. |
+
+La clef est calculée **dans l'adaptateur**, à partir du profil qu'il va
+envoyer — jamais fournie par l'appelant. Un appelant qui se tromperait de clef
+ne peut donc pas nous faire servir la mauvaise image.
+
+Pourquoi huit entrées : l'utilisateur ne fait pas d'aller-retour entre douze
+produits, il en compare deux ou trois ; au-delà le gain se dilue et la
+mémoire, non. Vérifié : 15 états distincts demandés, cache plafonné à 8,
+mémoire stable à 93–94 Mo du début à la fin.
+
+Pourquoi les vidages explicites : ce sont les seuls cas où **les pixels
 changeraient sans que la clef bouge**. Une photo importée n'appartient plus
-aux scènes de démonstration ; et une capture retenue pendant le repli
-statique ne vaut plus rien dès que le moteur répond.
+aux scènes de démonstration ; une capture retenue pendant le repli statique ne
+vaut plus rien dès que le moteur répond ; et un moteur qui vient de se
+recharger n'a plus rien d'ouvert.
+
+### Un refus du moteur arrête tout
+
+`setWidth` renvoie `false` pour une valeur hors du plausible, et **n'écrit
+rien**. Le pont vérifie ce retour avant de s'abonner et avant d'envoyer la
+moindre autre commande : continuer reviendrait à rendre l'ancienne largeur puis
+à la retenir sous une clef qui en annonce une autre — le cache mentirait, et
+pour toute la session.
+
+Vérifié en Chrome : `NaN`, `0`, `-1`, `5`, `Infinity`, `'0.19'` sont tous
+refusés, `config.width` reste à sa valeur, et un profil à 9 m fait renvoyer
+`null` à `applyProfile` avec la raison `largeur refusee par le moteur : 9`.
+Le cache ne bouge pas.
+
+### Un moteur rechargé est renégocié
+
+L'écouteur `load` de l'iframe reste attaché : le moteur peut être rechargé, et
+il faut alors reprendre la négociation au lieu de continuer à parler à un
+document mort.
+
+Ce défaut a été trouvé en le testant : avant correction, un rechargement de
+l'iframe laissait le pont croire la pièce ouverte. Il ne la réouvrait donc pas,
+le moteur restait sur son écran de départ, et **le sol restait sur la capture
+de repli indéfiniment** — sans erreur console, sans rien pour l'expliquer.
+Une (re)connexion remet maintenant `scene` à `null` et vide le cache.
+
+Après correction : rechargement de l'iframe, puis un clic produit → la pièce
+est réouverte, le rendu live revient, et le compteur d'abonnements montre
+2 pris / 2 rendus, donc **aucun écouteur fantôme**.
 
 ### Préchargement : mesuré, puis écarté
 
@@ -436,3 +505,139 @@ piloté depuis le prototype ne pourrait que transformer un **240 ms** en
 occupant le moteur, qui est unique et partagé, au moment où un vrai clic peut
 arriver. Le gain est réel mais petit, le risque porte sur le clic qui compte.
 **Non fait**, et la mesure est la raison.
+
+---
+
+## 12. Revue visuelle — ce qui a été regardé, et vu
+
+### L'amorce statique ne fait pas voir deux sols
+
+C'était le risque du montage : clic → capture préfabriquée → rendu live →
+remplacement. Si les deux images diffèrent, l'utilisateur voit un premier
+parquet puis un second.
+
+Mesuré sur trois transitions, écart moyen par canal sur la zone de sol,
+échantillons normalisés à la même taille :
+
+| transition | amorce montrée | écart amorce ↔ live | écart produit précédent ↔ live |
+| --- | --- | --- | --- |
+| Houston → Zeus | oui | **1,9 / 255** | 13,6 |
+| Colza → Pivoine | oui | **2,5 / 255** | 38,1 |
+| Zeus → Notting Hill | oui | **1,8 / 255** | 10,8 |
+
+Moins de 1 % d'écart, et la luminance moyenne du sol est identique au dixième
+(187,3 contre 187,3 ; 149,0 contre 149,0 ; 196,9 contre 196,9). Distribution
+de l'écart : 0,80 % des pixels de sol au-dessus de 16/255, 0,05 % au-dessus de
+32, **aucun** au-dessus de 64, et aucune ligne où l'écart se concentre — c'est
+du bruit de rééchantillonnage sur les joints, pas une zone fausse.
+
+La raison est simple : **les captures préfabriquées SONT des rendus de ce
+moteur**. L'option A du plan de secours (« mettre à jour les captures pour
+qu'elles correspondent à l'état live ») était déjà satisfaite. Le passage se
+lit comme « le parquet s'affine », pas comme « le parquet change deux fois »,
+et aucune transition longue n'a été ajoutée pour masquer quoi que ce soit.
+
+### Les cinq produits sont identifiables
+
+Planche de contrôle produite localement, même pièce, même caméra, même zoom
+(hors Git) :
+
+| référence | état de rendu | verdict |
+| --- | --- | --- |
+| Zeus | `chene-sable│point-de-hongrie│0.0920` | point de Hongrie immédiat : pointes en onglet alignées |
+| Notting Hill | `chene-craie│baton-rompu│0.0900` | bâton rompu immédiat : bouts d'équerre, décrochement en marche d'escalier |
+| Houston | `chene-naturel│lames│0.1900` | lames larges, teinte miel |
+| Colza | `chene-sable│lames│0.1500` | lames plus étroites, teinte pâle |
+| Pivoine | `chene-rustique│lames│0.1500` | même géométrie que Colza, matière nettement plus foncée et contrastée |
+
+Zeus et Notting Hill se distinguent sans hésitation côte à côte : ce sont deux
+motifs différents, pas deux variantes du même.
+
+**Colza et Pivoine** ont la même géométrie — mêmes lames de 150 mm — et ne se
+distinguent que par la matière. Elles se distinguent facilement, parce que les
+deux familles de texture de démonstration sont éloignées. Mais c'est une
+distinction de **teinte de démonstration**, pas de matière Premibel : rien
+ici ne prétend que le rendu de Pivoine est fidèle à Pivoine. Voir §7 et §8 —
+`tone`, `grain` et `finish` restent `approximate`.
+
+### Largeur de lame : 190 contre 150
+
+À 250 %, cadré sur le sol, Houston montre des lames visiblement plus larges
+que Colza : environ 6 lames là où Colza en montre 9 sur la même portion de
+sol, soit un rapport d'environ 1,4 pour un rapport attendu de 1,27. La
+différence se voit sans lire la fiche.
+
+Deux mesures automatiques ont été tentées puis **écartées** : le comptage de
+minima locaux et la fréquence spatiale dominante donnent des résultats
+incohérents sur une photo en perspective, où le pas apparent varie avec la
+profondeur et où le veinage produit des creux aussi marqués que les joints.
+Plutôt que de publier un chiffre qui ne tient pas, la vérification a été faite
+là où elle est exacte : à la source.
+
+Même pièce, même caméra, même matière, même motif, seule `setWidth` change —
+90, 130, 190, 300 mm — et la progression est franche et monotone. Un piège au
+passage : Pivoine paraît d'abord avoir des lames plus étroites que Colza alors
+qu'elles font la même largeur. Ce sont ses veines, pas ses joints.
+
+### Comparaison A/B : raccord exact
+
+Zeus contre Notting Hill, écart entre les deux couches par bande horizontale :
+
+| bande | écart moyen | écart max |
+| --- | --- | --- |
+| 0–17 % (plafond) | **0** | **0** |
+| 17–33 % (murs) | **0** | **0** |
+| 33–50 % (murs, embrasure) | **0** | **0** |
+| 50–67 % | 4,0 | 61 |
+| 67–83 % | 14,1 | 65 |
+| 83–100 % | 17,2 | 80 |
+
+Les deux versions sont **identiques au pixel** partout sauf sur le sol. Aucun
+décalage de cadrage, aucun meuble déplacé, aucune différence d'échelle de la
+photo. Les trois couches — photo, version A, version B — occupent exactement
+la même boîte (141,54 · 999 × 666), au dixième de pixel.
+
+### Avant / après
+
+À 240 %, original contre Houston : `#photo` et `#after` occupent la même boîte
+(−138,8 · −674,0 · 2397,6 × 1598,4), au dixième de pixel. Seul le sol change.
+
+L'original et le rendu ne sont pas identiques au bit près hors du sol — le
+moteur redessine toute la photo, donc le plafond et les murs passent par son
+encodage : écart moyen 1,3 à 4,2 sur 255 selon la bande. C'est de l'ordre du
+demi-pour-cent, invisible à l'œil, et sans effet sur la comparaison A/B, où
+l'écart hors sol est exactement nul puisque les deux côtés sortent du même
+moteur.
+
+### Viewport
+
+`z`, `x` et `y` sont restés identiques pendant toute la série des cinq
+produits, à 100 % comme à 250 %, ainsi qu'à l'ouverture d'une comparaison et
+d'un avant/après. Aucun recentrage automatique entre deux produits.
+
+### Clics rapides, et vingt clics
+
+| épreuve | résultat |
+| --- | --- |
+| sens de pose 0 → 90 → 45 très vite | converge sur 45°, en live, bouton 45 actif |
+| Houston → Zeus → Colza très vite | converge sur Colza, en live |
+| 20 changements enchaînés à 60 ms | dernier produit affiché, en live, convergence 2 183 ms |
+
+Sur les vingt changements : aucun état bloqué, aucun repli resté affiché,
+**13 abonnements pris et 13 rendus** — zéro écouteur accumulé — cache plafonné
+à 5 (le nombre d'états distincts demandés), et aucune erreur console.
+
+### Mémoire
+
+15 états distincts demandés (5 produits × 3 orientations) contre un cache
+borné à 8 :
+
+| | |
+| --- | --- |
+| cache maximum observé | **8** |
+| mémoire au départ | 93 Mo |
+| mémoire à la fin | 94 Mo |
+| retour à un produit récent | 22 ms, retenu |
+
+La borne tient et l'éviction libère : pas de croissance sur quinze états, donc
+pas de fuite grossière.

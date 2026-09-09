@@ -904,6 +904,48 @@ ok('le moteur est pilote par le point d accroche du front, pas par son DOM',
    elle-meme n'existe plus dans ce fichier. */
 ok('aucune mutation de la configuration du moteur',
   !/studio\.config\s*(\.\w+\s*)?=[^=]/.test(code) && !/studio\.config/.test(code));
+
+/* Garde automatique : TOUT ce que le pont touche sur le moteur doit figurer
+   dans le contrat documente. Une garde nominative (« pas de config ») ne
+   protege que de ce qu'on a pense a interdire ; celle-ci protege de ce qu'on
+   n'a pas pense a interdire. */
+const CONTRAT_V1 = ['apiVersion', 'openRoom', 'selectMaterial', 'setPattern',
+  'setAngle', 'setWidth', 'getCapabilities', 'onRendered', 'canvas'];
+/* `studio` est le moteur negocie, `st` le candidat qu'examine `connect()`.
+   Le nom doit etre entier, d'ou la classe ecrite en clair : les raccourcis
+   comme la sequence mot-frontiere ne survivent pas aux couches
+   d'echappement de cet outillage. */
+/* Le `/` exclu evite de prendre `outils/studio.html` — un chemin, pas un
+   acces membre. Un acces JS n'est jamais precede d'une barre oblique ici. */
+const acces = (nom) => (code.match(new RegExp(`[^A-Za-z0-9_$./]${nom}[.][A-Za-z0-9_$]+`, 'g')) || [])
+  .map((a) => a.split('.')[1]);
+const touches = [...new Set([...acces('studio'), ...acces('st')])].sort();
+const horsContrat = touches.filter((m) => !CONTRAT_V1.includes(m));
+/* Un ensemble vide signifierait que la garde ne regarde rien. On l'exige
+   donc non vide : sinon elle passerait sans rien prouver — c'est exactement
+   comme cela qu'elle est passee la premiere fois. */
+ok('le pont ne touche que le contrat documente',
+  touches.length >= 8 && horsContrat.length === 0,
+  horsContrat.length ? `hors contrat : ${horsContrat.join(', ')}` : touches.join(' '));
+
+/* La clef du cache decrit un ETAT DE RENDU, pas une reference produit. */
+ok('la clef d etat existe et est nommee',
+  /function getRenderStateKey\(profile, orientationDeg\)/.test(code));
+ok('elle enumere ce qui change les pixels',
+  /`api\$\{ENGINE_API_VERSION\}`/.test(code) && /engineScene/.test(code)
+  && /profile\.materialFamily/.test(code) && /profile\.pattern/.test(code)
+  && /profile\.widthM/.test(code) && /Number\(orientationDeg\)/.test(code));
+ok('la reference produit n entre pas dans la clef',
+  !/getRenderStateKey[\s\S]{0,900}productId/.test(code));
+ok('la clef est calculee dans l adaptateur, pas fournie par l appelant',
+  /applyProfile\(profile, orientationDeg\)/.test(code)
+  && /const key = getRenderStateKey\(profile, orientationDeg\);/.test(code)
+  && !/applyProfile\([^)]*, key\)/.test(code));
+ok('une seule verite pour la piece ouverte dans le moteur',
+  /adapter\.scene !== entry\.id/.test(code) && !/engineRoom/.test(code));
+ok('les exclusions de la clef sont justifiees dans le fichier',
+  /lengthM/.test(html) && /aucune commande, capacite/.test(html)
+  && /meurt avec la page/.test(html));
 ok('la largeur passe par la commande du moteur',
   /studio\.setWidth\(/.test(code));
 ok('chaque reglage passe par une commande, jamais par l etat',
@@ -948,13 +990,38 @@ ok('l abonnement est pris avant la premiere commande',
   /nextRender\(20000\);[\s\S]{0,120}studio\.selectMaterial/.test(code));
 ok('un rendu brouillon laisse sa chance a la passe fine',
   /quality > 1/.test(code) && /affine/.test(code));
+/* Une commande refusee par le moteur interrompt l'application : rendre puis
+   retenir sous une clef qui annonce autre chose serait un mensonge durable. */
+ok('un refus du moteur abandonne l application',
+  /studio\.setWidth\(voulue\) !== true/.test(code)
+  && /refus = `largeur refusee par le moteur/.test(code)
+  && /return null;/.test(code));
+/* Dans le corps d'`applyProfile` seulement : `openRoom` s'abonne aussi, et
+   comparer des positions a travers tout le fichier ne prouverait rien. */
+const corpsApply = code.slice(code.indexOf('async applyProfile(profile, orientationDeg)'));
+ok('le refus est verifie avant tout abonnement',
+  corpsApply.indexOf('studio.setWidth(voulue) !== true') > 0
+  && corpsApply.indexOf('studio.setWidth(voulue) !== true')
+     < corpsApply.indexOf('const attente = nextRender(20000);'));
+ok('le refus est dit en dev', /adapter\.refus/.test(code));
+
+/* Un moteur recharge est un moteur neuf : rien d'ouvert, rien de valable. */
+ok('un rechargement du moteur est renegocie',
+  /engineScene = null;/.test(code) && /renderCache\.clear\(\);/.test(code)
+  && /L'ecouteur `load` reste attache/.test(html));
+ok('la promesse de connexion ne se resout qu une fois',
+  /if \(resolu\) return;/.test(code) && /resolu = true;/.test(code));
+ok('un refus tardif peut degrader le mode',
+  code.indexOf('mode = m;') < code.indexOf('if (resolu) return;'));
+
 ok('un brouillon n est jamais retenu',
   /if \(abouti !== 'fin'\) return studio\.canvas;/.test(code));
 
 /* Le cache de captures : clef, borne, eviction, invalidation. */
-ok('la clef du cache est la scene, la reference et l orientation',
-  /applyProfile\(profile, orientationDeg, key\)/.test(code)
-  && /applyProfile\([^)]*state\.orientationDeg, key\)/.test(code));
+/* La clef est verifiee plus haut : voir « la clef d etat existe ». Ici on
+   garde seulement que le cache est bien indexe par elle. */
+ok('le cache est indexe par la clef d etat',
+  /cacheGet\(key\)/.test(code) && /cachePut\(key, studio\.canvas\)/.test(code));
 ok('le cache est borne', /const RENDER_CACHE_MAX = 8;/.test(code)
   && /renderCache\.size >= RENDER_CACHE_MAX/.test(code));
 ok('l eviction sort la moins recemment utilisee',
