@@ -202,9 +202,33 @@ Premibel, et la validation de leurs affectations.**
 
 ## 4. Images et rendus : où ils vivent
 
+### Deux images par produit
+
+Aucune des cinq fiches n'a de **vignette matière dédiée** : chacune n'a qu'une
+image, et c'est une photo d'ambiance. Vérifié fiche par fiche, galerie par
+galerie, dans un navigateur.
+
+Il en faut pourtant une pour la carte du catalogue — on doit reconnaître le
+bois avant de lire le nom. Quatre de ces photos montrent un gros plan net du
+vrai sol au premier plan : la vignette y est découpée. La cinquième montre son
+sol de loin, derrière un tapis et un canapé, donc découpage de notre rendu.
+
+| référence | `catalogThumbnailSource` | découpé dans |
+|---|---|---|
+| POINF36005 | `premibel_photo_crop` | sa photo Premibel, chevron au premier plan |
+| BTRPF39009 | `premibel_photo_crop` | sa photo Premibel, bâton rompu au premier plan |
+| CHENF39031 | `renderer_crop` | notre rendu `sejour.CHENF39031` — sa fiche ne montre pas le sol de près |
+| CHENF36014 | `premibel_photo_crop` | sa photo Premibel, lames larges au premier plan |
+| CHENF36015 | `premibel_photo_crop` | sa photo Premibel, lames larges au premier plan |
+
+Total : **4 découpages de photo Premibel, 1 de notre rendu.** Rien n'est
+fabriqué, et `heroImage` garde la photo d'ambiance complète pour le contexte
+de la fiche.
+
 | quoi | où | dans Git ? |
 |---|---|---|
 | images produit Premibel | `tools/local-demo-assets/premibel/<REF>.jpg\|png` | **non** — ce ne sont pas nos images |
+| vignettes matière | `tools/local-demo-assets/premibel/thumb.<REF>.jpg` | **non** — dérivées des précédentes |
 | rendus des scènes | `tools/local-demo-assets/renderings/<scene>.<REF>.jpg` | **non** — ils dérivent de photos non redistribuables |
 | métadonnées (nom, réf, URL, propriétés, mappage, date) | `tools/product-concept.html` et ce document | **oui** |
 

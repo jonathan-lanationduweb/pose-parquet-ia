@@ -199,13 +199,69 @@
        #photo  la scène d'origine
        #cmpB   la version B de la comparaison
        #after  le rendu sélectionné, découpé par le séparateur */
-  #stage { flex: 1; min-height: 0; position: relative; overflow: hidden; background: #dcd7cd; }
-  #photo, #cmpB, #after {
-    position: absolute; inset: 0; width: 100%; height: 100%;
-    object-fit: cover; display: block;
+  #stage {
+    flex: 1; min-height: 0; position: relative; overflow: hidden; background: #26251f;
+    cursor: grab; touch-action: none;
   }
-  #cmpB { z-index: 1; }
-  #after { z-index: 2; }
+  #stage.grabbing { cursor: grabbing; }
+  /* Sans ceci, glisser la piece declenche le glisser-deposer natif de
+     l'image : le navigateur « prend » la photo, et le gestionnaire de depot
+     de la page croit a un import. */
+  #stage, .vp img { user-select: none; -webkit-user-select: none; }
+  .vp img { -webkit-user-drag: none; pointer-events: none; }
+  #stage:focus-visible { outline: 2px solid var(--terre); outline-offset: -4px; }
+
+  /* Les groupes du viewport : dimensionnes a la taille intrinseque de la
+     scene, ancres en haut a gauche, et deplaces par une seule transformation
+     GPU. Aucun recalcul de mise en page pendant un deplacement. */
+  .vp {
+    position: absolute; left: 0; top: 0;
+    transform-origin: 0 0; will-change: transform;
+  }
+  .vp img { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: block; }
+  #vpPhoto { z-index: 0; }
+  #vpB { z-index: 1; }
+  /* Le decoupage du separateur est en espace ECRAN : il ne suit ni le zoom
+     ni le deplacement, comme un curseur pose sur la vitre. */
+  #clipA { position: absolute; inset: 0; z-index: 2; }
+  #afterPrev { opacity: 1; }
+  #after { opacity: 1; transition: opacity 160ms linear; }
+  #after.fading { opacity: 0; }
+
+  #zoombar {
+    position: absolute; right: 16px; bottom: 16px; z-index: 7;
+    display: flex; align-items: center; gap: 1px; padding: 4px;
+    background: rgba(255, 255, 255, 0.93); backdrop-filter: blur(14px);
+    border-radius: var(--r-pill); box-shadow: var(--sh-1);
+    transition: opacity 400ms var(--ease);
+  }
+  #zoombar button {
+    min-width: 28px; height: 28px; padding: 0 7px;
+    display: grid; place-items: center; border-radius: var(--r-pill);
+    font-size: 14px; color: var(--ink-2);
+    transition: background var(--t) var(--ease);
+  }
+  #zoombar button:hover { background: var(--track); }
+  #zoombar #zLevel { min-width: 52px; font-size: 11.5px; font-variant-numeric: tabular-nums; }
+  #zoombar .sep { width: 1px; height: 16px; margin: 0 3px; background: var(--line); }
+
+  /* ---------------- Mode immersif ----------------
+     La piece prend l'ecran. Il ne reste que ce qui sert a la regarder : les
+     trois outils du haut, la barre de zoom, et la sortie. */
+  body.immersive header,
+  body.immersive #nav,
+  body.immersive #status,
+  body.immersive #card .sheet,
+  body.immersive #card .dim,
+  body.immersive #card .ref { display: none !important; }
+  body.immersive #card, body.immersive #cardB { width: 150px; padding: 10px 10px 6px; }
+  body.immersive #card .sw, body.immersive #cardB .sw { aspect-ratio: 16 / 9; }
+  body.immersive .scrim, body.immersive .sheetp { inset: 0; }
+  /* Au repos, le chrome s'efface — sans jamais devenir inatteignable. */
+  body.immersive.calm #zoombar,
+  body.immersive.calm #tools,
+  body.immersive.calm #card { opacity: 0.32; }
+  #tools, #card { transition: opacity 400ms var(--ease); }
 
   /* Trois entrées de navigation — le pattern Quick-Step */
   #nav {
@@ -444,6 +500,11 @@
     border-radius: var(--r-md); font-size: 13px; text-align: left; color: var(--ink-2);
   }
   .veil .acts { display: flex; gap: 10px; justify-content: center; }
+  .veil .quiet {
+    display: block; margin: 16px auto 0; padding: 4px 2px;
+    font-size: 12.5px; color: var(--ink-3); text-decoration: underline;
+  }
+  .veil .quiet:hover { color: var(--ink); }
   .btn {
     display: flex; align-items: center; justify-content: center; gap: 9px;
     padding: 12px 20px; background: var(--track); border-radius: var(--r-pill); font-size: 13.5px;
@@ -569,10 +630,21 @@
   <input type="file" id="file" class="hidden" accept="image/jpeg,image/png,image/webp" />
 
   <!-- ===================== Le visualiseur ===================== -->
-  <section id="stage" class="hidden">
-    <img id="photo" alt="Votre pièce" />
-    <img id="cmpB" class="hidden" alt="" />
-    <img id="after" class="hidden" alt="" />
+  <section id="stage" class="hidden" tabindex="0" role="group"
+           aria-label="Vue de la pièce. Molette pour zoomer, glisser pour déplacer.
+                       Les boutons en bas à droite font la même chose.">
+    <!-- Trois groupes, UN seul etat de viewport. `applyTransform()` ecrit la
+         MEME chaine dans chaque [data-vp] : la comparaison ne peut donc pas
+         se desynchroniser. Le decoupage du separateur vit en dehors de la
+         transformation (#clipA), sinon la ligne bougerait avec le zoom. -->
+    <div class="vp" data-vp id="vpPhoto"><img id="photo" alt="" /></div>
+    <div class="vp" data-vp id="vpB"><img id="cmpB" alt="" /></div>
+    <div id="clipA">
+      <div class="vp" data-vp id="vpA">
+        <img id="afterPrev" alt="" />
+        <img id="after" alt="" />
+      </div>
+    </div>
 
     <nav id="nav">
       <button type="button" id="navRoom">
@@ -626,6 +698,25 @@
     <aside id="cardB" class="hidden"></aside>
     <div id="status"></div>
     <div id="devnote" class="hidden"></div>
+
+    <div id="zoombar">
+      <button type="button" id="zOut" aria-label="Zoom arrière">−</button>
+      <button type="button" id="zLevel" aria-label="Niveau de zoom, cliquer pour ajuster">100 %</button>
+      <button type="button" id="zIn" aria-label="Zoom avant">+</button>
+      <span class="sep"></span>
+      <button type="button" id="zFit" aria-label="Ajuster à l'écran">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3.4" /><path d="M12 3v3.4M12 17.6V21M3 12h3.4M17.6 12H21" />
+        </svg>
+      </button>
+      <button type="button" id="zFull" aria-label="Plein écran">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 9V5.5A1.5 1.5 0 015.5 4H9M15 4h3.5A1.5 1.5 0 0120 5.5V9M20 15v3.5a1.5 1.5 0 01-1.5 1.5H15M9 20H5.5A1.5 1.5 0 014 18.5V15" />
+        </svg>
+      </button>
+    </div>
     <div id="split" class="hidden"></div>
     <div class="vtag hidden" id="tagA">version A</div>
     <div class="vtag hidden" id="tagB">version B</div>
@@ -655,6 +746,9 @@
           <button class="btn warm" id="unkRooms" type="button">Tester avec une pièce d'exemple</button>
           <button class="btn" id="unkOther" type="button">Essayer une autre photo</button>
         </div>
+        <!-- Troisieme sortie, volontairement discrete : sans parquet, il reste
+             la photo, et elle se manipule deja. -->
+        <button class="quiet" id="unkExplore" type="button">Explorer ma photo quand même</button>
       </div>
     </div>
 
@@ -834,6 +928,21 @@
      NOTRE moteur, avec une famille de texture de démonstration : la géométrie
      (motif, largeur, sens de pose) est juste, la matière est approchée. Aucun
      mappage n'est donc exact, et l'interface parle d'« aperçu ».
+
+     ## Deux images par produit, et elles ne servent pas à la même chose
+
+     `heroImage` est l'image principale de la fiche Premibel : une photo
+     d'ambiance. Elle situe le produit, elle ne montre pas la lame.
+
+     `catalogThumbnail` est la vignette matière du catalogue, celle qui doit
+     faire reconnaître le produit avant qu'on lise son nom. **Aucune des cinq
+     fiches n'a de vignette matière dédiée** : chacune n'a qu'une image, et
+     c'est l'ambiance. Quatre de ces photos montrent toutefois un gros plan
+     net du vrai sol au premier plan, et la vignette y est découpée —
+     `premibel_photo_crop`. La cinquième (Houston) montre son sol de loin,
+     derrière un tapis et un canapé : rien d'exploitable, donc découpage de
+     NOTRE rendu, marqué `renderer_crop`. Rien n'est fabriqué, et la
+     provenance de chaque vignette est écrite dans le produit.
      ===================================================================== */
   const PREMIBEL = 'local-demo-assets/premibel/';
   const RENDERS = 'local-demo-assets/renderings/';
@@ -845,7 +954,9 @@
       fullTitle: 'POINT DE HONGRIE ZEUS NATUREL 92X12X520',
       productUrl: 'https://www.premibel.fr/parquet-flottant-chene-verni/POINF36005/',
       imageSourceUrl: 'https://www.premibel.fr/wp-content/uploads/2026/07/POINF36005.jpg',
-      image: PREMIBEL + 'POINF36005.jpg',
+      heroImage: PREMIBEL + 'POINF36005.jpg',
+      catalogThumbnail: PREMIBEL + 'thumb.POINF36005.jpg',
+      catalogThumbnailSource: 'premibel_photo_crop',
       checkedAt: '2026-09-08',
       species: 'Chêne', pattern: 'point-de-hongrie', widthMm: 92, lengthMm: 520,
       thicknessMm: 12, finish: 'verni', aspect: 'Brossé', premibelFamily: 'FLCHEN08',
@@ -865,7 +976,9 @@
       fullTitle: 'Baton rompu notting hill invisible 90X15X600mm',
       productUrl: 'https://www.premibel.fr/parquet-flottant-chene-verni/BTRPF39009/',
       imageSourceUrl: 'https://www.premibel.fr/wp-content/uploads/2026/04/BTRPF39009.png',
-      image: PREMIBEL + 'BTRPF39009.png',
+      heroImage: PREMIBEL + 'BTRPF39009.png',
+      catalogThumbnail: PREMIBEL + 'thumb.BTRPF39009.jpg',
+      catalogThumbnailSource: 'premibel_photo_crop',
       checkedAt: '2026-09-08',
       species: 'Chêne', pattern: 'baton-rompu', widthMm: 90, lengthMm: 600,
       thicknessMm: 15, finish: 'verni', aspect: 'Brossé', premibelFamily: 'FLCHEN08',
@@ -886,7 +999,9 @@
       fullTitle: 'Chêne naturel houston 190X15X400mm',
       productUrl: 'https://www.premibel.fr/parquet-flottant-chene-verni/CHENF39031/',
       imageSourceUrl: 'https://www.premibel.fr/wp-content/uploads/2025/11/CHENF39031.jpg',
-      image: PREMIBEL + 'CHENF39031.jpg',
+      heroImage: PREMIBEL + 'CHENF39031.jpg',
+      catalogThumbnail: PREMIBEL + 'thumb.CHENF39031.jpg',
+      catalogThumbnailSource: 'renderer_crop',
       checkedAt: '2026-09-08',
       species: 'Chêne', pattern: 'lames', widthMm: 190, lengthMm: 1900,
       lengthNote: 'tableau : 1900 mm · titre de la fiche : 400 mm — non arbitré',
@@ -907,7 +1022,9 @@
       fullTitle: 'CHENE COLZA 150X15',
       productUrl: 'https://www.premibel.fr/parquet-flottant-chene-verni/CHENF36014/',
       imageSourceUrl: 'https://www.premibel.fr/wp-content/uploads/2026/07/CHENF36014.jpg',
-      image: PREMIBEL + 'CHENF36014.jpg',
+      heroImage: PREMIBEL + 'CHENF36014.jpg',
+      catalogThumbnail: PREMIBEL + 'thumb.CHENF36014.jpg',
+      catalogThumbnailSource: 'premibel_photo_crop',
       checkedAt: '2026-09-08',
       species: 'Chêne', pattern: 'lames', widthMm: 150, lengthMm: 1900,
       thicknessMm: 15, finish: 'verni', aspect: 'Brossé, Mat', premibelFamily: 'FLCHEN08',
@@ -927,7 +1044,9 @@
       fullTitle: 'CHENE INVISIBLE PIVOINE 150X15',
       productUrl: 'https://www.premibel.fr/parquet-flottant-chene-verni/CHENF36015/',
       imageSourceUrl: 'https://www.premibel.fr/wp-content/uploads/2026/07/CHENF36015.jpg',
-      image: PREMIBEL + 'CHENF36015.jpg',
+      heroImage: PREMIBEL + 'CHENF36015.jpg',
+      catalogThumbnail: PREMIBEL + 'thumb.CHENF36015.jpg',
+      catalogThumbnailSource: 'premibel_photo_crop',
       checkedAt: '2026-09-08',
       species: 'Chêne', pattern: 'lames', widthMm: 150, lengthMm: 1900,
       thicknessMm: 15, finish: 'verni', aspect: 'Brossé, Mat', premibelFamily: 'FLCHEN08',
@@ -999,6 +1118,11 @@
     missing: new Set(),
     /* Images produit absentes du cache local : la vignette prend un cadre. */
     missingImg: new Set(),
+    /* Un seul etat de viewport pour toute la scene.
+         z : facteur de zoom, 1 = ajuste a l'ecran (donc « 100 % »)
+         x, y : translation en pixels ecran, coin haut-gauche de la scene */
+    vp: { z: 1, x: 0, y: 0 },
+    immersive: false,
   };
 
   const product = (id) => PREMIBEL_DEMO_PRODUCTS.find((p) => p.id === (id || state.productId));
@@ -1074,6 +1198,261 @@
   }
 
   /* =====================================================================
+     Le viewport : pan et zoom 2D
+
+     La photo n'est plus une image posee, c'est la vue que l'utilisateur
+     manipule. Inspiration d'interaction seulement — molette qui zoome sous
+     le curseur, glisser qui deplace, recentrage — sans rien emprunter a
+     l'apparence d'un outil cartographique.
+
+     Ce n'est PAS de la 3D : on ne se deplace pas dans la piece, on ne passe
+     pas derriere un meuble, le point de vue ne change pas. Pan et zoom sur
+     une photo, rien de plus, et l'interface ne promet rien d'autre.
+     ===================================================================== */
+  let pendingFit = false;
+  const ZOOM_MIN = 1;      /* en dessous de l'ajustement, on verrait du vide */
+  const ZOOM_MAX = 5;
+  const REDUCED = (() => {
+    try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
+    catch { return false; }
+  })();
+
+  /* Taille intrinseque de la scene : celle des rendus (tous au meme cadrage),
+     ou celle de la photo importee. */
+  function sceneSize() {
+    if (state.source === 'uploaded' && state.uploaded) {
+      return { w: state.uploaded.w || 1200, h: state.uploaded.h || 800 };
+    }
+    return { w: 1200, h: 800 };
+  }
+
+  const stageBox = () => $('stage').getBoundingClientRect();
+
+  /** Echelle CSS qui fait tenir la scene entiere dans le cadre. */
+  function fitScale() {
+    const b = stageBox();
+    const { w, h } = sceneSize();
+    if (!b.width || !b.height || !w || !h) return 1;
+    return Math.min(b.width / w, b.height / h);
+  }
+
+  /* Echelle CSS reelle = ajustement x zoom demande. */
+  const cssScale = () => fitScale() * state.vp.z;
+
+  /** Borne la translation : l'image couvre toujours le cadre, ou se centre. */
+  function clamp(v) {
+    const b = stageBox();
+    const { w, h } = sceneSize();
+    const s = fitScale() * v.z;
+    const dw = w * s;
+    const dh = h * s;
+    const out = { z: v.z, x: v.x, y: v.y };
+    out.x = dw <= b.width ? (b.width - dw) / 2 : Math.min(0, Math.max(b.width - dw, v.x));
+    out.y = dh <= b.height ? (b.height - dh) / 2 : Math.min(0, Math.max(b.height - dh, v.y));
+    return out;
+  }
+
+  let vpFrame = 0;
+  /** Ecrit la MEME transformation dans tous les groupes du viewport. */
+  function applyTransform() {
+    const { w, h } = sceneSize();
+    const s = cssScale();
+    const t = `translate3d(${state.vp.x.toFixed(2)}px, ${state.vp.y.toFixed(2)}px, 0) scale(${s.toFixed(5)})`;
+    document.querySelectorAll('[data-vp]').forEach((el) => {
+      el.style.width = `${w}px`;
+      el.style.height = `${h}px`;
+      el.style.transform = t;
+    });
+    $('zLevel').textContent = `${Math.round(state.vp.z * 100)} %`;
+    $('zOut').disabled = state.vp.z <= ZOOM_MIN + 1e-4;
+    $('zIn').disabled = state.vp.z >= ZOOM_MAX - 1e-4;
+  }
+
+  function setVp(next, animate) {
+    const c = clamp(next);
+    const moved = Math.abs(c.z - state.vp.z) > 1e-4
+      || Math.abs(c.x - state.vp.x) > 0.5 || Math.abs(c.y - state.vp.y) > 0.5;
+    if (!moved) { state.vp = c; applyTransform(); return; }
+    if (!animate || REDUCED) { state.vp = c; applyTransform(); return; }
+    /* Interpolation courte, uniquement pour les gestes discrets (boutons,
+       double-clic). Un glisser n'est JAMAIS anime : il suit la souris. */
+    const from = { ...state.vp };
+    const t0 = performance.now();
+    const dur = 200;
+    if (vpFrame) cancelAnimationFrame(vpFrame);
+    const step = (now) => {
+      const k = Math.min(1, (now - t0) / dur);
+      const e = 1 - (1 - k) * (1 - k) * (1 - k);
+      state.vp = {
+        z: from.z + (c.z - from.z) * e,
+        x: from.x + (c.x - from.x) * e,
+        y: from.y + (c.y - from.y) * e,
+      };
+      applyTransform();
+      if (k < 1) vpFrame = requestAnimationFrame(step);
+      else { state.vp = c; applyTransform(); vpFrame = 0; }
+    };
+    vpFrame = requestAnimationFrame(step);
+  }
+
+  /** Ajuste la scene au cadre et la centre. « 100 % » part de la. */
+  function fitToView(animate) {
+    pendingFit = false;
+    setVp({ z: 1, x: 0, y: 0 }, animate);
+  }
+
+  /* Le recentrage d'ouverture est differe d'une frame, le temps que le cadre
+     ait une taille. Si l'utilisateur agit d'ici la, son geste gagne : un
+     recentrage qui ecrase une action deliberee est un bug, pas une
+     initialisation. */
+  function scheduleFit() {
+    pendingFit = true;
+    /* Un timer, pas requestAnimationFrame : un onglet en arriere-plan ne
+       peint pas, donc ses rAF ne se declenchent pas — et l'ajustement ne se
+       ferait jamais. Le rAF sert a peindre, pas a porter de l'etat. */
+    setTimeout(() => { if (pendingFit) fitToView(false); }, 0);
+  }
+
+  /** Zoome en gardant le point (px, py) du cadre sous le curseur. */
+  function zoomAt(factor, px, py, animate) {
+    pendingFit = false;
+    const b = stageBox();
+    const cx = px == null ? b.width / 2 : px;
+    const cy = py == null ? b.height / 2 : py;
+    const z = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, state.vp.z * factor));
+    const s0 = fitScale() * state.vp.z;
+    const s1 = fitScale() * z;
+    if (!s0) return;
+    /* Le point de la scene sous le curseur avant zoom doit y rester apres. */
+    const u = (cx - state.vp.x) / s0;
+    const v = (cy - state.vp.y) / s0;
+    setVp({ z, x: cx - u * s1, y: cy - v * s1 }, animate);
+  }
+
+  /* ---------------- Gestes ----------------
+     Pointer Events : une seule implementation pour souris, trackpad et
+     tactile. Deux doigts font un pincement. */
+  const pointers = new Map();
+  let pinch = null;
+
+  function onDown(e) {
+    if (e.target.closest('#zoombar, #nav, #tools, #card, #cardB, #status, .veil')) return;
+    e.preventDefault();
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if ($('stage').setPointerCapture) { try { $('stage').setPointerCapture(e.pointerId); } catch { /* ignore */ } }
+    $('stage').classList.add('grabbing');
+    if (pointers.size === 2) {
+      const [a, b] = [...pointers.values()];
+      pinch = { dist: Math.hypot(a.x - b.x, a.y - b.y), z: state.vp.z };
+    }
+  }
+
+  function onMove(e) {
+    if (!pointers.has(e.pointerId)) return;
+    pendingFit = false;
+    const prev = pointers.get(e.pointerId);
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const b = stageBox();
+    if (pointers.size === 2 && pinch) {
+      const [p1, p2] = [...pointers.values()];
+      const dist = Math.hypot(p1.x - p2.x, p1.y - p2.y);
+      if (pinch.dist > 4) {
+        const mid = { x: (p1.x + p2.x) / 2 - b.left, y: (p1.y + p2.y) / 2 - b.top };
+        const target = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, pinch.z * (dist / pinch.dist)));
+        zoomAt(target / state.vp.z, mid.x, mid.y, false);
+      }
+      return;
+    }
+    /* Un doigt ou la souris : deplacement immediat, sans animation. */
+    setVp({ z: state.vp.z, x: state.vp.x + (e.clientX - prev.x), y: state.vp.y + (e.clientY - prev.y) }, false);
+  }
+
+  function onUp(e) {
+    pointers.delete(e.pointerId);
+    if (pointers.size < 2) pinch = null;
+    if (!pointers.size) $('stage').classList.remove('grabbing');
+  }
+
+  function onWheel(e) {
+    if (e.target.closest('.sheetp, .veil, #menu')) return;
+    e.preventDefault();
+    const b = stageBox();
+    /* Un trackpad envoie ctrlKey sur un pincement : meme geste, pas plus. */
+    const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? b.height : 1;
+    const d = e.deltaY * unit;
+    const factor = Math.exp(-d * (e.ctrlKey ? 0.012 : 0.0022));
+    zoomAt(factor, e.clientX - b.left, e.clientY - b.top, false);
+  }
+
+  function onDouble(e) {
+    if (e.target.closest('#zoombar, #nav, #tools, #card, #cardB, .veil')) return;
+    const b = stageBox();
+    zoomAt(e.shiftKey ? 1 / 1.8 : 1.8, e.clientX - b.left, e.clientY - b.top, true);
+  }
+
+  $('stage').addEventListener('pointerdown', onDown);
+  $('stage').addEventListener('pointermove', onMove);
+  $('stage').addEventListener('pointerup', onUp);
+  $('stage').addEventListener('pointercancel', onUp);
+  $('stage').addEventListener('wheel', onWheel, { passive: false });
+  $('stage').addEventListener('dblclick', onDouble);
+
+  $('zIn').onclick = () => zoomAt(1.5, null, null, true);
+  $('zOut').onclick = () => zoomAt(1 / 1.5, null, null, true);
+  $('zFit').onclick = () => fitToView(true);
+  $('zLevel').onclick = () => fitToView(true);
+
+  /* ---------------- Mode immersif ---------------- */
+  let calmTimer = null;
+  function wake() {
+    document.body.classList.remove('calm');
+    if (calmTimer) clearTimeout(calmTimer);
+    if (state.immersive) calmTimer = setTimeout(() => document.body.classList.add('calm'), 3200);
+  }
+
+  function setImmersive(on) {
+    state.immersive = on;
+    document.body.classList.toggle('immersive', on);
+    if (!on) document.body.classList.remove('calm');
+    const root = document.querySelector('body > div');
+    try {
+      if (on && root.requestFullscreen && !document.fullscreenElement) root.requestFullscreen();
+      else if (!on && document.fullscreenElement && document.exitFullscreen) document.exitFullscreen();
+    } catch { /* le plein ecran natif peut etre refuse : le mode reste utile */ }
+    wake();
+    /* Le cadre change de taille : on garde le zoom, on reborne la position.
+       Timer et non rAF, pour la meme raison que `scheduleFit`. */
+    setTimeout(() => setVp(state.vp, false), 0);
+  }
+
+  $('zFull').onclick = () => setImmersive(!state.immersive);
+  document.addEventListener('fullscreenchange', () => {
+    const fs = Boolean(document.fullscreenElement);
+    if (!fs && state.immersive) { state.immersive = false; document.body.classList.remove('immersive', 'calm'); }
+    setTimeout(() => setVp(state.vp, false), 0);
+  });
+  $('stage').addEventListener('pointermove', wake);
+
+  /* ---------------- Clavier ---------------- */
+  document.addEventListener('keydown', (e) => {
+    const t = e.target;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.key === 'Escape') {
+      if (state.immersive) setImmersive(false);
+      else closeAll();
+      return;
+    }
+    if (!state.source) return;
+    if (e.key === '+' || e.key === '=') { e.preventDefault(); zoomAt(1.5, null, null, true); }
+    else if (e.key === '-' || e.key === '_') { e.preventDefault(); zoomAt(1 / 1.5, null, null, true); }
+    else if (e.key === '0') { e.preventDefault(); fitToView(true); }
+    else if (e.key === 'f' || e.key === 'F') { e.preventDefault(); setImmersive(!state.immersive); }
+  });
+
+  window.addEventListener('resize', () => { if (state.source) setVp(state.vp, false); });
+
+  /* =====================================================================
      Rendu de la scène — trois images, aucun calcul
      ===================================================================== */
   function paint() {
@@ -1085,20 +1464,30 @@
     const url = uploaded ? null : renderUrl(entry.id, state.productId);
     const hasRender = Boolean(url);
 
-    $('after').classList.toggle('hidden', !hasRender);
+    $('clipA').classList.toggle('hidden', !hasRender);
     if (hasRender && $('after').getAttribute('src') !== url) {
+      /* Fondu court : le sol change sous les yeux, sans flash blanc et sans
+         que le cadrage bouge d'un pixel. */
+      const old = $('after').getAttribute('src');
+      if (old && !REDUCED) {
+        $('afterPrev').src = old;
+        $('after').classList.add('fading');
+        requestAnimationFrame(() => requestAnimationFrame(() => $('after').classList.remove('fading')));
+      }
       watch($('after'), url, paint);
       $('after').src = url;
     }
 
     /* Avant/après et comparaison partagent le même séparateur : un seul
-       geste, jamais deux contrôles concurrents. */
+       geste, jamais deux contrôles concurrents. Le découpage est posé sur
+       #clipA, qui n'est PAS transformé : la ligne reste où l'utilisateur l'a
+       laissée, quel que soit le zoom. */
     const cut = state.ba || Boolean(state.compare);
-    $('after').style.clipPath = cut
+    $('clipA').style.clipPath = cut
       ? `inset(0 ${((1 - state.split) * 100).toFixed(2)}% 0 0)` : 'none';
 
     const bUrl = state.compare && !uploaded ? renderUrl(entry.id, state.compare.b) : null;
-    $('cmpB').classList.toggle('hidden', !bUrl);
+    $('vpB').classList.toggle('hidden', !bUrl);
     if (bUrl && $('cmpB').getAttribute('src') !== bUrl) {
       watch($('cmpB'), bUrl, paint);
       $('cmpB').src = bUrl;
@@ -1108,9 +1497,11 @@
     if (cut) $('split').style.left = `${state.split * 100}%`;
 
     /* Sans rendu, la carte produit et les outils mentiraient : aucun parquet
-       n'est posé, il n'y a donc rien à comparer ni à montrer « après ». */
+       n'est posé, il n'y a donc rien à comparer ni à montrer « après ». Le
+       viewport, lui, reste manipulable : on peut explorer sa photo. */
     $('card').classList.toggle('hidden', !hasRender);
     $('tools').classList.toggle('hidden', !hasRender);
+    applyTransform();
 
     paintCard();
     paintStatus();
@@ -1133,20 +1524,22 @@
 
   /* La photo produit Premibel sert la carte et la fiche — JAMAIS de texture
      de sol. Le sol vient du rendu de notre moteur, et de lui seul. */
-  const imgMissing = (p) => state.missingImg.has(p.image);
-  const swatchStyle = (p) => (imgMissing(p) ? '' : `background-image:url('${p.image}')`);
+  /* La carte du catalogue montre la MATIERE (`catalogThumbnail`), jamais la
+     photo d'ambiance : on doit reconnaitre le bois avant de lire le nom. */
+  const imgMissing = (p) => state.missingImg.has(p.catalogThumbnail);
+  const swatchStyle = (p) => (imgMissing(p) ? '' : `background-image:url('${p.catalogThumbnail}')`);
   const swatchClass = (p) => (imgMissing(p) ? ' noimg' : '');
 
-  /* Sonde les images produit une fois : sans elles, on montre un cadre au
-     lieu d'un carré vide. */
+  /* Sonde les vignettes une fois : sans elles, on montre un cadre au lieu
+     d'un carré vide. */
   function probeImages() {
     PREMIBEL_DEMO_PRODUCTS.forEach((p) => {
       const im = new Image();
       im.onerror = () => {
-        state.missingImg.add(p.image);
+        state.missingImg.add(p.catalogThumbnail);
         if (state.source) { paintCard(); paintCatalogue(); }
       };
-      im.src = p.image;
+      im.src = p.catalogThumbnail;
     });
   }
 
@@ -1267,16 +1660,19 @@
     state.category = room().category;
     preload(id);
     closeAll();
-    enter();
+    enter(true);
     setDemo('success', true);
     toast(room().label);
   }
 
-  function enter() {
+  function enter(refit) {
     $('entry').classList.add('hidden');
     $('stage').classList.remove('hidden');
     $('hSwap').classList.remove('hidden');
     paint();
+    /* Nouvelle scene : on recentre. Nouveau produit dans la MEME scene : on
+       ne touche a rien, l'utilisateur reste ou il regardait. */
+    if (refit) scheduleFit();
   }
 
   /* La photo de l'utilisateur : lue en local, jamais envoyée, jamais écrite. */
@@ -1295,7 +1691,7 @@
       state.compare = null;
       state.ba = false;
       closeAll();
-      enter();
+      enter(true);
       $('analyzing').classList.remove('hidden');
       setTimeout(() => {
         $('analyzing').classList.add('hidden');
@@ -1494,6 +1890,11 @@
   $('cusClose').onclick = closeAll;
   $('cusScrim').onclick = closeAll;
 
+  $('unkExplore').onclick = () => {
+    $('unknown').classList.add('hidden');
+    toast('Molette pour zoomer, glisser pour déplacer');
+  };
+
   ['doorImport', 'sheetImport', 'menuImport', 'unkOther', 'rejOther'].forEach((id) => {
     $(id).onclick = () => { closeAll(); $('file').click(); };
   });
@@ -1502,7 +1903,12 @@
   ['dragover', 'dragenter'].forEach((t) => document.addEventListener(t, (e) => e.preventDefault()));
   document.addEventListener('drop', (e) => {
     e.preventDefault();
-    const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    const dt = e.dataTransfer;
+    /* Un glisser interne (une image de la page) arrive aussi ici, et Chrome
+       lui fabrique un fichier. On n'accepte donc qu'un depot qui se declare
+       comme un fichier. */
+    const externe = dt && dt.types && [...dt.types].includes('Files');
+    const f = externe && dt.files && dt.files[0];
     if (f) loadUpload(f);
   });
 
@@ -1622,7 +2028,7 @@
     }).join('');
   };
   $('hSave').onclick = () => toast('Enregistrement : besoin documenté, pas développé ici');
-  $('fsBtn').onclick = () => toast('Plein écran');
+  $('fsBtn').onclick = () => setImmersive(!state.immersive);
 
   $('hMenu').onclick = () => {
     const closed = $('menu').classList.toggle('hidden');
@@ -1665,6 +2071,8 @@
     RENDERS, PREMIBEL, PHOTOS,
     room, product, renderUrl, originalUrl, preload, probeImages,
     findVariant, presentPatterns, presentTones, presentWidths, startCompare,
+    ZOOM_MIN, ZOOM_MAX, sceneSize, fitScale, cssScale, clamp, applyTransform,
+    setVp, fitToView, zoomAt, setImmersive, onWheel, onDown, onMove, onUp, onDouble,
     paint, paintCard, paintCatalogue, paintCustom, paintRoomSheet, paintQuick,
     openRoom, loadUpload, releaseUpload, select, stepProduct, toggleFav,
     toggleFilter, visible, setDemo, closeAll, openRooms, openCat, openCus,

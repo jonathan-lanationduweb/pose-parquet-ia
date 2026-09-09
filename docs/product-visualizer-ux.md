@@ -519,7 +519,161 @@ développe pas le mobile plus loin.
 
 ---
 
-## 15. Ce que ce document ne fait pas
+## 15. Le viewport immersif
+
+La grande photo n'est pas une image posée sur la page : c'est **la vue que
+l'utilisateur manipule**. On ne dit pas « voici votre pièce », on dit « votre
+pièce est là, regardez-la de près ».
+
+### Ce que c'est, et ce que ce n'est pas
+
+C'est du **pan et zoom 2D** sur une photographie. Rien d'autre.
+
+On ne peut donc pas : avancer dans la pièce, tourner derrière un meuble,
+changer de point de vue, voir un mur sous un autre angle. L'interface ne le
+propose pas et ne le suggère pas — pas de curseur d'orbite, pas de manette,
+pas de vocabulaire de visite. Le jour où une vraie navigation 3D existera,
+elle sera un autre lot, avec ses propres données.
+
+L'inspiration d'interaction vient des outils cartographiques : la molette
+zoome **sous le curseur**, le glisser déplace, un bouton recentre. Elle
+s'arrête là. Rien n'est emprunté à leur apparence — ni contrôles, ni couleurs,
+ni icônes. L'identité reste Pose Parquet.
+
+### Un seul état pour toute la scène
+
+```
+viewport = { z, x, y }
+
+  z       facteur de zoom, 1 = ajusté à l'écran
+  x, y    translation en pixels écran du coin haut-gauche de la scène
+```
+
+Et une seule fonction écrit la **même** transformation dans chaque groupe :
+
+```
+#stage                                   le cadre, overflow caché
+  [data-vp] #vpPhoto  → la photo d'origine
+  [data-vp] #vpB      → le rendu de la version B
+  #clipA              → découpage du séparateur, en espace ÉCRAN
+    [data-vp] #vpA    → le rendu de la version A
+```
+
+C'est la règle qui compte : **jamais de transformation séparée** pour la photo,
+le rendu A et le rendu B. Sinon la comparaison mentirait — deux sols décalés
+d'un pixel, et on compare deux cadrages au lieu de deux parquets. Un test
+vérifie que les trois groupes portent une chaîne de transformation identique.
+
+Le découpage du séparateur vit **au-dessus** de la transformation, sur
+`#clipA`. Une ligne posée sur la vitre : elle reste là où l'utilisateur l'a
+laissée, quel que soit le zoom.
+
+### 100 % veut dire « ajusté à l'écran »
+
+Pas « taille native des pixels », qui ne veut rien dire pour l'utilisateur.
+`fitToView()` fait tenir la scène entière dans le cadre, la centre, garde le
+ratio — l'équivalent d'un `object-fit: contain` — et c'est ce cadrage qui vaut
+**100 %**. Donc 150 % signifie « une fois et demie le cadrage de départ ».
+
+Bornes : de 100 % (l'ajustement ; en dessous on ne verrait que du vide) à
+500 %. Assez pour inspecter un joint, un chanfrein, un pied de meuble ou la
+ligne mur/sol ; pas assez pour se perdre à 5 000 %.
+
+### Ce qui conserve le cadrage, et ce qui le remet à zéro
+
+| geste | viewport |
+| --- | --- |
+| changer de parquet dans la même pièce | **conservé** |
+| avant / après | **conservé** |
+| ouvrir ou déplacer une comparaison | **conservé**, et les deux côtés bougent ensemble |
+| changer de pièce | `fitToView()` |
+| importer une photo | `fitToView()` |
+| entrer ou sortir du plein écran | **conservé**, position rebornée au nouveau cadre |
+
+La ligne la plus importante est la première. L'utilisateur zoome sur une
+plinthe, essaie quatre références : il reste sur sa plinthe. Un recentrage
+automatique à chaque changement de produit rendrait la comparaison
+impossible.
+
+### Bornes de déplacement
+
+L'image couvre toujours le cadre : on ne peut pas la faire sortir ni voir du
+vide autour. Quand elle est plus petite que le cadre sur un axe, elle se
+recentre d'elle-même sur cet axe. Le déplacement reste large — à 300 %, il
+reste plus de la moitié de la largeur à explorer — mais on ne perd jamais la
+pièce.
+
+### Gestes
+
+Une seule implémentation, en Pointer Events, sert la souris, le trackpad et le
+tactile :
+
+| geste | effet |
+| --- | --- |
+| molette | zoom sous le curseur |
+| molette + `ctrl` (pincement trackpad) | zoom sous le curseur, plus vif |
+| glisser (souris, un doigt) | déplacement |
+| deux doigts | pincement, zoom autour du milieu des doigts |
+| double-clic | zoom avant doux autour du point cliqué |
+| `Maj` + double-clic | zoom arrière |
+
+Le curseur passe de `grab` à `grabbing`. Les images du viewport ne sont pas
+glissables : sans cela le navigateur démarre son propre glisser-déposer
+d'image, et la page croit à un import — c'est arrivé, et c'est corrigé.
+
+Clavier, parce que la gestuelle ne doit jamais être le seul chemin :
+`+` / `-` zooment, `0` recentre, `F` bascule le plein écran, `Échap` en sort
+ou ferme une modale. Aucun de ces raccourcis ne se déclenche dans un champ de
+saisie.
+
+### Contrôles
+
+Une barre minuscule, en bas à droite, sur la photo :
+
+```
+[ − ]  [ 100 % ]  [ + ]  [ ⌖ ]  [ ⛶ ]
+```
+
+Blanc translucide, flou léger, ombre à peine visible. Le niveau affiché est
+aussi un bouton : le toucher recentre. Chaque commande porte son `aria-label`,
+et le cadre lui-même annonce « Vue de la pièce. Molette pour zoomer, glisser
+pour déplacer. » Tout ce qui se fait au geste se fait aussi au bouton.
+
+### Plein écran
+
+Le mode immersif enlève ce qui n'aide pas à regarder : l'en-tête disparaît, la
+navigation flottante disparaît, la capsule d'état disparaît. Il reste les
+trois outils du haut (avant/après, comparer, sortir), une carte produit
+réduite à sa vignette et son nom, et la barre de zoom.
+
+Au bout de trois secondes sans mouvement, ce qui reste s'atténue à 32 % — et
+revient au premier mouvement. Atténué, jamais supprimé : un contrôle qui
+disparaît pour de bon est une frustration, pas une épure.
+
+Le plein écran natif est demandé au navigateur ; s'il le refuse (dans un
+cadre embarqué, par exemple), le mode immersif fonctionne quand même. C'est
+une dégradation, pas une panne.
+
+### Fluidité
+
+Une seule transformation GPU (`translate3d` + `scale`), écrite sur trois
+éléments, sans recalcul de mise en page. Pendant un glisser : **aucune
+animation**, le déplacement suit le pointeur. Les gestes discrets — boutons,
+double-clic, recentrage — sont interpolés sur 200 ms, et pas du tout si
+`prefers-reduced-motion` est demandé.
+
+Au changement de parquet, un fondu de 160 ms entre l'ancien et le nouveau
+rendu : le sol change sous les yeux, sans flash blanc, et sans que le cadrage
+bouge d'un pixel.
+
+### Sur mobile
+
+Le moteur n'est pas souris-seule et le pincement est prévu, mais ce lot ne
+développe pas l'UX mobile : la disposition du §14 reste à faire.
+
+---
+
+## 16. Ce que ce document ne fait pas
 
 - il ne choisit **aucun modèle d'IA** et n'en installe aucun ;
 - il ne recrée **aucun moteur de rendu** — celui du front existe et fonctionne ;

@@ -102,7 +102,7 @@ ok('aucun asset concurrent',
 ok('aucun stepper', !/class="steps"/.test(html) && !/data-state="now"/.test(html));
 ok('« Voir le résultat » absent', !/Voir le résultat/.test(html));
 ok('aucune sidebar permanente', !/id="left"/.test(html) && !/id="panel"/.test(html));
-ok('la piece occupe tout sous l en-tete', /#stage \{ flex: 1;/.test(html));
+ok('la piece occupe tout sous l en-tete', /#stage \{\s*\n\s*flex: 1;/.test(html));
 ok('en-tete de 54 px', /height: 54px/.test(html));
 ok('en-tete minimal : 4 actions',
   (html.match(/class="hbtn/g) || []).length === 4, `${(html.match(/class="hbtn/g) || []).length} boutons`);
@@ -116,11 +116,15 @@ ok('petite carte produit flottante', /#card, #cardB \{[\s\S]*?width: 196px/.test
 ok('aucun bouton « Appliquer »', !/>Appliquer</.test(html) && !/<button[^>]*>[^<]*Appliquer/.test(html));
 
 /* ================= 4. Trois images, et c'est tout ================= */
-ok('trois couches d image', /<img id="photo"/.test(html) && /<img id="cmpB"/.test(html)
-  && /<img id="after"/.test(html));
-ok('elles sont en object-fit cover', /#photo, #cmpB, #after \{[\s\S]*?object-fit: cover/.test(html));
+ok('les couches d image sont la',
+  /<img id="photo"/.test(html) && /<img id="cmpB"/.test(html)
+  && /<img id="after"/.test(html) && /<img id="afterPrev"/.test(html));
 ok('la version A est au-dessus de la version B',
-  /#cmpB \{ z-index: 1; \}/.test(html) && /#after \{ z-index: 2; \}/.test(html));
+  /#vpB \{ z-index: 1; \}/.test(html) && /#clipA \{[^}]*z-index: 2/.test(html));
+ok('le decoupage du separateur est hors de la transformation',
+  /#clipA \{ position: absolute;/.test(html)
+  && /\$\('clipA'\)\.style\.clipPath/.test(code)
+  && !/\$\('after'\)\.style\.clipPath/.test(code));
 ok('la provenance des rendus est documentee',
   /window\.__studio/.test(html) && /\?perf=1/.test(html) && /preserveDrawingBuffer/.test(html));
 ok('le front est dit lu et lance seulement', /Aucune écriture, aucun commit/.test(html));
@@ -131,6 +135,9 @@ ok('l empreinte du moteur qui a dessine est notee',
 /* ================= DOM minimal ================= */
 const nodes = {};
 const listeners = {};
+/* Les trois groupes du viewport, ceux que `applyTransform()` doit ecrire a
+   l'identique. */
+const vpGroups = [];
 
 function classList() {
   const set = new Set();
@@ -190,6 +197,7 @@ function make(key) {
       return this.children.filter((c) => c._m && c._m(sel));
     },
     closest: () => null,
+    disabled: false,
     getBoundingClientRect: () => ({ left: 0, top: 0, width: 1200, height: 700 }),
   };
 }
@@ -197,14 +205,31 @@ function make(key) {
 global.document = {
   getElementById: (id) => (nodes[id] ??= make(id)),
   querySelector: (s) => (nodes[s] ??= make(s)),
-  querySelectorAll: () => [],
+  querySelectorAll: (sel) => (sel === '[data-vp]' ? vpGroups : []),
   createElement: (t) => make(t),
   addEventListener() {},
   body: make('body'),
 };
-global.window = { addEventListener() {}, devicePixelRatio: 1, location: { search: '' } };
-global.setTimeout = (fn) => { void fn; return 1; };
+global.window = {
+  addEventListener() {}, devicePixelRatio: 1, location: { search: '' },
+  matchMedia: () => ({ matches: false }),
+};
+/* Un `setTimeout(fn, 0)` porte un report d'etat (ajustement differe,
+   reclamp) : il doit s'executer. Les delais plus longs sont de l'UI temporisee
+   (voile d'analyse, toast) et restent ignores, sinon les sequences testees
+   sauteraient des etapes. */
+global.setTimeout = (fn, ms) => { if (!ms) fn(); return 1; };
 global.clearTimeout = () => {};
+/* Pas d'animation dans la batterie : les rAF sont ignores, donc `setVp` est
+   toujours lu dans son etat final. Les tests d'animation portent sur le code,
+   et le vrai comportement est verifie dans Chrome. */
+/* rAF synchrone : la batterie lit donc l'etat FINAL, comme apres animation.
+   L'horloge avance a chaque appel pour que l'interpolation se termine du
+   premier coup au lieu de boucler. */
+global.requestAnimationFrame = (fn) => { fn(global.performance.now()); return 0; };
+global.cancelAnimationFrame = () => {};
+let horloge = 0;
+global.performance = { now: () => (horloge += 500) };
 const revoked = [];
 global.URL = {
   createObjectURL: () => 'blob:local-only',
@@ -217,6 +242,11 @@ class FakeImage {
   get src() { return this._src; }
 }
 global.Image = FakeImage;
+
+['vpPhoto', 'vpB', 'vpA'].forEach((id) => vpGroups.push(make(id)));
+nodes.vpPhoto = vpGroups[0];
+nodes.vpB = vpGroups[1];
+nodes.vpA = vpGroups[2];
 
 const script = html.match(/<script>([\s\S]*)<\/script>/)[1];
 try {
@@ -254,7 +284,29 @@ ok('chaque produit garde son image source',
 ok('chaque produit garde sa date de releve',
   P.every((x) => /^2026-09-\d\d$/.test(x.checkedAt)));
 ok('chaque image pointe le cache local',
-  P.every((x) => x.image.startsWith('local-demo-assets/premibel/')));
+  P.every((x) => x.heroImage.startsWith('local-demo-assets/premibel/')
+    && x.catalogThumbnail.startsWith('local-demo-assets/premibel/')));
+
+/* ================= 5 ter. Vignettes matiere =================
+   La carte doit montrer le bois, pas un salon. Aucune fiche n'a de vignette
+   matiere dediee : la provenance de chaque decoupage est donc ecrite. */
+ok('chaque produit a une vignette matiere distincte de la photo d ambiance',
+  P.every((x) => x.catalogThumbnail !== x.heroImage
+    && /thumb\.[A-Z0-9_]+\.jpg$/.test(x.catalogThumbnail)));
+ok('la provenance de chaque vignette est declaree',
+  P.every((x) => ['premibel_photo_crop', 'renderer_crop'].includes(x.catalogThumbnailSource)),
+  P.map((x) => x.catalogThumbnailSource).join(','));
+const parSource = P.reduce((m, x) => {
+  m[x.catalogThumbnailSource] = (m[x.catalogThumbnailSource] || 0) + 1;
+  return m;
+}, {});
+ok('quatre decoupages de photo Premibel, un de notre rendu',
+  parSource.premibel_photo_crop === 4 && parSource.renderer_crop === 1,
+  JSON.stringify(parSource));
+ok('le repli est celui de Houston, dont la fiche ne montre pas le sol de pres',
+  P.find((x) => x.catalogThumbnailSource === 'renderer_crop').ref === 'CHENF39031');
+ok('aucune vignette n est fabriquee de toutes pieces',
+  /Rien n'est fabriqué/.test(html) && /vignette matière dédiée/.test(html));
 ok('proprietes reelles renseignees',
   P.every((x) => x.species && x.widthMm > 0 && x.lengthMm > 0 && x.thicknessMm > 0
     && x.finish && x.aspect && x.premibelFamily));
@@ -324,8 +376,8 @@ ok("l'image de fond est le rendu original",
   el('photo').getAttribute('src') === `${R}sejour.original.jpg`, el('photo').getAttribute('src'));
 ok('la couche du parquet porte le rendu de la reference',
   el('after').getAttribute('src') === `${R}sejour.POINF36005.jpg`, el('after').getAttribute('src'));
-ok('elle est visible', el('after').classList.contains('hidden') === false);
-ok('aucun decoupage hors avant/apres', el('after').style.clipPath === 'none');
+ok('elle est visible', el('clipA').classList.contains('hidden') === false);
+ok('aucun decoupage hors avant/apres', el('clipA').style.clipPath === 'none');
 
 /* ================= 7. Selection produit : le clic change l image ========= */
 api.select('CHENF36015');
@@ -351,13 +403,13 @@ api.state.ba = true;
 api.state.split = 0.4;
 api.paint();
 ok('avant/apres decoupe la couche du parquet',
-  el('after').style.clipPath === 'inset(0 60.00% 0 0)', el('after').style.clipPath);
+  el('clipA').style.clipPath === 'inset(0 60.00% 0 0)', el('clipA').style.clipPath);
 ok('le fond reste la scene d origine',
   el('photo').getAttribute('src').endsWith('sejour.original.jpg'));
 ok('le separateur est visible', el('split').classList.contains('hidden') === false);
 api.state.ba = false;
 api.paint();
-ok('avant/apres se desactive', el('after').style.clipPath === 'none');
+ok('avant/apres se desactive', el('clipA').style.clipPath === 'none');
 
 /* ================= 9. Comparaison : deux rendus, une seule photo ========= */
 api.state.compare = { b: 'CHENF36014' };
@@ -367,8 +419,8 @@ ok('la version B est chargee',
   el('cmpB').getAttribute('src') === `${R}sejour.CHENF36014.jpg`, el('cmpB').getAttribute('src'));
 ok('les deux cartes portent de vraies references',
   /Réf\. CHENF36015/.test(h('card')) && /Réf\. CHENF36014/.test(h('cardB')));
-ok('la version B est visible', el('cmpB').classList.contains('hidden') === false);
-ok('la version A reste decoupee', el('after').style.clipPath === 'inset(0 50.00% 0 0)');
+ok('la version B est visible', el('vpB').classList.contains('hidden') === false);
+ok('la version A reste decoupee', el('clipA').style.clipPath === 'inset(0 50.00% 0 0)');
 ok('deux cartes produit', el('cardB').classList.contains('hidden') === false);
 ok('les versions sont etiquetees',
   el('tagA').classList.contains('hidden') === false && el('tagB').classList.contains('hidden') === false);
@@ -379,7 +431,7 @@ ok('le cote B change seul',
   `${api.state.compare.b} / ${api.state.productId}`);
 api.state.compare = null;
 api.paint();
-ok('fermer la comparaison masque la version B', el('cmpB').classList.contains('hidden') === true);
+ok('fermer la comparaison masque la version B', el('vpB').classList.contains('hidden') === true);
 ok('fermer la comparaison rend la navigation', el('nav').classList.contains('hidden') === false);
 
 /* ================= 10. Changer de piece ================= */
@@ -396,7 +448,7 @@ ok('aucun rendu n est reutilise d une piece a l autre',
 api.openRoom('piece-arcades');
 ok('une scene non couverte n a aucun rendu', api.renderUrl('piece-arcades', kept) === null);
 ok('elle montre la photo, sans parquet',
-  el('after').classList.contains('hidden') === true
+  el('clipA').classList.contains('hidden') === true
   && el('photo').getAttribute('src').endsWith('piece-arcades.original.jpg'));
 api.openRoom('sejour');
 
@@ -405,16 +457,16 @@ api.openRoom('piece-claire');
 api.state.missing.add(`${R}piece-claire.CHENF36014.jpg`);
 api.select('CHENF36014', true);
 ok('un rendu manquant masque la couche du parquet',
-  el('after').classList.contains('hidden') === true);
+  el('clipA').classList.contains('hidden') === true);
 ok('la photo d origine reste affichee',
   el('photo').getAttribute('src').endsWith('piece-claire.original.jpg'));
-ok('aucun faux parquet en repli', el('after').style.clipPath === 'none');
+ok('aucun faux parquet en repli', el('clipA').style.clipPath === 'none');
 ok('la mention de repli est reservee au mode dev',
   api.DEV === false && el('devnote').classList.contains('hidden') === true);
 ok('le texte de repli existe dans le fichier', /Rendu demo indisponible/.test(html));
 api.state.missing.clear();
 api.select('CHENF36014', true);
-ok('le rendu revient une fois disponible', el('after').classList.contains('hidden') === false);
+ok('le rendu revient une fois disponible', el('clipA').classList.contains('hidden') === false);
 
 /* Si meme l original manque, on retombe sur la photo brute. */
 api.state.missing.add(`${R}piece-claire.original.jpg`);
@@ -424,7 +476,7 @@ ok('sans original, la photo brute prend le relais',
   el('photo').getAttribute('src'));
 api.state.missing.clear();
 /* Et sans image produit locale, la vignette prend un cadre, pas un vide. */
-api.state.missingImg.add(api.product('CHENF36014').image);
+api.state.missingImg.add(api.product('CHENF36014').catalogThumbnail);
 api.paintCard();
 ok('une image produit absente donne un cadre', /class="sw noimg"/.test(h('card')));
 ok('le cadre est explicite', /image produit absente/.test(html));
@@ -436,7 +488,7 @@ api.loadUpload({ type: 'image/jpeg', name: 'ma-piece.jpg' });
 ok('la source devient uploaded', api.state.source === 'uploaded', api.state.source);
 ok('la photo importee devient la scene',
   el('photo').getAttribute('src') === 'blob:local-only', el('photo').getAttribute('src'));
-ok('aucun parquet pose dessus', el('after').classList.contains('hidden') === true);
+ok('aucun parquet pose dessus', el('clipA').classList.contains('hidden') === true);
 ok('ni carte produit ni outils quand rien n est pose',
   el('card').classList.contains('hidden') === true
   && el('tools').classList.contains('hidden') === true);
@@ -444,6 +496,10 @@ ok('aucun rendu inconnu invente', api.renderUrl('uploaded', 'POINF36005') === nu
 ok('le message d honnetete est present', /moteur IA n'est pas connecté/.test(html));
 ok('la limite est dite temporaire', /cette limite[\s\S]{0,20}dispara/.test(html));
 ok('deux sorties sont proposees', /id="unkRooms"/.test(html) && /id="unkOther"/.test(html));
+/* Et une troisieme, discrete : sans parquet il reste la photo, et elle se
+   manipule deja — sinon le voile bloquerait le viewport. */
+ok('on peut explorer sa photo malgre tout', /id="unkExplore"/.test(html)
+  && /Explorer ma photo quand même/.test(html));
 api.loadUpload({ type: 'image/gif', name: 'anim.gif' });
 ok('un format refuse ne remplace pas la scene', api.state.uploaded.name === 'ma-piece.jpg',
   api.state.uploaded.name);
@@ -457,8 +513,10 @@ ok('aucune persistance de la photo', !/localStorage|sessionStorage|indexedDB/.te
 /* ================= 14. Catalogue ================= */
 api.openCat();
 ok('la grille montre les cinq references', count('prods', /class="pd"/g) === 5);
-ok('les vignettes sont les photos produit',
-  count('prods', /local-demo-assets\/premibel\//g) === 5);
+ok('les vignettes du catalogue sont les matieres',
+  count('prods', /thumb\.[A-Z0-9_]+\.jpg/g) === 5);
+ok('aucune photo d ambiance dans la grille',
+  !/premibel\/(POINF|BTRPF|CHENF)[0-9_]+\.(jpg|png)/.test(h('prods')));
 ok('chaque carte porte nom, motif, largeur et reference',
   /Point de Hongrie Zeus Naturel/.test(h('prods'))
   && /Point de Hongrie · 92 mm — Réf\. POINF36005/.test(h('prods')));
@@ -534,6 +592,194 @@ ok('la variante ne transforme jamais le produit actif',
 ok('deux sens de pose', count('orient', /class="or"/g) === 2);
 ok('le sens de pose est dit reglage de rendu',
   /pas une autre\s*\n?\s*référence/.test(html));
+
+/* ================= 15 bis. Le viewport : pan et zoom =================
+   Un seul etat pilote toute la scene. Les tests d'etat sont ici ; la
+   fluidite, elle, se juge dans Chrome. */
+api.openRoom('sejour');
+api.select('POINF36005', true);
+const B = { w: 1200, h: 700 };          /* le cadre du DOM minimal */
+const SC = api.sceneSize();
+ok('la scene a la taille des rendus', SC.w === 1200 && SC.h === 800, `${SC.w}x${SC.h}`);
+ok("l'ajustement tient la scene dans le cadre",
+  Math.abs(api.fitScale() - Math.min(B.w / SC.w, B.h / SC.h)) < 1e-9,
+  api.fitScale().toFixed(4));
+
+/* fitToView : centre, ratio garde, zoom a 1 — donc « 100 % ». */
+api.fitToView();
+ok('fitToView remet le zoom a 1', api.state.vp.z === 1);
+ok('fitToView centre la scene',
+  Math.abs(api.state.vp.x - (B.w - SC.w * api.fitScale()) / 2) < 0.6
+  && Math.abs(api.state.vp.y - (B.h - SC.h * api.fitScale()) / 2) < 0.6,
+  `${api.state.vp.x.toFixed(1)},${api.state.vp.y.toFixed(1)}`);
+ok('100 % correspond a l ajustement', el('zLevel').textContent === '100 %',
+  el('zLevel').textContent);
+
+/* Une seule transformation, ecrite a l'identique partout. */
+const transforms = [el('vpPhoto'), el('vpB'), el('vpA')].map((n) => n.style.transform);
+ok('les trois groupes portent la MEME transformation',
+  transforms.every((t) => t && t === transforms[0]), transforms.join(' || '));
+ok('elle est GPU-friendly', /translate3d\(/.test(transforms[0]) && /scale\(/.test(transforms[0]),
+  transforms[0]);
+ok('aucune translation separee des couches',
+  !el('photo').style.transform && !el('cmpB').style.transform && !el('after').style.transform);
+
+/* Zoom : bornes. */
+api.zoomAt(100, null, null, false);
+ok('le zoom est borne en haut', api.state.vp.z === api.ZOOM_MAX, `${api.state.vp.z}`);
+api.zoomAt(0.001, null, null, false);
+ok('le zoom est borne en bas', api.state.vp.z === api.ZOOM_MIN, `${api.state.vp.z}`);
+ok('les bornes laissent inspecter sans absurdite',
+  api.ZOOM_MAX >= 4 && api.ZOOM_MAX <= 6 && api.ZOOM_MIN === 1,
+  `${api.ZOOM_MIN}..${api.ZOOM_MAX}`);
+
+/* Zoom sous le curseur : le point vise ne doit pas glisser. */
+api.fitToView();
+const s0 = api.cssScale();
+const px = 300;
+const py = 220;
+const uAvant = (px - api.state.vp.x) / s0;
+const vAvant = (py - api.state.vp.y) / s0;
+api.zoomAt(2, px, py, false);
+const s1 = api.cssScale();
+const uApres = (px - api.state.vp.x) / s1;
+const vApres = (py - api.state.vp.y) / s1;
+ok('le point sous le curseur reste sous le curseur',
+  Math.abs(uAvant - uApres) < 1.5 && Math.abs(vAvant - vApres) < 1.5,
+  `${(uAvant - uApres).toFixed(2)}, ${(vAvant - vApres).toFixed(2)}`);
+ok('zoomer autour du curseur ne revient pas au centre',
+  Math.abs(api.state.vp.x - (B.w - SC.w * s1) / 2) > 1,
+  api.state.vp.x.toFixed(1));
+
+/* Deplacement, puis bornes : l'image couvre toujours le cadre. */
+api.setVp({ z: 2, x: 99999, y: 99999 }, false);
+ok('le pan ne laisse jamais sortir l image', api.state.vp.x <= 0.01 && api.state.vp.y <= 0.01,
+  `${api.state.vp.x.toFixed(1)},${api.state.vp.y.toFixed(1)}`);
+api.setVp({ z: 2, x: -99999, y: -99999 }, false);
+const s2 = api.cssScale();
+ok('ni de l autre cote',
+  api.state.vp.x >= B.w - SC.w * s2 - 0.01 && api.state.vp.y >= B.h - SC.h * s2 - 0.01);
+api.setVp({ z: 1, x: 400, y: 400 }, false);
+ok('a l ajustement, la scene se recentre d elle-meme',
+  Math.abs(api.state.vp.x - (B.w - SC.w * api.fitScale()) / 2) < 0.6);
+
+/* Le deplacement doit rester possible : un clamp trop dur bloquerait tout. */
+api.setVp({ z: 3, x: 0, y: 0 }, false);
+const marge = SC.w * api.cssScale() - B.w;
+ok('a 300 %, il reste de la marge a explorer', marge > 400, `${Math.round(marge)} px`);
+
+/* ---- Conservation du cadrage ---- */
+api.setVp({ z: 2.5, x: -420, y: -260 }, false);
+const garde = { ...api.state.vp };
+api.select('CHENF36014', true);
+ok('changer de reference conserve le cadrage',
+  api.state.vp.z === garde.z && api.state.vp.x === garde.x && api.state.vp.y === garde.y,
+  `${api.state.vp.z} ${api.state.vp.x} ${api.state.vp.y}`);
+ok('et charge bien le nouveau rendu',
+  el('after').getAttribute('src').endsWith('sejour.CHENF36014.jpg'));
+
+api.state.ba = true;
+api.paint();
+ok('avant/apres conserve le cadrage',
+  api.state.vp.z === garde.z && api.state.vp.x === garde.x && api.state.vp.y === garde.y);
+api.state.ba = false;
+api.state.compare = { b: 'POINF36005' };
+api.paint();
+ok('la comparaison conserve le cadrage',
+  api.state.vp.z === garde.z && api.state.vp.x === garde.x && api.state.vp.y === garde.y);
+const tCmp = [el('vpPhoto'), el('vpB'), el('vpA')].map((n) => n.style.transform);
+ok('A et B restent synchronises pendant la comparaison',
+  tCmp.every((t) => t === tCmp[0]), tCmp.join(' || '));
+api.setVp({ z: 2.5, x: -300, y: -200 }, false);
+const tApres = [el('vpPhoto'), el('vpB'), el('vpA')].map((n) => n.style.transform);
+ok('un deplacement pendant la comparaison bouge les deux cotes ensemble',
+  tApres.every((t) => t === tApres[0]) && tApres[0] !== tCmp[0]);
+api.state.compare = null;
+api.paint();
+
+/* Changer de piece, en revanche, recentre. */
+api.setVp({ z: 3, x: -500, y: -300 }, false);
+api.openRoom('chambre');
+ok('changer de piece recentre', api.state.vp.z === 1, `${api.state.vp.z}`);
+/* Mais un geste fait avant que le recentrage differe ne s'applique doit
+   gagner : sinon l'initialisation ecraserait une action deliberee. */
+ok('le recentrage differe cede a un geste',
+  code.includes('if (pendingFit) fitToView(false)')
+  && /rAF sert a peindre, pas a porter de l'etat/.test(html)
+  && /function zoomAt[^{]*[{][^}]*pendingFit = false;/.test(code)
+  && /function onMove[^{]*[{][\s\S]{0,90}pendingFit = false;/.test(code));
+
+/* Importer une photo recentre aussi, et le viewport reste manipulable meme
+   sans parquet applique. */
+api.setVp({ z: 2, x: -200, y: -100 }, false);
+api.loadUpload({ type: 'image/jpeg', name: 'ma-piece.jpg' });
+ok('importer une photo recentre', api.state.vp.z === 1);
+ok('la scene prend les dimensions de la photo importee',
+  api.sceneSize().w === 1920 && api.sceneSize().h === 1280,
+  `${api.sceneSize().w}x${api.sceneSize().h}`);
+api.zoomAt(2, 400, 300, false);
+ok('on peut zoomer une photo sans rendu', api.state.vp.z > 1, `${api.state.vp.z}`);
+ok('et toujours aucun parquet dessus', el('clipA').classList.contains('hidden') === true);
+api.openRoom('sejour');
+
+/* ---- Mode immersif ---- */
+ok('la barre de zoom existe et est discrete',
+  /id="zoombar"/.test(html) && /#zoombar \{[\s\S]*?backdrop-filter: blur/.test(html));
+ok('elle porte les cinq commandes',
+  ['zOut', 'zLevel', 'zIn', 'zFit', 'zFull'].every((id) => new RegExp(`id="${id}"`).test(html)));
+const barMarkup = (html.match(/<div id="zoombar">[\s\S]*?<[/]div>/) || [''])[0];
+ok('chaque commande a son libelle accessible',
+  barMarkup.split('aria-label').length - 1 === 5,
+  `${barMarkup.split('aria-label').length - 1} libelle(s)`);
+ok('le viewport a une description accessible',
+  /role="group"/.test(html) && /Molette pour zoomer/.test(html));
+api.setImmersive(true);
+ok('le mode immersif s active', api.state.immersive === true);
+ok("l'en-tete et la navigation s effacent",
+  /body\.immersive header,[\s\S]*?display: none/.test(html)
+  && /body\.immersive #nav/.test(html));
+ok('les outils et le zoom restent',
+  !/body\.immersive #tools \{[^}]*display: none/.test(html)
+  && !/body\.immersive #zoombar \{[^}]*display: none/.test(html));
+ok('le chrome s atténue au repos, sans disparaitre',
+  /body\.immersive\.calm[\s\S]*?opacity: 0\.32/.test(html));
+api.setImmersive(false);
+ok('on en sort', api.state.immersive === false);
+
+/* ---- Raccourcis ---- */
+ok('les raccourcis + - 0 f Escape existent',
+  /e\.key === '\+' \|\| e\.key === '='/.test(code) && /e\.key === '0'/.test(code)
+  && /e\.key === 'f'/.test(code) && /e\.key === 'Escape'/.test(code));
+ok('ils ne se declenchent pas dans un champ',
+  /t\.tagName === 'INPUT'/.test(code) && /isContentEditable/.test(code));
+
+/* ---- Animation ---- */
+ok('un glisser n est jamais anime',
+  /setVp\(\{ z: state\.vp\.z, x: state\.vp\.x \+ \(e\.clientX - prev\.x\)[\s\S]{0,80}, false\)/.test(code));
+ok('les gestes discrets sont interpoles', /const dur = 200;/.test(code));
+ok('prefers-reduced-motion est respecte',
+  /const REDUCED = /.test(code) && /if \(!animate \|\| REDUCED\)/.test(code));
+
+/* ---- Gestes ---- */
+ok('Pointer Events, pas souris seule',
+  /pointerdown/.test(code) && /pointermove/.test(code) && /pointercancel/.test(code));
+ok('deux doigts font un pincement', /pointers\.size === 2/.test(code) && /pinch/.test(code));
+ok('la molette est traitee sans bloquer les modales',
+  /\{ passive: false \}/.test(code) && /closest\('\.sheetp, \.veil, #menu'\)/.test(code));
+ok('le double-clic zoome, avec Shift pour l inverse',
+  /dblclick/.test(code) && /e\.shiftKey \? 1 \/ 1\.8 : 1\.8/.test(code));
+ok('le curseur passe de grab a grabbing',
+  /cursor: grab/.test(html) && /#stage\.grabbing \{ cursor: grabbing/.test(html));
+/* Regression : sans ces deux garde-fous, glisser la piece declenchait le
+   glisser-deposer natif de l'image et la page croyait a un import. */
+ok('les images du viewport ne sont pas glissables',
+  /-webkit-user-drag: none/.test(html) && /pointer-events: none/.test(html)
+  && /user-select: none/.test(html));
+ok('le pointerdown coupe le drag natif', /function onDown\(e\) \{[\s\S]{0,220}e\.preventDefault\(\)/.test(code));
+ok('un depot interne n est pas pris pour un import',
+  /includes\('Files'\)/.test(code));
+ok('la 3D n est pas promise',
+  /Ce n'est PAS de la 3D/.test(html) && !/navigation 3D possible/.test(html));
 
 /* ================= 16. Favoris ================= */
 ok('aucun favori au depart', api.state.favourites.size === 0);
