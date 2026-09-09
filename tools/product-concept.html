@@ -1415,10 +1415,18 @@
     document.body.classList.toggle('immersive', on);
     if (!on) document.body.classList.remove('calm');
     const root = document.querySelector('body > div');
+    /* Le plein ecran natif peut etre refuse — dans un cadre embarque, par
+       exemple. Il renvoie une PROMESSE : un try/catch ne suffit pas, il faut
+       la rattraper, sinon la console se remplit de rejets non geres. Le mode
+       immersif, lui, fonctionne sans. */
+    const nop = () => {};
     try {
-      if (on && root.requestFullscreen && !document.fullscreenElement) root.requestFullscreen();
-      else if (!on && document.fullscreenElement && document.exitFullscreen) document.exitFullscreen();
-    } catch { /* le plein ecran natif peut etre refuse : le mode reste utile */ }
+      if (on && root.requestFullscreen && !document.fullscreenElement) {
+        Promise.resolve(root.requestFullscreen()).catch(nop);
+      } else if (!on && document.fullscreenElement && document.exitFullscreen) {
+        Promise.resolve(document.exitFullscreen()).catch(nop);
+      }
+    } catch { nop(); }
     wake();
     /* Le cadre change de taille : on garde le zoom, on reborne la position.
        Timer et non rAF, pour la meme raison que `scheduleFit`. */

@@ -745,6 +745,11 @@ ok('le chrome s atténue au repos, sans disparaitre',
   /body\.immersive\.calm[\s\S]*?opacity: 0\.32/.test(html));
 api.setImmersive(false);
 ok('on en sort', api.state.immersive === false);
+/* Regression : requestFullscreen renvoie une promesse. Sans .catch, un refus
+   (cadre embarque) remplit la console de rejets non geres. */
+ok('le refus du plein ecran natif est rattrape',
+  /Promise\.resolve\(root\.requestFullscreen\(\)\)\.catch\(nop\)/.test(code)
+  && /Promise\.resolve\(document\.exitFullscreen\(\)\)\.catch\(nop\)/.test(code));
 
 /* ---- Raccourcis ---- */
 ok('les raccourcis + - 0 f Escape existent',
