@@ -44,11 +44,24 @@ for (const [quoi, re] of [
   ['recoloration du sol', /floorFilter|hue-rotate|saturate\(/],
   ['generation de joints', /woodCss|jointCss|repeating-linear-gradient/],
   ['texture calculee', /function texture\b/],
-  ['canevas', /createElement\(\s*['"]canvas|getContext\(/],
   ['WebGL', /webgl/i],
   ['perspective calculee', /perspective\(|function mapper|buildMasks/],
   ['calibration du front recopiee', /data\/scenes|runtimeMask|planeRef/],
 ]) ok(`aucun ${quoi}`, !re.test(code));
+
+/* Un canevas est desormais present — mais uniquement pour RECOPIER des
+   pixels, jamais pour composer un sol. Le seul dessin autorise est
+   `drawImage` (copie) et `getImageData` (empreinte). Tout ce qui servirait a
+   peindre un parquet reste interdit. */
+for (const [quoi, re] of [
+  ['remplissage', /fillStyle|fillRect|\.fill\(/],
+  ['trace de chemin', /moveTo|lineTo|\.arc\(|beginPath/],
+  ['motif de canevas', /createPattern|createLinearGradient|createRadialGradient/],
+  ['ecriture de pixels', /putImageData|createImageData/],
+]) ok(`aucun ${quoi} sur canevas`, !re.test(code));
+const dessins = (code.match(/getContext\('2d'[^)]*\)[\s\S]{0,40}?\.\w+\(/g) || []);
+ok('le canevas ne sert qu a copier',
+  /drawImage/.test(code) && !/\.fill/.test(code), `${dessins.length} appels`);
 
 /* Un seul usage legitime du decoupage : le separateur avant/apres, et il
    est rectangulaire. */
@@ -116,9 +129,12 @@ ok('petite carte produit flottante', /#card, #cardB \{[\s\S]*?width: 196px/.test
 ok('aucun bouton « Appliquer »', !/>Appliquer</.test(html) && !/<button[^>]*>[^<]*Appliquer/.test(html));
 
 /* ================= 4. Trois images, et c'est tout ================= */
-ok('les couches d image sont la',
-  /<img id="photo"/.test(html) && /<img id="cmpB"/.test(html)
-  && /<img id="after"/.test(html) && /<img id="afterPrev"/.test(html));
+ok('la photo est une image, les rendus des canevas',
+  /<img id="photo"/.test(html) && /<canvas id="cmpB">/.test(html)
+  && /<canvas id="after">/.test(html) && /<canvas id="afterPrev">/.test(html));
+ok('le moteur est charge hors ecran, sans etre affiche',
+  /<iframe id="engine"/.test(html) && /#engine \{[\s\S]*?left: -20000px/.test(html)
+  && /aria-hidden="true"/.test(html));
 ok('la version A est au-dessus de la version B',
   /#vpB \{ z-index: 1; \}/.test(html) && /#clipA \{[^}]*z-index: 2/.test(html));
 ok('le decoupage du separateur est hors de la transformation',
@@ -182,6 +198,11 @@ function make(key) {
     set innerHTML(v) { this._h = String(v); this.children = parseKids(String(v)); },
     get src() { return this.attrs.src || ''; },
     set src(v) { this.attrs.src = String(v); },
+    width: 0, height: 0, naturalWidth: 0, naturalHeight: 0, complete: true,
+    getContext: () => ({
+      drawImage() {},
+      getImageData: () => ({ data: new Uint8Array(24 * 16 * 4) }),
+    }),
     addEventListener(t, f) { (listeners[key] ??= {})[t] = f; },
     setAttribute(n, v) { this.attrs[n] = String(v); },
     getAttribute(n) { return this.attrs[n] ?? null; },
@@ -238,7 +259,18 @@ global.URL = {
 /* Les Image() du prechargement ne doivent jamais echouer ici, sinon tous les
    rendus seraient marques manquants. */
 class FakeImage {
-  set src(v) { this._src = v; this.naturalWidth = 1920; this.naturalHeight = 1280; if (this.onload) this.onload(); }
+  constructor() { this.complete = false; }
+  set src(v) {
+    this._src = v;
+    /* Les captures sont toutes au meme cadrage ; une photo importee a le
+       sien. Deux tailles distinctes, pour que le test de dimension de scene
+       puisse encore distinguer les deux cas. */
+    const blob = String(v).startsWith('blob:');
+    this.naturalWidth = blob ? 1920 : 1200;
+    this.naturalHeight = blob ? 1280 : 800;
+    this.complete = true;
+    if (this.onload) this.onload();
+  }
   get src() { return this._src; }
 }
 global.Image = FakeImage;
@@ -258,6 +290,12 @@ try {
 
 const api = global.window.__concept;
 ok('internes exposes', !!(api && api.state));
+if (api) {
+  /* Sous Node il n'y a pas d'iframe : l'adaptateur reste en `static`, et
+     c'est justement le chemin de repli qu'on veut eprouver ici. Le mode live
+     se verifie dans Chrome. */
+  api.state.applied = { key: null, source: null };
+}
 if (!api) { console.log('\nARRET : le script ne s est pas execute'); process.exit(1); }
 
 const el = (id) => global.document.getElementById(id);
@@ -358,13 +396,15 @@ ok('seuls les trois motifs du moteur du front',
   && Object.keys(api.PATTERNS).length === 3);
 ok('un produit ne porte aucune recette de rendu',
   P.every((p) => !('filter' in p) && !('wood' in p) && !('tint' in p)));
-/* La couche du sol ne peut recevoir QUE l'URL d'un rendu : une seule
-   affectation dans tout le fichier, et sa source est `renderUrl`. Une photo
-   produit Premibel ne peut donc pas se retrouver plaquee au sol. */
-const afterAssigns = code.match(/\$\('after'\)\.src = [^;]+;/g) || [];
-ok('la couche du sol ne recoit que le rendu',
-  afterAssigns.length === 1 && afterAssigns[0].indexOf('= url;') > 0,
-  afterAssigns.join(' | '));
+/* Une seule fonction ecrit dans les couches — `paintLayer` — et elle ne
+   fait que copier des pixels. Une photo produit Premibel ne peut donc pas se
+   retrouver plaquee au sol : elle n'a aucun chemin jusqu'a la couche. */
+ok('une seule fonction ecrit dans les couches',
+  (code.match(/function paintLayer\(/g) || []).length === 1
+  && (code.match(/drawImage\(source, 0, 0\)/g) || []).length === 1);
+ok('les sources des couches sont le moteur ou une capture',
+  /paintLayer\('after', canvas\)/.test(code) && /paintLayer\(layer, img\)/.test(code)
+  && !/paintLayer\([^)]*(catalogThumbnail|heroImage)/.test(code));
 ok('le role de la photo produit est ecrit', /JAMAIS de texture[\s\S]{0,12}de sol/.test(html));
 
 /* ================= 6. Ouvrir une piece ================= */
@@ -375,14 +415,16 @@ ok('la source est demo', api.state.source === 'demo', api.state.source);
 ok("l'image de fond est le rendu original",
   el('photo').getAttribute('src') === `${R}sejour.original.jpg`, el('photo').getAttribute('src'));
 ok('la couche du parquet porte le rendu de la reference',
-  el('after').getAttribute('src') === `${R}sejour.POINF36005.jpg`, el('after').getAttribute('src'));
+  api.state.applied.key === 'sejour|POINF36005|0', api.state.applied.key);
+ok('en repli, la source est la capture', api.state.applied.source === 'static',
+  String(api.state.applied.source));
 ok('elle est visible', el('clipA').classList.contains('hidden') === false);
 ok('aucun decoupage hors avant/apres', el('clipA').style.clipPath === 'none');
 
 /* ================= 7. Selection produit : le clic change l image ========= */
 api.select('CHENF36015');
-ok('choisir une reference change l image',
-  el('after').getAttribute('src') === `${R}sejour.CHENF36015.jpg`, el('after').getAttribute('src'));
+ok('choisir une reference change le sol applique',
+  api.state.applied.key === 'sejour|CHENF36015|0', api.state.applied.key);
 ok('la navigation suit', el('navFloorVal').textContent === 'Chêne Invisible Pivoine',
   el('navFloorVal').textContent);
 ok('la fiche produit affiche motif, largeur et reference',
@@ -407,6 +449,7 @@ ok('avant/apres decoupe la couche du parquet',
 ok('le fond reste la scene d origine',
   el('photo').getAttribute('src').endsWith('sejour.original.jpg'));
 ok('le separateur est visible', el('split').classList.contains('hidden') === false);
+ok('le fond reste la photo, pas un rendu', el('photo').getAttribute('src').includes('original'));
 api.state.ba = false;
 api.paint();
 ok('avant/apres se desactive', el('clipA').style.clipPath === 'none');
@@ -415,8 +458,11 @@ ok('avant/apres se desactive', el('clipA').style.clipPath === 'none');
 api.state.compare = { b: 'CHENF36014' };
 api.state.split = 0.5;
 api.paint();
-ok('la version B est chargee',
-  el('cmpB').getAttribute('src') === `${R}sejour.CHENF36014.jpg`, el('cmpB').getAttribute('src'));
+ok('la version B est preparee dans son propre etat',
+  api.state.appliedB.key === 'sejour|CHENF36014|0', api.state.appliedB.key);
+ok('A et B ne sont pas le meme etat',
+  api.state.applied.key !== api.state.appliedB.key,
+  `${api.state.applied.key} vs ${api.state.appliedB.key}`);
 ok('les deux cartes portent de vraies references',
   /Réf\. CHENF36015/.test(h('card')) && /Réf\. CHENF36014/.test(h('cardB')));
 ok('la version B est visible', el('vpB').classList.contains('hidden') === false);
@@ -440,8 +486,8 @@ api.openRoom('chambre');
 ok('la reference survit au changement de piece', api.state.productId === kept, api.state.productId);
 ok('la nouvelle scene est chargee',
   el('photo').getAttribute('src').endsWith('chambre.original.jpg'));
-ok('le rendu de la nouvelle scene est charge',
-  el('after').getAttribute('src') === `${R}chambre.${kept}.jpg`, el('after').getAttribute('src'));
+ok('le rendu de la nouvelle scene est applique',
+  api.state.applied.key === `chambre|${kept}|0`, api.state.applied.key);
 ok('aucun rendu n est reutilise d une piece a l autre',
   api.renderUrl('sejour', kept) !== api.renderUrl('chambre', kept));
 /* Une scene sans rendu Premibel doit retomber, pas inventer. */
@@ -463,10 +509,13 @@ ok('la photo d origine reste affichee',
 ok('aucun faux parquet en repli', el('clipA').style.clipPath === 'none');
 ok('la mention de repli est reservee au mode dev',
   api.DEV === false && el('devnote').classList.contains('hidden') === true);
-ok('le texte de repli existe dans le fichier', /Rendu demo indisponible/.test(html));
+ok('le mode du moteur est dit en dev', /moteur \$\{adapter\.mode\}/.test(code)
+  && /rendu live/.test(code) && /capture de repli/.test(code));
 api.state.missing.clear();
 api.select('CHENF36014', true);
-ok('le rendu revient une fois disponible', el('clipA').classList.contains('hidden') === false);
+ok('le rendu revient une fois disponible',
+  el('clipA').classList.contains('hidden') === false
+  && api.state.applied.key === 'piece-claire|CHENF36014|0', api.state.applied.key);
 
 /* Si meme l original manque, on retombe sur la photo brute. */
 api.state.missing.add(`${R}piece-claire.original.jpg`);
@@ -568,9 +617,12 @@ ok('les trois motifs sont proposes', count('patterns', /class="pt"/g) === 3);
 ok('chaque motif mene a une reference', count('patterns', /data-variant="[A-Z]/g) === 3);
 ok('les quatre largeurs du catalogue', count('widths', /class="chip"/g) === 4);
 ok('les trois teintes du catalogue', count('tones', /class="chip"/g) === 3);
-ok('la finition est unique et non modifiable',
-  count('finishes', /class="chip"/g) === 1 && /Verni/.test(h('finishes')));
-ok('la note dit pourquoi', /pas de/.test(el('finishNote').textContent));
+/* La finition, le veinage et les joints ne sont pas reglables par le moteur :
+   il n'y a donc AUCUN controle, seulement une phrase qui le dit. */
+ok('aucun controle de finition, de veinage ni de joints',
+  !/id="finishes"/.test(html) && !/id="grain"/.test(html) && !/id="joint"/.test(html)
+  && !/type="range"/.test(html));
+ok('et la raison est ecrite', /un réglage sans effet vaut moins que son absence/.test(html));
 
 /* Zeus est un point de Hongrie 92 mm : demander des lames doit donner une
    AUTRE reference, pas un Zeus en lames. */
@@ -589,9 +641,15 @@ ok('la variante ne transforme jamais le produit actif',
   && api.product('POINF36005').pattern === 'point-de-hongrie');
 
 /* Le sens de pose reste un reglage du rendu, pas une autre reference. */
-ok('deux sens de pose', count('orient', /class="or"/g) === 2);
+/* Le sens de pose n'apparait que si le moteur sait le rendre. En repli
+   statique il n'y a pas d'orientation a offrir : la section est masquee. */
+ok('le sens de pose suit la capacite du moteur',
+  el('sectOrient').classList.contains('hidden') === !api.adapter.getCapabilities().orientation);
+ok('trois orientations sont prevues, toutes rendues par le moteur',
+  api.ORIENTATIONS.length === 3
+  && api.ORIENTATIONS.map(([d]) => d).join(',') === '0,90,45');
 ok('le sens de pose est dit reglage de rendu',
-  /pas une autre\s*\n?\s*référence/.test(html));
+  /pas une\s*\n?\s*.?\s*autre référence/.test(code) || /réglage du rendu, pas une/.test(code));
 
 /* ================= 15 bis. Le viewport : pan et zoom =================
    Un seul etat pilote toute la scene. Les tests d'etat sont ici ; la
@@ -675,8 +733,8 @@ api.select('CHENF36014', true);
 ok('changer de reference conserve le cadrage',
   api.state.vp.z === garde.z && api.state.vp.x === garde.x && api.state.vp.y === garde.y,
   `${api.state.vp.z} ${api.state.vp.x} ${api.state.vp.y}`);
-ok('et charge bien le nouveau rendu',
-  el('after').getAttribute('src').endsWith('sejour.CHENF36014.jpg'));
+ok('et applique bien le nouveau sol',
+  api.state.applied.key === 'sejour|CHENF36014|0', api.state.applied.key);
 
 api.state.ba = true;
 api.paint();
@@ -785,6 +843,98 @@ ok('un depot interne n est pas pris pour un import',
   /includes\('Files'\)/.test(code));
 ok('la 3D n est pas promise',
   /Ce n'est PAS de la 3D/.test(html) && !/navigation 3D possible/.test(html));
+
+/* ================= 15 ter. Le moteur pilote la piece =================
+   Les tests d'etat sont ici ; que le sol change vraiment se verifie dans
+   Chrome, empreinte de canevas a l'appui. */
+ok('chaque produit porte un profil de rendu',
+  P.every((x) => x.renderProfile && x.renderProfile.materialFamily
+    && x.renderProfile.pattern && Number.isFinite(x.renderProfile.widthM)));
+ok('le profil ne contient que des proprietes honorees par le moteur',
+  P.every((x) => Object.keys(x.renderProfile).sort().join(',')
+    === 'lengthM,materialFamily,orientationDeg,pattern,widthM'),
+  Object.keys(P[0].renderProfile).sort().join(','));
+ok('la largeur du profil est celle du produit',
+  P.every((x) => Math.round(x.renderProfile.widthM * 1000) === x.widthMm));
+ok('le motif du profil est celui du produit',
+  P.every((x) => x.renderProfile.pattern === x.pattern));
+ok('les cinq profils sont distincts',
+  new Set(P.map((x) => `${x.renderProfile.materialFamily}|${x.renderProfile.pattern}`
+    + `|${x.renderProfile.widthM}`)).size === 5);
+
+/* L'exactitude est decomposee : la geometrie est juste, la matiere non. */
+ok('l exactitude est donnee attribut par attribut',
+  P.every((x) => x.renderAccuracy
+    && x.renderAccuracy.pattern === 'exact' && x.renderAccuracy.width === 'exact'
+    && x.renderAccuracy.orientation === 'exact'
+    && x.renderAccuracy.tone === 'approximate' && x.renderAccuracy.finish === 'approximate'));
+ok('aucun attribut ne se pretend exact sur la matiere',
+  P.every((x) => ['tone', 'grain', 'finish'].every((k) => x.renderAccuracy[k] !== 'exact')));
+
+/* L'adaptateur */
+ok('l adaptateur expose un contrat independant de l interface',
+  ['mode', 'getCapabilities', 'connect', 'openRoom', 'applyProfile']
+    .every((k) => k in api.adapter));
+ok('il annonce son mode', ['live', 'static'].includes(api.adapter.mode), api.adapter.mode);
+ok('sous Node il retombe en statique', api.adapter.mode === 'static');
+ok('les capacites sont un objet complet',
+  ['pattern', 'width', 'orientation', 'finish', 'grain', 'joints']
+    .every((k) => k in api.adapter.getCapabilities()));
+ok('les capacites sont mesurees, pas declarees',
+  /typeof studio\.setPattern === 'function'/.test(code)
+  && /'width' in studio\.config/.test(code)
+  && /typeof studio\.setAngle === 'function'/.test(code));
+ok('la finition, le veinage et les joints sont dits non reglables',
+  /finish: false/.test(code) && /grain: false/.test(code) && /joints: false/.test(code));
+ok('le moteur est pilote par le point d accroche du front, pas par son DOM',
+  /window\.__studio|w\.__studio/.test(code) && !/contentDocument/.test(code)
+  && !/querySelector\('#\w+', frame/.test(code));
+ok('le contournement de la largeur est documente',
+  /Pas de setter cote moteur/.test(html) && /docs\/product-renderer-integration\.md/.test(html));
+ok('le document d integration existe',
+  require('fs').existsSync('docs/product-renderer-integration.md'));
+
+/* Priorite des sources : le live prime, la capture amorce et rattrape. */
+ok('la capture amorce, le moteur remplace',
+  /amorce immediate par la capture/.test(html) && /puis le vrai moteur/.test(html));
+ok('le mode live est prioritaire quand il est disponible',
+  /if \(adapter\.mode !== 'live'[^)]*\) return;/.test(code));
+
+/* La comparaison doit porter deux VRAIS etats. */
+ok('la version B est rendue dans son propre etat puis A restaure',
+  /applyProfile\(b\.renderProfile/.test(code)
+  && /await applyFloor\(\);/.test(code)
+  && /Sans ce retour, les deux cotes montreraient le meme etat/.test(html));
+
+/* findMatchingProduct : on cherche une reference, on n'invente rien. */
+ok('le chercheur de variante porte le nom du contrat',
+  typeof api.findMatchingProduct === 'function');
+ok('il ne renvoie que des references existantes',
+  [{ pattern: 'lames' }, { widthMm: 90 }, { tone: 'chaud' }]
+    .every((c) => { const r = api.findMatchingProduct(c); return !r || P.includes(r); }));
+ok('une combinaison inexistante ne renvoie rien',
+  api.findMatchingProduct({ widthMm: 220 }) === null
+  && api.findMatchingProduct({ tone: 'fonce' }) === null);
+
+/* Aucune commande decorative : la liste est fermee. */
+ok('aucun curseur',
+  !/type="range"/.test(html) && !/id="grain"|id="contrast"|id="joint"|id="variation"/.test(html));
+ok('les deux besoins non developpes le disent',
+  /Enregistrement : besoin documenté/.test(code) && /Partage : besoin documenté/.test(code));
+/* Chaque entree du menu doit mener quelque part : soit un id cable dans le
+   script, soit un etat de demo. Un bouton muet est un mensonge, meme
+   discret — « Partager le projet » n'en avait aucun. */
+(() => {
+  const boutons = html.match(/<button class="mi"[^>]*>/g) || [];
+  const muets = boutons.filter((b) => {
+    const id = (b.match(/id="([^"]+)"/) || [])[1];
+    if (b.includes('data-demo=')) return false;
+    /* Cable par $('id') ou par une liste d'ids : dans les deux cas l'id
+       apparait dans le script. Un id absent ne peut etre cable. */
+    return !id || !code.includes(`'${id}'`);
+  });
+  ok('aucune entree de menu muette', muets.length === 0, muets.join(' | '));
+})();
 
 /* ================= 16. Favoris ================= */
 ok('aucun favori au depart', api.state.favourites.size === 0);

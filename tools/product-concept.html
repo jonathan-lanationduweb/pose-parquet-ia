@@ -208,7 +208,7 @@
      l'image : le navigateur « prend » la photo, et le gestionnaire de depot
      de la page croit a un import. */
   #stage, .vp img { user-select: none; -webkit-user-select: none; }
-  .vp img { -webkit-user-drag: none; pointer-events: none; }
+  .vp img, .vp canvas { -webkit-user-drag: none; pointer-events: none; }
   #stage:focus-visible { outline: 2px solid var(--terre); outline-offset: -4px; }
 
   /* Les groupes du viewport : dimensionnes a la taille intrinseque de la
@@ -218,7 +218,13 @@
     position: absolute; left: 0; top: 0;
     transform-origin: 0 0; will-change: transform;
   }
-  .vp img { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: block; }
+  .vp img, .vp canvas {
+    position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: block;
+  }
+  #engine {
+    position: fixed; left: -20000px; top: 0; width: 1280px; height: 800px;
+    border: 0; pointer-events: none; opacity: 0;
+  }
   #vpPhoto { z-index: 0; }
   #vpB { z-index: 1; }
   /* Le decoupage du separateur est en espace ECRAN : il ne suit ni le zoom
@@ -328,6 +334,19 @@
     transition: background var(--t) var(--ease);
   }
   #card .sheet:hover, #cardB .sheet:hover { background: var(--terre-soft); }
+  /* « Application… » sur la carte, pas une modale : la piece ne disparait
+     jamais derriere un ecran de chargement. */
+  #card .busy {
+    display: block; margin-top: 8px; font-size: 11px; color: var(--terre);
+  }
+  #card .busy i {
+    display: inline-block; width: 9px; height: 9px; margin-right: 5px;
+    border: 1.5px solid var(--terre); border-right-color: transparent;
+    border-radius: var(--r-pill); animation: spin 700ms linear infinite;
+    vertical-align: -1px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
   #card .row, #cardB .row {
     display: flex; align-items: center; margin-top: 7px;
     border-top: 1px solid var(--line); padding-top: 5px;
@@ -638,11 +657,11 @@
          se desynchroniser. Le decoupage du separateur vit en dehors de la
          transformation (#clipA), sinon la ligne bougerait avec le zoom. -->
     <div class="vp" data-vp id="vpPhoto"><img id="photo" alt="" /></div>
-    <div class="vp" data-vp id="vpB"><img id="cmpB" alt="" /></div>
+    <div class="vp" data-vp id="vpB"><canvas id="cmpB"></canvas></div>
     <div id="clipA">
       <div class="vp" data-vp id="vpA">
-        <img id="afterPrev" alt="" />
-        <img id="after" alt="" />
+        <canvas id="afterPrev"></canvas>
+        <canvas id="after"></canvas>
       </div>
     </div>
 
@@ -843,24 +862,33 @@
       <p class="note" id="widthNote"></p></div>
     <div class="sect"><h3>Teinte</h3><div class="chips" id="tones"></div>
       <p class="note" id="toneNote"></p></div>
-    <div class="sect"><h3>Sens de pose</h3><div class="orient" id="orient"></div>
-      <p class="note">Le sens de pose est un réglage du rendu, pas une autre
-        référence : il ne change pas de produit.</p></div>
-    <div class="sect"><h3>Finition</h3><div class="chips" id="finishes"></div>
-      <p class="note" id="finishNote"></p></div>
+    <div class="sect" id="sectOrient"><h3>Sens de pose</h3>
+      <div class="orient" id="orient"></div>
+      <p class="note" id="orientNote"></p></div>
+    <!-- La finition, le veinage et les joints ne sont PAS des réglages du
+         moteur : ils sont cuits dans la famille de texture. Il n'y a donc
+         aucun contrôle ici — un bouton sans effet est un mensonge. -->
+    <div class="sect" id="sectBaked"><h3>Finition, veinage, joints</h3>
+      <p class="note" id="bakedNote"></p></div>
   </div></div>
 </div>
 
 <div id="menu" class="hidden">
   <button class="mi" id="menuImport" type="button">Importer une photo</button>
   <button class="mi" id="menuRooms" type="button">Choisir une pièce</button>
-  <button class="mi" type="button">Partager le projet</button>
+  <button class="mi" id="menuShare" type="button">Partager le projet</button>
   <div class="sep"></div>
   <p class="cat">Mode démo · prototype</p>
   <button class="mi" type="button" data-demo="success" aria-pressed="true">Analyse réussie</button>
   <button class="mi" type="button" data-demo="partial" aria-pressed="false">Analyse partielle</button>
   <button class="mi" type="button" data-demo="rejected" aria-pressed="false">Photo refusée</button>
 </div>
+
+<!-- Le vrai Visualiseur, hors ecran. On ne l'affiche pas : on lui parle par
+     son propre point d'accroche `window.__studio`, et on recopie son canevas
+     dans nos couches. Aucune ligne du front n'est modifiee. -->
+<iframe id="engine" title="moteur de rendu (hors interface)" aria-hidden="true"
+        tabindex="-1"></iframe>
 
 <div id="toast" role="status" aria-live="polite"></div>
 
@@ -900,6 +928,13 @@
     'baton-rompu': 'Bâton rompu',
   };
   const TONES = { clair: 'Clair', naturel: 'Naturel', chaud: 'Chaud', fonce: 'Foncé' };
+  /* Le moteur tourne le motif dans le plan du sol (`config.angle`) : ces
+     quatre valeurs ont donc un effet reel, verifie a l'ecran. */
+  const ORIENTATIONS = [
+    [0, 'Dans la longueur', '<path d="M3 5h28M3 10h28M3 15h28" />'],
+    [90, 'Dans la largeur', '<path d="M7 3v14M17 3v14M27 3v14" />'],
+    [45, 'En diagonale', '<path d="M3 17L17 3M11 17L25 3M19 17L31 5" />'],
+  ];
   const FINISHES = { verni: 'Verni', huile: 'Huilé', brut: 'Brut' };
 
   /* =====================================================================
@@ -961,6 +996,25 @@
       species: 'Chêne', pattern: 'point-de-hongrie', widthMm: 92, lengthMm: 520,
       thicknessMm: 12, finish: 'verni', aspect: 'Brossé', premibelFamily: 'FLCHEN08',
       tone: 'clair',
+      /* Ce que l'adaptateur envoie au renderer. Uniquement des proprietes
+         que le moteur honore vraiment : materiau, motif, largeur, angle. */
+      renderProfile: {
+        materialFamily: 'chene-sable',
+        pattern: 'point-de-hongrie',
+        widthM: 0.092,
+        lengthM: 0.52,
+        orientationDeg: 0,
+      },
+      /* L'exactitude, attribut par attribut — un seul mot pour tout le
+         produit cachait que la geometrie est juste et la matiere non. */
+      renderAccuracy: {
+        pattern: 'exact',
+        width: 'exact',
+        orientation: 'exact',
+        tone: 'approximate',
+        grain: 'approximate',
+        finish: 'approximate',
+      },
       rendererMapping: {
         status: 'approximate', familyId: 'chene-sable', pattern: 'point-de-hongrie',
         widthM: 0.092, familySource: 'pilote du front (products.premibel-pilot.json)',
@@ -984,6 +1038,25 @@
       thicknessMm: 15, finish: 'verni', aspect: 'Brossé', premibelFamily: 'FLCHEN08',
       tone: 'clair',
       substituteFor: 'BTRPF39008 « Piccadilly », introuvable au 8 septembre 2026',
+      /* Ce que l'adaptateur envoie au renderer. Uniquement des proprietes
+         que le moteur honore vraiment : materiau, motif, largeur, angle. */
+      renderProfile: {
+        materialFamily: 'chene-craie',
+        pattern: 'baton-rompu',
+        widthM: 0.09,
+        lengthM: 0.6,
+        orientationDeg: 0,
+      },
+      /* L'exactitude, attribut par attribut — un seul mot pour tout le
+         produit cachait que la geometrie est juste et la matiere non. */
+      renderAccuracy: {
+        pattern: 'exact',
+        width: 'exact',
+        orientation: 'exact',
+        tone: 'approximate',
+        grain: 'approximate',
+        finish: 'approximate',
+      },
       rendererMapping: {
         status: 'approximate', familyId: 'chene-craie', pattern: 'baton-rompu',
         widthM: 0.09, familySource: 'pilote du front (products.premibel-pilot.json)',
@@ -1007,6 +1080,25 @@
       lengthNote: 'tableau : 1900 mm · titre de la fiche : 400 mm — non arbitré',
       thicknessMm: 15, finish: 'verni', aspect: 'Brossé, Satiné', premibelFamily: 'FLCHEN08',
       tone: 'naturel',
+      /* Ce que l'adaptateur envoie au renderer. Uniquement des proprietes
+         que le moteur honore vraiment : materiau, motif, largeur, angle. */
+      renderProfile: {
+        materialFamily: 'chene-naturel',
+        pattern: 'lames',
+        widthM: 0.19,
+        lengthM: 1.9,
+        orientationDeg: 0,
+      },
+      /* L'exactitude, attribut par attribut — un seul mot pour tout le
+         produit cachait que la geometrie est juste et la matiere non. */
+      renderAccuracy: {
+        pattern: 'exact',
+        width: 'exact',
+        orientation: 'exact',
+        tone: 'approximate',
+        grain: 'approximate',
+        finish: 'approximate',
+      },
       rendererMapping: {
         status: 'approximate', familyId: 'chene-naturel', pattern: 'lames',
         widthM: 0.19, familySource: 'le nôtre, absent du pilote du front, non validé',
@@ -1029,6 +1121,25 @@
       species: 'Chêne', pattern: 'lames', widthMm: 150, lengthMm: 1900,
       thicknessMm: 15, finish: 'verni', aspect: 'Brossé, Mat', premibelFamily: 'FLCHEN08',
       tone: 'clair',
+      /* Ce que l'adaptateur envoie au renderer. Uniquement des proprietes
+         que le moteur honore vraiment : materiau, motif, largeur, angle. */
+      renderProfile: {
+        materialFamily: 'chene-sable',
+        pattern: 'lames',
+        widthM: 0.15,
+        lengthM: 1.9,
+        orientationDeg: 0,
+      },
+      /* L'exactitude, attribut par attribut — un seul mot pour tout le
+         produit cachait que la geometrie est juste et la matiere non. */
+      renderAccuracy: {
+        pattern: 'exact',
+        width: 'exact',
+        orientation: 'exact',
+        tone: 'approximate',
+        grain: 'approximate',
+        finish: 'approximate',
+      },
       rendererMapping: {
         status: 'approximate', familyId: 'chene-sable', pattern: 'lames',
         widthM: 0.15, familySource: 'pilote du front (products.premibel-pilot.json)',
@@ -1051,6 +1162,25 @@
       species: 'Chêne', pattern: 'lames', widthMm: 150, lengthMm: 1900,
       thicknessMm: 15, finish: 'verni', aspect: 'Brossé, Mat', premibelFamily: 'FLCHEN08',
       tone: 'chaud',
+      /* Ce que l'adaptateur envoie au renderer. Uniquement des proprietes
+         que le moteur honore vraiment : materiau, motif, largeur, angle. */
+      renderProfile: {
+        materialFamily: 'chene-rustique',
+        pattern: 'lames',
+        widthM: 0.15,
+        lengthM: 1.9,
+        orientationDeg: 0,
+      },
+      /* L'exactitude, attribut par attribut — un seul mot pour tout le
+         produit cachait que la geometrie est juste et la matiere non. */
+      renderAccuracy: {
+        pattern: 'exact',
+        width: 'exact',
+        orientation: 'exact',
+        tone: 'approximate',
+        grain: 'approximate',
+        finish: 'approximate',
+      },
       rendererMapping: {
         status: 'approximate', familyId: 'chene-rustique', pattern: 'lames',
         widthM: 0.15, familySource: 'pilote du front (products.premibel-pilot.json)',
@@ -1106,7 +1236,6 @@
     productId: 'POINF36005',
     /* Un vrai produit porte sa largeur et sa finition : elles ne sont plus
        des réglages. Seul le sens de pose en est un. */
-    orient: 'long',
     filters: { pattern: null, tone: null, widthMm: null, mood: null },
     category: 'Séjour',
     analysis: 'success',
@@ -1118,6 +1247,11 @@
     missing: new Set(),
     /* Images produit absentes du cache local : la vignette prend un cadre. */
     missingImg: new Set(),
+    /* Ce qui est REELLEMENT dessine dans la couche A, et par quoi. */
+    applied: { key: null, source: null },
+    appliedB: { key: null, source: null },
+    applying: false,
+    orientationDeg: 0,
     /* Un seul etat de viewport pour toute la scene.
          z : facteur de zoom, 1 = ajuste a l'ecran (donc « 100 % »)
          x, y : translation en pixels ecran, coin haut-gauche de la scene */
@@ -1144,7 +1278,7 @@
      référence du catalogue qui porte le changement demandé, en conservant le
      reste autant que possible. Si rien ne correspond, on le dit.
      ===================================================================== */
-  function findVariant(change) {
+  function findMatchingProduct(change) {
     const cur = product();
     const want = {
       pattern: change.pattern || cur.pattern,
@@ -1195,6 +1329,198 @@
       watch(im, url);
       im.src = url;
     });
+  }
+
+  /* =====================================================================
+     VisualizerAdapter — le catalogue parle au vrai renderer
+
+     ## Pourquoi un adaptateur
+
+     L'interface ne doit rien savoir du moteur. Elle dit « applique ce
+     produit » ; l'adaptateur traduit en appels du renderer, attend, et
+     recopie le resultat. Le jour ou le moteur change d'API, seul
+     l'adaptateur bouge.
+
+     ## Comment on pilote le moteur sans le modifier
+
+     Le vrai Visualiseur est charge hors ecran dans une iframe, sur la MEME
+     origine, et pilote par son propre point d'accroche `window.__studio` —
+     celui que `?perf=1` expose (voir `js/utils/perf.js` du front). Trois des
+     quatre reglages passent par ses methodes publiques :
+
+         selectMaterial(familyId)   la famille de texture
+         setPattern(pattern)        lames | point-de-hongrie | baton-rompu
+         setAngle(deg)              le sens de pose
+
+     Le quatrieme, la largeur de lame, n'a PAS de setter. Le moteur l'honore
+     pourtant : `config.width` en metres court-circuite la largeur par defaut
+     du motif (`patternProfile()` dans `js/scene/texture.js`). On ecrit donc
+     `config.width` puis on declenche un rendu avec `setPattern`. C'est le
+     seul point ou l'on touche a l'etat interne, et c'est documente comme
+     tel dans `docs/product-renderer-integration.md` avec l'API manquante.
+
+     ## Ce qu'on lit en retour
+
+     Meme origine, donc le canevas du moteur est lisible : on le recopie
+     dans nos couches par `drawImage`. Pas d'encodage, pas de requete, et le
+     viewport, la comparaison et l'avant/apres continuent de fonctionner
+     comme avant — ils manipulent des couches, pas un moteur.
+
+     ## Si le moteur n'est pas joignable
+
+     L'adaptateur passe en `static` et les captures prefabriquees reprennent
+     la main. Silencieusement dans l'interface, explicitement en `?dev=1`.
+     ===================================================================== */
+  const ENGINE_URL = (() => {
+    try {
+      const q = new URLSearchParams(window.location.search).get('engine');
+      if (q) return q;
+    } catch { /* pas de recherche : on prend le defaut */ }
+    /* Le front est servi a cote de nous, sous la meme origine : c'est ce qui
+       rend le canevas lisible. Sans cela, pas de mode live. */
+    return '../../pose-parquet.com/outils/studio.html?perf=1';
+  })();
+
+  const CAPABILITIES_NONE = {
+    pattern: false, width: false, orientation: false,
+    finish: false, grain: false, joints: false,
+  };
+
+  const adapter = (() => {
+    let studio = null;
+    let mode = 'static';
+    let capabilities = { ...CAPABILITIES_NONE };
+    let ready = null;
+    let lastMs = null;
+
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+    /* Empreinte bon marche du canevas du moteur : sert a savoir quand le
+       rendu a change PUIS s'est stabilise. Attendre « trois releves
+       identiques » sans exiger un changement d'abord decrirait l'image
+       d'AVANT — erreur deja commise, corrigee ici. */
+    const probe = document.createElement('canvas');
+    probe.width = 24;
+    probe.height = 16;
+    const pg = probe.getContext('2d', { willReadFrequently: true });
+    function stamp() {
+      if (!studio || !studio.canvas) return 0;
+      try {
+        pg.drawImage(studio.canvas, 0, 0, 24, 16);
+        const d = pg.getImageData(0, 0, 24, 16).data;
+        let h = 0;
+        for (let i = 0; i < d.length; i += 4) h = (h * 33 + d[i] + d[i + 1] * 3 + d[i + 2] * 7) % 2147483647;
+        return h;
+      } catch { return 0; }
+    }
+
+    async function settle(before, maxMs) {
+      const t0 = Date.now();
+      let changed = false;
+      let prev = -1;
+      let same = 0;
+      while (Date.now() - t0 < (maxMs || 12000)) {
+        await wait(90);
+        const h = stamp();
+        if (!changed) { if (h !== before) { changed = true; prev = h; same = 0; } continue; }
+        if (h === prev) { same += 1; if (same >= 2) return true; } else same = 0;
+        prev = h;
+      }
+      return changed;
+    }
+
+    function connect() {
+      if (ready) return ready;
+      ready = new Promise((resolve) => {
+        const frame = $('engine');
+        let done = false;
+        const give = (m, caps) => {
+          if (done) return;
+          done = true;
+          mode = m;
+          capabilities = caps;
+          resolve(mode);
+        };
+        const timer = setTimeout(() => give('static', { ...CAPABILITIES_NONE }), 12000);
+        frame.addEventListener('load', async () => {
+          try {
+            const w = frame.contentWindow;
+            for (let i = 0; i < 60 && !(w && w.__studio); i += 1) await wait(120);
+            if (!w || !w.__studio) throw new Error('point d accroche absent');
+            studio = w.__studio;
+            clearTimeout(timer);
+            /* On ne DECLARE pas une capacite : on regarde si le moteur la
+               porte. `config.width` est honore par le moteur mais n'a pas de
+               setter — d'ou le test sur l'objet lui-meme. */
+            give('live', {
+              pattern: typeof studio.setPattern === 'function',
+              width: studio.config && 'width' in studio.config,
+              orientation: typeof studio.setAngle === 'function',
+              finish: false,   /* cuite dans la famille de texture, pas reglable */
+              grain: false,
+              joints: false,
+            });
+          } catch {
+            clearTimeout(timer);
+            give('static', { ...CAPABILITIES_NONE });
+          }
+        });
+        frame.src = ENGINE_URL;
+      });
+      return ready;
+    }
+
+    return {
+      get mode() { return mode; },
+      get lastMs() { return lastMs; },
+      getCapabilities() { return { ...capabilities }; },
+      connect,
+
+      /** Ouvre une scene dans le moteur. */
+      async openRoom(sceneId) {
+        if (mode !== 'live' || !studio) return false;
+        const before = stamp();
+        await studio.openRoom(sceneId);
+        await settle(before, 20000);
+        return true;
+      },
+
+      /**
+       * Applique un profil produit et renvoie le canevas du moteur.
+       * `null` si le mode live n'est pas disponible.
+       */
+      async applyProfile(profile, orientationDeg) {
+        if (mode !== 'live' || !studio) return null;
+        const t0 = performance.now();
+        const before = stamp();
+        studio.selectMaterial(profile.materialFamily);
+        if (capabilities.width && Number.isFinite(profile.widthM)) {
+          /* Pas de setter cote moteur : on ecrit la largeur puis on
+             declenche le rendu par un appel public. */
+          studio.config.width = profile.widthM;
+        }
+        if (capabilities.orientation) studio.setAngle(orientationDeg || 0);
+        studio.setPattern(profile.pattern);
+        await settle(before, 20000);
+        lastMs = Math.round(performance.now() - t0);
+        return studio.canvas;
+      },
+
+      get canvas() { return studio && studio.canvas; },
+    };
+  })();
+
+  /** Recopie une source (canevas du moteur, ou image statique) dans une couche. */
+  function paintLayer(id, source) {
+    const c = $(id);
+    const w = source.naturalWidth || source.width;
+    const h = source.naturalHeight || source.height;
+    if (!w || !h) return false;
+    if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
+    try {
+      c.getContext('2d').drawImage(source, 0, 0);
+      return true;
+    } catch { return false; }
   }
 
   /* =====================================================================
@@ -1461,30 +1787,145 @@
   window.addEventListener('resize', () => { if (state.source) setVp(state.vp, false); });
 
   /* =====================================================================
-     Rendu de la scène — trois images, aucun calcul
+     Appliquer un sol
+
+     Deux sources possibles, dans cet ordre :
+
+       1. la capture prefabriquee, s'il en existe une — dessinee TOUT DE
+          SUITE, pour que la piece ne soit jamais nue ;
+       2. le vrai moteur, qui remplace ensuite la capture par le rendu du
+          produit demande, largeur et motif compris.
+
+     La capture n'est donc plus le mecanisme principal : elle est l'amorce et
+     le filet. Quand le moteur repond, c'est lui qu'on voit.
+     ===================================================================== */
+  const appliedKey = () => `${room().id}|${state.productId}|${state.orientationDeg}`;
+
+  /** Charge une capture et la dessine. Renvoie `true` si elle a servi. */
+  function drawStatic(layer, roomId, key) {
+    const url = renderUrl(roomId, key);
+    if (!url) return false;
+    const img = staticCache.get(url);
+    if (img && img.complete && img.naturalWidth) return paintLayer(layer, img);
+    if (!img) {
+      const next = new Image();
+      staticCache.set(url, next);
+      /* Quand la capture arrive, on relance les DEUX couches : la version B
+         de la comparaison attend la sienne aussi. */
+      next.onload = () => { if (state.source) reapply(); };
+      next.onerror = () => { state.missing.add(url); staticCache.delete(url); if (state.source) reapply(); };
+      next.src = url;
+    }
+    return false;
+  }
+  const staticCache = new Map();
+
+  /** Garde l'ancien rendu visible pendant le fondu du nouveau. */
+  function beginFade() {
+    if (REDUCED || !$('after').width) return;
+    paintLayer('afterPrev', $('after'));
+    $('after').classList.add('fading');
+    requestAnimationFrame(() => requestAnimationFrame(() => $('after').classList.remove('fading')));
+  }
+
+  async function applyFloor() {
+    const entry = room();
+    if (state.source === 'uploaded') {
+      $('clipA').classList.add('hidden');
+      state.applied = { key: null, source: null };
+      paintChrome();
+      return;
+    }
+    const key = appliedKey();
+    if (state.applied.key === key && state.applied.source === 'live') { paintChrome(); return; }
+
+    /* 1. amorce immediate par la capture, si elle existe. */
+    if (state.applied.key !== key) {
+      const drew = drawStatic('after', entry.id, state.productId);
+      if (drew) state.applied = { key, source: 'static' };
+      else if (!renderUrl(entry.id, state.productId)) {
+        /* Aucun rendu pour cette scene : on VIDE la couche. Sans cela, le sol
+           de la scene precedente resterait affiche sur la nouvelle photo. */
+        $('after').width = 0;
+        $('after').height = 0;
+        state.applied = { key: null, source: null };
+      }
+      $('clipA').classList.toggle('hidden', !$('after').width);
+    }
+    paintChrome();
+
+    /* 2. puis le vrai moteur, s'il repond. */
+    const caps = adapter.getCapabilities();
+    if (adapter.mode !== 'live' || !caps.pattern) return;
+    if (state.applying) return;
+    state.applying = true;
+    paintChrome();
+    try {
+      if (engineRoom !== entry.id) {
+        await adapter.openRoom(entry.id);
+        engineRoom = entry.id;
+      }
+      const canvas = await adapter.applyProfile(product().renderProfile, state.orientationDeg);
+      if (canvas && appliedKey() === key) {
+        beginFade();
+        if (paintLayer('after', canvas)) {
+          state.applied = { key, source: 'live' };
+          $('clipA').classList.remove('hidden');
+        }
+      }
+    } catch { /* le moteur a flanche : la capture reste a l'ecran */ }
+    state.applying = false;
+    paintChrome();
+    applyTransform();
+  }
+  let engineRoom = null;
+
+  function reapply() { applyFloor(); applyCompareB(); }
+
+  /** Prepare la version B de la comparaison, dans son VRAI etat. */
+  async function applyCompareB() {
+    if (!state.compare || state.source === 'uploaded') {
+      $('vpB').classList.add('hidden');
+      state.appliedB = { key: null, source: null };
+      return;
+    }
+    const entry = room();
+    const key = `${entry.id}|${state.compare.b}|${state.orientationDeg}`;
+    if (state.appliedB.key === key) return;
+    if (drawStatic('cmpB', entry.id, state.compare.b)) {
+      state.appliedB = { key, source: 'static' };
+      $('vpB').classList.remove('hidden');
+    }
+    if (adapter.mode !== 'live') return;
+    /* Un seul moteur : on applique B, on le photographie, puis on remet A.
+       Sans ce retour, les deux cotes montreraient le meme etat. */
+    const b = product(state.compare.b);
+    const canvasB = await adapter.applyProfile(b.renderProfile, state.orientationDeg);
+    if (canvasB && paintLayer('cmpB', canvasB)) {
+      state.appliedB = { key, source: 'live' };
+      $('vpB').classList.remove('hidden');
+    }
+    state.applied = { key: null, source: null };
+    await applyFloor();
+  }
+
+  /* =====================================================================
+     Rendu de la scène — la disposition, pas les pixels
      ===================================================================== */
   function paint() {
     const entry = room();
     const uploaded = state.source === 'uploaded';
     const orig = uploaded ? state.uploaded.url : originalUrl(entry.id);
     if ($('photo').getAttribute('src') !== orig) $('photo').src = orig;
+    paintChrome();
+    applyFloor();
+    applyCompareB();
+  }
 
-    const url = uploaded ? null : renderUrl(entry.id, state.productId);
-    const hasRender = Boolean(url);
-
-    $('clipA').classList.toggle('hidden', !hasRender);
-    if (hasRender && $('after').getAttribute('src') !== url) {
-      /* Fondu court : le sol change sous les yeux, sans flash blanc et sans
-         que le cadrage bouge d'un pixel. */
-      const old = $('after').getAttribute('src');
-      if (old && !REDUCED) {
-        $('afterPrev').src = old;
-        $('after').classList.add('fading');
-        requestAnimationFrame(() => requestAnimationFrame(() => $('after').classList.remove('fading')));
-      }
-      watch($('after'), url, paint);
-      $('after').src = url;
-    }
+  /** Tout ce qui entoure la pièce : découpage, cartes, capsules. */
+  function paintChrome() {
+    const uploaded = state.source === 'uploaded';
+    const hasRender = Boolean($('after').width) && !uploaded;
 
     /* Avant/après et comparaison partagent le même séparateur : un seul
        geste, jamais deux contrôles concurrents. Le découpage est posé sur
@@ -1493,13 +1934,6 @@
     const cut = state.ba || Boolean(state.compare);
     $('clipA').style.clipPath = cut
       ? `inset(0 ${((1 - state.split) * 100).toFixed(2)}% 0 0)` : 'none';
-
-    const bUrl = state.compare && !uploaded ? renderUrl(entry.id, state.compare.b) : null;
-    $('vpB').classList.toggle('hidden', !bUrl);
-    if (bUrl && $('cmpB').getAttribute('src') !== bUrl) {
-      watch($('cmpB'), bUrl, paint);
-      $('cmpB').src = bUrl;
-    }
 
     $('split').classList.toggle('hidden', !cut || !hasRender);
     if (cut) $('split').style.left = `${state.split * 100}%`;
@@ -1517,12 +1951,17 @@
     paintDev(uploaded, hasRender);
   }
 
+  /* La mention de developpement dit ce qui est REELLEMENT a l'ecran : le
+     moteur, une capture, ou rien. L'interface normale n'en parle pas. */
   function paintDev(uploaded, hasRender) {
     if (!DEV || uploaded) { $('devnote').classList.add('hidden'); return; }
-    $('devnote').classList.toggle('hidden', hasRender);
-    if (!hasRender) {
-      $('devnote').textContent = `Rendu demo indisponible — ${room().id}.${state.productId}.jpg`;
-    }
+    const src = state.applied.source;
+    const bits = [`moteur ${adapter.mode}`];
+    if (!hasRender) bits.push('aucun rendu');
+    else bits.push(src === 'live' ? 'rendu live' : 'capture de repli');
+    if (adapter.lastMs != null) bits.push(`${adapter.lastMs} ms`);
+    $('devnote').textContent = bits.join(' · ');
+    $('devnote').classList.remove('hidden');
   }
 
   const heart = (on, s) => `<svg width="${s || 14}" height="${s || 14}" viewBox="0 0 24 24"
@@ -1561,6 +2000,7 @@
       <b>${entry.name}</b>
       <span class="dim">${PATTERNS[entry.pattern]} · ${entry.widthMm} mm</span>
       <span class="ref">Réf. ${entry.ref}</span>
+      ${side === 'A' && state.applying ? '<span class="busy"><i></i>Application…</span>' : ''}
       <a class="sheet" href="${entry.productUrl}" target="_blank"
          rel="noopener noreferrer" data-sheet="${entry.ref}">VOIR LA FICHE PREMIBEL</a>
       <span class="row">
@@ -1611,8 +2051,10 @@
   function paintNav() {
     $('navRoomVal').textContent = room().label;
     $('navFloorVal').textContent = product().name;
+    const o = ORIENTATIONS.find(([d]) => d === state.orientationDeg);
     $('navCustomVal').textContent =
-      `${PATTERNS[product().pattern]} · ${product().widthMm} mm · ${FINISHES[product().finish]}`;
+      `${PATTERNS[product().pattern]} · ${product().widthMm} mm`
+      + (adapter.getCapabilities().orientation && o ? ` · ${o[1].toLowerCase()}` : '');
   }
 
   /* =====================================================================
@@ -1784,7 +2226,7 @@
 
     /* Chaque pastille de motif mène à la référence qui le porte. */
     $('patterns').innerHTML = presentPatterns().map((k) => {
-      const t = findVariant({ pattern: k });
+      const t = findMatchingProduct({ pattern: k });
       return `<button class="pt" type="button" data-variant="${t ? t.id : ''}"
         aria-pressed="${k === entry.pattern}">
         <span class="dg${t ? swatchClass(t) : ' noimg'}" style="${t ? swatchStyle(t) : ''}"></span>
@@ -1793,7 +2235,7 @@
     $('patternNote').textContent = 'Changer de motif change de référence.';
 
     $('widths').innerHTML = presentWidths().map((mm) => {
-      const t = findVariant({ widthMm: mm });
+      const t = findMatchingProduct({ widthMm: mm });
       return `<button class="chip" type="button" data-variant="${t ? t.id : ''}"
         aria-pressed="${mm === entry.widthMm}">${mm} mm</button>`;
     }).join('');
@@ -1804,25 +2246,32 @@
       : '';
 
     $('tones').innerHTML = presentTones().map((k) => {
-      const t = findVariant({ tone: k });
+      const t = findMatchingProduct({ tone: k });
       return `<button class="chip" type="button" data-variant="${t ? t.id : ''}"
         aria-pressed="${k === entry.tone}">${TONES[k]}</button>`;
     }).join('');
     $('toneNote').textContent = 'La teinte reprend la famille de rendu que nous avons '
       + 'associée au produit : Premibel ne catégorise pas la teinte de ces références.';
 
-    $('orient').innerHTML = [['long', 'Dans la longueur'], ['cross', 'Dans la largeur']]
-      .map(([id, label]) => `<button class="or" type="button" data-or="${id}" aria-pressed="${id === state.orient}">
-        <svg width="32" height="18" viewBox="0 0 34 20" fill="none" stroke="currentColor" stroke-width="1.6"
-             stroke-linecap="round" style="color:var(--ink-3)">
-          ${id === 'long' ? '<path d="M3 5h28M3 10h28M3 15h28" />' : '<path d="M7 3v14M17 3v14M27 3v14" />'}
-        </svg><span>${label}</span></button>`).join('');
+    /* Le sens de pose n'apparait QUE si le moteur sait le rendre. */
+    const caps = adapter.getCapabilities();
+    $('sectOrient').classList.toggle('hidden', !caps.orientation);
+    if (caps.orientation) {
+      $('orient').innerHTML = ORIENTATIONS
+        .map(([deg, label, icon]) => `<button class="or" type="button" data-deg="${deg}"
+          aria-pressed="${deg === state.orientationDeg}">
+          <svg width="32" height="18" viewBox="0 0 34 20" fill="none" stroke="currentColor"
+               stroke-width="1.6" stroke-linecap="round" style="color:var(--ink-3)">${icon}</svg>
+          <span>${label}</span></button>`).join('');
+      $('orientNote').textContent = 'Le sens de pose est un réglage du rendu, pas une '
+        + 'autre référence : le moteur tourne le motif dans le plan du sol.';
+    }
 
-    $('finishes').innerHTML = `<button class="chip" type="button"
-      aria-pressed="true">${FINISHES[entry.finish]}</button>`;
-    $('finishNote').textContent = `Aspect relevé sur la fiche : ${entry.aspect}. `
-      + 'Les cinq références du mini-catalogue sont vernies : il n\'y a pas de '
-      + 'choix de finition à offrir ici.';
+    /* Et ce qui n'est pas reglable est dit, sans bouton pour faire semblant. */
+    $('bakedNote').textContent = `Aspect relevé sur la fiche : ${entry.aspect}, `
+      + `finition ${FINISHES[entry.finish].toLowerCase()}. Le moteur ne les règle pas : `
+      + 'ils appartiennent à la famille de texture. Il n\'y a donc pas de curseur '
+      + 'ici — un réglage sans effet vaut moins que son absence.';
   }
 
   /* =====================================================================
@@ -1985,10 +2434,16 @@
     };
   });
   $('orient').onclick = (e) => {
-    const b = e.target.closest('[data-or]');
+    const b = e.target.closest('[data-deg]');
     if (!b) return;
-    state.orient = b.dataset.or;
+    const deg = Number(b.dataset.deg);
+    if (deg === state.orientationDeg) return;
+    state.orientationDeg = deg;
+    /* Le sol doit vraiment tourner : on invalide ce qui est dessine. */
+    state.applied = { key: null, source: null };
+    state.appliedB = { key: null, source: null };
     paint(); paintCustom();
+    toast(`${ORIENTATIONS.find(([d]) => d === deg)[1]}`);
   };
 
   $('baBtn').onclick = () => {
@@ -2035,7 +2490,10 @@
         <span class="ref">${PATTERNS[p.pattern]} · ${p.widthMm} mm — Réf. ${p.ref}</span></button>`;
     }).join('');
   };
+  /* Deux besoins documentes, non developpes ici. Ils le DISENT : un bouton
+     qui ne fait rien du tout est un mensonge, meme discret. */
   $('hSave').onclick = () => toast('Enregistrement : besoin documenté, pas développé ici');
+  $('menuShare').onclick = () => toast('Partage : besoin documenté, pas développé ici');
   $('fsBtn').onclick = () => setImmersive(!state.immersive);
 
   $('hMenu').onclick = () => {
@@ -2071,6 +2529,13 @@
   paintQuick();
   probeImages();
 
+  /* On tente le moteur des le chargement : la premiere piece ouverte a ainsi
+     des chances d'etre rendue en direct, et non seulement amorcee. */
+  adapter.connect().then((mode) => {
+    if (state.source) { paintCustom(); paint(); }
+    if (DEV) toast(`Moteur : ${mode}`);
+  });
+
   /* Exposé pour les tests : le vrai script est exécuté sous Node avec un DOM
      minimal, et un test qui réimplémenterait cette logique ne testerait rien. */
   window.__concept = {
@@ -2078,7 +2543,9 @@
     PREMIBEL_DEMO_PRODUCTS, MOODS, PATTERNS, TONES, FINISHES,
     RENDERS, PREMIBEL, PHOTOS,
     room, product, renderUrl, originalUrl, preload, probeImages,
-    findVariant, presentPatterns, presentTones, presentWidths, startCompare,
+    findMatchingProduct, findVariant: findMatchingProduct, presentPatterns, presentTones, presentWidths, startCompare,
+    adapter, paintLayer, applyFloor, applyCompareB, appliedKey, paintChrome,
+    ORIENTATIONS, ENGINE_URL, CAPABILITIES_NONE,
     ZOOM_MIN, ZOOM_MAX, sceneSize, fitScale, cssScale, clamp, applyTransform,
     setVp, fitToView, zoomAt, setImmersive, onWheel, onDown, onMove, onUp, onDouble,
     paint, paintCard, paintCatalogue, paintCustom, paintRoomSheet, paintQuick,
