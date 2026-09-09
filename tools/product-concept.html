@@ -1251,6 +1251,7 @@
     applied: { key: null, source: null },
     appliedB: { key: null, source: null },
     applying: false,
+    pendingApply: false,
     orientationDeg: 0,
     /* Un seul etat de viewport pour toute la scene.
          z : facteur de zoom, 1 = ajuste a l'ecran (donc « 100 % »)
@@ -1341,35 +1342,47 @@
      recopie le resultat. Le jour ou le moteur change d'API, seul
      l'adaptateur bouge.
 
-     ## Comment on pilote le moteur sans le modifier
+     ## Comment on pilote le moteur
 
      Le vrai Visualiseur est charge hors ecran dans une iframe, sur la MEME
-     origine, et pilote par son propre point d'accroche `window.__studio` —
-     celui que `?perf=1` expose (voir `js/utils/perf.js` du front). Trois des
-     quatre reglages passent par ses methodes publiques :
+     origine, et pilote par le contrat que `?perf=1` expose — `window.__studio`,
+     version 1. Chaque reglage passe par une commande, et par rien d'autre :
 
          selectMaterial(familyId)   la famille de texture
          setPattern(pattern)        lames | point-de-hongrie | baton-rompu
+         setWidth(metres)           la largeur de lame, ou null
          setAngle(deg)              le sens de pose
+         getCapabilities()          ce qui est reellement pilotable
+         onRendered(cb)             le rendu est fini
 
-     Le quatrieme, la largeur de lame, n'a PAS de setter. Le moteur l'honore
-     pourtant : `config.width` en metres court-circuite la largeur par defaut
-     du motif (`patternProfile()` dans `js/scene/texture.js`). On ecrit donc
-     `config.width` puis on declenche un rendu avec `setPattern`. C'est le
-     seul point ou l'on touche a l'etat interne, et c'est documente comme
-     tel dans `docs/product-renderer-integration.md` avec l'API manquante.
+     Il n'y a plus une seule ecriture dans `studio.config` : la largeur avait
+     ete reglee ainsi faute de setter, et ce raccourci a disparu avec l'API v1
+     du front. Toucher a l'etat interne d'un autre programme marche jusqu'au
+     jour ou il ne marche plus, sans rien dire.
+
+     ## Attendre, au lieu de guetter
+
+     La version precedente sondait le canevas toutes les 90 ms jusqu'a ce
+     qu'il change puis se stabilise. Deux defauts : au moins 270 ms de retard
+     pur ajoutes a chaque changement, et une mesure de latence qui decrivait
+     surtout la periode du sondage. `onRendered` remplace tout cela par un
+     signal du moteur lui-meme. Le sondage n'existe plus.
 
      ## Ce qu'on lit en retour
 
-     Meme origine, donc le canevas du moteur est lisible : on le recopie
-     dans nos couches par `drawImage`. Pas d'encodage, pas de requete, et le
-     viewport, la comparaison et l'avant/apres continuent de fonctionner
-     comme avant — ils manipulent des couches, pas un moteur.
+     Meme origine, donc le canevas du moteur est lisible : on le recopie dans
+     nos couches par `drawImage`. Pas d'encodage, pas de requete, et le
+     viewport, la comparaison et l'avant/apres continuent de fonctionner comme
+     avant — ils manipulent des couches, pas un moteur.
 
-     ## Si le moteur n'est pas joignable
+     ## Si le contrat n'est pas celui qu'on sait conduire
 
-     L'adaptateur passe en `static` et les captures prefabriquees reprennent
-     la main. Silencieusement dans l'interface, explicitement en `?dev=1`.
+     `connect()` echoue vite et pour une raison precise : point d'accroche
+     absent, version inconnue, commande manquante, canevas vide, aucune
+     capacite. L'interface passe alors en `static` sans rien dire — les
+     captures prefabriquees reprennent la main — et `?dev=1` affiche la
+     raison exacte. Un repli muet est acceptable ; un repli inexplicable ne
+     l'est pas.
      ===================================================================== */
   const ENGINE_URL = (() => {
     try {
@@ -1386,83 +1399,185 @@
     finish: false, grain: false, joints: false,
   };
 
+  /* Version du contrat que ce pont sait conduire. Un moteur qui annonce autre
+     chose n'est pas force d'etre incompatible — mais le supposer compatible
+     serait deviner, et le repli statique est un echec beaucoup moins grave
+     qu'un rendu faux. */
+  const ENGINE_API_VERSION = 1;
+  /* Sans l'une de ces commandes, le pont ne peut pas faire son travail. */
+  const ENGINE_REQUIRED = ['selectMaterial', 'setPattern', 'setWidth', 'setAngle',
+    'getCapabilities', 'onRendered', 'openRoom'];
+
+  /* Combien de captures on retient.
+     Une capture pese hauteur x largeur x 4 octets : 1100 x 734 en fait 3,2 Mo.
+     Huit entrees plafonnent donc a ~26 Mo, ce qui est le prix d'une poignee de
+     photos et reste tres loin de gener un onglet. Au-dela, le gain se dilue :
+     l'utilisateur ne fait pas d'aller-retour entre douze produits, il en
+     compare deux ou trois. */
+  const RENDER_CACHE_MAX = 8;
+
   const adapter = (() => {
     let studio = null;
     let mode = 'static';
     let capabilities = { ...CAPABILITIES_NONE };
     let ready = null;
     let lastMs = null;
+    let lastHit = null;      /* la derniere application venait-elle du cache ? */
+    let reason = null;       /* pourquoi on est en `static`, mot pour mot */
+    let apiVersion = null;
 
     const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
-    /* Empreinte bon marche du canevas du moteur : sert a savoir quand le
-       rendu a change PUIS s'est stabilise. Attendre « trois releves
-       identiques » sans exiger un changement d'abord decrirait l'image
-       d'AVANT — erreur deja commise, corrigee ici. */
-    const probe = document.createElement('canvas');
-    probe.width = 24;
-    probe.height = 16;
-    const pg = probe.getContext('2d', { willReadFrequently: true });
-    function stamp() {
-      if (!studio || !studio.canvas) return 0;
-      try {
-        pg.drawImage(studio.canvas, 0, 0, 24, 16);
-        const d = pg.getImageData(0, 0, 24, 16).data;
-        let h = 0;
-        for (let i = 0; i < d.length; i += 4) h = (h * 33 + d[i] + d[i + 1] * 3 + d[i + 2] * 7) % 2147483647;
-        return h;
-      } catch { return 0; }
+    /* ---------------- Le cache de captures ----------------
+
+       Le moteur a deja son propre cache de tuiles de texture (`material.js`,
+       douze entrees, clef famille|motif|largeur|longueur). Il ne dispense pas
+       de celui-ci : meme tuile en cache, le moteur repeint la scene entiere,
+       et nous recopions le canevas. Retenir le RESULTAT, c'est ne rien
+       refaire du tout — un `drawImage` au lieu d'un rendu.
+
+       Clef : la scene, la reference, l'orientation. Ce sont exactement les
+       trois choses qui changent les pixels ; le motif et la largeur sont
+       determines par la reference, ils n'ont pas a figurer dans la clef.
+
+       Invalidation : par la clef elle-meme. Rien d'autre ne peut changer le
+       rendu d'un triplet donne, le moteur etant deterministe pour une scene
+       et une configuration. Le cache est vide a l'import d'une photo, ou
+       quand le moteur devient joignable apres coup — la, les pixels
+       changeraient sans que la clef bouge.
+
+       Eviction : la moins recemment utilisee. Un `Map` conserve l'ordre
+       d'insertion ; relire une entree la reinsere, la plus ancienne clef est
+       donc bien la moins recemment servie. */
+    const renderCache = new Map();
+
+    function cacheGet(key) {
+      if (!renderCache.has(key)) return null;
+      const c = renderCache.get(key);
+      renderCache.delete(key);
+      renderCache.set(key, c);
+      return c;
     }
 
-    async function settle(before, maxMs) {
-      const t0 = Date.now();
-      let changed = false;
-      let prev = -1;
-      let same = 0;
-      while (Date.now() - t0 < (maxMs || 12000)) {
-        await wait(90);
-        const h = stamp();
-        if (!changed) { if (h !== before) { changed = true; prev = h; same = 0; } continue; }
-        if (h === prev) { same += 1; if (same >= 2) return true; } else same = 0;
-        prev = h;
+    function cachePut(key, source) {
+      const w = source.width; const h = source.height;
+      if (!w || !h) return null;
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      try { c.getContext('2d').drawImage(source, 0, 0); } catch { return null; }
+      if (renderCache.size >= RENDER_CACHE_MAX) {
+        renderCache.delete(renderCache.keys().next().value);
       }
-      return changed;
+      renderCache.set(key, c);
+      return c;
     }
+
+    /* ---------------- Attendre le rendu ----------------
+
+       Le moteur peint parfois deux fois : une passe rapide, puis une passe
+       fine 180 ms plus tard. Recopier la premiere donnerait une image moins
+       nette que celle que le moteur sait produire — on attend donc la passe
+       fine quand la premiere annonce une qualite degradee, mais sans jamais
+       s'y suspendre : le rendu deja obtenu vaut mieux que rien.
+
+       Ce chemin ne s'ouvre que sans WebGL2 : `schedule()` ne degrade la
+       qualite que pour le moteur logiciel. Il existe quand meme, et ce qu'il
+       rend n'est PAS retenu — un cache qui garderait un brouillon le
+       montrerait ensuite pour toujours. */
+    function nextRender(maxMs) {
+      return new Promise((resolve) => {
+        let settled = false;
+        let affine = null;
+        const stop = studio.onRendered((quality) => {
+          if (settled) return;
+          if (quality > 1 && affine === null) {
+            affine = setTimeout(() => { settled = true; stop(); resolve('brouillon'); }, 400);
+            return;
+          }
+          settled = true;
+          if (affine) clearTimeout(affine);
+          clearTimeout(deadline);
+          stop();
+          resolve('fin');
+        });
+        const deadline = setTimeout(() => {
+          if (settled) return;
+          settled = true;
+          if (affine) clearTimeout(affine);
+          stop();
+          resolve(null);
+        }, maxMs || 20000);
+      });
+    }
+
+    /* ---------------- Connexion ---------------- */
 
     function connect() {
       if (ready) return ready;
       ready = new Promise((resolve) => {
         const frame = $('engine');
         let done = false;
-        const give = (m, caps) => {
+        const give = (m, caps, why) => {
           if (done) return;
           done = true;
           mode = m;
           capabilities = caps;
+          reason = why || null;
           resolve(mode);
         };
-        const timer = setTimeout(() => give('static', { ...CAPABILITIES_NONE }), 12000);
+        const refuser = (why) => give('static', { ...CAPABILITIES_NONE }, why);
+        const timer = setTimeout(() => refuser('le moteur n a pas repondu en 12 s'), 12000);
+
         frame.addEventListener('load', async () => {
           try {
             const w = frame.contentWindow;
             for (let i = 0; i < 60 && !(w && w.__studio); i += 1) await wait(120);
-            if (!w || !w.__studio) throw new Error('point d accroche absent');
-            studio = w.__studio;
             clearTimeout(timer);
-            /* On ne DECLARE pas une capacite : on regarde si le moteur la
-               porte. `config.width` est honore par le moteur mais n'a pas de
-               setter — d'ou le test sur l'objet lui-meme. */
-            give('live', {
-              pattern: typeof studio.setPattern === 'function',
-              width: studio.config && 'width' in studio.config,
-              orientation: typeof studio.setAngle === 'function',
-              finish: false,   /* cuite dans la famille de texture, pas reglable */
-              grain: false,
-              joints: false,
-            });
-          } catch {
+
+            /* Chaque refus dit ce qui manque. Un « ca ne marche pas » coute
+               une demi-journee a diagnostiquer ; une phrase exacte, rien. */
+            if (!w || !w.__studio) {
+              refuser('point d accroche __studio absent — le moteur est-il servi avec ?perf=1 ?');
+              return;
+            }
+            const st = w.__studio;
+            apiVersion = st.apiVersion || null;
+            if (apiVersion !== ENGINE_API_VERSION) {
+              refuser(`contrat v${apiVersion === null ? '0 (aucune version annoncee)' : apiVersion}`
+                + `, ce pont conduit la v${ENGINE_API_VERSION}`);
+              return;
+            }
+            const manquantes = ENGINE_REQUIRED.filter((m) => typeof st[m] !== 'function');
+            if (manquantes.length) {
+              refuser(`commandes manquantes : ${manquantes.join(', ')}`);
+              return;
+            }
+            if (!st.canvas || !st.canvas.width || !st.canvas.height) {
+              refuser('le canevas du moteur est absent ou vide');
+              return;
+            }
+            /* Les capacites viennent du moteur, qui les deduit de ses propres
+               commandes. On garde les notres pour ce que le moteur ne regle
+               pas du tout : ni finition, ni veinage, ni joints. */
+            const dites = st.getCapabilities();
+            const caps = {
+              pattern: dites.pattern === true,
+              width: dites.width === true,
+              orientation: dites.orientation === true,
+              finish: false, grain: false, joints: false,
+            };
+            if (!caps.pattern && !caps.width && !caps.orientation) {
+              refuser('le moteur n annonce aucune capacite pilotable');
+              return;
+            }
+            studio = st;
+            /* Le mode live change les pixels sans changer les clefs : ce qui
+               a ete retenu en statique ne vaut plus rien. */
+            renderCache.clear();
+            give('live', caps, null);
+          } catch (e) {
             clearTimeout(timer);
-            give('static', { ...CAPABILITIES_NONE });
+            refuser(`acces refuse au moteur (${e && e.name ? e.name : 'erreur'}) — meme origine ?`);
           }
         });
         frame.src = ENGINE_URL;
@@ -1473,37 +1588,56 @@
     return {
       get mode() { return mode; },
       get lastMs() { return lastMs; },
+      get lastHit() { return lastHit; },
+      get reason() { return reason; },
+      get apiVersion() { return apiVersion; },
+      get cacheSize() { return renderCache.size; },
       getCapabilities() { return { ...capabilities }; },
       connect,
+      /** Vide les captures retenues : a l'import d'une photo, par exemple. */
+      forget() { renderCache.clear(); },
 
       /** Ouvre une scene dans le moteur. */
       async openRoom(sceneId) {
         if (mode !== 'live' || !studio) return false;
-        const before = stamp();
-        await studio.openRoom(sceneId);
-        await settle(before, 20000);
+        const attente = nextRender(20000);
+        studio.openRoom(sceneId);
+        await attente;
         return true;
       },
 
       /**
-       * Applique un profil produit et renvoie le canevas du moteur.
+       * Applique un profil produit et renvoie un canevas pret a recopier.
        * `null` si le mode live n'est pas disponible.
+       *
+       * Le triplet (scene, reference, orientation) deja rendu revient du
+       * cache sans toucher au moteur : c'est la difference entre « chaud » et
+       * « froid » dans les mesures.
        */
-      async applyProfile(profile, orientationDeg) {
+      async applyProfile(profile, orientationDeg, key) {
         if (mode !== 'live' || !studio) return null;
         const t0 = performance.now();
-        const before = stamp();
+        const deja = key ? cacheGet(key) : null;
+        if (deja) {
+          lastHit = true;
+          lastMs = Math.round(performance.now() - t0);
+          return deja;
+        }
+        lastHit = false;
+        /* L'abonnement est pris AVANT la premiere commande : un rendu tres
+           rapide ne doit pas passer entre les deux. */
+        const attente = nextRender(20000);
         studio.selectMaterial(profile.materialFamily);
-        if (capabilities.width && Number.isFinite(profile.widthM)) {
-          /* Pas de setter cote moteur : on ecrit la largeur puis on
-             declenche le rendu par un appel public. */
-          studio.config.width = profile.widthM;
+        if (capabilities.width) {
+          studio.setWidth(Number.isFinite(profile.widthM) ? profile.widthM : null);
         }
         if (capabilities.orientation) studio.setAngle(orientationDeg || 0);
         studio.setPattern(profile.pattern);
-        await settle(before, 20000);
+        const abouti = await attente;
         lastMs = Math.round(performance.now() - t0);
-        return studio.canvas;
+        /* On ne retient que ce que le moteur a fini de peindre. */
+        if (abouti !== 'fin') return studio.canvas;
+        return (key && cachePut(key, studio.canvas)) || studio.canvas;
       },
 
       get canvas() { return studio && studio.canvas; },
@@ -1857,15 +1991,22 @@
     /* 2. puis le vrai moteur, s'il repond. */
     const caps = adapter.getCapabilities();
     if (adapter.mode !== 'live' || !caps.pattern) return;
-    if (state.applying) return;
+    /* Une demande qui arrive pendant un rendu ne se perd pas : elle est
+       retenue, et rejouee des que le moteur est libre. La version precedente
+       l'ABANDONNAIT, et le rendu en cours se jetait lui-meme puisque sa clef
+       n'etait plus la bonne — trois clics rapides sur le sens de pose
+       laissaient donc la capture de repli a l'ecran, pour toujours. Un
+       controle visible sans effet visible : precisement ce qu'on refuse. */
+    if (state.applying) { state.pendingApply = true; return; }
     state.applying = true;
+    state.pendingApply = false;
     paintChrome();
     try {
       if (engineRoom !== entry.id) {
         await adapter.openRoom(entry.id);
         engineRoom = entry.id;
       }
-      const canvas = await adapter.applyProfile(product().renderProfile, state.orientationDeg);
+      const canvas = await adapter.applyProfile(product().renderProfile, state.orientationDeg, key);
       if (canvas && appliedKey() === key) {
         beginFade();
         if (paintLayer('after', canvas)) {
@@ -1877,6 +2018,10 @@
     state.applying = false;
     paintChrome();
     applyTransform();
+    /* Le dernier choix gagne. Un seul rejeu : `pendingApply` est remis a faux
+       en entree, donc la chaine s'arrete des que plus personne ne demande
+       rien. */
+    if (state.pendingApply) { state.pendingApply = false; applyFloor(); }
   }
   let engineRoom = null;
 
@@ -1900,7 +2045,7 @@
     /* Un seul moteur : on applique B, on le photographie, puis on remet A.
        Sans ce retour, les deux cotes montreraient le meme etat. */
     const b = product(state.compare.b);
-    const canvasB = await adapter.applyProfile(b.renderProfile, state.orientationDeg);
+    const canvasB = await adapter.applyProfile(b.renderProfile, state.orientationDeg, key);
     if (canvasB && paintLayer('cmpB', canvasB)) {
       state.appliedB = { key, source: 'live' };
       $('vpB').classList.remove('hidden');
@@ -1957,9 +2102,16 @@
     if (!DEV || uploaded) { $('devnote').classList.add('hidden'); return; }
     const src = state.applied.source;
     const bits = [`moteur ${adapter.mode}`];
+    if (adapter.apiVersion) bits[0] += ` v${adapter.apiVersion}`;
+    /* Le repli est muet dans l'interface, jamais ici : une degradation
+       silencieuse ET inexplicable est un piege pose a son successeur. */
+    if (adapter.mode !== 'live' && adapter.reason) bits.push(adapter.reason);
     if (!hasRender) bits.push('aucun rendu');
     else bits.push(src === 'live' ? 'rendu live' : 'capture de repli');
-    if (adapter.lastMs != null) bits.push(`${adapter.lastMs} ms`);
+    if (adapter.lastMs != null) {
+      bits.push(`${adapter.lastMs} ms${adapter.lastHit ? ' (retenu)' : ''}`);
+    }
+    if (adapter.mode === 'live') bits.push(`${adapter.cacheSize} en cache`);
     $('devnote').textContent = bits.join(' · ');
     $('devnote').classList.remove('hidden');
   }
@@ -2138,6 +2290,9 @@
     probe.onload = () => {
       state.uploaded = { url, name: file.name, w: probe.naturalWidth, h: probe.naturalHeight };
       state.source = 'uploaded';
+      /* Les captures retenues appartiennent aux scenes de demonstration :
+         elles n'ont plus rien a dire d'une photo importee. */
+      adapter.forget();
       state.compare = null;
       state.ba = false;
       closeAll();

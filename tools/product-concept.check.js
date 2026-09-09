@@ -396,12 +396,16 @@ ok('seuls les trois motifs du moteur du front',
   && Object.keys(api.PATTERNS).length === 3);
 ok('un produit ne porte aucune recette de rendu',
   P.every((p) => !('filter' in p) && !('wood' in p) && !('tint' in p)));
-/* Une seule fonction ecrit dans les couches — `paintLayer` — et elle ne
-   fait que copier des pixels. Une photo produit Premibel ne peut donc pas se
-   retrouver plaquee au sol : elle n'a aucun chemin jusqu'a la couche. */
-ok('une seule fonction ecrit dans les couches',
-  (code.match(/function paintLayer\(/g) || []).length === 1
-  && (code.match(/drawImage\(source, 0, 0\)/g) || []).length === 1);
+/* Une seule fonction ecrit dans les couches visibles — `paintLayer` — et
+   toutes les ecritures sur canevas du fichier, la sienne comme celle du cache
+   de captures, ne font que COPIER des pixels. Une photo produit Premibel n'a
+   donc aucun chemin jusqu'au sol, et rien ici ne compose un parquet. */
+ok('une seule fonction ecrit dans les couches visibles',
+  (code.match(/function paintLayer\(/g) || []).length === 1);
+const ecritures = code.match(/getContext\('2d'\)\.\w+/g) || [];
+ok('toutes les ecritures sur canevas sont des copies',
+  ecritures.length > 0 && ecritures.every((e) => e.endsWith('.drawImage')),
+  ecritures.join(' '));
 ok('les sources des couches sont le moteur ou une capture',
   /paintLayer\('after', canvas\)/.test(code) && /paintLayer\(layer, img\)/.test(code)
   && !/paintLayer\([^)]*(catalogThumbnail|heroImage)/.test(code));
@@ -880,17 +884,86 @@ ok('sous Node il retombe en statique', api.adapter.mode === 'static');
 ok('les capacites sont un objet complet',
   ['pattern', 'width', 'orientation', 'finish', 'grain', 'joints']
     .every((k) => k in api.adapter.getCapabilities()));
-ok('les capacites sont mesurees, pas declarees',
-  /typeof studio\.setPattern === 'function'/.test(code)
-  && /'width' in studio\.config/.test(code)
-  && /typeof studio\.setAngle === 'function'/.test(code));
+/* Les capacites ne sont plus devinees de l'exterieur : le moteur les
+   annonce, et il les deduit lui-meme de la presence de ses commandes. Le pont
+   ne fait que retenir celles qu'il sait utiliser. */
+ok('les capacites viennent du moteur',
+  /const dites = st\.getCapabilities\(\)/.test(code)
+  && /pattern: dites\.pattern === true/.test(code)
+  && /width: dites\.width === true/.test(code)
+  && /orientation: dites\.orientation === true/.test(code));
+ok('un moteur sans aucune capacite est refuse',
+  /n annonce aucune capacite pilotable/.test(code));
 ok('la finition, le veinage et les joints sont dits non reglables',
   /finish: false/.test(code) && /grain: false/.test(code) && /joints: false/.test(code));
 ok('le moteur est pilote par le point d accroche du front, pas par son DOM',
   /window\.__studio|w\.__studio/.test(code) && !/contentDocument/.test(code)
   && !/querySelector\('#\w+', frame/.test(code));
-ok('le contournement de la largeur est documente',
-  /Pas de setter cote moteur/.test(html) && /docs\/product-renderer-integration\.md/.test(html));
+/* Le point sale a disparu. La largeur passe par `setWidth`, et il ne reste
+   AUCUNE ecriture dans l'etat interne du moteur — la lecture `studio.config`
+   elle-meme n'existe plus dans ce fichier. */
+ok('aucune mutation de la configuration du moteur',
+  !/studio\.config\s*(\.\w+\s*)?=[^=]/.test(code) && !/studio\.config/.test(code));
+ok('la largeur passe par la commande du moteur',
+  /studio\.setWidth\(/.test(code));
+ok('chaque reglage passe par une commande, jamais par l etat',
+  ['selectMaterial', 'setPattern', 'setWidth', 'setAngle']
+    .every((m) => code.includes(`studio.${m}(`)));
+
+/* La version du contrat est negociee, pas supposee. */
+ok('la version attendue est nommee', /const ENGINE_API_VERSION = 1;/.test(code));
+ok('une version differente fait echouer la connexion',
+  /apiVersion !== ENGINE_API_VERSION/.test(code) && /ce pont conduit la v/.test(code));
+ok('les commandes indispensables sont listees et verifiees',
+  /const ENGINE_REQUIRED = \[/.test(code)
+  && /ENGINE_REQUIRED\.filter\(\(m\) => typeof st\[m\] !== 'function'\)/.test(code));
+ok('un canevas vide fait echouer la connexion',
+  /canevas du moteur est absent ou vide/.test(code));
+ok('le repli est muet dans l interface et explicite en dev',
+  /adapter\.mode !== 'live' && adapter\.reason/.test(code));
+/* Chacun des cinq refus possibles dit ce qui manque, en clair. Verifie en
+   Chrome contre cinq faux moteurs ; ici on garde les phrases. */
+for (const [quoi, re] of [
+  ['point d accroche', /point d accroche __studio absent/],
+  ['version', /ce pont conduit la v/],
+  ['commandes', /commandes manquantes/],
+  ['canevas', /canevas du moteur est absent ou vide/],
+  ['capacites', /n annonce aucune capacite pilotable/],
+]) ok(`le refus « ${quoi} » a sa raison`, re.test(code));
+
+/* Une demande arrivee pendant un rendu ne se perd pas. Le defaut mesure :
+   trois clics rapides sur le sens de pose laissaient la capture de repli a
+   l'ecran, definitivement. */
+ok('une demande concurrente est retenue, pas jetee',
+  /state\.pendingApply = true; return;/.test(code)
+  && /if \(state\.pendingApply\) \{ state\.pendingApply = false; applyFloor\(\); \}/.test(code));
+ok('le rejeu ne peut pas s emballer',
+  code.indexOf('state.pendingApply = false;') < code.indexOf('if (state.pendingApply) {'));
+
+/* Plus de sondage : le moteur previent. */
+ok('l attente repose sur le signal du moteur',
+  /studio\.onRendered\(/.test(code) && !/function settle\(/.test(code)
+  && !/same >= 2/.test(code));
+ok('l abonnement est pris avant la premiere commande',
+  /nextRender\(20000\);[\s\S]{0,120}studio\.selectMaterial/.test(code));
+ok('un rendu brouillon laisse sa chance a la passe fine',
+  /quality > 1/.test(code) && /affine/.test(code));
+ok('un brouillon n est jamais retenu',
+  /if \(abouti !== 'fin'\) return studio\.canvas;/.test(code));
+
+/* Le cache de captures : clef, borne, eviction, invalidation. */
+ok('la clef du cache est la scene, la reference et l orientation',
+  /applyProfile\(profile, orientationDeg, key\)/.test(code)
+  && /applyProfile\([^)]*state\.orientationDeg, key\)/.test(code));
+ok('le cache est borne', /const RENDER_CACHE_MAX = 8;/.test(code)
+  && /renderCache\.size >= RENDER_CACHE_MAX/.test(code));
+ok('l eviction sort la moins recemment utilisee',
+  /renderCache\.delete\(renderCache\.keys\(\)\.next\(\)\.value\)/.test(code)
+  && /renderCache\.delete\(key\);[\s\S]{0,40}renderCache\.set\(key, c\)/.test(code));
+ok('le cache est vide quand les pixels changeraient sans que la clef bouge',
+  /adapter\.forget\(\)/.test(code) && /renderCache\.clear\(\)/.test(code));
+ok('le cout du cache est chiffre dans le fichier',
+  /octets/.test(html) && /Mo/.test(html));
 ok('le document d integration existe',
   require('fs').existsSync('docs/product-renderer-integration.md'));
 
