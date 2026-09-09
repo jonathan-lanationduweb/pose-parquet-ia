@@ -601,7 +601,6 @@
       </svg>
       Favoris <span class="cnt hidden" id="favCount">0</span>
     </button>
-    <button class="hbtn" id="hSave" type="button">Enregistrer</button>
     <button class="hbtn" id="hMenu" type="button" aria-expanded="false" aria-label="Menu">
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
            stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
@@ -720,10 +719,11 @@
 
     <div id="zoombar">
       <button type="button" id="zOut" aria-label="Zoom arrière">−</button>
-      <button type="button" id="zLevel" aria-label="Niveau de zoom, cliquer pour ajuster">100 %</button>
+      <button type="button" id="zLevel" aria-label="Niveau de zoom, cliquer pour revenir au cadrage immersif"
+              title="Cadrage immersif (100 %)">100 %</button>
       <button type="button" id="zIn" aria-label="Zoom avant">+</button>
       <span class="sep"></span>
-      <button type="button" id="zFit" aria-label="Ajuster à l'écran">
+      <button type="button" id="zFit" aria-label="Voir toute la photo" title="Ajuster : voir toute la photo">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
              stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="3.4" /><path d="M12 3v3.4M12 17.6V21M3 12h3.4M17.6 12H21" />
@@ -876,7 +876,6 @@
 <div id="menu" class="hidden">
   <button class="mi" id="menuImport" type="button">Importer une photo</button>
   <button class="mi" id="menuRooms" type="button">Choisir une pièce</button>
-  <button class="mi" id="menuShare" type="button">Partager le projet</button>
   <div class="sep"></div>
   <p class="cat">Mode démo · prototype</p>
   <button class="mi" type="button" data-demo="success" aria-pressed="true">Analyse réussie</button>
@@ -1243,6 +1242,10 @@
     favourites: new Set(),
     compare: null,
     picking: false,
+    /* Le catalogue montre soit tout, soit les favoris. Sans cet etat, retirer
+       un favori depuis la liste des favoris la remplacait par le catalogue
+       entier : la vue changeait sous le doigt. */
+    catalogueView: 'all',
     /* Rendus dont le chargement a échoué : notés une fois, plus redemandés. */
     missing: new Set(),
     /* Images produit absentes du cache local : la vignette prend un cadre. */
@@ -1252,9 +1255,15 @@
     appliedB: { key: null, source: null },
     applying: false,
     pendingApply: false,
+    /* Numero de la derniere intention (produit, piece, orientation,
+       comparaison, import). Un resultat asynchrone qui revient avec un autre
+       numero est perime : il ne s'affiche pas, il ne se retient pas. */
+    intent: 0,
     orientationDeg: 0,
     /* Un seul etat de viewport pour toute la scene.
-         z : facteur de zoom, 1 = ajuste a l'ecran (donc « 100 % »)
+         z : facteur de zoom, 1 = la photo REMPLIT le cadre (donc « 100 % »)
+             — sous 1, on voit des bandes : ce n'est possible que par la
+             commande « Ajuster », jamais par un geste
          x, y : translation en pixels ecran, coin haut-gauche de la scene */
     vp: { z: 1, x: 0, y: 0 },
     immersive: false,
@@ -1430,6 +1439,27 @@
     let apiVersion = null;
 
     const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+    /* ---------------- Une seule operation a la fois ----------------
+
+       Le moteur est unique et `onRendered` previent TOUS ses abonnes du meme
+       rendu. Deux applications lancees en parallele — la version B d'une
+       comparaison et un clic produit, par exemple — attendaient donc toutes
+       deux « le prochain rendu », le recevaient ensemble, et chacune copiait
+       le canevas de l'autre. Pire : elle le retenait sous SA clef. Une
+       capture fausse dans le cache, servie ensuite en 20 ms, sans erreur.
+
+       D'ou cette file : chaque operation attend la fin de la precedente.
+       C'est la seule facon de garantir que le canevas lu est celui de
+       l'etat demande. */
+    let file = Promise.resolve();
+    const enFile = (travail) => {
+      const tour = file.then(travail, travail);
+      /* La file ne casse jamais : un echec est rendu a l'appelant, pas aux
+         operations suivantes. */
+      file = tour.catch(() => {});
+      return tour;
+    };
 
     /* ---------------- Le cache de captures ----------------
 
@@ -1646,13 +1676,16 @@
       forget() { renderCache.clear(); },
 
       /** Ouvre une scene dans le moteur. */
-      async openRoom(sceneId) {
-        if (mode !== 'live' || !studio) return false;
-        const attente = nextRender(20000);
-        studio.openRoom(sceneId);
-        engineScene = sceneId;
-        await attente;
-        return true;
+      openRoom(sceneId) {
+        if (mode !== 'live' || !studio) return Promise.resolve(false);
+        return enFile(async () => {
+          if (engineScene === sceneId) return true;
+          const attente = nextRender(20000);
+          studio.openRoom(sceneId);
+          engineScene = sceneId;
+          await attente;
+          return true;
+        });
       },
 
       get scene() { return engineScene; },
@@ -1673,7 +1706,13 @@
        * Un etat deja rendu revient du cache sans toucher au moteur : c'est la
        * difference entre « chaud » et « froid » dans les mesures.
        */
-      async applyProfile(profile, orientationDeg) {
+      applyProfile(profile, orientationDeg) {
+        if (mode !== 'live' || !studio) return Promise.resolve(null);
+        return enFile(() => this.applyProfileMaintenant(profile, orientationDeg));
+      },
+
+      /* Le corps, hors file : ne l'appeler que depuis `applyProfile`. */
+      async applyProfileMaintenant(profile, orientationDeg) {
         if (mode !== 'live' || !studio) return null;
         const t0 = performance.now();
         const key = getRenderStateKey(profile, orientationDeg);
@@ -1747,7 +1786,10 @@
      une photo, rien de plus, et l'interface ne promet rien d'autre.
      ===================================================================== */
   let pendingFit = false;
-  const ZOOM_MIN = 1;      /* en dessous de l'ajustement, on verrait du vide */
+  /* 1 = la photo couvre le cadre. Un geste ne descend jamais en dessous :
+     il n'y a aucune raison de faire apparaitre du vide en zoomant. La seule
+     porte vers les bandes est la commande explicite « Ajuster ». */
+  const ZOOM_MIN = 1;
   const ZOOM_MAX = 5;
   const REDUCED = (() => {
     try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
@@ -1765,16 +1807,40 @@
 
   const stageBox = () => $('stage').getBoundingClientRect();
 
-  /** Echelle CSS qui fait tenir la scene entiere dans le cadre. */
+  /**
+   * Echelle CSS a laquelle la photo COUVRE le cadre — la base de « 100 % ».
+   *
+   * La version precedente prenait l'echelle qui fait TENIR la photo, et un
+   * cadre plus large que la photo montrait alors deux bandes sombres de
+   * 190 px a 1920 de large : la piece semblait enfermee dans une vignette.
+   * Ce n'est pas un visualiseur, c'est une galerie. La photo est le canevas ;
+   * a 100 % elle remplit l'espace, et on se deplace dedans.
+   */
   function fitScale() {
+    const b = stageBox();
+    const { w, h } = sceneSize();
+    if (!b.width || !b.height || !w || !h) return 1;
+    return Math.max(b.width / w, b.height / h);
+  }
+
+  /** Echelle a laquelle la photo tient ENTIERE dans le cadre. */
+  function containScale() {
     const b = stageBox();
     const { w, h } = sceneSize();
     if (!b.width || !b.height || !w || !h) return 1;
     return Math.min(b.width / w, b.height / h);
   }
 
-  /* Echelle CSS reelle = ajustement x zoom demande. */
+  /** Le zoom qui montre toute la photo, exprime dans l'echelle de z. */
+  const zContain = () => containScale() / fitScale();
+
+  /* Echelle CSS reelle = couverture x zoom demande. */
   const cssScale = () => fitScale() * state.vp.z;
+
+  /* Plancher d'un GESTE de zoom : jamais sous la couverture, et jamais plus
+     bas qu'on n'est deja. Depuis « Ajuster » (z < 1), zoomer en arriere ne
+     fait donc rien — et ne saute surtout pas a 100 %. */
+  const zoomFloor = () => Math.min(ZOOM_MIN, state.vp.z);
 
   /** Borne la translation : l'image couvre toujours le cadre, ou se centre. */
   function clamp(v) {
@@ -1789,53 +1855,85 @@
     return out;
   }
 
-  let vpFrame = 0;
+  /* Ce qui est AFFICHE pendant une interpolation. Hors animation, c'est
+     `state.vp` lui-meme. */
+  let shown = null;
+  let anim = null;
+
   /** Ecrit la MEME transformation dans tous les groupes du viewport. */
   function applyTransform() {
     const { w, h } = sceneSize();
-    const s = cssScale();
-    const t = `translate3d(${state.vp.x.toFixed(2)}px, ${state.vp.y.toFixed(2)}px, 0) scale(${s.toFixed(5)})`;
+    const v = shown || state.vp;
+    const s = fitScale() * v.z;
+    const t = `translate3d(${v.x.toFixed(2)}px, ${v.y.toFixed(2)}px, 0) scale(${s.toFixed(5)})`;
     document.querySelectorAll('[data-vp]').forEach((el) => {
       el.style.width = `${w}px`;
       el.style.height = `${h}px`;
       el.style.transform = t;
     });
     $('zLevel').textContent = `${Math.round(state.vp.z * 100)} %`;
-    $('zOut').disabled = state.vp.z <= ZOOM_MIN + 1e-4;
+    $('zOut').disabled = state.vp.z <= zoomFloor() + 1e-4;
     $('zIn').disabled = state.vp.z >= ZOOM_MAX - 1e-4;
+    /* « Ajuster » n'a de sens que si la photo deborde du cadre. */
+    $('zFit').disabled = state.vp.z <= zContain() + 1e-4;
   }
 
   function setVp(next, animate) {
     const c = clamp(next);
     const moved = Math.abs(c.z - state.vp.z) > 1e-4
       || Math.abs(c.x - state.vp.x) > 0.5 || Math.abs(c.y - state.vp.y) > 0.5;
-    if (!moved) { state.vp = c; applyTransform(); return; }
-    if (!animate || REDUCED) { state.vp = c; applyTransform(); return; }
-    /* Interpolation courte, uniquement pour les gestes discrets (boutons,
-       double-clic). Un glisser n'est JAMAIS anime : il suit la souris. */
-    const from = { ...state.vp };
-    const t0 = performance.now();
+    /* Une animation en cours est interrompue : le nouveau geste gagne. */
+    if (anim) { clearTimeout(anim.timer); anim = null; }
+    if (!moved || !animate || REDUCED) { shown = null; state.vp = c; applyTransform(); return; }
+
+    /* L'ETAT est commis tout de suite ; seule l'image est interpolee.
+
+       La version precedente faisait avancer `state.vp` frame par frame dans
+       `requestAnimationFrame`. Or rAF ne se declenche pas dans un onglet en
+       arriere-plan, ni dans certains cadres embarques — et ici il ne s'est
+       tout simplement jamais declenche pendant la revue. Consequence : le
+       double-clic, les boutons + et -, « Ajuster », « 100 % » et les
+       raccourcis clavier ne faisaient RIEN, alors que la molette et le
+       glisser (non animes) marchaient. Cinq commandes mortes, sans erreur.
+
+       Regle, deja ecrite pour `scheduleFit` : le rAF sert a peindre, pas a
+       porter de l'etat. L'interpolation passe par un minuteur — plus
+       grossier, mais il aboutit toujours — et se termine par un rappel a
+       l'etat exact. */
+    const from = { ...(shown || state.vp) };
+    state.vp = c;
     const dur = 200;
-    if (vpFrame) cancelAnimationFrame(vpFrame);
-    const step = (now) => {
-      const k = Math.min(1, (now - t0) / dur);
+    anim = { t0: performance.now(), timer: 0 };
+    const step = () => {
+      if (!anim) return;
+      const k = Math.min(1, (performance.now() - anim.t0) / dur);
       const e = 1 - (1 - k) * (1 - k) * (1 - k);
-      state.vp = {
-        z: from.z + (c.z - from.z) * e,
-        x: from.x + (c.x - from.x) * e,
-        y: from.y + (c.y - from.y) * e,
-      };
-      applyTransform();
-      if (k < 1) vpFrame = requestAnimationFrame(step);
-      else { state.vp = c; applyTransform(); vpFrame = 0; }
+      if (k < 1) {
+        shown = { z: from.z + (c.z - from.z) * e, x: from.x + (c.x - from.x) * e, y: from.y + (c.y - from.y) * e };
+        applyTransform();
+        anim.timer = setTimeout(step, 16);
+      } else {
+        shown = null; anim = null; applyTransform();
+      }
     };
-    vpFrame = requestAnimationFrame(step);
+    step();
   }
 
-  /** Ajuste la scene au cadre et la centre. « 100 % » part de la. */
+  /** Cadrage immersif : la photo remplit le cadre, centree. C'est « 100 % ». */
   function fitToView(animate) {
     pendingFit = false;
-    setVp({ z: 1, x: 0, y: 0 }, animate);
+    const b = stageBox();
+    const { w, h } = sceneSize();
+    const sc = fitScale();
+    /* Centree, pas calee en haut a gauche : `clamp` accepte les deux, mais
+       seul le centre montre la piece comme la photo la cadre. */
+    setVp({ z: 1, x: (b.width - w * sc) / 2, y: (b.height - h * sc) / 2 }, animate);
+  }
+
+  /** Toute la photo : des bandes, mais rien de coupe. Sur demande seulement. */
+  function fitAll(animate) {
+    pendingFit = false;
+    setVp({ z: zContain(), x: 0, y: 0 }, animate);
   }
 
   /* Le recentrage d'ouverture est differe d'une frame, le temps que le cadre
@@ -1856,7 +1954,7 @@
     const b = stageBox();
     const cx = px == null ? b.width / 2 : px;
     const cy = py == null ? b.height / 2 : py;
-    const z = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, state.vp.z * factor));
+    const z = Math.min(ZOOM_MAX, Math.max(zoomFloor(), state.vp.z * factor));
     const s0 = fitScale() * state.vp.z;
     const s1 = fitScale() * z;
     if (!s0) return;
@@ -1895,7 +1993,7 @@
       const dist = Math.hypot(p1.x - p2.x, p1.y - p2.y);
       if (pinch.dist > 4) {
         const mid = { x: (p1.x + p2.x) / 2 - b.left, y: (p1.y + p2.y) / 2 - b.top };
-        const target = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, pinch.z * (dist / pinch.dist)));
+        const target = Math.min(ZOOM_MAX, Math.max(zoomFloor(), pinch.z * (dist / pinch.dist)));
         zoomAt(target / state.vp.z, mid.x, mid.y, false);
       }
       return;
@@ -1936,7 +2034,7 @@
 
   $('zIn').onclick = () => zoomAt(1.5, null, null, true);
   $('zOut').onclick = () => zoomAt(1 / 1.5, null, null, true);
-  $('zFit').onclick = () => fitToView(true);
+  $('zFit').onclick = () => fitAll(true);
   $('zLevel').onclick = () => fitToView(true);
 
   /* ---------------- Mode immersif ---------------- */
@@ -1995,7 +2093,18 @@
     else if (e.key === 'f' || e.key === 'F') { e.preventDefault(); setImmersive(!state.immersive); }
   });
 
-  window.addEventListener('resize', () => { if (state.source) setVp(state.vp, false); });
+  /* Le cadre change de taille sans que la fenetre le fasse : en-tete masque
+     en mode immersif, panneau lateral du navigateur, outils de developpement
+     ancres. `resize` ne dit rien de tout cela ; l'observateur du stage, si.
+     Mesure : un cadre passe de 1100 a 1920 px avec un zoom a 250 % laissait
+     11 px de vide, parce que rien n'avait reborne le viewport. */
+  const reborner = () => { if (state.source) setVp(state.vp, false); };
+  window.addEventListener('resize', reborner);
+  if (typeof ResizeObserver === 'function') new ResizeObserver(reborner).observe($('stage'));
+  /* Un onglet cache ne recoit ni `resize` ni observation : ils sont livres
+     avec les frames, et un document cache n'en a pas. Le cadre a pu changer
+     pendant ce temps — on reborne au retour. */
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) reborner(); });
 
   /* =====================================================================
      Appliquer un sol
@@ -2032,11 +2141,19 @@
   const staticCache = new Map();
 
   /** Garde l'ancien rendu visible pendant le fondu du nouveau. */
+  let fadeTimer = 0;
   function beginFade() {
     if (REDUCED || !$('after').width) return;
     paintLayer('afterPrev', $('after'));
     $('after').classList.add('fading');
-    requestAnimationFrame(() => requestAnimationFrame(() => $('after').classList.remove('fading')));
+    /* Meme regle que pour le viewport : pas de rAF pour porter un etat. Le
+       double rAF qui retirait la classe ne se declenchait jamais quand
+       l'onglet ne peignait pas, et `.fading` restait collee au sol. Un
+       minuteur aboutit toujours ; le navigateur a de toute facon peint
+       l'ancien etat avant qu'il n'expire, ce qui est tout ce que le fondu
+       demande. */
+    clearTimeout(fadeTimer);
+    fadeTimer = setTimeout(() => $('after').classList.remove('fading'), 40);
   }
 
   async function applyFloor() {
@@ -2077,6 +2194,7 @@
     if (state.applying) { state.pendingApply = true; return; }
     state.applying = true;
     state.pendingApply = false;
+    const intent = state.intent;
     paintChrome();
     try {
       /* La piece ouverte dans le moteur est un etat DU MOTEUR : c'est
@@ -2084,7 +2202,12 @@
          un second compte ici, c'est se donner deux verites a desynchroniser. */
       if (adapter.scene !== entry.id) await adapter.openRoom(entry.id);
       const canvas = await adapter.applyProfile(product().renderProfile, state.orientationDeg);
-      if (canvas && appliedKey() === key) {
+      /* Deux gardes : la clef (c'est bien ce sol, dans cette piece) ET le
+         jeton (aucune autre intention n'est passee entre-temps). La clef
+         seule laisserait un aller-retour A -> B -> A afficher un rendu de A
+         commande avant B — juste, mais sans que le repli de B ait ete
+         remplace proprement. */
+      if (canvas && appliedKey() === key && state.intent === intent) {
         beginFade();
         if (paintLayer('after', canvas)) {
           state.applied = { key, source: 'live' };
@@ -2119,15 +2242,22 @@
     }
     if (adapter.mode !== 'live') return;
     /* Un seul moteur : on applique B, on le photographie, puis on remet A.
-       Sans ce retour, les deux cotes montreraient le meme etat. */
+       Sans ce retour, les deux cotes montreraient le meme etat. La file de
+       l'adaptateur garantit que B et A ne se marchent pas dessus. */
+    const intent = state.intent;
     const b = product(state.compare.b);
+    if (adapter.scene !== entry.id) await adapter.openRoom(entry.id);
     const canvasB = await adapter.applyProfile(b.renderProfile, state.orientationDeg);
-    if (canvasB && paintLayer('cmpB', canvasB)) {
+    /* Perime si la comparaison a change ou s'est fermee pendant le rendu. */
+    const encore = state.compare && state.compare.b === b.id && room().id === entry.id
+      && state.intent === intent;
+    if (canvasB && encore && paintLayer('cmpB', canvasB)) {
       state.appliedB = { key, source: 'live' };
       $('vpB').classList.remove('hidden');
     }
-    state.applied = { key: null, source: null };
-    await applyFloor();
+    /* Le moteur montre B : la couche A doit etre refaite, meme si rien
+       d'autre n'a change. */
+    if (encore) { state.applied = { key: null, source: null }; await applyFloor(); }
   }
 
   /* =====================================================================
@@ -2239,7 +2369,7 @@
         <button class="fav" type="button" data-fav="${entry.id}" aria-pressed="${on}"
                 aria-label="Favori">${heart(on)}</button>
         <span class="sep"></span>
-        <button type="button" data-open="cmp${side}">Comparer</button>
+        <button type="button" data-open="cmp${side}">${side === 'B' ? 'Changer' : 'Comparer'}</button>
       </span>`;
   }
 
@@ -2334,6 +2464,7 @@
 
   /** Changer de pièce CONSERVE le parquet : on juge le même bois ailleurs. */
   function openRoom(id) {
+    state.intent += 1;
     state.source = 'demo';
     state.roomId = id;
     releaseUpload();
@@ -2364,8 +2495,14 @@
     }
     releaseUpload();
     const url = URL.createObjectURL(file);
+    /* Deux imports rapproches : la premiere lecture peut aboutir APRES la
+       seconde et remettre la premiere photo. Le jeton la fait ignorer, et
+       son URL est liberee au lieu de fuir. */
+    state.intent += 1;
+    const intent = state.intent;
     const probe = new Image();
     probe.onload = () => {
+      if (state.intent !== intent) { URL.revokeObjectURL(url); return; }
       state.uploaded = { url, name: file.name, w: probe.naturalWidth, h: probe.naturalHeight };
       state.source = 'uploaded';
       /* Les captures retenues appartiennent aux scenes de demonstration :
@@ -2383,7 +2520,10 @@
         $('unknown').classList.remove('hidden');
       }, 1300);
     };
-    probe.onerror = () => { toast("Cette image n'a pas pu être lue"); URL.revokeObjectURL(url); };
+    probe.onerror = () => {
+      URL.revokeObjectURL(url);
+      if (state.intent === intent) toast("Cette image n'a pas pu être lue");
+    };
     probe.src = url;
   }
 
@@ -2424,8 +2564,10 @@
         `<button class="mood" type="button" data-f="mood" data-v="${m.id}"
           aria-pressed="${f.mood === m.id}">${m.label} · ${m.refs.length}</button>`).join('')}</div>`;
 
-    const list = visible();
-    $('catCount').textContent = `(${list.length})`;
+    const favoris = state.catalogueView === 'favourites';
+    const list = favoris ? PREMIBEL_DEMO_PRODUCTS.filter((p) => state.favourites.has(p.id)) : visible();
+    if (favoris && !list.length) { state.catalogueView = 'all'; paintCatalogue(); return; }
+    $('catCount').textContent = favoris ? `(${list.length} en favoris)` : `(${list.length})`;
     $('prods').innerHTML = list.length ? list.map((p) => {
       const on = state.favourites.has(p.id);
       return `<button class="pd" type="button" data-id="${p.id}" aria-pressed="${p.id === state.productId}">
@@ -2514,6 +2656,13 @@
     const entry = product(id);
     if (!entry) return;
     if (state.picking) {
+      /* Comparer une reference a elle-meme n'a aucun sens : les deux cotes
+         seraient identiques et l'utilisateur croirait le separateur casse. */
+      if (id === state.productId) {
+        toast('Choisissez une autre référence que celle déjà posée');
+        return;
+      }
+      state.intent += 1;
       state.compare = { b: id };
       state.picking = false;
       state.split = 0.5;
@@ -2522,6 +2671,7 @@
       toast('Faites glisser le séparateur');
       return;
     }
+    state.intent += 1;
     state.productId = id;
     paint();
     paintCatalogue();
@@ -2563,9 +2713,16 @@
     ['roomSheet', 'roomScrim', 'catSheet', 'catScrim', 'cusSheet', 'cusScrim', 'menu']
       .forEach((id) => $(id).classList.add('hidden'));
     $('hMenu').setAttribute('aria-expanded', 'false');
+    /* Fermer le catalogue sans choisir B annule le choix de B. Sinon le
+       prochain clic sur « Choisir un parquet » posait une comparaison au lieu
+       de changer de sol — l'interface se contredisait, silencieusement. */
+    if (state.picking) {
+      state.picking = false;
+      $('catCount').textContent = `(${visible().length})`;
+    }
   }
   function openRooms() { closeAll(); paintRoomSheet(); $('roomScrim').classList.remove('hidden'); $('roomSheet').classList.remove('hidden'); }
-  function openCat() { closeAll(); paintCatalogue(); $('catScrim').classList.remove('hidden'); $('catSheet').classList.remove('hidden'); }
+  function openCat() { closeAll(); state.catalogueView = 'all'; paintCatalogue(); $('catScrim').classList.remove('hidden'); $('catSheet').classList.remove('hidden'); }
   function openCus() { closeAll(); paintCustom(); $('cusScrim').classList.remove('hidden'); $('cusSheet').classList.remove('hidden'); }
 
   ['doorRooms', 'navRoom', 'hSwap', 'menuRooms', 'unkRooms', 'rejRooms'].forEach((id) => {
@@ -2588,7 +2745,12 @@
   ['doorImport', 'sheetImport', 'menuImport', 'unkOther', 'rejOther'].forEach((id) => {
     $(id).onclick = () => { closeAll(); $('file').click(); };
   });
-  $('file').onchange = (e) => loadUpload(e.target.files && e.target.files[0]);
+  $('file').onchange = (e) => {
+    loadUpload(e.target.files && e.target.files[0]);
+    /* Sans remise a zero, choisir a nouveau LE MEME fichier ne declenche
+       rien : le champ ne voit pas de changement. */
+    e.target.value = '';
+  };
 
   ['dragover', 'dragenter'].forEach((t) => document.addEventListener(t, (e) => e.preventDefault()));
   document.addEventListener('drop', (e) => {
@@ -2632,6 +2794,9 @@
     if (!card) return;
     const wasPicking = state.picking;
     select(card.dataset.id);
+    /* Le choix de B ferme lui-meme le catalogue quand il aboutit ; s'il est
+       refuse (meme reference), le catalogue reste ouvert pour en choisir une
+       autre. Un choix de A ferme toujours. */
     if (!wasPicking) closeAll();
   };
 
@@ -2642,6 +2807,7 @@
       const open = e.target.closest('[data-open]');
       if (open) {
         if (open.dataset.open === 'cus') openCus();
+        else if (open.dataset.open === 'cmpB') pickB();
         else startCompare();
         return;
       }
@@ -2671,6 +2837,7 @@
     if (!b) return;
     const deg = Number(b.dataset.deg);
     if (deg === state.orientationDeg) return;
+    state.intent += 1;
     state.orientationDeg = deg;
     /* Le sol doit vraiment tourner : on invalide ce qui est dessine. */
     state.applied = { key: null, source: null };
@@ -2680,18 +2847,32 @@
   };
 
   $('baBtn').onclick = () => {
-    if (state.compare) state.compare = null;
+    if (state.compare) { state.intent += 1; state.compare = null; state.appliedB = { key: null, source: null }; }
     state.ba = !state.ba;
     state.split = 0.5;
     $('baBtn').setAttribute('aria-pressed', String(state.ba));
     paint();
   };
   function startCompare() {
-    if (state.compare) { state.compare = null; paint(); toast('Comparaison fermée'); return; }
+    if (state.compare) {
+      state.intent += 1;
+      state.compare = null;
+      state.appliedB = { key: null, source: null };
+      paint();
+      toast('Comparaison fermée');
+      return;
+    }
+    pickB();
+  }
+
+  /** Ouvre le catalogue pour choisir (ou changer) la version B. */
+  function pickB() {
     state.ba = false;
     $('baBtn').setAttribute('aria-pressed', 'false');
-    state.picking = true;
     openCat();
+    /* APRES `openCat` : il appelle `closeAll`, qui annule un choix en cours. */
+    state.picking = true;
+    $('catCount').textContent = '(choisissez la version B)';
     toast('Choisissez la seconde référence');
   }
   $('cmpBtn').onclick = startCompare;
@@ -2699,9 +2880,18 @@
   let dragging = false;
   $('split').addEventListener('pointerdown', (e) => {
     dragging = true;
-    if ($('split').setPointerCapture) $('split').setPointerCapture(e.pointerId);
+    /* La capture peut echouer — pointeur deja relache, ou evenement de
+       synthese : `setPointerCapture` leve alors NotFoundError, non rattrapee
+       ici jusqu'a present. Sans capture, le relachement arrive au stage : il
+       est ecoute la aussi, sinon le separateur suivrait la souris pour
+       toujours. */
+    try { if ($('split').setPointerCapture) $('split').setPointerCapture(e.pointerId); } catch { /* sans capture */ }
   });
-  $('split').addEventListener('pointerup', () => { dragging = false; });
+  const lacherSeparateur = () => { dragging = false; };
+  $('split').addEventListener('pointerup', lacherSeparateur);
+  $('split').addEventListener('pointercancel', lacherSeparateur);
+  $('stage').addEventListener('pointerup', lacherSeparateur);
+  $('stage').addEventListener('pointercancel', lacherSeparateur);
   $('stage').addEventListener('pointermove', (e) => {
     if (!dragging) return;
     const box = $('stage').getBoundingClientRect();
@@ -2713,20 +2903,14 @@
     if (!state.favourites.size) { toast('Touchez un cœur pour garder une référence'); return; }
     state.filters = { pattern: null, tone: null, widthMm: null, mood: null };
     openCat();
-    $('catCount').textContent = `(${state.favourites.size} en favoris)`;
-    $('prods').innerHTML = [...state.favourites].map((id) => {
-      const p = product(id);
-      return `<button class="pd" type="button" data-id="${p.id}" aria-pressed="${p.id === state.productId}">
-        <span class="tex${swatchClass(p)}" style="${swatchStyle(p)}"></span>
-        <span class="hh" data-fav="${p.id}" role="button" aria-pressed="true" aria-label="Favori">${heart(true, 13)}</span>
-        <span class="nm">${p.name}</span>
-        <span class="ref">${PATTERNS[p.pattern]} · ${p.widthMm} mm — Réf. ${p.ref}</span></button>`;
-    }).join('');
+    /* APRES openCat : il remet la vue a « tout ». */
+    state.catalogueView = 'favourites';
+    paintCatalogue();
   };
-  /* Deux besoins documentes, non developpes ici. Ils le DISENT : un bouton
-     qui ne fait rien du tout est un mensonge, meme discret. */
-  $('hSave').onclick = () => toast('Enregistrement : besoin documenté, pas développé ici');
-  $('menuShare').onclick = () => toast('Partage : besoin documenté, pas développé ici');
+  /* « Enregistrer » et « Partager » n'existent plus dans cette version : ils
+     n'avaient pas de comportement, seulement un message disant qu'ils n'en
+     avaient pas. Un bouton visible doit agir. Le besoin reste documente dans
+     docs/product-visualizer-ux.md ; il reviendra avec son implementation. */
   $('fsBtn').onclick = () => setImmersive(!state.immersive);
 
   $('hMenu').onclick = () => {
@@ -2780,7 +2964,8 @@
     adapter, paintLayer, applyFloor, applyCompareB, appliedKey, paintChrome,
     getRenderStateKey: (profile, deg) => adapter.getRenderStateKey(profile, deg),
     ORIENTATIONS, ENGINE_URL, CAPABILITIES_NONE,
-    ZOOM_MIN, ZOOM_MAX, sceneSize, fitScale, cssScale, clamp, applyTransform,
+    ZOOM_MIN, ZOOM_MAX, sceneSize, fitScale, containScale, zContain, zoomFloor, fitAll,
+    cssScale, clamp, applyTransform,
     setVp, fitToView, zoomAt, setImmersive, onWheel, onDown, onMove, onUp, onDouble,
     paint, paintCard, paintCatalogue, paintCustom, paintRoomSheet, paintQuick,
     openRoom, loadUpload, releaseUpload, select, stepProduct, toggleFav,

@@ -117,8 +117,13 @@ ok('« Voir le résultat » absent', !/Voir le résultat/.test(html));
 ok('aucune sidebar permanente', !/id="left"/.test(html) && !/id="panel"/.test(html));
 ok('la piece occupe tout sous l en-tete', /#stage \{\s*\n\s*flex: 1;/.test(html));
 ok('en-tete de 54 px', /height: 54px/.test(html));
-ok('en-tete minimal : 4 actions',
-  (html.match(/class="hbtn/g) || []).length === 4, `${(html.match(/class="hbtn/g) || []).length} boutons`);
+/* « Enregistrer » a ete retire : il n'avait pas de comportement, seulement
+   un message disant qu'il n'en avait pas. Un bouton visible doit agir. */
+ok('en-tete minimal : 3 actions',
+  (html.match(/class="hbtn/g) || []).length === 3, `${(html.match(/class="hbtn/g) || []).length} boutons`);
+ok('aucun bouton placebo dans l en-tete ni le menu',
+  !/id="hSave"/.test(html) && !/id="menuShare"/.test(html)
+  && !/besoin documenté, pas développé ici/.test(code));
 ok('trois entrees de navigation',
   /id="navRoom"/.test(html) && /id="navFloor"/.test(html) && /id="navCustom"/.test(html));
 ok('chaque entree affiche sa valeur',
@@ -663,13 +668,25 @@ api.select('POINF36005', true);
 const B = { w: 1200, h: 700 };          /* le cadre du DOM minimal */
 const SC = api.sceneSize();
 ok('la scene a la taille des rendus', SC.w === 1200 && SC.h === 800, `${SC.w}x${SC.h}`);
-ok("l'ajustement tient la scene dans le cadre",
-  Math.abs(api.fitScale() - Math.min(B.w / SC.w, B.h / SC.h)) < 1e-9,
+/* 100 % = la photo COUVRE le cadre. Avant : elle y TENAIT, et un ecran plus
+   large que la photo montrait deux bandes sombres de 190 px — la piece dans
+   une vignette. */
+ok('100 % couvre le cadre',
+  Math.abs(api.fitScale() - Math.max(B.w / SC.w, B.h / SC.h)) < 1e-9,
   api.fitScale().toFixed(4));
+ok('« Ajuster » tient la scene entiere dans le cadre',
+  Math.abs(api.containScale() - Math.min(B.w / SC.w, B.h / SC.h)) < 1e-9
+  && api.zContain() <= 1, `${api.containScale().toFixed(4)} / z ${api.zContain().toFixed(3)}`);
 
 /* fitToView : centre, ratio garde, zoom a 1 — donc « 100 % ». */
 api.fitToView();
 ok('fitToView remet le zoom a 1', api.state.vp.z === 1);
+ok('a 100 %, aucun vide autour de la photo',
+  SC.w * api.cssScale() >= B.w - 0.01 && SC.h * api.cssScale() >= B.h - 0.01
+  && api.state.vp.x <= 0.01 && api.state.vp.y <= 0.01
+  && api.state.vp.x + SC.w * api.cssScale() >= B.w - 0.01
+  && api.state.vp.y + SC.h * api.cssScale() >= B.h - 0.01,
+  `${api.state.vp.x.toFixed(1)},${api.state.vp.y.toFixed(1)} ${(SC.w * api.cssScale()).toFixed(0)}x${(SC.h * api.cssScale()).toFixed(0)}`);
 ok('fitToView centre la scene',
   Math.abs(api.state.vp.x - (B.w - SC.w * api.fitScale()) / 2) < 0.6
   && Math.abs(api.state.vp.y - (B.h - SC.h * api.fitScale()) / 2) < 0.6,
@@ -690,10 +707,32 @@ ok('aucune translation separee des couches',
 api.zoomAt(100, null, null, false);
 ok('le zoom est borne en haut', api.state.vp.z === api.ZOOM_MAX, `${api.state.vp.z}`);
 api.zoomAt(0.001, null, null, false);
-ok('le zoom est borne en bas', api.state.vp.z === api.ZOOM_MIN, `${api.state.vp.z}`);
+ok('un geste ne descend jamais sous la couverture', api.state.vp.z === api.ZOOM_MIN, `${api.state.vp.z}`);
 ok('les bornes laissent inspecter sans absurdite',
   api.ZOOM_MAX >= 4 && api.ZOOM_MAX <= 6 && api.ZOOM_MIN === 1,
   `${api.ZOOM_MIN}..${api.ZOOM_MAX}`);
+
+/* « Ajuster » est la seule porte vers les bandes ; depuis la, zoomer en
+   arriere ne fait rien — et surtout ne saute pas a 100 %. */
+api.fitAll();
+const zAj = api.state.vp.z;
+ok('Ajuster passe sous 100 % pour montrer toute la photo', zAj < 1 && Math.abs(zAj - api.zContain()) < 1e-9, `${zAj.toFixed(3)}`);
+ok('la photo entiere est visible',
+  SC.w * api.cssScale() <= B.w + 0.01 && SC.h * api.cssScale() <= B.h + 0.01);
+ok('et elle est centree dans le cadre',
+  Math.abs(api.state.vp.x - (B.w - SC.w * api.cssScale()) / 2) < 0.6
+  && Math.abs(api.state.vp.y - (B.h - SC.h * api.cssScale()) / 2) < 0.6);
+ok('le bouton Ajuster se desactive une fois ajuste', el('zFit').disabled === true);
+api.zoomAt(1 / 1.5, null, null, false);
+ok('zoomer en arriere depuis Ajuster ne saute pas a 100 %', Math.abs(api.state.vp.z - zAj) < 1e-9, `${api.state.vp.z.toFixed(3)}`);
+ok('le bouton moins est alors desactive', el('zOut').disabled === true);
+api.zoomAt(1.5, null, null, false);
+ok('zoomer en avant depuis Ajuster remonte', api.state.vp.z > zAj);
+api.zoomAt(1 / 1.5, null, null, false);
+api.zoomAt(1 / 1.5, null, null, false);
+ok('et revenir en arriere s arrete a la couverture, pas aux bandes',
+  Math.abs(api.state.vp.z - 1) < 1e-9, `${api.state.vp.z.toFixed(3)}`);
+ok('le libelle dit le vrai niveau', el('zLevel').textContent === '100 %', el('zLevel').textContent);
 
 /* Zoom sous le curseur : le point vise ne doit pas glisser. */
 api.fitToView();
@@ -722,8 +761,11 @@ const s2 = api.cssScale();
 ok('ni de l autre cote',
   api.state.vp.x >= B.w - SC.w * s2 - 0.01 && api.state.vp.y >= B.h - SC.h * s2 - 0.01);
 api.setVp({ z: 1, x: 400, y: 400 }, false);
-ok('a l ajustement, la scene se recentre d elle-meme',
-  Math.abs(api.state.vp.x - (B.w - SC.w * api.fitScale()) / 2) < 0.6);
+ok('a 100 %, un deplacement hors cadre est ramene sans laisser de vide',
+  api.state.vp.x <= 0.01 && api.state.vp.y <= 0.01
+  && api.state.vp.x + SC.w * api.cssScale() >= B.w - 0.01
+  && api.state.vp.y + SC.h * api.cssScale() >= B.h - 0.01,
+  `${api.state.vp.x.toFixed(1)},${api.state.vp.y.toFixed(1)}`);
 
 /* Le deplacement doit rester possible : un clamp trop dur bloquerait tout. */
 api.setVp({ z: 3, x: 0, y: 0 }, false);
@@ -813,6 +855,103 @@ ok('le refus du plein ecran natif est rattrape',
   /Promise\.resolve\(root\.requestFullscreen\(\)\)\.catch\(nop\)/.test(code)
   && /Promise\.resolve\(document\.exitFullscreen\(\)\)\.catch\(nop\)/.test(code));
 
+/* ================= Stabilisation V1 : defauts trouves en usage =================
+   Chaque garde ci-dessous correspond a un bug reproduit dans Chrome. */
+
+/* Le moteur est unique : deux applications en parallele copiaient chacune le
+   canevas de l'autre et le retenaient sous LEUR clef. */
+ok('les operations moteur passent par une file',
+  /let file = Promise\.resolve\(\);/.test(code) && /const enFile = /.test(code)
+  && /return enFile\(\(\) => this\.applyProfileMaintenant\(profile, orientationDeg\)\)/.test(code)
+  && /return enFile\(async \(\) => \{[\s\S]{0,80}engineScene === sceneId/.test(code));
+ok('la file survit a un echec', /file = tour\.catch\(\(\) => \{\}\);/.test(code));
+ok('la version B ouvre la piece par la meme file',
+  /const canvasB = await adapter\.applyProfile/.test(code)
+  && /if \(adapter\.scene !== entry\.id\) await adapter\.openRoom\(entry\.id\);[\s\S]{0,120}const canvasB/.test(code));
+
+/* Un resultat perime ne s'affiche jamais : jeton d'intention. */
+ok('chaque geste incremente l intention',
+  (code.match(/state\.intent \+= 1;/g) || []).length >= 7,
+  `${(code.match(/state\.intent \+= 1;/g) || []).length} incrementations`);
+ok('le rendu live de A verifie la clef ET le jeton',
+  /appliedKey\(\) === key && state\.intent === intent/.test(code));
+ok('le rendu live de B verifie que la comparaison est toujours la',
+  /state\.compare && state\.compare\.b === b\.id && room\(\)\.id === entry\.id/.test(code)
+  && /state\.intent === intent;/.test(code));
+
+/* picking : fermer le catalogue annule le choix de B. Reproduit : Comparer,
+   fermer, puis Choisir un parquet posait une comparaison a la place. */
+api.state.compare = null; api.state.ba = false; api.paint();
+api.select('POINF36005', true);
+api.startCompare();
+ok('Comparer ouvre le catalogue en mode choix de B', api.state.picking === true
+  && el('catSheet').classList.contains('hidden') === false);
+api.closeAll();
+ok('fermer le catalogue annule le choix de B', api.state.picking === false);
+api.select('CHENF39031', true);
+ok('le clic suivant change bien de sol, il ne compare pas',
+  api.state.productId === 'CHENF39031' && api.state.compare === null);
+
+/* A = B : refuse. */
+api.startCompare();
+api.select('CHENF39031', true);
+ok('comparer une reference a elle-meme est refuse',
+  api.state.compare === null && api.state.picking === true);
+api.select('CHENF36014', true);
+ok('une autre reference est acceptee comme B',
+  api.state.compare && api.state.compare.b === 'CHENF36014' && api.state.picking === false);
+ok('la carte B propose de CHANGER B, la carte A de fermer',
+  /\$\{side === 'B' \? 'Changer' : 'Comparer'\}/.test(code)
+  && /open\.dataset\.open === 'cmpB'\) pickB\(\)/.test(code));
+api.startCompare();
+ok('Comparer referme la comparaison et oublie B',
+  api.state.compare === null && api.state.appliedB.key === null);
+
+/* Changer de piece est une intention et annule un choix de B en cours. */
+api.startCompare();
+api.openRoom('chambre');
+ok('changer de piece annule un choix de B en cours', api.state.picking === false);
+api.openRoom('sejour');
+
+/* Import : un jeton, une URL revoquee, un champ reutilisable. */
+ok('un import perime est ignore et son URL liberee',
+  /if \(state\.intent !== intent\) \{ URL\.revokeObjectURL\(url\); return; \}/.test(code));
+ok('une erreur de lecture libere l URL', /probe\.onerror = \(\) => \{[\s\S]{0,40}URL\.revokeObjectURL\(url\);/.test(code));
+ok('le champ fichier est remis a zero apres lecture', /e\.target\.value = '';/.test(code));
+
+/* Separateur : la capture du pointeur peut echouer (NotFoundError vue dans la
+   console pendant la revue) ; le relachement doit aussi etre ecoute sur le
+   stage, sinon le separateur suit la souris pour toujours. */
+ok('la capture du separateur est protegee',
+  /try \{ if \(\$\('split'\)\.setPointerCapture\)/.test(code));
+ok('le separateur se lache aussi sur le stage',
+  /\$\('stage'\)\.addEventListener\('pointerup', lacherSeparateur\)/.test(code)
+  && /\$\('stage'\)\.addEventListener\('pointercancel', lacherSeparateur\)/.test(code));
+
+/* Favoris : retirer un favori depuis la liste des favoris ne doit pas
+   remplacer la liste par le catalogue entier. */
+api.state.favourites.clear(); api.toggleFav('POINF36005'); api.toggleFav('CHENF39031');
+el('hFav').onclick();
+ok('la vue favoris montre les favoris',
+  api.state.catalogueView === 'favourites'
+  && (h('prods').match(/data-id="/g) || []).length === 2, h('prods').match(/data-id="[A-Z0-9]+"/g));
+api.toggleFav('CHENF39031');
+ok('retirer un favori garde la vue favoris',
+  api.state.catalogueView === 'favourites'
+  && (h('prods').match(/data-id="/g) || []).length === 1, `${(h('prods').match(/data-id="/g) || []).length} carte(s)`);
+api.toggleFav('POINF36005');
+ok('plus aucun favori : retour au catalogue entier, sans liste vide',
+  api.state.catalogueView === 'all' && (h('prods').match(/data-id="/g) || []).length === 5);
+api.closeAll(); api.openCat();
+ok('ouvrir le catalogue remet la vue a tout', api.state.catalogueView === 'all');
+api.closeAll();
+
+/* Le viewport se reborne quand le CADRE change, pas seulement la fenetre. */
+ok('le stage est observe en taille',
+  /new ResizeObserver\(reborner\)\.observe\(\$\('stage'\)\)/.test(code)
+  && /window\.addEventListener\('resize', reborner\)/.test(code)
+  && /visibilitychange[^;]*\{ if \(!document\.hidden\) reborner\(\); \}/.test(code));
+
 /* ---- Raccourcis ---- */
 ok('les raccourcis + - 0 f Escape existent',
   /e\.key === '\+' \|\| e\.key === '='/.test(code) && /e\.key === '0'/.test(code)
@@ -825,7 +964,38 @@ ok('un glisser n est jamais anime',
   /setVp\(\{ z: state\.vp\.z, x: state\.vp\.x \+ \(e\.clientX - prev\.x\)[\s\S]{0,80}, false\)/.test(code));
 ok('les gestes discrets sont interpoles', /const dur = 200;/.test(code));
 ok('prefers-reduced-motion est respecte',
-  /const REDUCED = /.test(code) && /if \(!animate \|\| REDUCED\)/.test(code));
+  /const REDUCED = /.test(code) && /if \(!moved \|\| !animate \|\| REDUCED\)/.test(code));
+
+/* Reproduit dans Chrome : rAF ne se declenchait pas, et le double-clic, + , -,
+   Ajuster, 100 % et le clavier ne faisaient RIEN. L'etat doit etre commis
+   tout de suite ; seule l'image est interpolee, par minuteur. */
+{
+  const rafAvant = global.requestAnimationFrame;
+  const stAvant = global.setTimeout;
+  global.requestAnimationFrame = () => 0;          /* jamais appele */
+  global.setTimeout = () => 0;                      /* jamais appele non plus */
+  api.fitToView();
+  api.zoomAt(1.5, null, null, true);
+  ok('un zoom anime commet son etat sans attendre une frame',
+    Math.abs(api.state.vp.z - 1.5) < 1e-9, `${api.state.vp.z}`);
+  api.fitAll(true);
+  ok('Ajuster anime commet son etat sans attendre une frame',
+    Math.abs(api.state.vp.z - api.zContain()) < 1e-9, `${api.state.vp.z}`);
+  api.fitToView(true);
+  ok('100 % anime commet son etat sans attendre une frame', api.state.vp.z === 1);
+  global.requestAnimationFrame = rafAvant;
+  global.setTimeout = stAvant;
+  /* Meme classe de defaut : `.fading` restait collee au sol quand rAF ne se
+     declenchait pas. */
+  ok('le fondu du sol ne depend pas de rAF',
+    !/requestAnimationFrame\(\(\) => requestAnimationFrame/.test(code)
+    && /fadeTimer = setTimeout\(\(\) => \$\('after'\)\.classList\.remove\('fading'\)/.test(code));
+  ok('aucun etat n est porte par requestAnimationFrame',
+    !/requestAnimationFrame\([^)]*state\./.test(code));
+  ok('l animation ne fait plus avancer l etat frame par frame',
+    !/state\.vp = \{\s*z: from\.z \+ \(c\.z - from\.z\) \* e/.test(code)
+    && /shown = \{ z: from\.z \+ \(c\.z - from\.z\) \* e/.test(code));
+}
 
 /* ---- Gestes ---- */
 ok('Pointer Events, pas souris seule',
@@ -998,7 +1168,8 @@ ok('un refus du moteur abandonne l application',
   && /return null;/.test(code));
 /* Dans le corps d'`applyProfile` seulement : `openRoom` s'abonne aussi, et
    comparer des positions a travers tout le fichier ne prouverait rien. */
-const corpsApply = code.slice(code.indexOf('async applyProfile(profile, orientationDeg)'));
+const corpsApply = code.slice(code.indexOf('async applyProfileMaintenant(profile, orientationDeg)'));
+ok('le corps de l application existe hors file', corpsApply.length > 200);
 ok('le refus est verifie avant tout abonnement',
   corpsApply.indexOf('studio.setWidth(voulue) !== true') > 0
   && corpsApply.indexOf('studio.setWidth(voulue) !== true')
@@ -1059,8 +1230,8 @@ ok('une combinaison inexistante ne renvoie rien',
 /* Aucune commande decorative : la liste est fermee. */
 ok('aucun curseur',
   !/type="range"/.test(html) && !/id="grain"|id="contrast"|id="joint"|id="variation"/.test(html));
-ok('les deux besoins non developpes le disent',
-  /Enregistrement : besoin documenté/.test(code) && /Partage : besoin documenté/.test(code));
+ok('le retrait des placebos est explique dans le fichier',
+  /n'avaient pas de comportement, seulement un message/.test(html));
 /* Chaque entree du menu doit mener quelque part : soit un id cable dans le
    script, soit un etat de demo. Un bouton muet est un mensonge, meme
    discret — « Partager le projet » n'en avait aucun. */
