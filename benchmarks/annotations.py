@@ -63,6 +63,11 @@ class Check(StrEnum):
     PROVENANCE_INCOMPLETE = "provenance_incomplete"
     LICENSE_UNVERIFIED = "license_unverified"
     APPROVED_WITHOUT_REVIEW = "approved_without_review"
+    #: Approuvée par son propre auteur. Techniquement permis, et parfois la
+    #: seule option quand une personne travaille seule — mais ce n'est **pas**
+    #: une revue indépendante, et un rapport qui ne le dit pas laisse croire
+    #: que la vérité terrain a été contrôlée par un second regard.
+    SELF_APPROVED = "self_approved"
     NOT_APPROVED = "not_approved"
     UNCERTAIN_ZONE_WITHOUT_MASK = "uncertain_zone_without_mask"
 
@@ -307,6 +312,18 @@ def load_scene(path: Path, manifest: Manifest, root: Path) -> AnnotatedScene:
                 "hors du banc d'essai officiel",
             )
         )
+    elif annotation.review is not None and annotation.review.reviewer == annotation.annotator:
+        # Le fait était déjà dans les données — les deux noms coïncident — mais
+        # aucun rapport ne le disait. Une vérité terrain approuvée par son
+        # auteur reste utilisable ; elle ne doit simplement jamais être lue
+        # comme relue par quelqu'un d'autre.
+        issues.append(
+            _warning(
+                Check.SELF_APPROVED,
+                f"{annotation.photo_id} : approuvée par son auteur "
+                f"({annotation.annotator}) — auto-relecture, pas une revue indépendante",
+            )
+        )
 
     floor: np.ndarray | None = None
     uncertain: np.ndarray | None = None
@@ -406,6 +423,22 @@ def corpus_report(scenes: list[AnnotatedScene]) -> dict[str, Any]:
             for status in AnnotationStatus
         },
         "photos": len({scene.annotation.photo_id for scene in scenes}),
+        #: Approuvées par leur propre auteur. À lire à côté de `usable` : la
+        #: différence dit quelle part de la vérité terrain a vu un second
+        #: regard.
+        "selfApproved": sum(
+            1
+            for scene in scenes
+            if scene.annotation.status is AnnotationStatus.APPROVED
+            and scene.annotation.review is not None
+            and scene.annotation.review.reviewer == scene.annotation.annotator
+        ),
+        "independentlyReviewed": sum(
+            1
+            for scene in scenes
+            if scene.annotation.review is not None
+            and scene.annotation.review.reviewer != scene.annotation.annotator
+        ),
         "doublyAnnotated": len(paired_scenes(scenes)),
         "issues": [
             {"photoId": scene.annotation.photo_id, **issue.as_dict()}

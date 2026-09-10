@@ -266,6 +266,43 @@ def test_une_annotation_relue_ne_peut_pas_rester_brouillon():
         )
 
 
+def test_une_approbation_par_son_auteur_se_declare(corpus):
+    """L'auto-approbation reste permise, mais elle ne passe plus inaperçue.
+
+    Le fait était déjà dans les données — annotateur et relecteur portent le
+    même nom — et aucun rapport ne le disait. Une vérité terrain approuvée par
+    son auteur est utilisable ; la lire comme relue par un second regard ne
+    l'est pas.
+    """
+    import_annotation.build(
+        _draw(corpus), corpus, "jonathan", AnnotationStatus.APPROVED, None, None
+    )
+    scenes = load_corpus(corpus)
+
+    codes = {issue.code for scene in scenes for issue in scene.issues}
+    assert Check.SELF_APPROVED in codes
+
+    rapport = corpus_report(scenes)
+    assert rapport["selfApproved"] == 1
+    assert rapport["independentlyReviewed"] == 0
+    #: Utilisable malgré tout : le contrôle informe, il ne disqualifie pas.
+    assert rapport["usable"] == 1
+
+
+def test_une_revue_par_un_tiers_ne_declenche_pas_l_avertissement(corpus):
+    import_annotation.build(
+        _draw(corpus), corpus, "jonathan", AnnotationStatus.APPROVED, "camille", None
+    )
+    scenes = load_corpus(corpus)
+
+    codes = {issue.code for scene in scenes for issue in scene.issues}
+    assert Check.SELF_APPROVED not in codes
+
+    rapport = corpus_report(scenes)
+    assert rapport["selfApproved"] == 0
+    assert rapport["independentlyReviewed"] == 1
+
+
 def test_seul_approved_vaut_verite_terrain():
     for status in (AnnotationStatus.DRAFT, AnnotationStatus.REVIEWED):
         review = (

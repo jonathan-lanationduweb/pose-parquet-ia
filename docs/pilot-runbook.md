@@ -133,28 +133,47 @@ l'inspecter, avec le compte des zones. Puis **Valider et enregistrer**. Le
 navigateur télécharge `sejour.A.draw.json`. Importez-le :
 
 ```bash
-.venv/Scripts/python.exe -m scripts.import_annotation --draw ~/Downloads/sejour.A.draw.json --annotator jonathan --independent --status approved --reviewer jonathan
+.venv/Scripts/python.exe -m scripts.import_annotation --draw ~/Downloads/sejour.A.draw.json --annotator jonathan --independent --status reviewed --overlay controle-sejour-A.jpg
 ```
 
 L'étiquette de passe et la durée sont **reprises du tracé** : rien à retaper.
 Les masques PNG et le JSON d'annotation atterrissent dans
 `datasets/annotations/`.
 
-> `--independent` déclare que cette passe a été faite sans regarder l'autre.
-> L'outil ne peut pas le vérifier : ne la posez que si c'est vrai.
+> `--independent` déclare que cette passe a été dessinée **sans regarder
+> l'autre passe**. Cela ne parle pas de relecture. L'outil ne peut pas le
+> vérifier : ne posez le drapeau que si c'est vrai.
 >
-> `--status approved` engage l'annotation comme référence. Sans cela elle reste
-> en `draft` et n'entre pas au banc d'essai — donc pas dans la mesure.
+> `--status reviewed` dit « terminée, et son auteur l'a relue ». Elle
+> **n'entre pas** au banc d'essai officiel, et c'est voulu : personne d'autre
+> ne l'a vue.
+>
+> `--overlay` écrit l'aperçu de contrôle. Regardez-le avant de vous déclarer
+> satisfait : c'est là que se voient un morceau de mur happé, une bande de sol
+> oubliée le long d'une plinthe, un tapis resté dedans, un pied de chaise
+> effacé.
 
-**`--annotator jonathan --reviewer jonathan`, c'est une auto-relecture.** Les
-deux champs portent le même nom, et c'est explicitement admis : à une personne,
-il n'y a pas d'autre relecteur disponible. Mais ce n'est **pas** une revue
-indépendante, et le rapport ne doit jamais être lu comme si c'en était une.
+### Les quatre états, et lequel choisir
 
-| ce que le couple annotateur/relecteur vaut | |
-| --- | --- |
-| noms **identiques** | **auto-relecture** — la même personne constate son propre travail |
-| noms **différents** | revue indépendante — un second regard |
+Ne pas les confondre est la seule chose qui donne du poids à `approved`.
+
+| état | statut | bloc `review` | entre au banc d'essai officiel ? |
+| --- | --- | --- | --- |
+| annotation **terminée** | `draft` | interdit | non |
+| annotation **relue par son auteur** | `reviewed` | son auteur, nommé | **non** |
+| annotation **revue par un tiers** | `reviewed` | l'autre personne, nommée | non, pas encore |
+| annotation **approuvée pour la mesure** | `approved` | un relecteur nommé | **oui** |
+
+**Une personne seule s'arrête à `reviewed`.** C'est l'état honnête d'un relevé
+fini, relu par son auteur, et que personne d'autre n'a vu.
+
+`approved` reste techniquement atteignable par l'auteur seul — le schéma
+l'autorise, et il l'inscrit alors comme son propre relecteur. Mais ce n'est
+**pas** une revue indépendante, et le contrôle le dit maintenant à voix haute :
+un avertissement `self_approved` apparaît, et le bilan compte séparément
+`selfApproved` et `independentlyReviewed`. Approuver son propre relevé est
+donc une décision consciente et tracée, jamais un effet de bord d'une commande
+copiée.
 
 Ce que l'auto-relecture attrape quand même : un masque oublié, un trou mal
 fermé, un contour tracé dans la mauvaise catégorie. Ce qu'elle n'attrape pas :
