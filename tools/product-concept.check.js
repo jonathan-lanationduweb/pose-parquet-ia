@@ -17,6 +17,11 @@
 */
 const fs = require('fs');
 const html = fs.readFileSync('tools/product-concept.html', 'utf8');
+/* Le moteur LOCAL vit dans un module a part depuis le LOT UX.4 : la
+   batterie ne peut pas l executer sans WebGL, mais elle peut le LIRE — et
+   certaines proprietes ne se prouvent que la, comme le fait qu un apercu ne
+   fabrique jamais de texture. */
+const moteurLocal = fs.readFileSync('web/product/local-renderer.js', 'utf8');
 let bad = 0;
 const ok = (n, c, d) => {
   if (!c) bad += 1;
@@ -89,7 +94,18 @@ for (const [label, re] of [
   ['data URI', /;base64,/i],
   ['FileReader', /FileReader/],
 ]) ok(`aucun ${label}`, !re.test(html));
-ok('un seul <script>', (html.match(/<script/g) || []).length === 1);
+/* Deux <script> depuis le LOT UX.4, et pas un de plus : celui de la page,
+   et le module qui charge le moteur LOCAL. La garde d'origine exigeait un
+   fichier entierement autonome — elle avait raison quand le rendu venait
+   d'une iframe et que le fichier ne devait donc rien charger. Le moteur est
+   maintenant ici, et un moteur de 3 900 lignes ne se colle pas dans une
+   page. Ce qui reste garde, c'est qu'aucun script ne vienne du RESEAU. */
+ok('deux <script> : la page et le moteur local',
+  (html.match(/<script/g) || []).length === 2
+  && /<script type="module">/.test(html)
+  && /from '\.\.\/web\/product\/local-renderer\.js'/.test(html));
+ok('le moteur local est charge en relatif, jamais depuis le reseau',
+  !/<script[^>]+src=["']https?:/i.test(html));
 ok('polices systeme uniquement', /-apple-system/.test(html) && /Georgia/.test(html));
 ok('prefers-reduced-motion', /prefers-reduced-motion/.test(html));
 ok('aucune photo privee en dur',
@@ -691,11 +707,25 @@ ok('l angle est normalise sur un tour complet, pas choisi dans une liste',
 /* Le geste ne demande pas un rendu par pixel : l'apercu ne touche qu'au
    cadran, et le sol se refait au relachement. Un rendu plein cadre coute 1,4 a
    2,9 s — en demander trente par glissement les construirait tous. */
-ok('le geste ne demande aucun rendu, le relachement en demande un',
+/* La garde exigeait qu'un geste ne demande AUCUN rendu. Elle avait raison
+   quand un rendu coutait des secondes derriere une iframe. Le moteur local
+   rend une rotation en 8-11 ms : le sol peut suivre le doigt, et s'en priver
+   serait garder une limitation qui n'existe plus.
+   Ce qui doit rester garde, c'est ce qui rendait l'ancien choix sur :
+   l'apercu ne valide RIEN, ne fabrique AUCUNE texture, ne retient AUCUNE
+   capture, il est coalesce sur la trame d'animation, et le relachement
+   declenche un vrai rendu final. */
+ok('l apercu peint sans rien valider ni fabriquer',
   /function setOrientation\(deg, apercu\)/.test(code)
-  && /if \(apercu \|\| d === state\.orientationDeg\) return;/.test(code)
-  && /setOrientation\(dernier, true\)/.test(code)
-  && /setOrientation\(dernier, false\)/.test(code));
+  && /apercuDemande = d;/.test(code)
+  && /requestAnimationFrame\(servirApercu\)/.test(code)
+  && /adapter\.apercuAngle\(deg\)/.test(code));
+ok('le relachement declenche le rendu final',
+  /setOrientation\(dernier, true\)/.test(code)
+  && /setOrientation\(dernier, false\)/.test(code)
+  && /if \(d === state\.orientationDeg\) return;/.test(code));
+ok('l apercu ne peut pas fabriquer de texture',
+  /if \(!enCache\(config\.material, config\)\) return false;/.test(moteurLocal));
 ok('le cadran est reglable au clavier',
   /addEventListener\('keydown'/.test(code) && /ArrowRight: 1/.test(code));
 /* Le libelle a change avec le cadran : il ne dit plus « pas une autre
@@ -1133,7 +1163,17 @@ ok('aucune mutation de la configuration du moteur',
    protege que de ce qu'on a pense a interdire ; celle-ci protege de ce qu'on
    n'a pas pense a interdire. */
 const CONTRAT_V1 = ['apiVersion', 'openRoom', 'selectMaterial', 'setPattern',
-  'setAngle', 'setWidth', 'getCapabilities', 'onRendered', 'canvas'];
+  'setAngle', 'setWidth', 'getCapabilities', 'onRendered', 'canvas',
+  /* Deux ajouts du moteur LOCAL (LOT UX.4). Ils n'ont jamais existe sur le
+     pont externe : `window.__studio` n'exposait aucun moyen de peindre en
+     qualite reduite, et c'est precisement ce qui obligeait a ne rendre le sol
+     qu'au relachement du cadran. Le moteur etant maintenant ici, l'apercu est
+     possible — mesure a 8-11 ms contre 1,4-2,9 s par le pont.
+     `apercuAngle` peint un angle sans rien fabriquer ni rien retenir ;
+     `tuilePrete` dit s'il peut le faire. L'appel reste garde par un
+     `typeof === 'function'` : un moteur qui ne les a pas continue de
+     fonctionner, sans apercu. */
+  'apercuAngle', 'tuilePrete'];
 /* `studio` est le moteur negocie, `st` le candidat qu'examine `connect()`.
    Le nom doit etre entier, d'ou la classe ecrite en clair : les raccourcis
    comme la sequence mot-frontiere ne survivent pas aux couches

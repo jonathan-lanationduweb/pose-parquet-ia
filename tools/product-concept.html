@@ -933,7 +933,22 @@
   <button class="mi" type="button" data-demo="rejected" aria-pressed="false">Photo refusée</button>
 </div>
 
-<!-- Le vrai Visualiseur, hors ecran. On ne l'affiche pas : on lui parle par
+<!-- Le moteur LOCAL. Charge en module, il pose son usine sur
+     `window.__localEngineFactory` et rien d'autre : la page ne connait pas
+     ses fichiers internes. Absent — sous Node, ou si le dossier `web/` a
+     bouge — la page retombe sur le repli statique, ce qui permet a la
+     batterie de controle de juger l'interface sans WebGL. -->
+<script type="module">
+  import { createLocalRenderer } from '../web/product/local-renderer.js';
+  window.__localEngineFactory = createLocalRenderer;
+  window.dispatchEvent(new Event('local-engine-ready'));
+</script>
+
+<!-- L'ancien moteur EXTERNE, garde pour la seule comparaison de parite.
+     `?engine=external` le rallume ; sans ce parametre l'iframe reste vide et
+     le produit n'a plus besoin de pose-parquet.com.
+
+     Le vrai Visualiseur, hors ecran. On ne l'affiche pas : on lui parle par
      son propre point d'accroche `window.__studio`, et on recopie son canevas
      dans nos couches. Aucune ligne du front n'est modifiee. -->
 <iframe id="engine" title="moteur de rendu (hors interface)" aria-hidden="true"
@@ -1448,15 +1463,18 @@
      raison exacte. Un repli muet est acceptable ; un repli inexplicable ne
      l'est pas.
      ===================================================================== */
-  const ENGINE_URL = (() => {
-    try {
-      const q = new URLSearchParams(window.location.search).get('engine');
-      if (q) return q;
-    } catch { /* pas de recherche : on prend le defaut */ }
-    /* Le front est servi a cote de nous, sous la meme origine : c'est ce qui
-       rend le canevas lisible. Sans cela, pas de mode live. */
-    return '../../pose-parquet.com/outils/studio.html?perf=1';
+  /* Le moteur externe n'est plus le chemin normal. `?engine=external`
+     rallume l'ancien pont pour comparer les deux moteurs ; `?engine=<url>`
+     en designe un autre. Sans parametre : aucune iframe, aucun appel a
+     pose-parquet.com. */
+  const ENGINE_PARAM = (() => {
+    try { return new URLSearchParams(window.location.search).get('engine'); }
+    catch { return null; }
   })();
+  const EXTERNAL_DEFAULT = '../../pose-parquet.com/outils/studio.html?perf=1';
+  const ENGINE_URL = ENGINE_PARAM === 'external' ? EXTERNAL_DEFAULT : ENGINE_PARAM;
+  /** Vrai quand on demande explicitement l'ancien moteur externe. */
+  const WANT_EXTERNAL = Boolean(ENGINE_URL);
 
   const CAPABILITIES_NONE = {
     pattern: false, width: false, orientation: false,
@@ -1638,8 +1656,73 @@
 
     /* ---------------- Connexion ---------------- */
 
+    /**
+     * Attend l'usine du moteur local. Le module est charge en `type=module`,
+     * donc apres le script de la page : on attend son evenement, brievement.
+     */
+    function usineLocale() {
+      if (window.__localEngineFactory) return Promise.resolve(window.__localEngineFactory);
+      return new Promise((resolve) => {
+        const fini = () => resolve(window.__localEngineFactory || null);
+        window.addEventListener('local-engine-ready', fini, { once: true });
+        setTimeout(fini, 4000);
+      });
+    }
+
+    /**
+     * Branche le moteur LOCAL. C'est le chemin normal depuis le LOT UX.4.
+     *
+     * Les refus sont aussi explicites que ceux du pont : un module absent, un
+     * catalogue de matieres illisible ou un contexte WebGL refuse font
+     * retomber l'interface sur les captures, avec la raison exacte.
+     */
+    async function connectLocal() {
+      const usine = await usineLocale();
+      if (typeof usine !== 'function') {
+        refus = null;
+        return null;
+      }
+      const moteur = await usine({ base: '../web/' });
+      const dites = moteur.getCapabilities();
+      const caps = {
+        pattern: dites.pattern === true,
+        width: dites.width === true,
+        orientation: dites.orientation === true,
+        finish: false, grain: false, joints: false,
+      };
+      if (!caps.pattern && !caps.width && !caps.orientation) return null;
+      return { moteur, caps };
+    }
+
     function connect() {
       if (ready) return ready;
+      if (!WANT_EXTERNAL) {
+        ready = connectLocal().then(
+          (local) => {
+            if (!local) {
+              mode = 'static';
+              capabilities = { ...CAPABILITIES_NONE };
+              reason = 'moteur local indisponible — captures de repli';
+              return mode;
+            }
+            studio = local.moteur;
+            apiVersion = local.moteur.apiVersion;
+            capabilities = local.caps;
+            engineScene = null;
+            renderCache.clear();
+            mode = 'live';
+            reason = null;
+            return mode;
+          },
+          (e) => {
+            mode = 'static';
+            capabilities = { ...CAPABILITIES_NONE };
+            reason = `moteur local refuse (${e && e.message ? e.message : 'erreur'})`;
+            return mode;
+          }
+        );
+        return ready;
+      }
       ready = new Promise((resolve) => {
         const frame = $('engine');
         /* L'ecouteur `load` reste attache : le moteur peut etre recharge, et
@@ -1720,6 +1803,10 @@
 
     return {
       get mode() { return mode; },
+      /** `local` ou `external` — pour le bandeau de developpement. */
+      get engine() { return WANT_EXTERNAL ? 'external' : 'local'; },
+      /** Le moteur lui-meme, pour les mesures et la comparaison de parite. */
+      get moteur() { return studio; },
       get lastMs() { return lastMs; },
       get lastHit() { return lastHit; },
       get reason() { return reason; },
@@ -1727,6 +1814,23 @@
       get cacheSize() { return renderCache.size; },
       getCapabilities() { return { ...capabilities }; },
       connect,
+      /**
+       * Apercu d'angle pendant un geste. HORS FILE, et sans fabriquer de
+       * texture : c'est ce qui le rend utilisable a la cadence du doigt.
+       *
+       * Trois refus, et ce sont eux qui le rendent sur : pas de moteur local,
+       * pas d'apercu ; tuile pas encore prete, pas d'apercu ; et jamais
+       * d'ecriture dans le cache de captures — un apercu en demi-qualite
+       * retenu sous la clef d'un rendu final se reafficherait ensuite pour
+       * toujours.
+       *
+       * @returns {HTMLCanvasElement|null} le canevas du moteur, ou null
+       */
+      apercuAngle(deg) {
+        if (mode !== 'live' || !studio || typeof studio.apercuAngle !== 'function') return null;
+        return studio.apercuAngle(deg) ? studio.canvas : null;
+      },
+
       /** Vide les captures retenues : a l'import d'une photo, par exemple. */
       forget() { renderCache.clear(); },
 
@@ -2776,16 +2880,54 @@
     });
   }
 
+  /* Le geste en cours : une seule intention vivante, la derniere. Le rendu
+     d'apercu part sur la trame d'animation suivante — glisser produit des
+     dizaines d'evenements de pointeur par seconde, et il n'y a aucune raison
+     d'en peindre plus qu'il n'y a d'images a l'ecran. */
+  let apercuDemande = null;
+  let apercuArme = false;
+
+  function servirApercu() {
+    if (!apercuArme) return;
+    apercuArme = false;
+    const deg = apercuDemande;
+    apercuDemande = null;
+    if (deg === null) return;
+    const canvas = adapter.apercuAngle(deg);
+    /* Rien a peindre : la tuile n'est pas prete. Le cadran a deja tourne,
+       l'utilisateur n'est pas bloque, et le rendu final viendra au
+       relachement. On ne fabrique pas de texture pendant un geste. */
+    if (canvas && paintLayer('after', canvas)) $('clipA').classList.remove('hidden');
+  }
+
   /**
    * Applique un sens de pose.
    *
-   * `apercu` : on ne touche qu'au cadran, sans demander de rendu. C'est le
-   * mode du geste en cours.
+   * `apercu` : le geste est en cours. Le cadran suit tout de suite, et le SOL
+   * suit aussi quand le moteur local peut le peindre sans rien fabriquer —
+   * mesure : 8 a 11 ms par rotation, contre 1,4 a 2,9 s du temps du pont.
+   * L'etat produit, lui, n'est pas touche : rien n'est valide avant le
+   * relachement.
    */
   function setOrientation(deg, apercu) {
     const d = normDeg(deg);
     paintDial(d);
-    if (apercu || d === state.orientationDeg) return;
+    if (apercu) {
+      apercuDemande = d;
+      if (!apercuArme) {
+        apercuArme = true;
+        /* Deux reveils, le premier qui arrive gagne — `servirApercu` se
+           desarme lui-meme. La trame d'animation est le bon rythme quand la
+           page est visible ; elle ne se declenche PAS dans un onglet en
+           arriere-plan ou dans un volet replie, et le sol resterait alors
+           fige sur un angle perime jusqu'au relachement. Le minuteur est le
+           filet : 32 ms, soit deux trames a 60 Hz. */
+        requestAnimationFrame(servirApercu);
+        setTimeout(servirApercu, 32);
+      }
+      return;
+    }
+    if (d === state.orientationDeg) return;
     state.intent += 1;
     state.orientationDeg = d;
     /* Le sol doit vraiment tourner : on invalide ce qui est dessiné. */
@@ -2824,7 +2966,9 @@
     const relacher = () => {
       if (!enCours) return;
       enCours = false;
-      /* UN rendu, au relâchement, pour le dernier angle voulu. */
+      /* UN rendu final, au relâchement, pour le dernier angle voulu. Les
+         apercus n'ont rien valide : `state.orientationDeg` porte encore
+         l'angle d'avant le geste, donc ce rendu part vraiment. */
       setOrientation(dernier, false);
     };
     dial.addEventListener('pointerup', relacher);

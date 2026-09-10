@@ -1,0 +1,222 @@
+{
+  "schema": "pose-parquet/scene@1",
+  "id": "bureau-vide",
+  "label": "Bureau vide, vue d’angle",
+  "source": "precalibrated",
+  "note": "La scène la mieux contrainte du dépôt, et la seule dont les deux directions du sol soient mesurées sur deux longues frontières mur/sol au lieu d’une seule. Les deux plinthes sont suivies au gradient : 120 points sur le mur gauche (résidu max 1,55 px, moyen 0,45) et 235 sur le mur droit (1,64 px, 0,46). Chacune est recoupée par une seconde parallèle du même mur — le comptoir du passe-plat à gauche, l’appui de la baie à droite — ce qui donne les deux fuites sans supposer d’horizon : (0,8740 ; 0,4679) et (-0,1296 ; 0,4810). Elles encadrent le point principal, donc la focale se déduit de l’orthogonalité : 776 px, champ 91,7 degrés. PREUVE : les deux directions ainsi obtenues font entre elles 90,03 degrés dans le plan du sol, écart qui n’a pas été imposé — il tombe d’un modèle où la focale, l’horizon et les deux fuites sont indépendamment mesurés. Seconde preuve : la fuite des joints du sol existant, relevée au tenseur de structure sur cinq points (10 intersections), tombe à 32 px de celle du mur gauche, dont elle est parallèle. Troisième : le quadrilatère de 3 m de côté se mesure 3,000 sur 2,999 m, concordance des côtés opposés 0,02 et 0,04 pour cent, quatre angles entre 89,96 et 90,03 degrés. ÉCHELLE : hauteur d’œil 0,95 m, déduite d’une seule référence — l’ouverture de la porte au fond à gauche, 2,03 m, par le rapport à l’horizon, sans focale ni distance. Ce n’est pas recoupé : la plinthe mesure alors 14,2 cm et le plafond suspendu 2,56 m, deux valeurs plausibles pour un bureau, mais des vraisemblances, pas des preuves. Le pas des lames existantes, qui aurait servi de troisième contrôle comme sur la petite pièce, n’est pas mesurable ici : le veinage imprimé de ce sol a plus de contraste que ses joints. TUILE DE 4,80 M : le coin est à 6,0 m et le sol visible mesure environ 4,3 sur 4,6 m, ce qui laissait craindre la répétition de la texture. Mesuré, non : en échantillonnant 2 572 points du sol et en cherchant leur homologue à 4,80 m dans chaque direction du repère de la pièce, on en trouve ZÉRO qui soit visible lui aussi. Le sol visible est un coin, pas un rectangle : il n’a nulle part 4,80 m d’étendue à v constant. La répétition ne peut donc pas se voir ici, et les figures de veinage qui semblent revenir dans le bas de l’image sont celles que le générateur de texture réemploie à l’intérieur d’une même période. ROULIS : l’appareil est incliné de 0,5 degré, l’horizon passe de 0,4793 au bord gauche à 0,4662 au bord droit. Le quadrilatère est construit sur cet horizon incliné et reste exact ; le champ `camera.horizon` n’en garde qu’une valeur moyenne, et `mesureQuad`, qui la lit, annonce donc 1,7 et 2,2 pour cent de discordance là où le vrai chiffre est 0,02. Le modèle de SceneData ne sait pas décrire un roulis.",
+  "image": {
+    "file": "room-bureau-vide.jpg",
+    "width": 1600,
+    "height": 1067,
+    "alt": "Bureau vide vu d’angle, sol en lames claires et plinthes blanches sur deux murs",
+    "credit": "Curtis Adams / Pexels"
+  },
+  "camera": {
+    "horizon": 0.4728,
+    "vanishingPoints": [
+      {
+        "x": 0.874,
+        "y": 0.4679,
+        "weight": 1,
+        "role": "mur-gauche"
+      },
+      {
+        "x": -0.1296,
+        "y": 0.481,
+        "weight": 1,
+        "role": "mur-droit"
+      },
+      {
+        "x": 0.8941,
+        "y": 0.4691,
+        "weight": 0.6,
+        "role": "joints-du-sol-existant"
+      }
+    ],
+    "heightM": 0.95,
+    "focalPx": 776
+  },
+  "surfaces": [
+    {
+      "id": "sol",
+      "label": "Sol du bureau",
+      "continuous": true
+    }
+  ],
+  "planes": {
+    "sol": {
+      "quad": [
+        {
+          "x": 0.4772,
+          "y": 0.5882
+        },
+        {
+          "x": 0.7419,
+          "y": 0.635
+        },
+        {
+          "x": 0.5695,
+          "y": 0.8531
+        },
+        {
+          "x": 0.2189,
+          "y": 0.6665
+        }
+      ],
+      "meters": {
+        "width": 3,
+        "depth": 3
+      },
+      "origin": {
+        "u": 0,
+        "v": 0
+      },
+      "rotationDeg": 90,
+      "note": "Carré de 3 m posé au coin de la pièce, le quatrième sommet imposé par les deux fuites (quadDepuisPiece) et non placé à l’œil. u suit le mur droit, v le mur gauche ; rotationDeg 90 met les lames dans la direction v, celle des lames déjà en place. Le carré ne couvre pas tout le sol visible, et n’a pas à le faire : il fixe le plan et l’échelle, le contour est décrit par le masque. Il a été choisi petit et près du coin pour rester bien conditionné — un rectangle couvrant tout le sol visible contiendrait la verticale de l’appareil, et son sommet lointain se projetterait à 5 cm devant l’objectif."
+    }
+  },
+  "floorZones": [
+    {
+      "id": "bureau",
+      "label": "Bureau",
+      "surfaceId": "sol",
+      "planeRef": "sol",
+      "order": 0,
+      "mask": {
+        "polygon": [
+          {
+            "x": 0,
+            "y": 0.6945
+          },
+          {
+            "x": 0.03,
+            "y": 0.6915
+          },
+          {
+            "x": 0.033,
+            "y": 0.6885
+          },
+          {
+            "x": 0.052,
+            "y": 0.6862
+          },
+          {
+            "x": 0.061,
+            "y": 0.6851
+          },
+          {
+            "x": 0.07,
+            "y": 0.6847
+          },
+          {
+            "x": 0.08,
+            "y": 0.682
+          },
+          {
+            "x": 0.09,
+            "y": 0.6782
+          },
+          {
+            "x": 0.1,
+            "y": 0.6764
+          },
+          {
+            "x": 0.11,
+            "y": 0.6737
+          },
+          {
+            "x": 0.121,
+            "y": 0.6709
+          },
+          {
+            "x": 0.136,
+            "y": 0.6673
+          },
+          {
+            "x": 0.16,
+            "y": 0.6635
+          },
+          {
+            "x": 0.19,
+            "y": 0.6627
+          },
+          {
+            "x": 0.22,
+            "y": 0.6605
+          },
+          {
+            "x": 0.25,
+            "y": 0.6596
+          },
+          {
+            "x": 0.28,
+            "y": 0.6496
+          },
+          {
+            "x": 0.31,
+            "y": 0.6405
+          },
+          {
+            "x": 0.34,
+            "y": 0.6315
+          },
+          {
+            "x": 0.4,
+            "y": 0.6127
+          },
+          {
+            "x": 0.44,
+            "y": 0.601
+          },
+          {
+            "x": 0.477,
+            "y": 0.5897
+          },
+          {
+            "x": 0.529,
+            "y": 0.5978
+          },
+          {
+            "x": 0.637,
+            "y": 0.6185
+          },
+          {
+            "x": 0.748,
+            "y": 0.6373
+          },
+          {
+            "x": 0.859,
+            "y": 0.6569
+          },
+          {
+            "x": 0.968,
+            "y": 0.6764
+          },
+          {
+            "x": 1,
+            "y": 0.6821
+          },
+          {
+            "x": 1,
+            "y": 1
+          },
+          {
+            "x": 0,
+            "y": 1
+          }
+        ],
+        "holes": [],
+        "note": "Frontière relevée au traqueur de gradient, pas ajustée en droite : le mur de gauche est en trois plans successifs — pentes -0,237 de x=0,061 à 0,136, puis -0,067 jusqu’à 0,26, puis -0,304 jusqu’au coin — et une seule droite les aurait tous manqués. La force d’arête reste entre 58 et 78 sur tout ce parcours, et trois profils de luminance indépendants (x = 0,075, 0,100, 0,120) confirment le passage blanc → sol à moins de 2 px du tracé. Le traqueur décroche à x = 0,059 : c’est le chambranle, où la plinthe s’arrête ; au-delà le contour suit le pied du chambranle puis le seuil, relevés à la loupe. Le contour est décalé de 1,6 px DANS le sol : la petite pièce et l’appartement ancien ont tous deux une bande pâle le long de leurs plinthes parce que leur masque monte de quelques pixels dessus. Mieux vaut laisser 1,6 px de sol d’origine que délaver la plinthe."
+      }
+    }
+  ],
+  "occluders": [],
+  "light": {
+    "kind": "photo-luma",
+    "strength": 1,
+    "blurRadius": 0.028,
+    "tint": 0.45,
+    "ambient": 0.26,
+    "contact": 0.5
+  }
+}

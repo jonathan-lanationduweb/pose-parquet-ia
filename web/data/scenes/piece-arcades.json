@@ -1,0 +1,173 @@
+{
+  "schema": "pose-parquet/scene@1",
+  "id": "piece-arcades",
+  "label": "Pièce aux arcades",
+  "source": "precalibrated",
+  "note": "Grande piece de reception vide, vue d'angle, murs creme a corniche moulurée, deux arcades aveugles a droite, parquet en baton rompu sur pres de la moitie du cadre. Aucun meuble, aucun occulteur. C'est la scene la mieux mesuree du depot, et la seule dont la focale ET la hauteur d'oeil sont mesurees. LES DEUX FUITES. Le releve utilise quatre droites, deux par direction : le HAUT DE PLINTHE du mur gauche, colonne par colonne au pas de cinq millemes, 85 points, residu max 0,76 px et moyen 0,28 ; la CORNICHE gauche, suivie au gradient sur 203 points, 0,92 et 0,31 ; le haut de plinthe du PILIER entre les deux arcades, 28 points, 0,56 et 0,26 ; la CORNICHE droite, 177 points, 3,20 et 0,42. Elles donnent les fuites (1,8731 ; 0,4912) et (0,0391 ; 0,4933). PREUVE : deux mesures totalement independantes, sur deux murs et a deux hauteurs differentes, placent l'horizon a 2,2 PIXELS l'une de l'autre. C'est la meilleure concordance du depot. L'horizon est retenu a 0,49225. Le mur droit n'a pas ete ajuste sur toute sa longueur, et c'est deliberé : les deux arcades sont des niches en retrait, elles reculent la jonction du sol de 4 a 7 px, et un ajustement global rendait 2,23 px de residu moyen contre 0,26 sur le seul pilier. FOCALE PAR ORTHOGONALITE : 1273 px, champ 64,3 degres, produit scalaire -1620058. Le produit est negatif, les deux fuites encadrent le centre, les deux directions sont bien perpendiculaires. HAUTEUR D'OEIL MESUREE, ce qui n'etait jamais arrive : 1,05 m. Elle se lit sur quatre longueurs connues, et le calcul de chacune est INDEPENDANT DE LA FOCALE — une longueur laterale vaut (x-cx)*h/dy, une longueur verticale vaut h_image*h/dy, la focale n'y entre pas. A 1,05 m, la porte du fond mesure 1,04 m de large et 2,19 m de haut, la hauteur sous corniche 2,91 m, la plinthe 10,3 cm. A 1,45 m, la meme porte mesurerait 1,43 sur 3,02 m et la plinthe 14,2 cm : impossible. Un photographe d'immobilier tient son appareil bas pour agrandir la piece, et ici il l'a tenu tres bas. CONTROLE DE LA FOCALE, elle seule fixant les profondeurs : a 1273 px, le pilier entre les deux arcades mesure 1,89 m et la portion visible du mur droit 6,84 m. A 900 px ce pilier tomberait a 1,49 m, a 1500 px il monterait a 2,14. Les trois sont concevables ; 1,89 m est celle que rend l'orthogonalité, et elle va aux arcades. LA PIECE : un rectangle de 6,23 sur 6,33 m dont la concordance vaut 0,02 et 0,03 pour cent, dans une salle dont le coin est a 12,4 m et dont le sol visible commence a 2,5 m. Une salle de reception de plus de soixante-dix metres carres : les nombres sont grands parce que la piece l'est.",
+  "image": {
+    "file": "room-piece-arcades.jpg",
+    "width": 1600,
+    "height": 1067,
+    "alt": "Grande pièce vide à arcades, murs crème et parquet en point de Hongrie",
+    "credit": "Daniel Tanque / Pexels"
+  },
+  "camera": {
+    "horizon": 0.49225,
+    "vanishingPoints": [
+      {
+        "x": 1.8731,
+        "y": 0.49225,
+        "weight": 1,
+        "role": "mur-gauche-plinthe-et-corniche"
+      },
+      {
+        "x": 0.0391,
+        "y": 0.49225,
+        "weight": 1,
+        "role": "mur-droit-pilier-et-corniche"
+      }
+    ],
+    "heightM": 1.05,
+    "focalPx": 1273,
+    "principalPoint": {
+      "x": 0.5,
+      "y": 0.49225
+    },
+    "principalNote": "Focale MESUREE par orthogonalite (1273 px, champ 64,3 degres) et hauteur d'oeil MESUREE sur quatre longueurs connues (1,05 m). Rien n'est choisi dans l'echelle de cette scene. Le calcul d'orthogonalite suppose le point principal au centre en abscisse ; les deux fuites encadrant le centre, l'hypothese tient."
+  },
+  "surfaces": [
+    {
+      "id": "sol",
+      "label": "Sol de la pièce",
+      "continuous": true
+    }
+  ],
+  "planes": {
+    "sol": {
+      "quad": [
+        {
+          "x": 0.5247,
+          "y": 0.5935
+        },
+        {
+          "x": 0.9,
+          "y": 0.6717
+        },
+        {
+          "x": 0.0896,
+          "y": 0.8211
+        },
+        {
+          "x": 0.06,
+          "y": 0.6284
+        }
+      ],
+      "meters": {
+        "width": 6.23,
+        "depth": 6.33
+      },
+      "origin": {
+        "u": 0,
+        "v": 0
+      },
+      "rotationDeg": 0,
+      "note": "Quadrilatere construit par quadDepuisPiece : le coin de la piece, un point sur chaque droite de PIED de plinthe, et le quatrieme coin impose par la perspective. Concordance 0,02 pour cent en largeur, 0,03 en profondeur. Les droites de pied ne sont pas les droites suivies au gradient : le gradient donne le HAUT de la plinthe, et le pied a ete releve separement en cherchant, sous chaque haut, le saut vers le clair du sol. Six pieds a gauche (hauteurs de plinthe de 14,4 a 10,5 px, decroissantes avec l'eloignement, comme il se doit) et quatre sur le pilier. Passes par leur fuite, ces pieds s'alignent a 0,51 px de residu moyen a gauche et 1,25 sur le pilier. rotationDeg 0 met les lames dans la direction du mur droit, la meme que le baton rompu en place."
+    }
+  },
+  "floorZones": [
+    {
+      "id": "piece",
+      "label": "Pièce aux arcades",
+      "surfaceId": "sol",
+      "planeRef": "sol",
+      "order": 0,
+      "mask": {
+        "polygon": [
+          {
+            "x": 0,
+            "y": 1
+          },
+          {
+            "x": 0,
+            "y": 0.6348
+          },
+          {
+            "x": 0.5247,
+            "y": 0.5954
+          },
+          {
+            "x": 0.535,
+            "y": 0.597
+          },
+          {
+            "x": 0.555,
+            "y": 0.6008
+          },
+          {
+            "x": 0.575,
+            "y": 0.6064
+          },
+          {
+            "x": 0.615,
+            "y": 0.6139
+          },
+          {
+            "x": 0.655,
+            "y": 0.6214
+          },
+          {
+            "x": 0.695,
+            "y": 0.6289
+          },
+          {
+            "x": 0.735,
+            "y": 0.6401
+          },
+          {
+            "x": 0.775,
+            "y": 0.6514
+          },
+          {
+            "x": 0.815,
+            "y": 0.6551
+          },
+          {
+            "x": 0.855,
+            "y": 0.6598
+          },
+          {
+            "x": 0.895,
+            "y": 0.6683
+          },
+          {
+            "x": 0.935,
+            "y": 0.6758
+          },
+          {
+            "x": 0.975,
+            "y": 0.6832
+          },
+          {
+            "x": 1,
+            "y": 0.6878
+          },
+          {
+            "x": 1,
+            "y": 1
+          }
+        ],
+        "holes": [],
+        "note": "Le cote gauche est une DROITE — celle du pied de plinthe, decalee de deux pixels dans le sol — parce que ce mur est droit et s'ajuste a un demi-pixel. Le cote droit est une POLYLIGNE de douze points releves tous les quarante millemes, et non une droite, parce que les deux arcades sont en retrait : suivre la droite du pilier y laisserait une bande de 4 a 7 px du parquet d'origine au fond de chaque niche. Chaque point est le PIED de plinthe, obtenu en cherchant sous le haut releve le saut vers le clair ; les hauteurs de plinthe trouvees croissent de 11 a 25 px en allant vers la droite, ce qui est le bon sens puisque le mur droit se rapproche. La porte du fond ne demande rien : son seuil est dans le plan du mur, donc la droite de pied le traverse sans rien peindre au-dela. REPRISE apres rendu : le contour sautait du coin (x 0,5247) directement a x 0,575, et cette corde passait deux pixels sous la jonction reelle — un lisere du parquet d origine restait visible juste a droite du coin. Les deux colonnes relevees a x 0,535 et 0,555 ont ete ajoutees a la polyligne. Deux pixels se voient, quand ils longent une plinthe."
+      }
+    }
+  ],
+  "occluders": [],
+  "light": {
+    "kind": "photo-luma",
+    "strength": 1,
+    "blurRadius": 0.026,
+    "tint": 0.5,
+    "ambient": 0.32,
+    "contact": 0.5
+  }
+}

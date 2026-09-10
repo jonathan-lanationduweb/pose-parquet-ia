@@ -58,8 +58,9 @@ remplissent pas la même fonction — les confondre a déjà coûté une revue.
 ```
 VISUALIZER ENTRYPOINT = tools/product-concept.html
 STATUS                = ACTIVE PRODUCT VISUALIZER
+RENDERER              = web/  (LOCAL, WebGL — extrait le 10 septembre 2026)
 ANNOTATION ENTRYPOINT = tools/annotate.html
-EXTERNAL FRONT        = pose-parquet.com — FROZEN, NOT A DEVELOPMENT TARGET
+EXTERNAL FRONT        = pose-parquet.com — FROZEN, ZERO RUNTIME DEPENDENCY
 ```
 
 **Décision humaine du 10 septembre 2026**, qui remplace la précédente :
@@ -77,11 +78,12 @@ que cette règle sert à éviter. Décision ultérieure.
 `tools/annotate.html` reste séparé parce qu'il fait autre chose : produire la
 vérité terrain. Deux HTML dans le dépôt, deux outils, et c'est normal.
 
-`pose-parquet.com` est **gelé** et n'est plus une cible de développement.
-Il reste un consommateur externe. Le visualiseur garde aujourd'hui **une seule**
-dépendance d'exécution vers lui — l'iframe du moteur de rendu — auditée et
-chiffrée dans [RENDERER-AUTONOMY-PLAN.md](RENDERER-AUTONOMY-PLAN.md), avec son
-plan d'extraction. Rien n'en est encore extrait.
+`pose-parquet.com` est **gelé**, et depuis le 10 septembre 2026 le visualiseur
+n'en dépend **plus du tout à l'exécution** : le moteur WebGL vit dans `web/`,
+copié depuis le commit `8380ceb` et identique octet pour octet. La parité a été
+mesurée avant la bascule, l'iframe n'est plus créée en fonctionnement normal, et
+`?engine=external` la rallume pour la seule comparaison. Provenance, écarts
+d'audit, parité et performances : [RENDERER-AUTONOMY-PLAN.md §16](RENDERER-AUTONOMY-PLAN.md).
 
 ## Où vivent les choses hors de ce dossier
 

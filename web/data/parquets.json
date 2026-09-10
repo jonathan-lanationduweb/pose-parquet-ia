@@ -1,0 +1,833 @@
+{
+  "version": 1,
+  "note": "Catalogue de démonstration. Ce sont des **matériaux procéduraux** : leur apparence est calculée par le moteur (js/scene/texture.js) à partir des paramètres ci-dessous — veinage, nœuds, fentes, contraste, largeur de lame, finition. Ce ne sont donc ni des photographies de produits, ni des textures sous licence, et ils ne correspondent à aucune référence commerciale. Ils servent à choisir une direction — une teinte, un motif, un sens de pose — pas à valider une commande. Le champ `maps` est prévu pour de vraies cartes photographiques (albedo, normale, rugosité) : voir assets/materials/README.md. Tant qu'il est vide, le moteur procédural sert de repli.",
+  "tones": [
+    {
+      "id": "clair",
+      "label": "Clair"
+    },
+    {
+      "id": "naturel",
+      "label": "Naturel"
+    },
+    {
+      "id": "chaud",
+      "label": "Chaud"
+    },
+    {
+      "id": "fonce",
+      "label": "Foncé"
+    }
+  ],
+  "patterns": [
+    {
+      "id": "lames",
+      "label": "Lames droites",
+      "waste": "faibles"
+    },
+    {
+      "id": "point-de-hongrie",
+      "label": "Point de Hongrie",
+      "waste": "élevées"
+    },
+    {
+      "id": "baton-rompu",
+      "label": "Bâton rompu",
+      "waste": "modérées à élevées"
+    }
+  ],
+  "parquets": [
+    {
+      "id": "chene-craie",
+      "name": "Chêne Craie",
+      "slug": "chene-craie",
+      "wood": "Chêne",
+      "tone": "clair",
+      "finish": "Huilé blanchi",
+      "boardWidth": 0.19,
+      "boardLength": 1.9,
+      "defaultPattern": "lames",
+      "compatiblePatterns": [
+        "lames",
+        "point-de-hongrie",
+        "baton-rompu"
+      ],
+      "texture": {
+        "base": [
+          232,
+          223,
+          208
+        ],
+        "grain": [
+          206,
+          195,
+          178
+        ],
+        "warm": 2,
+        "spread": 9,
+        "grainLines": 6,
+        "grainAlpha": 0.13,
+        "grainWidth": 0.016,
+        "knots": 0.1,
+        "knotSize": 0.05,
+        "contrast": 0.82,
+        "bevel": 0.024,
+        "joint": 0.3,
+        "sheen": 0.05,
+        "cracks": 0
+      },
+      "maps": {
+        "albedo": null,
+        "normal": null,
+        "roughness": null
+      },
+      "proceduralFallback": true,
+      "dimensions": {
+        "width": 0.19,
+        "length": 1.9
+      },
+      "patternProfiles": {
+        "lames": {
+          "width": 0.19,
+          "length": 1.9
+        },
+        "point-de-hongrie": {
+          "width": 0.09,
+          "length": 0.6,
+          "angleDeg": 45
+        },
+        "baton-rompu": {
+          "width": 0.09,
+          "length": 0.45
+        }
+      },
+      "dimensionUnit": "m"
+    },
+    {
+      "id": "chene-sable",
+      "name": "Chêne Sable",
+      "slug": "chene-sable",
+      "wood": "Chêne",
+      "tone": "clair",
+      "finish": "Vernis mat",
+      "boardWidth": 0.16,
+      "boardLength": 1.6,
+      "defaultPattern": "lames",
+      "compatiblePatterns": [
+        "lames",
+        "point-de-hongrie",
+        "baton-rompu"
+      ],
+      "texture": {
+        "base": [
+          221,
+          203,
+          175
+        ],
+        "grain": [
+          193,
+          172,
+          141
+        ],
+        "warm": 4,
+        "spread": 14,
+        "grainLines": 9,
+        "grainAlpha": 0.18,
+        "grainWidth": 0.014,
+        "knots": 0.22,
+        "knotSize": 0.06,
+        "contrast": 0.95,
+        "bevel": 0.028,
+        "joint": 0.4,
+        "sheen": 0.04,
+        "cracks": 0
+      },
+      "maps": {
+        "albedo": null,
+        "normal": null,
+        "roughness": null
+      },
+      "proceduralFallback": true,
+      "dimensions": {
+        "width": 0.16,
+        "length": 1.6
+      },
+      "patternProfiles": {
+        "lames": {
+          "width": 0.16,
+          "length": 1.6
+        },
+        "point-de-hongrie": {
+          "width": 0.09,
+          "length": 0.6,
+          "angleDeg": 45
+        },
+        "baton-rompu": {
+          "width": 0.09,
+          "length": 0.45
+        }
+      },
+      "dimensionUnit": "m"
+    },
+    {
+      "id": "chene-nude",
+      "name": "Chêne Nude",
+      "slug": "chene-nude",
+      "wood": "Chêne",
+      "tone": "clair",
+      "finish": "Huilé naturel",
+      "boardWidth": 0.18,
+      "boardLength": 1.8,
+      "defaultPattern": "lames",
+      "compatiblePatterns": [
+        "lames",
+        "point-de-hongrie",
+        "baton-rompu"
+      ],
+      "texture": {
+        "base": [
+          226,
+          204,
+          186
+        ],
+        "grain": [
+          199,
+          172,
+          153
+        ],
+        "warm": 7,
+        "spread": 11,
+        "grainLines": 7,
+        "grainAlpha": 0.15,
+        "grainWidth": 0.02,
+        "knots": 0.14,
+        "knotSize": 0.05,
+        "contrast": 0.88,
+        "bevel": 0.026,
+        "joint": 0.34,
+        "sheen": 0.06,
+        "cracks": 0
+      },
+      "maps": {
+        "albedo": null,
+        "normal": null,
+        "roughness": null
+      },
+      "proceduralFallback": true,
+      "dimensions": {
+        "width": 0.18,
+        "length": 1.8
+      },
+      "patternProfiles": {
+        "lames": {
+          "width": 0.18,
+          "length": 1.8
+        },
+        "point-de-hongrie": {
+          "width": 0.09,
+          "length": 0.6,
+          "angleDeg": 45
+        },
+        "baton-rompu": {
+          "width": 0.09,
+          "length": 0.45
+        }
+      },
+      "dimensionUnit": "m"
+    },
+    {
+      "id": "chene-naturel",
+      "name": "Chêne Naturel",
+      "slug": "chene-naturel",
+      "wood": "Chêne",
+      "tone": "naturel",
+      "finish": "Huilé mat",
+      "boardWidth": 0.18,
+      "boardLength": 1.8,
+      "defaultPattern": "lames",
+      "compatiblePatterns": [
+        "lames",
+        "point-de-hongrie",
+        "baton-rompu"
+      ],
+      "texture": {
+        "base": [
+          205,
+          178,
+          143
+        ],
+        "grain": [
+          173,
+          143,
+          107
+        ],
+        "warm": 6,
+        "spread": 19,
+        "grainLines": 11,
+        "grainAlpha": 0.2,
+        "grainWidth": 0.018,
+        "knots": 0.3,
+        "knotSize": 0.07,
+        "contrast": 1,
+        "bevel": 0.03,
+        "joint": 0.46,
+        "sheen": 0.05,
+        "cracks": 0.05
+      },
+      "maps": {
+        "albedo": null,
+        "normal": null,
+        "roughness": null
+      },
+      "proceduralFallback": true,
+      "dimensions": {
+        "width": 0.18,
+        "length": 1.8
+      },
+      "patternProfiles": {
+        "lames": {
+          "width": 0.18,
+          "length": 1.8
+        },
+        "point-de-hongrie": {
+          "width": 0.09,
+          "length": 0.6,
+          "angleDeg": 45
+        },
+        "baton-rompu": {
+          "width": 0.09,
+          "length": 0.45
+        }
+      },
+      "dimensionUnit": "m"
+    },
+    {
+      "id": "chene-dore",
+      "name": "Chêne Doré",
+      "slug": "chene-dore",
+      "wood": "Chêne",
+      "tone": "naturel",
+      "finish": "Vernis satiné",
+      "boardWidth": 0.2,
+      "boardLength": 2.2,
+      "defaultPattern": "lames",
+      "compatiblePatterns": [
+        "lames",
+        "point-de-hongrie",
+        "baton-rompu"
+      ],
+      "texture": {
+        "base": [
+          206,
+          169,
+          118
+        ],
+        "grain": [
+          172,
+          132,
+          82
+        ],
+        "warm": 10,
+        "spread": 16,
+        "grainLines": 8,
+        "grainAlpha": 0.17,
+        "grainWidth": 0.022,
+        "knots": 0.2,
+        "knotSize": 0.06,
+        "contrast": 1.02,
+        "bevel": 0.026,
+        "joint": 0.42,
+        "sheen": 0.12,
+        "cracks": 0
+      },
+      "maps": {
+        "albedo": null,
+        "normal": null,
+        "roughness": null
+      },
+      "proceduralFallback": true,
+      "dimensions": {
+        "width": 0.2,
+        "length": 2.2
+      },
+      "patternProfiles": {
+        "lames": {
+          "width": 0.2,
+          "length": 2.2
+        },
+        "point-de-hongrie": {
+          "width": 0.09,
+          "length": 0.6,
+          "angleDeg": 45
+        },
+        "baton-rompu": {
+          "width": 0.09,
+          "length": 0.45
+        }
+      },
+      "dimensionUnit": "m"
+    },
+    {
+      "id": "chene-gris",
+      "name": "Chêne Gris",
+      "slug": "chene-gris",
+      "wood": "Chêne",
+      "tone": "naturel",
+      "finish": "Brossé teinté",
+      "boardWidth": 0.22,
+      "boardLength": 2,
+      "defaultPattern": "lames",
+      "compatiblePatterns": [
+        "lames",
+        "baton-rompu"
+      ],
+      "texture": {
+        "base": [
+          166,
+          161,
+          152
+        ],
+        "grain": [
+          131,
+          127,
+          120
+        ],
+        "warm": 0,
+        "spread": 15,
+        "grainLines": 13,
+        "grainAlpha": 0.22,
+        "grainWidth": 0.012,
+        "knots": 0.18,
+        "knotSize": 0.05,
+        "contrast": 1.05,
+        "bevel": 0.032,
+        "joint": 0.5,
+        "sheen": 0.02,
+        "cracks": 0.08
+      },
+      "maps": {
+        "albedo": null,
+        "normal": null,
+        "roughness": null
+      },
+      "proceduralFallback": true,
+      "dimensions": {
+        "width": 0.22,
+        "length": 2
+      },
+      "patternProfiles": {
+        "lames": {
+          "width": 0.22,
+          "length": 2
+        },
+        "point-de-hongrie": {
+          "width": 0.09,
+          "length": 0.6,
+          "angleDeg": 45
+        },
+        "baton-rompu": {
+          "width": 0.09,
+          "length": 0.45
+        }
+      },
+      "dimensionUnit": "m"
+    },
+    {
+      "id": "chene-miel",
+      "name": "Chêne Miel",
+      "slug": "chene-miel",
+      "wood": "Chêne",
+      "tone": "chaud",
+      "finish": "Huilé miel",
+      "boardWidth": 0.15,
+      "boardLength": 1.5,
+      "defaultPattern": "lames",
+      "compatiblePatterns": [
+        "lames",
+        "point-de-hongrie",
+        "baton-rompu"
+      ],
+      "texture": {
+        "base": [
+          191,
+          146,
+          92
+        ],
+        "grain": [
+          159,
+          113,
+          63
+        ],
+        "warm": 9,
+        "spread": 22,
+        "grainLines": 12,
+        "grainAlpha": 0.24,
+        "grainWidth": 0.017,
+        "knots": 0.34,
+        "knotSize": 0.07,
+        "contrast": 1.08,
+        "bevel": 0.03,
+        "joint": 0.48,
+        "sheen": 0.09,
+        "cracks": 0.06
+      },
+      "maps": {
+        "albedo": null,
+        "normal": null,
+        "roughness": null
+      },
+      "proceduralFallback": true,
+      "dimensions": {
+        "width": 0.15,
+        "length": 1.5
+      },
+      "patternProfiles": {
+        "lames": {
+          "width": 0.15,
+          "length": 1.5
+        },
+        "point-de-hongrie": {
+          "width": 0.09,
+          "length": 0.6,
+          "angleDeg": 45
+        },
+        "baton-rompu": {
+          "width": 0.09,
+          "length": 0.45
+        }
+      },
+      "dimensionUnit": "m"
+    },
+    {
+      "id": "chene-caramel",
+      "name": "Chêne Caramel",
+      "slug": "chene-caramel",
+      "wood": "Chêne",
+      "tone": "chaud",
+      "finish": "Vernis satiné",
+      "boardWidth": 0.16,
+      "boardLength": 1.7,
+      "defaultPattern": "point-de-hongrie",
+      "compatiblePatterns": [
+        "lames",
+        "point-de-hongrie",
+        "baton-rompu"
+      ],
+      "texture": {
+        "base": [
+          169,
+          118,
+          71
+        ],
+        "grain": [
+          136,
+          88,
+          48
+        ],
+        "warm": 11,
+        "spread": 18,
+        "grainLines": 10,
+        "grainAlpha": 0.21,
+        "grainWidth": 0.019,
+        "knots": 0.26,
+        "knotSize": 0.065,
+        "contrast": 1.06,
+        "bevel": 0.028,
+        "joint": 0.5,
+        "sheen": 0.1,
+        "cracks": 0.04
+      },
+      "maps": {
+        "albedo": null,
+        "normal": null,
+        "roughness": null
+      },
+      "proceduralFallback": true,
+      "dimensions": {
+        "width": 0.16,
+        "length": 1.7
+      },
+      "patternProfiles": {
+        "lames": {
+          "width": 0.16,
+          "length": 1.7
+        },
+        "point-de-hongrie": {
+          "width": 0.09,
+          "length": 0.6,
+          "angleDeg": 45
+        },
+        "baton-rompu": {
+          "width": 0.09,
+          "length": 0.45
+        }
+      },
+      "dimensionUnit": "m"
+    },
+    {
+      "id": "chene-rustique",
+      "name": "Chêne Rustique",
+      "slug": "chene-rustique",
+      "wood": "Chêne",
+      "tone": "chaud",
+      "finish": "Brossé huilé",
+      "boardWidth": 0.22,
+      "boardLength": 2.4,
+      "defaultPattern": "lames",
+      "compatiblePatterns": [
+        "lames",
+        "baton-rompu"
+      ],
+      "texture": {
+        "base": [
+          180,
+          138,
+          96
+        ],
+        "grain": [
+          132,
+          92,
+          55
+        ],
+        "warm": 8,
+        "spread": 34,
+        "grainLines": 16,
+        "grainAlpha": 0.3,
+        "grainWidth": 0.024,
+        "knots": 0.85,
+        "knotSize": 0.11,
+        "contrast": 1.18,
+        "bevel": 0.034,
+        "joint": 0.56,
+        "sheen": 0.03,
+        "cracks": 0.35
+      },
+      "maps": {
+        "albedo": null,
+        "normal": null,
+        "roughness": null
+      },
+      "proceduralFallback": true,
+      "dimensions": {
+        "width": 0.22,
+        "length": 2.4
+      },
+      "patternProfiles": {
+        "lames": {
+          "width": 0.22,
+          "length": 2.4
+        },
+        "point-de-hongrie": {
+          "width": 0.09,
+          "length": 0.6,
+          "angleDeg": 45
+        },
+        "baton-rompu": {
+          "width": 0.09,
+          "length": 0.45
+        }
+      },
+      "dimensionUnit": "m"
+    },
+    {
+      "id": "chene-tabac",
+      "name": "Chêne Tabac",
+      "slug": "chene-tabac",
+      "wood": "Chêne",
+      "tone": "fonce",
+      "finish": "Huilé teinté",
+      "boardWidth": 0.14,
+      "boardLength": 1.4,
+      "defaultPattern": "lames",
+      "compatiblePatterns": [
+        "lames",
+        "point-de-hongrie",
+        "baton-rompu"
+      ],
+      "texture": {
+        "base": [
+          131,
+          92,
+          60
+        ],
+        "grain": [
+          99,
+          65,
+          39
+        ],
+        "warm": 7,
+        "spread": 17,
+        "grainLines": 12,
+        "grainAlpha": 0.23,
+        "grainWidth": 0.016,
+        "knots": 0.28,
+        "knotSize": 0.06,
+        "contrast": 1.05,
+        "bevel": 0.028,
+        "joint": 0.5,
+        "sheen": 0.07,
+        "cracks": 0.05
+      },
+      "maps": {
+        "albedo": null,
+        "normal": null,
+        "roughness": null
+      },
+      "proceduralFallback": true,
+      "dimensions": {
+        "width": 0.14,
+        "length": 1.4
+      },
+      "patternProfiles": {
+        "lames": {
+          "width": 0.14,
+          "length": 1.4
+        },
+        "point-de-hongrie": {
+          "width": 0.09,
+          "length": 0.6,
+          "angleDeg": 45
+        },
+        "baton-rompu": {
+          "width": 0.09,
+          "length": 0.45
+        }
+      },
+      "dimensionUnit": "m"
+    },
+    {
+      "id": "chene-brun",
+      "name": "Chêne Brun",
+      "slug": "chene-brun",
+      "wood": "Chêne",
+      "tone": "fonce",
+      "finish": "Vernis mat",
+      "boardWidth": 0.18,
+      "boardLength": 1.8,
+      "defaultPattern": "lames",
+      "compatiblePatterns": [
+        "lames",
+        "point-de-hongrie",
+        "baton-rompu"
+      ],
+      "texture": {
+        "base": [
+          110,
+          80,
+          58
+        ],
+        "grain": [
+          80,
+          55,
+          38
+        ],
+        "warm": 5,
+        "spread": 14,
+        "grainLines": 9,
+        "grainAlpha": 0.19,
+        "grainWidth": 0.018,
+        "knots": 0.2,
+        "knotSize": 0.055,
+        "contrast": 1,
+        "bevel": 0.028,
+        "joint": 0.48,
+        "sheen": 0.06,
+        "cracks": 0.03
+      },
+      "maps": {
+        "albedo": null,
+        "normal": null,
+        "roughness": null
+      },
+      "proceduralFallback": true,
+      "dimensions": {
+        "width": 0.18,
+        "length": 1.8
+      },
+      "patternProfiles": {
+        "lames": {
+          "width": 0.18,
+          "length": 1.8
+        },
+        "point-de-hongrie": {
+          "width": 0.09,
+          "length": 0.6,
+          "angleDeg": 45
+        },
+        "baton-rompu": {
+          "width": 0.09,
+          "length": 0.45
+        }
+      },
+      "dimensionUnit": "m"
+    },
+    {
+      "id": "chene-fume",
+      "name": "Chêne Fumé",
+      "slug": "chene-fume",
+      "wood": "Chêne",
+      "tone": "fonce",
+      "finish": "Fumé brossé",
+      "boardWidth": 0.2,
+      "boardLength": 2.1,
+      "defaultPattern": "point-de-hongrie",
+      "compatiblePatterns": [
+        "lames",
+        "point-de-hongrie",
+        "baton-rompu"
+      ],
+      "texture": {
+        "base": [
+          86,
+          69,
+          58
+        ],
+        "grain": [
+          58,
+          45,
+          37
+        ],
+        "warm": 3,
+        "spread": 16,
+        "grainLines": 14,
+        "grainAlpha": 0.26,
+        "grainWidth": 0.014,
+        "knots": 0.24,
+        "knotSize": 0.06,
+        "contrast": 1.12,
+        "bevel": 0.032,
+        "joint": 0.55,
+        "sheen": 0.04,
+        "cracks": 0.12
+      },
+      "maps": {
+        "albedo": null,
+        "normal": null,
+        "roughness": null
+      },
+      "proceduralFallback": true,
+      "dimensions": {
+        "width": 0.2,
+        "length": 2.1
+      },
+      "patternProfiles": {
+        "lames": {
+          "width": 0.2,
+          "length": 2.1
+        },
+        "point-de-hongrie": {
+          "width": 0.09,
+          "length": 0.6,
+          "angleDeg": 45
+        },
+        "baton-rompu": {
+          "width": 0.09,
+          "length": 0.45
+        }
+      },
+      "dimensionUnit": "m"
+    }
+  ],
+  "patternNote": "Le niveau de chutes est qualitatif (faibles, modérées, élevées), pas un pourcentage : le taux réel dépend de la pièce, du calepinage et des longueurs livrées.",
+  "dimensionUnit": "m"
+}

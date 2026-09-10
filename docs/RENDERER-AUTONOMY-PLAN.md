@@ -5,9 +5,11 @@
 > minimal l'extraction demande, et dans quel ordre. Audit fait le
 > **10 septembre 2026** (LOT UX.2A), en lecture seule des deux dépôts.
 >
-> **Aucune extraction n'a été faite.** Aucun fichier copié, aucun asset
-> déplacé, `ENGINE_URL` inchangé, l'iframe en place, `VisualizerAdapter`
-> intact. Ce document est un plan, pas un début de migration.
+> **EXTRACTION FAITE le 10 septembre 2026 (LOT UX.4).** Le moteur vit
+> désormais dans `web/`, le visualiseur rend sans `pose-parquet.com`, et
+> l'iframe n'est plus créée en fonctionnement normal. Le plan ci-dessous
+> reste le document de référence : §16 dit ce qui a été copié, d'où, et ce
+> que la copie a appris que l'audit n'avait pas vu.
 
 ## 1. Le seul couplage restant
 
@@ -420,10 +422,121 @@ fait qu'un clone sans photos affiche encore quelque chose d'honnête.
 | régression d'interface pendant l'extraction | mélanger E4 et E5 | ne pas les mélanger |
 | licence des photos | Pexels autorise l'usage commercial ; les crédits vivent dans le dépôt gelé | recopier `CREDITS.md` pour les 5 photos retenues |
 
-## 15. Ce que ce document n'autorise pas
+## 16. Extraction faite — provenance et écarts avec l'audit
 
-- copier quoi que ce soit avant la décision E0 ;
-- modifier `pose-parquet.com`, même pour « préparer » l'extraction ;
+### 16.1 Provenance
+
+| | |
+| --- | --- |
+| dépôt source | `pose-parquet.com`, **lecture seule** — 0 fichier modifié |
+| commit source | `8380ceb977b9ee4a365a7132901791a7e674bcd0` (10 septembre 2026, arbre propre) |
+| date de copie | 10 septembre 2026 |
+| vérification | les 17 fichiers copiés sont **identiques octet pour octet** à leur source, contrôlé en SHA-256 |
+| synchronisation | **aucune**, et volontairement : à partir de maintenant, `web/` fait foi ici. Le front est gelé |
+
+| local | source | classement |
+| --- | --- | --- |
+| `web/scene/renderer.js`, `renderer-gl.js`, `renderer-canvas.js`, `mask.js`, `shading.js`, `geometry.js`, `perspective.js` | `js/scene/` | `CORE_RENDERER` |
+| `web/scene/material.js`, `texture.js`, `relief.js`, `texture-worker.js` | `js/scene/` | `REQUIRED_MATERIAL` |
+| `web/scene/schema.js`, `analyzer.js`, `image-loader.js` | `js/scene/` | `REQUIRED_SCENE` |
+| `web/utils/dom.js`, `perf.js` | `js/utils/` | utilitaires |
+| `web/data/parquets.json` | `data/parquets.json` | 12 matières, copie exacte |
+| `web/data/scenes/{sejour,chambre,piece-claire,piece-arcades,bureau-vide}.json` | `data/scenes/` | les 5 pièces du visualiseur |
+| `web/data/scenes/index.json` | `data/scenes/index.json` | **seule adaptation** : restreint de 15 à 5 entrées |
+| `web/assets/images/room-*.jpg` (5) | `assets/images/` | Pexels, usage commercial autorisé |
+
+**Adaptations faites : une seule.** L'index des scènes listait quinze pièces
+dont dix n'existent pas ici — les laisser aurait promis des pièces
+introuvables. Les cinq entrées conservées sont inchangées, et la raison est
+écrite dans le fichier. **Aucune ligne du moteur n'a été retouchée.**
+
+Ajouté, et non copié : `web/product/local-renderer.js` — l'adaptateur local.
+Il tient la configuration, ouvre une pièce, demande un rendu et prévient
+quand il est fini. C'est ce que faisait `js/studio/app.js`, en 1 485 lignes
+dont une quarantaine servaient au rendu.
+
+### 16.2 Ce que la copie a appris, et que l'audit avait manqué
+
+**Une erreur de l'audit, corrigée.** §3.1 classait `js/studio/catalog.js` et
+`js/scene/product.js` en `UNUSED_BY_PRODUCT` — juste comme classement, mais
+sans dire d'où venaient les **objets matériau** que `paint()` exige. Ils
+sortent de `createMaterial()`, et son entrée est une fiche de
+`data/parquets.json`. Le front y arrive par la couche produit (fiches
+Premibel → `toMaterial` → `createMaterial`) ; nous y arrivons directement,
+parce que les entrées de `parquets.json` ont déjà la bonne forme. La couche
+commerciale reste donc dehors, et le moteur ne connaît toujours aucune marque.
+
+**Ce que l'audit avait bien vu, et qui s'est confirmé :** aucune texture à
+copier — les tuiles sont dessinées ; shaders en ligne ; le Studio inutile ; le
+moteur agnostique du site ; `setScene` et `paint` séparés, donc changer de
+produit ne refait pas l'analyse.
+
+### 16.3 Parité mesurée avant bascule
+
+Méthode : le même appelant, les deux moteurs, onze combinaisons — 2 pièces,
+4 produits (les 3 motifs, largeurs 90 / 92 / 150 / 190 mm), angles 0, 37, 90,
+137. Comparaison sur les pixels du canevas, pas sur une impression.
+
+**Premier passage : écart moyen 1,61/255, soit 0,63 %.** Suspect, jusqu'à ce
+qu'un contrôle sépare les zones : sur les lignes de **mur** — la photo
+d'origine, qu'aucun moteur ne peint — l'écart valait déjà **1,20/255**. Le
+sol, lui, était à 1,54. L'écart ne venait donc pas du rendu mais du
+**rééchantillonnage** : les deux moteurs travaillaient à des résolutions
+différentes (1100×734 contre 1600×1067), parce que `image-loader.prepare()`
+réduit l'image quand la fenêtre est étroite — et mes deux fenêtres de test ne
+l'étaient pas pareil.
+
+**Second passage, à résolution égale (1600×1067) : identité exacte.** Sur
+quatre combinaisons — `chambre|POINF36005|0`, `sejour|CHENF39031|137`,
+`sejour|BTRPF39009|0`, `chambre|CHENF39031|37` — le descripteur de 48 valeurs
+est **identique valeur par valeur**, écart maximal 0.
+
+Le moteur local rend donc exactement ce que rendait le moteur externe. C'est
+attendu — c'est le même code — et c'était à prouver.
+
+### 16.4 Performance : le « 17 s » expliqué
+
+Mesures au moteur, en autonomie, 1600×1067, WebGL2 :
+
+| étape | local | par le pont (avant) |
+| --- | --- | --- |
+| import du module | **2 ms** | — |
+| usine (matières + index des scènes) | **5 ms** | — |
+| `openRoom` : scène, photo, masques, lumière | **542 ms** | 1 880 ms |
+| tuile **froide**, point de Hongrie 92 mm | **2 830 ms** | **17 200 ms** |
+| repeinture, texture chaude | **26 ms** | 2 900 ms |
+| **rotation**, texture inchangée | **26 ms** | 1 200 – 2 900 ms |
+| aperçu (`step = 2`) | **32 ms** | *impossible — non exposé* |
+| capture (`drawImage`) | < 1 ms | < 1 ms |
+| changement de produit **chaud** (bout en bout) | **67 ms** | ~2 900 ms |
+| changement de produit **froid** (bout en bout) | **852 ms** | — |
+
+**La cause des 17 secondes n'était pas la fabrication de la tuile** — elle
+coûte 2,8 s, et c'est le seul poste vraiment lourd. Les 14 secondes de
+différence venaient du **pont** : messages vers l'iframe, ordonnancement du
+Studio, et attente d'un `onRendered` qui arrivait après plusieurs passes.
+L'audit avait conclu « supprimer le pont ne rendra pas le visualiseur
+rapide ». **C'était faux, et la mesure le dit :** la rotation est passée de
+1,2–2,9 s à 26 ms, soit deux ordres de grandeur.
+
+Réserve à ne pas cacher : le démarrage de la **page** mesuré ici (~25 s) est
+inutilisable comme chiffre produit. Le volet du navigateur d'automatisation
+est masqué, ce qui bride `setTimeout` et `requestAnimationFrame` à environ une
+seconde ; or l'amorçage de la page en dépend. Les chiffres du tableau, eux,
+sont pris au moteur et n'y sont pas soumis.
+
+### 16.5 Ce qui reste du moteur externe
+
+`?engine=external` rallume l'ancien pont, pour comparer. Sans ce paramètre :
+aucune iframe créée, aucune requête vers `pose-parquet.com`. Le repli sur les
+captures de `tools/local-demo-assets/` reste en place — c'est ce qui fait
+qu'un clone sans photos affiche encore quelque chose d'honnête.
+
+## 17. Ce que ce document n'autorise pas
+
+- modifier `pose-parquet.com`, même pour « préparer » quoi que ce soit ;
+- retoucher les fichiers copiés dans `web/scene/` sans dire pourquoi : ils
+  sont la copie d'un moteur qui fonctionne, et c'est leur seule valeur ;
 - écrire un second moteur, un renderer maison, un rendu Python ou un rendu
   CSS — les captures `local-demo-assets/renderings/` restent un **repli**, pas
   une solution ;

@@ -1,0 +1,62 @@
+{
+  "schema": "pose-parquet/scene-index@1",
+  "note": "Index LOCAL du visualiseur de pose-parquet-ai. Copie depuis pose-parquet.com (commit 8380ceb) puis RESTREINT aux cinq pieces que le visualiseur propose : les dix autres scenes du front n existent pas ici, ni en JSON ni en photo, et les laisser dans l index promettrait des pieces introuvables. Seule adaptation faite a ce fichier ; les cinq entrees conservees sont inchangees. Pièces d'exemple du Visualiseur Parquet. Chaque scène est calibrée à la main : zones de sol, plans de perspective, trous et occlusions. Aucune analyse d'image n'intervient. L'outil de calibrage est dans _calibrage/ — calibrage.html au clic, calibrer.html en script. DEUX statuts décident de ce qui est proposé aux visiteurs, et il faut les deux : `geometryStatus` (perspective, échelle et contour prouvés) ET `visualStatus` (rendu regardé et jugé présentable). Une scène peut être juste et laide — trois l'étaient. Le défaut, en cas d'oubli, est `experimental` de part et d'autre : une scène qu'on n'a pas regardée ne se publie pas. `visualStatus: failed` se distingue de `experimental` : regardée et rejetée, avec `visualReason` et `visualNote` à l'appui. Une scène difficile se garde : elle montre où le moteur plie. Un dernier champ, `showInRoomLibrary`, décide si une scène validée figure AUSSI dans « Changer de pièce » : une pièce calibrée pour une carte d'inspiration est essayable par son lien sans devoir allonger la liste principale. Son défaut est vrai.",
+  "scenes": [
+    {
+      "id": "sejour",
+      "label": "Séjour et salle à manger",
+      "file": "room-sejour.jpg",
+      "thumb": "room-sejour-640.jpg",
+      "zones": 2,
+      "highlight": "Deux pièces en enfilade, un seul parquet",
+      "geometryStatus": "validated",
+      "visualStatus": "validated",
+      "showInRoomLibrary": true
+    },
+    {
+      "id": "piece-claire",
+      "label": "Pièce claire",
+      "file": "room-piece-claire.jpg",
+      "thumb": "room-piece-claire-640.jpg",
+      "zones": 1,
+      "highlight": "Meuble et radiateur devant le sol",
+      "geometryStatus": "validated",
+      "visualStatus": "failed",
+      "visualReason": "mask-over-wall",
+      "visualNote": "Le masque monte sur le mur de gauche entre x 0,05 et 0,28, avec un bord en dents de scie visible au rendu ; les occulteurs du radiateur et du meuble bas sont des boîtes englobantes. Vérifié en superposant la couverture réelle du masque sur la photo."
+    },
+    {
+      "id": "chambre",
+      "label": "Chambre ouverte au jardin",
+      "file": "room-chambre.jpg",
+      "thumb": "room-chambre-640.jpg",
+      "zones": 1,
+      "highlight": "Lumière franche, perspective profonde",
+      "geometryStatus": "validated",
+      "visualStatus": "validated",
+      "showInRoomLibrary": true
+    },
+    {
+      "id": "bureau-vide",
+      "label": "Bureau vide, vue d’angle",
+      "file": "room-bureau-vide.jpg",
+      "thumb": "room-bureau-vide-640.jpg",
+      "zones": 1,
+      "highlight": "Vue d’angle, deux plinthes mesurées, sol dégagé",
+      "geometryStatus": "validated",
+      "visualStatus": "validated",
+      "showInRoomLibrary": true
+    },
+    {
+      "id": "piece-arcades",
+      "label": "Pièce aux arcades",
+      "file": "room-piece-arcades.jpg",
+      "thumb": "room-piece-arcades-640.jpg",
+      "zones": 1,
+      "highlight": "Focale et hauteur d’œil toutes deux mesurées",
+      "geometryStatus": "validated",
+      "visualStatus": "validated",
+      "showInRoomLibrary": true
+    }
+  ]
+}
