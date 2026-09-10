@@ -179,24 +179,44 @@
       "kind": "other",
       "points": [
         {
-          "x": 0.429375,
-          "y": 0.596064
-        },
-        {
-          "x": 0.441875,
-          "y": 0.597001
-        },
-        {
-          "x": 0.454375,
+          "x": 0.453125,
           "y": 0.604499
         },
         {
-          "x": 0.441875,
-          "y": 0.609185
+          "x": 0.45125,
+          "y": 0.606373
         },
         {
-          "x": 0.429375,
-          "y": 0.596064
+          "x": 0.445,
+          "y": 0.60731
+        },
+        {
+          "x": 0.430625,
+          "y": 0.60075
+        },
+        {
+          "x": 0.43,
+          "y": 0.598875
+        },
+        {
+          "x": 0.430625,
+          "y": 0.597938
+        },
+        {
+          "x": 0.438125,
+          "y": 0.597938
+        },
+        {
+          "x": 0.4475,
+          "y": 0.60075
+        },
+        {
+          "x": 0.4525,
+          "y": 0.603561
+        },
+        {
+          "x": 0.453125,
+          "y": 0.604499
         }
       ],
       "note": null
@@ -270,14 +290,14 @@
   ],
   "annotator": "claude-ai",
   "annotatedOn": "2026-09-10",
-  "revision": 1,
+  "revision": 2,
   "status": "draft",
   "review": null,
   "passLabel": "AI",
   "independentPass": false,
   "timing": null,
   "maskSha256": {
-    "floorVisible": "452919243db7cc3edb70ee3123fb58039fd40c0eb6186e75b0d48ca90da5b7d6",
+    "floorVisible": "de625ed1c1e44eeb7771bad15dfa96dffc8aab80a9a4824ce506fa20217c0ba9",
     "uncertain": "8b0c034b41365a9e87b3aa27eb4426d85af66b065f621903d2f54fa769250876"
   },
   "notes": "TRACE GENERE PAR IA (Claude) — ce n'est pas un releve humain, et il ne doit jamais etre compte comme tel. Revision 2 apres controle visuel de l'apercu. Jonction mur/sol mesuree colonne par colonne et verifiee par deux criteres independants. Sejour et salle a manger en enfilade : meme parquet continu, aucun seuil visible, une seule surface. Porte ouverte contournee, grille de ventilation encastree exclue en parallelogramme. Une zone incertaine au bas de la porte, ou un reflet noie la limite. A controler visuellement par un humain avant tout usage."

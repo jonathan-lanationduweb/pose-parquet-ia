@@ -1,0 +1,188 @@
+{
+  "schema": "pose-parquet-ai/floor-annotation@1",
+  "photoId": "couloir",
+  "width": 1600,
+  "height": 1067,
+  "masks": {
+    "floorVisible": "masks/couloir.AI.floor-visible.png",
+    "uncertain": "masks/couloir.AI.uncertain.png",
+    "floorExtent": null
+  },
+  "boundary": [
+    {
+      "kind": "object_contact",
+      "points": [
+        {
+          "x": 0.15625,
+          "y": 0.999063
+        },
+        {
+          "x": 0.2,
+          "y": 0.913777
+        },
+        {
+          "x": 0.25,
+          "y": 0.822868
+        }
+      ],
+      "note": null
+    },
+    {
+      "kind": "object_contact",
+      "points": [
+        {
+          "x": 0.25,
+          "y": 0.822868
+        },
+        {
+          "x": 0.251875,
+          "y": 0.749766
+        },
+        {
+          "x": 0.253125,
+          "y": 0.721649
+        }
+      ],
+      "note": null
+    },
+    {
+      "kind": "wall_floor",
+      "points": [
+        {
+          "x": 0.2625,
+          "y": 0.716963
+        },
+        {
+          "x": 0.2875,
+          "y": 0.710403
+        },
+        {
+          "x": 0.3125,
+          "y": 0.703843
+        },
+        {
+          "x": 0.3375,
+          "y": 0.698219
+        },
+        {
+          "x": 0.3875,
+          "y": 0.698219
+        }
+      ],
+      "note": null
+    },
+    {
+      "kind": "door_threshold",
+      "points": [
+        {
+          "x": 0.4,
+          "y": 0.70478
+        },
+        {
+          "x": 0.4375,
+          "y": 0.70478
+        },
+        {
+          "x": 0.475,
+          "y": 0.703843
+        },
+        {
+          "x": 0.49375,
+          "y": 0.702905
+        }
+      ],
+      "note": null
+    },
+    {
+      "kind": "wall_floor",
+      "points": [
+        {
+          "x": 0.5,
+          "y": 0.707591
+        },
+        {
+          "x": 0.57375,
+          "y": 0.707591
+        }
+      ],
+      "note": null
+    },
+    {
+      "kind": "wall_floor",
+      "points": [
+        {
+          "x": 0.57625,
+          "y": 0.79194
+        },
+        {
+          "x": 0.60625,
+          "y": 0.846298
+        },
+        {
+          "x": 0.63125,
+          "y": 0.896907
+        },
+        {
+          "x": 0.65625,
+          "y": 0.940019
+        },
+        {
+          "x": 0.68125,
+          "y": 0.992502
+        }
+      ],
+      "note": null
+    },
+    {
+      "kind": "frame_cut",
+      "points": [
+        {
+          "x": 0.15625,
+          "y": 0.999063
+        },
+        {
+          "x": 0.684375,
+          "y": 0.999063
+        }
+      ],
+      "note": null
+    }
+  ],
+  "uncertainZones": [
+    {
+      "reason": "low_contrast",
+      "polygon": [
+        {
+          "x": 0.5,
+          "y": 0.690722
+        },
+        {
+          "x": 0.57375,
+          "y": 0.690722
+        },
+        {
+          "x": 0.57375,
+          "y": 0.705717
+        },
+        {
+          "x": 0.5,
+          "y": 0.705717
+        }
+      ],
+      "note": null
+    }
+  ],
+  "annotator": "claude-ai",
+  "annotatedOn": "2026-09-10",
+  "revision": 1,
+  "status": "draft",
+  "review": null,
+  "passLabel": "AI",
+  "independentPass": false,
+  "timing": null,
+  "maskSha256": {
+    "floorVisible": "26a63fb813a03ba1c728d301d4f8cd88998dc63f86f8314c425b43270b86682d",
+    "uncertain": "476a2a2ed3bf84ea181bfc8798e4c70b53bdb71ec35540ba664667eb605c1946"
+  },
+  "notes": "TRACE GENERE PAR IA (Claude) — pas un releve humain. Bois clair sur bois clair, sans plinthe : la limite est mesuree par trois criteres croises, pas devinee. Panneau coulissant contourne, barre de seuil de la porte en bois exclue, arete de mur suivie sans lissage. Une zone incertaine sur x 800-920 ou deux mesures divergent de 10 px. A verifier par un humain : trois petits objets sombres au pied du mur du fond (x~585, 655, 865) que je n'ai pas su delimiter — ils sont a la jonction, donc probablement hors du sol, mais je ne l'affirme pas."
+}

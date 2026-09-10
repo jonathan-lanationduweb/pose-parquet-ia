@@ -163,6 +163,7 @@ def build(
     independent: bool = False,
     timing: AnnotationTiming | None = None,
     overlay: Path | None = None,
+    revision: int = 1,
 ) -> Path:
     """Écrit les masques et l'annotation. Renvoie le chemin de l'annotation.
 
@@ -260,6 +261,7 @@ def build(
         ],
         annotator=annotator,
         annotated_on=date.today(),
+        revision=revision,
         pass_label=pass_label,
         independent_pass=independent,
         timing=timing,
@@ -334,6 +336,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--review-seconds", type=float, default=0.0)
     parser.add_argument("--corrections", type=int, help="nombre de reprises, s'il se compte")
     parser.add_argument(
+        "--revision",
+        type=int,
+        default=1,
+        help=(
+            "numero de revision du RELEVE. A incrementer des que le masque change, "
+            "pour qu'un resultat de banc d'essai reste rattachable a des octets precis."
+        ),
+    )
+    parser.add_argument(
         "--overlay",
         type=Path,
         help=(
@@ -369,6 +380,7 @@ def main(argv: list[str] | None = None) -> int:
             independent=args.independent,
             timing=timing,
             overlay=args.overlay,
+            revision=args.revision,
         )
     except (ImportError_, FileNotFoundError, ValueError) as failure:
         print(f"Erreur : {failure}", file=sys.stderr)
