@@ -673,11 +673,39 @@ ok('la variante ne transforme jamais le produit actif',
    statique il n'y a pas d'orientation a offrir : la section est masquee. */
 ok('le sens de pose suit la capacite du moteur',
   el('sectOrient').classList.contains('hidden') === !api.adapter.getCapabilities().orientation);
-ok('trois orientations sont prevues, toutes rendues par le moteur',
-  api.ORIENTATIONS.length === 3
-  && api.ORIENTATIONS.map(([d]) => d).join(',') === '0,90,45');
-ok('le sens de pose est dit reglage de rendu',
-  /pas une\s*\n?\s*.?\s*autre référence/.test(code) || /réglage du rendu, pas une/.test(code));
+/* Cette garde exigeait TROIS orientations, `0,90,45`. Elle disait vrai quand
+   l'interface n'en offrait que trois — et elle est devenue fausse le jour ou
+   la rotation libre est arrivee. Le moteur n'a jamais enumere les angles :
+   onze angles mesures au canevas donnent onze rendus distincts, 45 et 46
+   degres compris. Ce qui doit etre garde, ce n'est donc pas un nombre de
+   valeurs, c'est le fait que les quatre raccourcis NE BORNENT RIEN. */
+ok('quatre raccourcis, et ils ne bornent rien',
+  api.ORIENT_PRESETS.length === 4
+  && api.ORIENT_PRESETS.join(',') === '315,0,45,90');
+ok('un cadran expose la rotation libre',
+  /id="dial"/.test(html) && /role="slider"/.test(html)
+  && /aria-valuemax="359"/.test(html));
+ok('l angle est normalise sur un tour complet, pas choisi dans une liste',
+  api.normDeg(-45) === 315 && api.normDeg(360) === 0 && api.normDeg(37) === 37
+  && api.normDeg(421) === 61);
+/* Le geste ne demande pas un rendu par pixel : l'apercu ne touche qu'au
+   cadran, et le sol se refait au relachement. Un rendu plein cadre coute 1,4 a
+   2,9 s — en demander trente par glissement les construirait tous. */
+ok('le geste ne demande aucun rendu, le relachement en demande un',
+  /function setOrientation\(deg, apercu\)/.test(code)
+  && /if \(apercu \|\| d === state\.orientationDeg\) return;/.test(code)
+  && /setOrientation\(dernier, true\)/.test(code)
+  && /setOrientation\(dernier, false\)/.test(code));
+ok('le cadran est reglable au clavier',
+  /addEventListener\('keydown'/.test(code) && /ArrowRight: 1/.test(code));
+/* Le libelle a change avec le cadran : il ne dit plus « pas une autre
+   reference » mais ce qui ne bouge PAS quand on tourne — la photo, la
+   perspective, la largeur. C'est la meme promesse, dite en termes
+   verifiables plutot qu'en termes de catalogue. */
+ok('le sens de pose promet ce qui ne bouge pas',
+  /tourne le motif dans le plan du/.test(code)
+  && /la photo ne bouge pas, la perspective ne bouge pas/.test(code)
+  && /mesure toujours/.test(code));
 
 /* ================= 15 bis. Le viewport : pan et zoom =================
    Un seul etat pilote toute la scene. Les tests d'etat sont ici ; la
@@ -889,9 +917,15 @@ ok('la version B ouvre la piece par la meme file',
   && /if \(adapter\.scene !== entry\.id\) await adapter\.openRoom\(entry\.id\);[\s\S]{0,120}const canvasB/.test(code));
 
 /* Un resultat perime ne s'affiche jamais : jeton d'intention. */
+/* Seuil abaisse de 7 a 6 en connaissance de cause : le sens de pose avait sa
+   propre incrementation, il passe maintenant par `setOrientation`, qui la
+   fait pour lui. Le nombre de sites baisse, la propriete ne change pas — et
+   la garde suivante verifie que la rotation compte bien comme une intention. */
 ok('chaque geste incremente l intention',
-  (code.match(/state\.intent \+= 1;/g) || []).length >= 7,
+  (code.match(/state\.intent \+= 1;/g) || []).length >= 6,
   `${(code.match(/state\.intent \+= 1;/g) || []).length} incrementations`);
+ok('tourner le sol compte comme une intention',
+  /state\.intent \+= 1;\s*\n\s*state\.orientationDeg = d;/.test(code));
 ok('le rendu live de A verifie la clef ET le jeton',
   /appliedKey\(\) === key && state\.intent === intent/.test(code));
 ok('le rendu live de B verifie que la comparaison est toujours la',

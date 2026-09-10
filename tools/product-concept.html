@@ -508,6 +508,27 @@
   .or span { font-size: 11.5px; color: var(--ink-3); }
   .or[aria-pressed="true"] span { color: var(--ink); font-weight: 600; }
 
+  .dialrow { display: flex; align-items: center; gap: 18px; margin: 14px 0 4px; }
+  .dial {
+    flex: none; width: 116px; height: 116px; border-radius: 50%;
+    touch-action: none; cursor: grab; outline: none;
+  }
+  .dial:active { cursor: grabbing; }
+  .dial svg { width: 100%; height: 100%; display: block; }
+  .dial-track { fill: var(--track); stroke: var(--line); stroke-width: 1; }
+  /* Les lames du cadran tournent avec la valeur : c'est le seul retour dont
+     l'oeil a besoin pendant le geste, et il est instantane. */
+  .dial-lames { stroke: var(--ink-3); stroke-width: 2.4; stroke-linecap: round; opacity: 0.55; }
+  .dial-lames path { fill: none; }
+  .dial-knob { stroke: var(--terre); stroke-width: 2.2; fill: var(--terre); }
+  .dial:focus-visible .dial-track { stroke: var(--terre); stroke-width: 2; }
+  .dialside { min-width: 0; }
+  .dialval {
+    display: block; font-size: 26px; font-weight: 600; color: var(--ink);
+    font-variant-numeric: tabular-nums; line-height: 1;
+  }
+  .dialhint { margin: 7px 0 0; font-size: 12px; color: var(--ink-3); }
+
   .honest {
     margin: 0 0 20px; padding: 11px 13px; background: var(--track);
     border-radius: var(--r-md); font-size: 12.5px; color: var(--ink-2);
@@ -869,6 +890,30 @@
       <p class="note" id="toneNote"></p></div>
     <div class="sect" id="sectOrient"><h3>Sens de pose</h3>
       <div class="orient" id="orient"></div>
+      <!-- Le cadran. Il montre des lames, et on le tourne : c'est le geste
+           qu'il faut comprendre, pas une valeur a saisir. Le nombre est
+           affiche parce qu'on veut pouvoir revenir a 37 degres, pas parce
+           qu'on demande a quelqu'un de le calculer. -->
+      <div class="dialrow">
+        <div class="dial" id="dial" role="slider" tabindex="0"
+             aria-label="Tourner le parquet" aria-valuemin="0" aria-valuemax="359"
+             aria-valuenow="0" aria-valuetext="0 degrés">
+          <svg viewBox="0 0 100 100" aria-hidden="true">
+            <circle class="dial-track" cx="50" cy="50" r="42" />
+            <g class="dial-lames" id="dialLames">
+              <path d="M14 32H86M14 42H86M14 50H86M14 58H86M14 68H86" />
+            </g>
+            <g class="dial-knob" id="dialKnob">
+              <line x1="50" y1="50" x2="50" y2="12" />
+              <circle cx="50" cy="12" r="5.5" />
+            </g>
+          </svg>
+        </div>
+        <div class="dialside">
+          <output class="dialval" id="dialVal">0°</output>
+          <p class="dialhint">Glissez le cadran, ou utilisez les flèches.</p>
+        </div>
+      </div>
       <p class="note" id="orientNote"></p></div>
     <!-- La finition, le veinage et les joints ne sont PAS des réglages du
          moteur : ils sont cuits dans la famille de texture. Il n'y a donc
@@ -938,7 +983,12 @@
     [0, 'Dans la longueur', '<path d="M3 5h28M3 10h28M3 15h28" />'],
     [90, 'Dans la largeur', '<path d="M7 3v14M17 3v14M27 3v14" />'],
     [45, 'En diagonale', '<path d="M3 17L17 3M11 17L25 3M19 17L31 5" />'],
+    [315, 'Diagonale inverse', '<path d="M3 3L17 17M11 3L25 17M19 3L31 15" />'],
   ];
+  /* Les quatre raccourcis, dans l'ordre du cadran. Ce sont des raccourcis, pas
+     les seules valeurs possibles : le moteur accepte tout angle (mesure au
+     10 septembre 2026, onze angles, onze rendus distincts). */
+  const ORIENT_PRESETS = [315, 0, 45, 90];
   const FINISHES = { verni: 'Verni', huile: 'Huilé', brut: 'Brut' };
 
   /* =====================================================================
@@ -2429,10 +2479,13 @@
   function paintNav() {
     $('navRoomVal').textContent = room().label;
     $('navFloorVal').textContent = product().name;
+    /* Un angle libre n'a pas de nom : on ecrit le nombre. Inventer un libelle
+       approchant (« presque en diagonale ») serait pire que le chiffre. */
     const o = ORIENTATIONS.find(([d]) => d === state.orientationDeg);
+    const sens = o ? o[1].toLowerCase() : `${state.orientationDeg}°`;
     $('navCustomVal').textContent =
       `${PATTERNS[product().pattern]} · ${product().widthMm} mm`
-      + (adapter.getCapabilities().orientation && o ? ` · ${o[1].toLowerCase()}` : '');
+      + (adapter.getCapabilities().orientation ? ` · ${sens}` : '');
   }
 
   /* =====================================================================
@@ -2646,14 +2699,19 @@
     const caps = adapter.getCapabilities();
     $('sectOrient').classList.toggle('hidden', !caps.orientation);
     if (caps.orientation) {
-      $('orient').innerHTML = ORIENTATIONS
-        .map(([deg, label, icon]) => `<button class="or" type="button" data-deg="${deg}"
-          aria-pressed="${deg === state.orientationDeg}">
-          <svg width="32" height="18" viewBox="0 0 34 20" fill="none" stroke="currentColor"
-               stroke-width="1.6" stroke-linecap="round" style="color:var(--ink-3)">${icon}</svg>
-          <span>${label}</span></button>`).join('');
-      $('orientNote').textContent = 'Le sens de pose est un réglage du rendu, pas une '
-        + 'autre référence : le moteur tourne le motif dans le plan du sol.';
+      $('orient').innerHTML = ORIENT_PRESETS
+        .map((deg) => {
+          const [, label, icon] = ORIENTATIONS.find(([d]) => d === deg);
+          return `<button class="or" type="button" data-deg="${deg}"
+            aria-pressed="${deg === state.orientationDeg}">
+            <svg width="32" height="18" viewBox="0 0 34 20" fill="none" stroke="currentColor"
+                 stroke-width="1.6" stroke-linecap="round" style="color:var(--ink-3)">${icon}</svg>
+            <span>${label}</span></button>`;
+        }).join('');
+      paintDial(state.orientationDeg);
+      $('orientNote').textContent = 'Le sens de pose tourne le motif dans le plan du '
+        + 'sol : la photo ne bouge pas, la perspective ne bouge pas, et une lame de '
+        + `${entry.widthMm} mm mesure toujours ${entry.widthMm} mm.`;
     }
 
     /* Et ce qui n'est pas reglable est dit, sans bouton pour faire semblant. */
@@ -2662,6 +2720,126 @@
       + 'ils appartiennent à la famille de texture. Il n\'y a donc pas de curseur '
       + 'ici — un réglage sans effet vaut moins que son absence.';
   }
+
+  /* =====================================================================
+     Le cadran de sens de pose
+
+     Trois décisions, et chacune vient d'une mesure.
+
+     **Angle libre, 0 à 359.** Le moteur n'énumère pas les angles : il pose
+     `cos(θ)` et `sin(θ)` sur les coordonnées de texture, dans le plan du sol,
+     après l'homographie. Onze angles mesurés au canevas donnent onze rendus
+     distincts, 45 et 46 degrés compris. Les quatre raccourcis restent, parce
+     qu'on veut « dans la longueur » en un clic — mais ils ne bornent rien.
+
+     **Le retour pendant le geste est le cadran, pas le sol.** Un rendu plein
+     cadre coûte 1,4 à 2,9 secondes ; le demander à chaque pixel de
+     déplacement construirait des dizaines de tuiles pour n'en montrer
+     aucune. Le cadran, lui, suit le doigt à la fraction de milliseconde. Le
+     sol se refait UNE fois, au relâchement.
+
+     Une prévisualisation allégée serait possible en théorie — `paint()` a un
+     paramètre `step` qui rend en demi-résolution — mais `window.__studio` ne
+     l'expose pas. Tant que le moteur est derrière le pont, ce chemin n'existe
+     pas, et prétendre le contraire serait inventer une capacité.
+
+     **Le dernier angle gagne.** `state.intent` et la file de l'adaptateur
+     s'en chargent déjà : une demande qui arrive pendant un rendu est retenue,
+     rejouée une fois, et un rendu périmé est jeté à l'arrivée parce que sa
+     clef n'est plus la bonne.
+     ===================================================================== */
+
+  /* ## Le sens de pose survit au changement de produit — et c est voulu
+     Mesure du 10 septembre 2026 : passer de « lames 190 » a « point de
+     Hongrie 92 » a 123 degres garde 123 degres. C est la bonne politique :
+     l orientation decrit LA PIECE — le sens de la lumiere, la longueur du
+     mur — pas la reference. La remettre a zero a chaque produit obligerait
+     a la regler cinq fois pour comparer cinq parquets.
+     Ce qu on n a pas fait, faute de raison de le faire : proposer une
+     orientation par defaut propre a un motif. Un point de Hongrie n a pas
+     de sens de pose « naturel » different d une lame. */
+
+  /** Ramène un angle dans [0, 360) — le moteur accepte -45, l'état non. */
+  const normDeg = (deg) => ((Math.round(deg) % 360) + 360) % 360;
+
+  /** Le cadran affiche `deg` : lames tournées, aiguille tournée, valeur écrite. */
+  function paintDial(deg) {
+    const d = normDeg(deg);
+    $('dialLames').setAttribute('transform', `rotate(${d} 50 50)`);
+    $('dialKnob').setAttribute('transform', `rotate(${d} 50 50)`);
+    $('dialVal').textContent = `${d}°`;
+    const dial = $('dial');
+    dial.setAttribute('aria-valuenow', String(d));
+    dial.setAttribute('aria-valuetext', `${d} degrés`);
+    [...$('orient').querySelectorAll('[data-deg]')].forEach((b) => {
+      b.setAttribute('aria-pressed', String(Number(b.dataset.deg) === d));
+    });
+  }
+
+  /**
+   * Applique un sens de pose.
+   *
+   * `apercu` : on ne touche qu'au cadran, sans demander de rendu. C'est le
+   * mode du geste en cours.
+   */
+  function setOrientation(deg, apercu) {
+    const d = normDeg(deg);
+    paintDial(d);
+    if (apercu || d === state.orientationDeg) return;
+    state.intent += 1;
+    state.orientationDeg = d;
+    /* Le sol doit vraiment tourner : on invalide ce qui est dessiné. */
+    state.applied = { key: null, source: null };
+    state.appliedB = { key: null, source: null };
+    paint();
+    paintNav();
+  }
+
+  /* Angle du pointeur autour du centre du cadran. 0 en haut, sens horaire —
+     comme l'aiguille, et comme les lames qu'on regarde tourner. */
+  function angleDepuisPointeur(event) {
+    const r = $('dial').getBoundingClientRect();
+    const dx = event.clientX - (r.left + r.width / 2);
+    const dy = event.clientY - (r.top + r.height / 2);
+    return normDeg((Math.atan2(dx, -dy) * 180) / Math.PI);
+  }
+
+  (() => {
+    const dial = $('dial');
+    let enCours = false;
+    let dernier = 0;
+
+    dial.addEventListener('pointerdown', (e) => {
+      enCours = true;
+      try { dial.setPointerCapture(e.pointerId); } catch { /* souris sans capture */ }
+      dernier = angleDepuisPointeur(e);
+      setOrientation(dernier, true);
+      e.preventDefault();
+    });
+    dial.addEventListener('pointermove', (e) => {
+      if (!enCours) return;
+      dernier = angleDepuisPointeur(e);
+      setOrientation(dernier, true);
+    });
+    const relacher = () => {
+      if (!enCours) return;
+      enCours = false;
+      /* UN rendu, au relâchement, pour le dernier angle voulu. */
+      setOrientation(dernier, false);
+    };
+    dial.addEventListener('pointerup', relacher);
+    dial.addEventListener('pointercancel', relacher);
+
+    /* Au clavier : les flèches par 1 degré, avec Maj par 15. Un cadran qu'on
+       ne peut pas régler sans souris n'est pas un contrôle, c'est un dessin. */
+    dial.addEventListener('keydown', (e) => {
+      const pas = e.shiftKey ? 15 : 1;
+      const sens = { ArrowRight: 1, ArrowUp: 1, ArrowLeft: -1, ArrowDown: -1 }[e.key];
+      if (sens === undefined) return;
+      e.preventDefault();
+      setOrientation(state.orientationDeg + sens * pas, false);
+    });
+  })();
 
   /* =====================================================================
      Sélection — le clic EST l'action, aucun bouton « Appliquer »
@@ -2846,13 +3024,9 @@
     if (!b) return;
     const deg = Number(b.dataset.deg);
     if (deg === state.orientationDeg) return;
-    state.intent += 1;
-    state.orientationDeg = deg;
-    /* Le sol doit vraiment tourner : on invalide ce qui est dessine. */
-    state.applied = { key: null, source: null };
-    state.appliedB = { key: null, source: null };
-    paint(); paintCustom();
-    toast(`${ORIENTATIONS.find(([d]) => d === deg)[1]}`);
+    setOrientation(deg, false);
+    const preset = ORIENTATIONS.find(([d]) => d === deg);
+    toast(preset ? preset[1] : `${deg}°`);
   };
 
   $('baBtn').onclick = () => {
@@ -2972,7 +3146,8 @@
     findMatchingProduct, findVariant: findMatchingProduct, presentPatterns, presentTones, presentWidths, startCompare,
     adapter, paintLayer, applyFloor, applyCompareB, appliedKey, paintChrome,
     getRenderStateKey: (profile, deg) => adapter.getRenderStateKey(profile, deg),
-    ORIENTATIONS, ENGINE_URL, CAPABILITIES_NONE,
+    ORIENTATIONS, ORIENT_PRESETS, normDeg, paintDial, setOrientation,
+    ENGINE_URL, CAPABILITIES_NONE,
     ZOOM_MIN, ZOOM_MAX, sceneSize, fitScale, containScale, zContain, zoomFloor, fitAll,
     cssScale, clamp, applyTransform,
     setVp, fitToView, zoomAt, setImmersive, onWheel, onDown, onMove, onUp, onDouble,

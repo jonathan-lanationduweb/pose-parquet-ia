@@ -151,7 +151,7 @@ Comparaison à mener, aucune option n'étant écartée d'avance :
 
 | | |
 | --- | --- |
-| objectif | une navigation à la Street View, sans en copier l'interface |
+| objectif | une **navigation spatiale libre** — se déplacer, pas enchaîner des images. La transition entre points de vue reste une étape intermédiaire acceptable, jamais la cible ([ROOM-TOUR-ARCHITECTURE.md](ROOM-TOUR-ARCHITECTURE.md)) |
 | entrées | corpus multi-vues du LOT H, contrat de visite déjà écrit côté front |
 | sorties | indicateurs de déplacement discrets, transition de 250 à 450 ms, conservation du produit d'une vue à l'autre, préchargement des vues voisines |
 | dépendances | LOT H obligatoire — **rien ne commence sans photos réelles** |
@@ -161,7 +161,10 @@ Comparaison à mener, aucune option n'étant écartée d'avance :
 
 Décisions déjà prises et documentées : le parquet et l'orientation survivent au
 déplacement, avant/après suit le point de vue, la comparaison A/B se ferme quand
-on se déplace.
+on se déplace. Et, depuis le 10 septembre 2026 : le sol doit rester une
+**surface explicite redessinée par notre moteur**, jamais une apparence cuite
+dans la reconstruction — une reconstruction magnifique au sol figé est un échec
+produit.
 
 ### LOT J — Matière produit exacte
 

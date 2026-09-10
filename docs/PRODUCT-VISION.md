@@ -147,12 +147,24 @@ importée est la pièce, sans écran intermédiaire.
 série de photos guidée, panoramas 360, ou capteur de profondeur quand il
 existe.
 
-**Objectif** : regarder autour de soi et se déplacer dans la pièce, en gardant
-le parquet choisi.
+**Objectif** : **navigation spatiale libre** — regarder à gauche, à droite,
+derrière, avancer, reculer, se déplacer dans la pièce, en gardant le parquet
+choisi. Décision du 10 septembre 2026 : un enchaînement
+`point de vue A → fondu → point de vue B` est une **étape intermédiaire
+acceptable, pas la cible**. Le critère de recette reste le verdict humain
+« je me suis déplacé », et un fondu bien fait y échoue.
+
+L'architecture est écrite dans
+[ROOM-TOUR-ARCHITECTURE.md](ROOM-TOUR-ARCHITECTURE.md) : pipeline, trois
+familles de reconstruction, contrainte du sol éditable, architecture hybride,
+zone navigable, et protocole de capture d'une pièce pilote. Rien n'est
+implémenté, et `MULTI_VIEW_DATA = 0`.
 
 **Ce mode n'est pas un pan/zoom.** Déplacer une image plate dans son cadre
 n'est pas une visite, et l'appeler ainsi serait le même mensonge qu'un faux
-masque de sol.
+masque de sol. Les capacités le disent : sur une photo unique,
+`PAN_ZOOM = true` et `FREE_NAVIGATION = false` — ce n'est pas une limitation
+temporaire, une image plate ne contient pas ce qu'il y a derrière le canapé.
 
 **Parcours attendu** : Scanner ma pièce → capture guidée → traitement annoncé
 comme long → ouverture de la visite. Puis : glisser pour regarder, zoomer,
