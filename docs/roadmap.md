@@ -1,4 +1,12 @@
-# Feuille de route
+# Feuille de route — LOT IA 0 → 8
+
+> **REMPLACÉE par [ROADMAP-V2.md](ROADMAP-V2.md)** (LOT A, 10 septembre 2026).
+> Ce document reste consultable comme **historique** : il dit ce qui a été
+> livré aux LOT IA 0 et 1, et ce qui était prévu ensuite. La correspondance
+> entre les deux numérotations est en §2 de la nouvelle feuille de route.
+>
+> Les deux principes transverses ci-dessous, en revanche, restent en vigueur et
+> sont repris tels quels par la V2.
 
 Un principe traverse tous les lots : **le service doit savoir dire « je ne
 suis pas suffisamment sûr » plutôt que produire une mauvaise géométrie.** La

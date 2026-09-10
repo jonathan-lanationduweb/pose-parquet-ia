@@ -327,6 +327,23 @@ le corpus sera assez grand pour la mesurer. C'est le rôle du LOT 1.
 
 ## Documentation
 
+**Quel document fait foi : [docs/INDEX.md](docs/INDEX.md).** L'index donne le
+statut de chaque document — cible, état courant, décision, historique,
+remplacé — et tranche en cas de désaccord.
+
+Le cahier des charges V2, issu du LOT A :
+
+| document | contenu |
+| --- | --- |
+| [docs/PRODUCT-VISION.md](docs/PRODUCT-VISION.md) | la cible produit, les deux modes, les trois niveaux d'immersion |
+| [docs/AI-ARCHITECTURE-V2.md](docs/AI-ARCHITECTURE-V2.md) | comprendre une pièce : pipeline, contrats, `SceneData`, API, vie privée |
+| [docs/DATASET-STRATEGY-V2.md](docs/DATASET-STRATEGY-V2.md) | le corpus à constituer, la vérité terrain, le multi-vues |
+| [docs/BENCHMARK-STRATEGY-V2.md](docs/BENCHMARK-STRATEGY-V2.md) | métriques conservées, métriques produit, jeu visuel de référence |
+| [docs/ROADMAP-V2.md](docs/ROADMAP-V2.md) | LOT A → J, portes de décision, risques |
+| [docs/AUDIT-V2.md](docs/AUDIT-V2.md) | l'existant, classé KEEP / KEEP+EXTEND / REWORK / LEGACY / DROP |
+
+Les documents de référence, toujours en vigueur :
+
 | document                                             | contenu                                              |
 | ---------------------------------------------------- | ---------------------------------------------------- |
 | [docs/architecture.md](docs/architecture.md)         | pipeline, contrats, journalisation, dépendances       |
@@ -336,7 +353,8 @@ le corpus sera assez grand pour la mesurer. C'est le rôle du LOT 1.
 | [docs/scene-data.md](docs/scene-data.md)             | SceneData **actuel** et SceneData **futur**          |
 | [docs/dataset.md](docs/dataset.md)                   | quoi mettre dans le corpus, et pourquoi              |
 | [docs/lens-distortion.md](docs/lens-distortion.md)   | ce qu'on mesure, ce qu'on ne corrige pas             |
-| [docs/roadmap.md](docs/roadmap.md)                   | LOT IA 0 → 8                                         |
+| [docs/product-ai-contract.md](docs/product-ai-contract.md) | qui produit quoi, entre l'interface et ce service |
+| [docs/roadmap.md](docs/roadmap.md)                   | LOT IA 0 → 8 — **remplacée**, gardée comme historique |
 | [benchmarks/README.md](benchmarks/README.md)         | lancer et lire un rapport                            |
 | [datasets/README.md](datasets/README.md)             | ajouter une photo, vérité terrain                    |
 
