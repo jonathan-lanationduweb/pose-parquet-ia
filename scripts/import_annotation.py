@@ -101,6 +101,42 @@ def rasterize(
     return canvas.astype(bool)
 
 
+def render_overlay(
+    image_rgb: np.ndarray,
+    floor: np.ndarray,
+    uncertain: np.ndarray | None,
+    out_path: Path,
+) -> None:
+    """Écrit l'aperçu de contrôle : la photo, et le relevé posé par-dessus.
+
+    C'est le seul moyen de voir ce qu'on a réellement tracé. Les quatre fautes
+    que cet aperçu attrape, et qu'un JSON ne montre pas : un morceau de mur
+    happé, une bande de sol oubliée le long d'une plinthe, un tapis resté
+    dedans, un pied de chaise effacé.
+
+    La photo n'est jamais modifiée : l'aperçu est une image de plus, écrite là
+    où on la demande, et elle n'entre ni au manifeste ni à Git.
+    """
+    apercu = image_rgb.astype(np.float32).copy()
+    # Vert sur le sol relevé, ambre sur l'incertain : deux teintes qui ne se
+    # confondent avec aucun sol réel, donc lisibles sur n'importe quelle photo.
+    vert = np.array([40, 190, 90], dtype=np.float32)
+    sol = floor.astype(bool)
+    apercu[sol] = apercu[sol] * 0.55 + vert * 0.45
+    if uncertain is not None:
+        zone = uncertain.astype(bool)
+        ambre = np.array([245, 175, 40], dtype=np.float32)
+        apercu[zone] = apercu[zone] * 0.55 + ambre * 0.45
+
+    # Le contour du relevé, en trait plein : c'est lui qu'on vient juger.
+    contours, _ = cv2.findContours(floor.astype(np.uint8), cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
+    cv2.drawContours(apercu, contours, -1, (255, 255, 255), 2)
+
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    rendu = apercu.clip(0, 255).astype(np.uint8)
+    cv2.imwrite(str(out_path), cv2.cvtColor(rendu, cv2.COLOR_RGB2BGR))
+
+
 def _load_draw(path: Path) -> dict[str, Any]:
     data: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
     if data.get("schema") != DRAW_SCHEMA:
@@ -126,6 +162,7 @@ def build(
     pass_label: str | None = None,
     independent: bool = False,
     timing: AnnotationTiming | None = None,
+    overlay: Path | None = None,
 ) -> Path:
     """Écrit les masques et l'annotation. Renvoie le chemin de l'annotation.
 
@@ -190,6 +227,12 @@ def build(
         uncertain = rasterize([zone["polygon"] for zone in zones], [], width, height)
         uncertain_name = f"{photo_id}{suffix}.uncertain.png"
         save_mask(uncertain, masks_dir / uncertain_name)
+
+    if overlay is not None:
+        zone = None
+        if zones:
+            zone = rasterize([z["polygon"] for z in zones], [], width, height)
+        render_overlay(loaded.rgb, floor, zone, overlay)
 
     annotation = FloorAnnotation(
         photo_id=photo_id,
@@ -290,6 +333,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--corrections-seconds", type=float, default=0.0)
     parser.add_argument("--review-seconds", type=float, default=0.0)
     parser.add_argument("--corrections", type=int, help="nombre de reprises, s'il se compte")
+    parser.add_argument(
+        "--overlay",
+        type=Path,
+        help=(
+            "écrit un aperçu de contrôle — la photo avec le relevé par-dessus. "
+            "À regarder avant d'approuver. N'entre ni au manifeste, ni à Git."
+        ),
+    )
     args = parser.parse_args(argv)
 
     # `--seconds` l'emporte ; sinon `build` reprendra ce que l'outil a
@@ -317,12 +368,15 @@ def main(argv: list[str] | None = None) -> int:
             pass_label=args.pass_label,
             independent=args.independent,
             timing=timing,
+            overlay=args.overlay,
         )
     except (ImportError_, FileNotFoundError, ValueError) as failure:
         print(f"Erreur : {failure}", file=sys.stderr)
         return 2
 
     print(f"Annotation écrite : {path}")
+    if args.overlay:
+        print(f"Aperçu de contrôle : {args.overlay} — regardez-le avant d'approuver")
     print("Contrôlez-la : python -m scripts.validate_dataset")
     return 0
 

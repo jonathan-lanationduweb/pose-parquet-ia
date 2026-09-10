@@ -8,6 +8,32 @@
 > Ce qui existe aujourd'hui est chiffré en §1 et audité dans
 > [AUDIT-V2.md](AUDIT-V2.md).
 
+## 0. Inventaire vérifié — LOT B, 10 septembre 2026
+
+Onze photos réelles, **regardées une par une** pour cette révision. Les traits
+du manifeste ont été corrigés là où l'image contredisait la fiche.
+
+| photo | difficulté | pièce | ce qu'elle apporte de particulier |
+| --- | --- | --- | --- |
+| `petite-piece` | hard | petit bureau | **huit pieds fins** (bureau chêne + chaise métal), bureau **chêne sur parquet chêne**, rideau au sol, contre-jour, angle masqué |
+| `appartement-ancien` | hard | couloir en enfilade | perspective forte, console et portant à pieds fins, boiseries sur parquet, plusieurs pièces visibles |
+| `couloir` | hard | couloir | bois clair sur bois clair **sans plinthe** : où finit le mur ? |
+| `salon` | hard | séjour vide | sol foncé très réfléchissant, porte bois foncé, lambris blanc |
+| `piece-arcades` | hard | grande pièce | arcades maçonnées, faible contraste mur/sol |
+| `piece-claire` | medium | chambre/séjour | meuble bas sur **quatre pieds métalliques fins**, porte-fenêtre de balcon avec seuil, tache de soleil au sol |
+| `chambre` | medium | grande chambre | terrasse vue par la porte-fenêtre, grille encastrée, contre-jour |
+| `sejour` | easy | séjour + salle à manger | **deux pièces en enfilade sur un seul parquet**, reflets francs |
+| `bureau-vide` | easy | bureau vide | seconde pièce visible avec un **sol différent**, seuil net |
+| `entree-cadree` | easy | entrée | sol coupé par le cadre, carrelage et bois, porte bois |
+| `contraste` | **rejected** | — | ombre portée franche sur sol foncé, mais ce n'est pas une pièce |
+
+Corrections apportées au manifeste, sur constat visuel :
+
+| photo | ce qui manquait |
+| --- | --- |
+| `piece-claire` | pieds fins et surface extérieure visibles, non déclarés |
+| toutes | les sept traits ajoutés au vocabulaire (§2.6) là où ils s'appliquent |
+
 ## 1. Ce qui existe, chiffré
 
 | grandeur | valeur réelle |
@@ -23,6 +49,8 @@
 | paires d'accord humain mesurables | **0** |
 | entrées du corpus synthétique | 44, dont 38 notées |
 | candidats de segmentation enregistrés | 3, tous triviaux |
+| scènes du jeu visuel de référence | **5** (4 difficiles, 1 facile) |
+| cas du jeu de référence non couverts | **2** : tapis, meuble massif |
 
 Lecture honnête de ce tableau : **l'instrumentation est complète et testée, la
 donnée humaine est intégralement absente.** Ce n'est pas un retard de code.
@@ -68,6 +96,64 @@ marquées · sol réfléchissant.
 
 pièce rectangulaire simple · pièce avec ouverture sur une autre · pièce en L ·
 couloir · plusieurs pièces visibles · perspective forte (grand angle proche).
+
+### 2.6 Couverture réelle, cas par cas
+
+Constatée sur les onze photos, sans indulgence.
+
+| cas à couvrir | couvert ? | par quoi |
+| --- | --- | --- |
+| séjour **meublé** | **NON** | `sejour` et `salon` sont vides |
+| chambre | partiellement | `chambre` est vide, `piece-claire` est meublée à peine |
+| bureau | oui | `petite-piece` meublé, `bureau-vide` vide |
+| entrée, couloir | oui | `entree-cadree`, `couloir`, `appartement-ancien` |
+| petite pièce | oui | `petite-piece` |
+| grande pièce | oui | `chambre`, `piece-arcades`, `salon`, `sejour` |
+| **table et chaises** | **NON** | un seul bureau avec une seule chaise |
+| plusieurs pieds fins | oui | `petite-piece` (8), `piece-claire` (4), `appartement-ancien` |
+| **canapé, meuble massif** | **NON** | aucun canapé, aucun lit, aucun buffet |
+| **tapis** | **NON** | zéro sur onze |
+| ouverture vers une autre pièce | oui | `bureau-vide`, `sejour`, `appartement-ancien`, `couloir` |
+| seuil | oui | `bureau-vide`, `entree-cadree`, `piece-claire` |
+| lumière latérale forte, contre-jour | oui | `petite-piece`, `chambre`, `sejour` |
+| ombres portées franches | **faiblement** | la meilleure photo (`contraste`) est refusée, donc ne compte pas |
+| reflets | oui | `salon`, `sejour`, `petite-piece` |
+| sol déjà en bois | oui | dix sur onze |
+| bois sur bois, risque de confusion | oui | `petite-piece`, `couloir`, `salon`, `appartement-ancien` |
+| perspective forte | oui | `appartement-ancien` |
+
+**Quatre manques, dont trois n'en font qu'un** : il n'existe aucune pièce
+réellement habitée. Un séjour meublé avec canapé, table, chaises et tapis
+couvrirait d'un coup « séjour meublé », « table et chaises », « meuble massif »
+et « tapis ».
+
+### 2.7 Sept traits ajoutés au vocabulaire
+
+Le vocabulaire fermé comptait vingt-quatre valeurs et ne savait pas nommer ce
+qui décide du rendu. Sept ajouts, chacun parce qu'une mesure future devra
+sélectionner ces scènes d'un seul trait :
+
+`thin_occluders` · `massive_furniture` · `second_room_visible` · `threshold` ·
+`wood_confusion` · `backlight` · `strong_shadow`
+
+`rug` existait déjà et reste le nom du revêtement de sol à préserver — tapis,
+carpette, paillasson. Aucun trait n'a été renommé ni retiré.
+
+### 2.8 Acquisition : une proposition, pas une décision
+
+Les quatre manques exigent des photos qui n'existent pas dans le dépôt. Aucune
+acquisition n'a été faite : pas de moissonnage, pas d'appel d'API, aucune image
+prise ailleurs. Ce qu'il faudrait, pour décision humaine :
+
+| piste | licence | redistribution | risque |
+| --- | --- | --- | --- |
+| photographier des pièces réellement habitées, chez nous ou chez des proches consentants | la nôtre | totale si consentement écrit | organiser les prises de vue ; **c'est la piste la plus propre** |
+| banque d'images sous licence permissive, sélection manuelle scène par scène | à lire pièce par pièce | rarement acquise | la licence d'une banque autorise l'usage, pas toujours la redistribution du corpus |
+| jeux de données académiques de scènes intérieures | souvent recherche uniquement | **non** pour un usage commercial | disqualifiant pour un produit vendu |
+| photos d'utilisateurs | — | — | **exclu** : voir §7, aucune ingestion automatique, jamais |
+
+Recommandation : la première piste. Six à huit photos suffiraient à couvrir les
+quatre manques, et leur licence serait la nôtre.
 
 ## 3. Trois paliers, avec leur justification
 
@@ -222,7 +308,92 @@ réglage fin est envisagé, le découpage devra être fait **par lieu** et non p
 photo — deux vues d'une même pièce dans deux jeux différents fuiteraient
 l'information.
 
-## 8. Ce que ce document n'autorise pas
+### 7.1 Le split réel, et sa règle
+
+Un train/validation/test sur onze photos serait statistiquement trompeur : on
+ne mesure aucune généralisation sur un échantillon de cette taille. La
+séparation utile est ailleurs, et elle est portée par le manifeste
+(`split`) :
+
+| split | photos | ce qu'on s'autorise |
+| --- | --- | --- |
+| `pilot_development` | 6 | tout : regarder, commenter, régler des seuils dessus |
+| `golden_holdout` | 5 | **aucun réglage.** Revue visuelle humaine uniquement |
+
+**La règle, en une phrase :** on annote les scènes du jeu de référence comme
+les autres, on mesure dessus comme sur les autres, mais **on n'ajuste jamais un
+seuil, un paramètre ou un choix de modèle en regardant leurs résultats.** Elles
+ne servent qu'à répondre à « est-ce que ça s'est dégradé ? ».
+
+Deux scènes du jeu de référence (`couloir`, `petite-piece`) appartiennent aussi
+à la campagne d'annotation pilote. Ce n'est pas une contradiction : mesurer
+l'accord d'une personne avec elle-même n'est pas régler un algorithme.
+
+### 7.2 Le jeu visuel de référence
+
+Cinq scènes, chacune déclarant **le cas qu'elle est la mieux placée pour
+exposer** (`goldenCase`). Sans cette déclaration, un jeu de référence dérive en
+collection de jolies photos et personne ne sait plus ce qu'il couvre.
+
+| cas | scène | difficulté |
+| --- | --- | --- |
+| `wall_floor_hard` | `couloir` | hard |
+| `thin_occluders` | `petite-piece` | hard |
+| `strong_perspective` | `appartement-ancien` | hard |
+| `wood_on_wood` | `salon` | hard |
+| `opening` | `bureau-vide` | easy |
+| `rug` | **NON COUVERT** | — |
+| `massive_furniture` | **NON COUVERT** | — |
+
+Quatre scènes difficiles sur cinq : un jeu de référence majoritairement facile
+donnerait de beaux chiffres et aucune information. `validate_dataset.py` publie
+cette table à chaque contrôle, y compris les cas manquants, et un test verrouille
+le fait qu'il en reste deux — il tombera le jour où les photos existeront, ce
+qui est exactement le but.
+
+Le jeu de référence contient aujourd'hui, pour chaque scène, la photo et ses
+métadonnées. La vérité terrain viendra avec les annotations ; les sorties de
+modèle, plus tard.
+
+## 8. Ce que ces annotations permettront de mesurer, et ce qu'elles ne permettront pas
+
+Contrôle fait maintenant, parce que découvrir après cinq cents relevés qu'une
+métrique est incalculable coûterait le corpus entier.
+
+| métrique | calculable avec la passe A ? | ce qu'il faut, sinon |
+| --- | --- | --- |
+| IoU, Dice, précision, rappel | **oui** | — |
+| F-mesure de contour, aux trois tolérances | **oui** | — |
+| accord humain, répétabilité | **oui**, dès deux passes | — |
+| `visible floor miss rate` | **oui** | — |
+| `critical boundary error` | **oui** | les polylignes `wall_floor` localisent déjà la jonction |
+| `wall bleed rate` | **approchée** | exacte demanderait un masque de mur ; la dilatation au-dessus des polylignes `wall_floor` en donne une bonne approximation, à valider |
+| `occluder bleed`, toutes catégories confondues | **oui** | les exclusions tracées forment l'union des occulteurs |
+| `rug bleed` | **NON** | il faut distinguer un tapis d'un meuble : c'est le **rôle** de l'exclusion, que l'outil ne demande pas encore. Et le corpus n'a aucun tapis |
+| `thin-object preservation` | **dérivable** | une exclusion dont l'érosion disparaît est fine : mesurable géométriquement, à valider sur de vraies exclusions |
+| `opening continuity error` | **partiellement** | les seuils sont tracés comme contours ; dire « même surface ou non » demande un champ que le protocole ne collecte pas encore |
+| erreurs de profondeur, de caméra | **non**, et c'est assumé | aucune vérité terrain dense n'est demandée à un humain ; ces métriques passent par leurs effets sur le rendu |
+
+Deux conclusions concrètes. **Le rôle des exclusions est le seul manque qui
+coûte deux métriques** — `rug bleed` et la ventilation d'`occluder bleed`. Il
+sera collecté au LOT D, quand l'outil aura un sélecteur de rôle, et le corpus
+n'aura de tapis à annoter qu'après acquisition. **Rien d'autre ne manque** : la
+passe A telle que le protocole la définit produit tout le reste.
+
+## 9. Le contrôle visuel d'un relevé
+
+Un relevé qu'on ne peut pas regarder est un relevé qu'on approuve sans le voir.
+`scripts/import_annotation.py --overlay <fichier>` écrit la photo avec le relevé
+posé dessus : le sol en vert, l'incertain en ambre, le contour en trait blanc.
+
+Les quatre fautes que cet aperçu attrape et qu'un JSON ne montre pas : un
+morceau de mur happé, une bande de sol oubliée le long d'une plinthe, un tapis
+resté dedans, un pied de chaise effacé.
+
+L'aperçu n'entre ni au manifeste, ni à Git : c'est une image de travail, écrite
+là où on la demande, et la photo d'origine n'est jamais modifiée.
+
+## 10. Ce que ce document n'autorise pas
 
 - annoter `floorExtent` à la main ;
 - compléter le corpus avec des photos dont la licence est supposée ;

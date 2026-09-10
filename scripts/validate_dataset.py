@@ -34,7 +34,7 @@ import sys
 from pathlib import Path
 
 from benchmarks.annotations import corpus_report, load_corpus
-from benchmarks.dataset import load_manifest, sha256_of
+from benchmarks.dataset import golden_coverage, load_manifest, sha256_of
 
 
 def _check_manifest_files(root: Path) -> list[str]:
@@ -91,13 +91,15 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Erreur : {failure}", file=sys.stderr)
         return 1
 
+    manifest = load_manifest(args.dataset)
     report = corpus_report(scenes)
     report["manifestProblems"] = manifest_problems
+    report["goldenCoverage"] = golden_coverage(manifest)
 
     if args.json:
         print(json.dumps(report, indent=2, ensure_ascii=False))
     else:
-        photos = len(load_manifest(args.dataset).photos)
+        photos = len(manifest.photos)
         print(f"Manifeste : {photos} photo(s), {len(manifest_problems)} problème(s)")
         for problem in manifest_problems:
             print(f"  ERREUR  {problem}")
@@ -109,6 +111,17 @@ def main(argv: list[str] | None = None) -> int:
         for issue in report["issues"]:
             level = "ERREUR " if issue["level"] == "error" else "avertis."
             print(f"  {level} [{issue['code']}] {issue['message']}")
+
+        golden = report["goldenCoverage"]
+        print(f"Jeu visuel de référence : {golden['scenes']} scène(s)")
+        for case, ids in golden["byCase"].items():
+            marque = " ".join(ids) if ids else "— NON COUVERT"
+            print(f"  {case:<20} {marque}")
+        if golden["scenes"] and not golden["majorityIsHard"]:
+            print(
+                "  avertis. la majorité du jeu de référence est facile : "
+                "il ne prouvera pas grand-chose"
+            )
         if not photos:
             print(
                 "\nLe corpus réel est vide. Le format, les contrôles et le banc d'essai "

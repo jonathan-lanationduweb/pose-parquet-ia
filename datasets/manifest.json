@@ -1,6 +1,6 @@
 {
   "schema": "pose-parquet-ai/dataset@2",
-  "note": "Corpus de photos réelles. Onze scènes pilotes au LOT IA 2A, toutes dans private-real/ et donc hors de Git : le dépôt n'en garde que la description. Cible à terme : 20 à 30 scènes couvrant les traits de SceneTrait. Les photos Pexels du front NE constituent pas un corpus redistribué ici ; elles servent de stress-tests privés locaux, une entrée à la fois, avec provenance et licence documentées, sans API Pexels ni collecte automatisée. Le projet ne conclut pas sur leur réutilisabilité dans un dataset IA public ou redistribué. Ajouter une photo : python -m scripts.add_photo. Voir datasets/README.md et docs/annotation-protocol.md.",
+  "note": "Corpus pilote reel. LOT B : traits verifies image par image, split declare, jeu visuel de reference constitue. Aucune annotation humaine n'existe encore (0 sur 8 releves attendus) : voir docs/pilot-runbook.md. Deux cas du jeu de reference restent NON COUVERTS faute de photo — tapis et meuble massif ; l'acquisition demande une decision humaine, voir docs/DATASET-STRATEGY-V2.md.",
   "photos": [
     {
       "id": "appartement-ancien",
@@ -23,14 +23,19 @@
         "existing_parquet",
         "corridor",
         "doors",
-        "hard_perspective"
+        "hard_perspective",
+        "thin_occluders",
+        "second_room_visible",
+        "wood_confusion"
       ],
       "expectedIssues": [],
       "graded": true,
       "groundTruth": {
         "available": false
       },
-      "notes": "PIEDS FINS : une console cabriole et un porte-manteau à colonnettes, huit pieds à contourner. Couloir profond, sols visibles par plusieurs embrasures successives. Le front y avait laissé une bande du même sol hors de son masque."
+      "notes": "PIEDS FINS : une console cabriole et un porte-manteau à colonnettes, huit pieds à contourner. Couloir profond, sols visibles par plusieurs embrasures successives. Le front y avait laissé une bande du même sol hors de son masque.",
+      "split": "golden_holdout",
+      "goldenCase": "strong_perspective"
     },
     {
       "id": "bureau-vide",
@@ -51,14 +56,18 @@
         "empty_room",
         "existing_parquet",
         "doors",
-        "easy_perspective"
+        "easy_perspective",
+        "second_room_visible",
+        "threshold"
       ],
       "expectedIssues": [],
       "graded": true,
       "groundTruth": {
         "available": false
       },
-      "notes": "Référence facile : pièce vide, plinthes blanches franches, vue d'angle. Une embrasure en bas à gauche montre un sol plus sombre au-delà."
+      "notes": "Référence facile : pièce vide, plinthes blanches franches, vue d'angle. Une embrasure en bas à gauche montre un sol plus sombre au-delà.",
+      "split": "golden_holdout",
+      "goldenCase": "opening"
     },
     {
       "id": "chambre",
@@ -81,14 +90,16 @@
         "doors",
         "exterior_visible",
         "large_room",
-        "easy_perspective"
+        "easy_perspective",
+        "backlight"
       ],
       "expectedIssues": [],
       "graded": true,
       "groundTruth": {
         "available": false
       },
-      "notes": "LA QUESTION QUE LE PROTOCOLE NE TRANCHE PAS : une terrasse extérieure est visible par la porte-fenêtre. Est-elle « du sol » ? Porte aussi une grille de ventilation encastrée dans le parquet. Contraste mur/sol très élevé (murs bleu foncé), ce qui en fait un témoin utile."
+      "notes": "LA QUESTION QUE LE PROTOCOLE NE TRANCHE PAS : une terrasse extérieure est visible par la porte-fenêtre. Est-elle « du sol » ? Porte aussi une grille de ventilation encastrée dans le parquet. Contraste mur/sol très élevé (murs bleu foncé), ce qui en fait un témoin utile.",
+      "split": "pilot_development"
     },
     {
       "id": "contraste",
@@ -109,14 +120,16 @@
         "not_a_room",
         "empty_room",
         "dark_floor",
-        "existing_parquet"
+        "existing_parquet",
+        "strong_shadow"
       ],
       "expectedIssues": [],
       "graded": true,
       "groundTruth": {
         "available": false
       },
-      "notes": "Rangée en `rejected` parce que ce n'est pas une pièce : un mur, un rai de soleil, une lisière de sol. À noter : son sol est parfaitement annotable. `rejected` veut dire « on n'attend pas de SceneData exploitable », pas « le sol est indéchiffrable »."
+      "notes": "Rangée en `rejected` parce que ce n'est pas une pièce : un mur, un rai de soleil, une lisière de sol. À noter : son sol est parfaitement annotable. `rejected` veut dire « on n'attend pas de SceneData exploitable », pas « le sol est indéchiffrable ».",
+      "split": "pilot_development"
     },
     {
       "id": "couloir",
@@ -138,14 +151,18 @@
         "corridor",
         "existing_parquet",
         "low_wall_floor_contrast",
-        "doors"
+        "doors",
+        "wood_confusion",
+        "second_room_visible"
       ],
       "expectedIssues": [],
       "graded": true,
       "groundTruth": {
         "available": false
       },
-      "notes": "LE CAS DÉCISIF. Bois clair sur bois clair : à droite, le mur crème rejoint le sol sans plinthe ni marche de teinte. Le front a mesuré des résidus de 46 et 61 px en tentant d'y relever le pied de mur. C'est ici que le masque `uncertain` doit prouver son utilité."
+      "notes": "LE CAS DÉCISIF. Bois clair sur bois clair : à droite, le mur crème rejoint le sol sans plinthe ni marche de teinte. Le front a mesuré des résidus de 46 et 61 px en tentant d'y relever le pied de mur. C'est ici que le masque `uncertain` doit prouver son utilité.",
+      "split": "golden_holdout",
+      "goldenCase": "wall_floor_hard"
     },
     {
       "id": "entree-cadree",
@@ -168,14 +185,18 @@
         "tiles",
         "doors",
         "cropped",
-        "easy_perspective"
+        "easy_perspective",
+        "second_room_visible",
+        "threshold",
+        "wood_confusion"
       ],
       "expectedIssues": [],
       "graded": true,
       "groundTruth": {
         "available": false
       },
-      "notes": "SEUIL DE PORTE net : le parquet cède la place à un sol clair de couloir. Changement de sol, pas fin de sol. Cadrage serré, centre optique possiblement décentré — le LOT 1 a mesuré 43 % d'erreur de k1 sur ce cas de figure, en synthétique seulement."
+      "notes": "SEUIL DE PORTE net : le parquet cède la place à un sol clair de couloir. Changement de sol, pas fin de sol. Cadrage serré, centre optique possiblement décentré — le LOT 1 a mesuré 43 % d'erreur de k1 sur ce cas de figure, en synthétique seulement.",
+      "split": "pilot_development"
     },
     {
       "id": "petite-piece",
@@ -198,14 +219,19 @@
         "radiator",
         "existing_parquet",
         "small_room",
-        "hidden_corners"
+        "hidden_corners",
+        "thin_occluders",
+        "wood_confusion",
+        "backlight"
       ],
       "expectedIssues": [],
       "graded": true,
       "groundTruth": {
         "available": false
       },
-      "notes": "La plus laborieuse : bureau et chaise à pieds fuselés (huit pieds), rideau tombant jusqu'au sol dont on ne voit pas la fin, angle de murs masqué par le bureau, sol coupé par le bas du cadre. Front : « boundary-not-verifiable »."
+      "notes": "La plus laborieuse : bureau et chaise à pieds fuselés (huit pieds), rideau tombant jusqu'au sol dont on ne voit pas la fin, angle de murs masqué par le bureau, sol coupé par le bas du cadre. Front : « boundary-not-verifiable ».",
+      "split": "golden_holdout",
+      "goldenCase": "thin_occluders"
     },
     {
       "id": "piece-arcades",
@@ -228,14 +254,16 @@
         "curved_architecture",
         "large_room",
         "doors",
-        "low_wall_floor_contrast"
+        "low_wall_floor_contrast",
+        "second_room_visible"
       ],
       "expectedIssues": [],
       "graded": true,
       "groundTruth": {
         "available": false
       },
-      "notes": "COURBES ARCHITECTURALES RÉELLES : deux arcades maçonnées, dont une alcôve avec son propre sol visible. Le LOT 1 n'avait éprouvé ce cas qu'en synthétique. Embrasure sombre au fond où le sol n'est PAS visible — bonne occasion de ne pas l'inventer."
+      "notes": "COURBES ARCHITECTURALES RÉELLES : deux arcades maçonnées, dont une alcôve avec son propre sol visible. Le LOT 1 n'avait éprouvé ce cas qu'en synthétique. Embrasure sombre au fond où le sol n'est PAS visible — bonne occasion de ne pas l'inventer.",
+      "split": "pilot_development"
     },
     {
       "id": "piece-claire",
@@ -257,14 +285,20 @@
         "radiator",
         "doors",
         "existing_parquet",
-        "easy_perspective"
+        "easy_perspective",
+        "thin_furniture_legs",
+        "thin_occluders",
+        "exterior_visible",
+        "threshold",
+        "strong_shadow"
       ],
       "expectedIssues": [],
       "graded": true,
       "groundTruth": {
         "available": false
       },
-      "notes": "Meuble bas sur pieds courts et radiateur, tous deux avec du sol visible dessous. Tache de soleil dure au pied de la baie. Aucune plinthe : le mur gris rencontre directement le sol clair."
+      "notes": "Meuble bas sur pieds courts et radiateur, tous deux avec du sol visible dessous. Tache de soleil dure au pied de la baie. Aucune plinthe : le mur gris rencontre directement le sol clair.",
+      "split": "pilot_development"
     },
     {
       "id": "salon",
@@ -287,14 +321,18 @@
         "dark_floor",
         "reflective_floor",
         "doors",
-        "large_room"
+        "large_room",
+        "second_room_visible",
+        "wood_confusion"
       ],
       "expectedIssues": [],
       "graded": true,
       "groundTruth": {
         "available": false
       },
-      "notes": "Parquet foncé très réfléchissant : reflets de fenêtre assez francs pour qu'on soit tenté de les exclure. Quatre zones de sol par trois ouvertures. Une bouche de soufflage encastrée dans le sol."
+      "notes": "Parquet foncé très réfléchissant : reflets de fenêtre assez francs pour qu'on soit tenté de les exclure. Quatre zones de sol par trois ouvertures. Une bouche de soufflage encastrée dans le sol.",
+      "split": "golden_holdout",
+      "goldenCase": "wood_on_wood"
     },
     {
       "id": "sejour",
@@ -317,14 +355,16 @@
         "reflective_floor",
         "doors",
         "large_room",
-        "easy_perspective"
+        "easy_perspective",
+        "second_room_visible"
       ],
       "expectedIssues": [],
       "graded": true,
       "groundTruth": {
         "available": false
       },
-      "notes": "Deux pièces en enfilade sur UN SEUL parquet : l'ouverture n'est pas une frontière de sol, et un annotateur peut être tenté d'en tracer une. Reflets francs de fenêtre sur les lames."
+      "notes": "Deux pièces en enfilade sur UN SEUL parquet : l'ouverture n'est pas une frontière de sol, et un annotateur peut être tenté d'en tracer une. Reflets francs de fenêtre sur les lames.",
+      "split": "pilot_development"
     }
   ]
 }

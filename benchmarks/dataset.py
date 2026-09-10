@@ -17,7 +17,7 @@ from datetime import date
 from enum import StrEnum
 from pathlib import Path
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic.alias_generators import to_camel
 
 from app.core.warnings import Warn
@@ -68,10 +68,31 @@ class SceneTrait(StrEnum):
     # Contenu de la pièce
     EMPTY_ROOM = "empty_room"
     FURNISHED = "furnished"
+    #: Tapis, carpette, paillasson : une surface qui CACHE le sol et ne doit
+    #: jamais être remplacée par du parquet. C'est le cas le plus coûteux du
+    #: corpus, et il n'est représenté par aucune photo à ce jour.
     RUG = "rug"
     THIN_FURNITURE_LEGS = "thin_furniture_legs"
+    #: Toute structure fine devant le sol, pieds de meubles compris : pied de
+    #: lampadaire, piètement métallique, montant de portant. Ajouté au LOT B
+    #: parce que la mesure de préservation des objets fins doit pouvoir
+    #: sélectionner ces scènes d'un seul trait, quelle que soit la nature de
+    #: l'objet. `THIN_FURNITURE_LEGS` en reste le sous-cas le plus fréquent, et
+    #: les deux traits cohabitent sur une même photo.
+    THIN_OCCLUDERS = "thin_occluders"
+    #: Canapé, meuble bas plein, lit, buffet : un occulteur massif, dont la
+    #: ligne de contact au sol est longue. Le défaut qu'il révèle n'est pas le
+    #: même qu'un pied fin : ici c'est le contour qui compte, pas la finesse.
+    MASSIVE_FURNITURE = "massive_furniture"
     RADIATOR = "radiator"
     DOORS = "doors"
+    #: Le sol d'une AUTRE pièce est visible par une ouverture. Distinct de
+    #: `DOORS`, qui dit seulement qu'une porte est dans le cadre : ici la
+    #: question « même surface ou surface différente » se pose réellement.
+    SECOND_ROOM_VISIBLE = "second_room_visible"
+    #: Un seuil, une barre de seuil ou un changement de revêtement matérialise
+    #: la limite du sol candidat.
+    THRESHOLD = "threshold"
 
     # Nature du sol
     EXISTING_PARQUET = "existing_parquet"
@@ -93,6 +114,16 @@ class SceneTrait(StrEnum):
     #: porte-fenêtre est-il « du sol » ? Voir docs/annotation-protocol.md.
     EXTERIOR_VISIBLE = "exterior_visible"
     LOW_WALL_FLOOR_CONTRAST = "low_wall_floor_contrast"
+    #: Un mur, une porte ou un meuble en bois assez proche du sol en bois pour
+    #: qu'un segmenteur puisse les confondre. Ajouté au LOT B : c'est le piège
+    #: propre à notre métier, et aucun trait ne le nommait.
+    WOOD_CONFUSION = "wood_confusion"
+    #: Source lumineuse dans le cadre ou juste derrière le sujet : le sol part
+    #: en contre-jour, les plinthes disparaissent.
+    BACKLIGHT = "backlight"
+    #: Ombre portée franche sur le sol. La règle métier est claire — un sol
+    #: dans l'ombre reste du sol — mais c'est là qu'un segmenteur décroche.
+    STRONG_SHADOW = "strong_shadow"
     HIDDEN_CORNERS = "hidden_corners"
     CROPPED = "cropped"
     WIDE_ANGLE = "wide_angle"
@@ -108,6 +139,46 @@ class SceneTrait(StrEnum):
     #: Ce n'est pas une pièce, ou la photo est inexploitable. À accorder avec
     #: `difficulty = rejected`.
     NOT_A_ROOM = "not_a_room"
+
+
+class Split(StrEnum):
+    """À quoi une photo sert, et à quoi elle ne sert pas.
+
+    Un train/validation/test sur douze photos serait statistiquement
+    trompeur : on ne mesure pas une généralisation sur un échantillon de cette
+    taille. La séparation utile est ailleurs — entre les photos qu'on regarde
+    en travaillant et celles qu'on garde intactes pour juger.
+    """
+
+    #: Photos de travail : on les regarde, on ajuste les réglages dessus, on
+    #: les commente. Tout est permis.
+    PILOT_DEVELOPMENT = "pilot_development"
+    #: Jeu visuel de référence. On ne règle **jamais** un seuil dessus. Il ne
+    #: sert qu'à la revue visuelle humaine, à chaque changement notable, et un
+    #: candidat qui améliore les chiffres en dégradant ces scènes est refusé.
+    GOLDEN_HOLDOUT = "golden_holdout"
+
+
+class GoldenCase(StrEnum):
+    """La raison d'être d'une scène dans le jeu visuel de référence.
+
+    Une scène y entre pour **un cas précis** qu'elle est la mieux placée pour
+    exposer. Sans cette déclaration, un jeu de référence dérive vers une
+    collection de jolies photos, et on ne sait plus ce qu'il couvre.
+    """
+
+    WALL_FLOOR_HARD = "wall_floor_hard"
+    RUG = "rug"
+    THIN_OCCLUDERS = "thin_occluders"
+    MASSIVE_FURNITURE = "massive_furniture"
+    STRONG_PERSPECTIVE = "strong_perspective"
+    OPENING = "opening"
+    WOOD_ON_WOOD = "wood_on_wood"
+
+
+#: Les cas que le jeu visuel de référence doit couvrir pour être complet.
+#: `validate_dataset.py` publie ceux qui manquent ; il ne les invente pas.
+GOLDEN_CASES_REQUIRED: tuple[GoldenCase, ...] = tuple(GoldenCase)
 
 
 class Usage(StrEnum):
@@ -211,7 +282,27 @@ class Photo(_Model):
     #: pas.
     graded: bool = True
     ground_truth: GroundTruth = Field(default_factory=GroundTruth)
+    #: Photo de travail, ou scène du jeu visuel de référence. Voir `Split`.
+    split: Split = Split.PILOT_DEVELOPMENT
+    #: Obligatoire pour une scène du jeu de référence, interdit ailleurs : le
+    #: cas précis qu'elle est là pour exposer.
+    golden_case: GoldenCase | None = None
     notes: str | None = None
+
+    @model_validator(mode="after")
+    def _golden_declares_its_case(self) -> "Photo":
+        if self.split is Split.GOLDEN_HOLDOUT and self.golden_case is None:
+            raise ValueError(
+                f"{self.id} : une scène du jeu de référence doit dire pour quel cas "
+                "elle y est (goldenCase)"
+            )
+        if self.split is not Split.GOLDEN_HOLDOUT and self.golden_case is not None:
+            raise ValueError(f"{self.id} : goldenCase n'a de sens que sur golden_holdout")
+        if self.split is Split.GOLDEN_HOLDOUT and self.difficulty is Difficulty.REJECTED:
+            raise ValueError(
+                f"{self.id} : une photo refusée n'a rien à juger dans le jeu de référence"
+            )
+        return self
 
 
 class Manifest(_Model):
@@ -220,6 +311,31 @@ class Manifest(_Model):
     dataset_schema: str = Field(default=DATASET_SCHEMA, alias="schema")
     note: str = ""
     photos: list[Photo] = Field(default_factory=list)
+
+
+def golden_coverage(manifest: "Manifest") -> dict[str, object]:
+    """Ce que le jeu visuel de référence couvre, et ce qui lui manque.
+
+    Un jeu de référence incomplet n'est pas une erreur : c'est un état, et il
+    doit se lire d'un coup d'œil. Ce qui serait une faute, c'est de le croire
+    complet — ou de compléter un cas manquant avec une scène qui ne l'expose
+    pas vraiment.
+    """
+    scenes = [p for p in manifest.photos if p.split is Split.GOLDEN_HOLDOUT]
+    couverts = {p.golden_case for p in scenes if p.golden_case is not None}
+    par_cas = {
+        case.value: [p.id for p in scenes if p.golden_case is case]
+        for case in GOLDEN_CASES_REQUIRED
+    }
+    faciles = sum(1 for p in scenes if p.difficulty is Difficulty.EASY)
+    return {
+        "scenes": len(scenes),
+        "byCase": par_cas,
+        "missingCases": [c.value for c in GOLDEN_CASES_REQUIRED if c not in couverts],
+        "easyScenes": faciles,
+        #: La majorité d'un jeu de référence facile ne prouverait rien.
+        "majorityIsHard": len(scenes) > 0 and faciles * 2 < len(scenes),
+    }
 
 
 def sha256_of(path: Path) -> str:

@@ -52,6 +52,8 @@ et parmi les cinq statuts déclarés, **seuls deux sont atteignables** aujourd'h
 | paires d'accord humain | 0 |
 | annotations chronométrées | 0 |
 | corpus synthétique | 44 entrées, 38 notées, reproductible au bit près |
+| jeu visuel de référence | **5 scènes** (LOT B), 4 difficiles ; 2 cas non couverts : tapis, meuble massif |
+| split déclaré | 6 photos de travail, 5 de référence (LOT B) |
 | candidats de segmentation enregistrés | 3, tous triviaux : masque vide, masque plein, tiers bas |
 | rapports produits sur disque | 1, tous compteurs à zéro |
 | tests | 304 fonctions sur 14 fichiers ; aucun marqueur de vitesse |
@@ -158,6 +160,13 @@ personne ne s'appuie dessus.
 | état du manifeste | vide (`dataset.md`) | onze photos (`quality-methodology.md`) | onze |
 | chemin du contrôle de santé | `/health` | `/v1/health` | `/health`, vérifié dans le code |
 | statut de la maquette | gelée, référence UX (`product-visualizer-ux.md`) | objet de travail actif (trois autres documents) | gelée — et elle porte désormais un bandeau |
+
+**Corrigé au LOT B** : deux photos étaient sous-décrites dans le manifeste
+(`piece-claire` portait des pieds fins et une surface extérieure non déclarés).
+Le vocabulaire de traits est passé de 24 à 31 valeurs pour nommer ce qui décide
+du rendu. Deux traits que j'avais d'abord ajoutés ont été retirés après contrôle
+de l'image — un contre-jour et un sol réfléchissant que la photo ne justifiait
+pas franchement.
 
 Le vocabulaire imposé par l'ancienne feuille de route reste valable et n'est pas
 un écart : pas d'« analyse », de « détection » ni d'« intelligence
