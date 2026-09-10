@@ -53,17 +53,23 @@ Une application = un fichier HTML. Ce dépôt en contient deux, et ils ne
 remplissent pas la même fonction — les confondre a déjà coûté une revue.
 
 ```
-VISUALIZER ENTRYPOINT   = pose-parquet.com/outils/visualiseur-produit.html
-                          (autre dépôt ; ce dépôt n'héberge aucun visualiseur)
-ANNOTATION ENTRYPOINT   = tools/annotate.html
-UX REFERENCE (gelée)    = tools/product-concept.html
+CURRENT FRONT IMPLEMENTATION = pose-parquet.com/outils/visualiseur-produit.html
+FRONT STATUS                 = external consumer / frozen during AI lots
+ANNOTATION ENTRYPOINT        = tools/annotate.html          (actif)
+UX REFERENCE                 = tools/product-concept.html   (legacy, gelée)
 ```
 
-Toute évolution du visualiseur — interface, pièce, rendu, import de photo,
-navigation, pan/zoom, comparaison, catalogue, personnalisation — se fait dans
-`visualiseur-produit.html` et ses fichiers JS/CSS/données, jamais dans une
-copie ni dans un nouveau fichier. `tools/annotate.html` reste séparé parce
-qu'il fait autre chose : produire la vérité terrain.
+Ces lignes **décrivent l'existant, elles n'autorisent rien**. Pendant les lots
+IA, le front est un **consommateur externe gelé** : décision humaine du
+10 septembre 2026. Aucune modification de `pose-parquet.com` n'est permise,
+et le fait que le produit visuel vive dans un autre dépôt est un sujet
+d'architecture d'intégration **futur**, pas un problème à résoudre pendant les
+lots B à F. L'autorisation d'y toucher sera donnée explicitement, au lot
+d'intégration de bout en bout, et ne s'anticipe pas.
+
+Dans ce dépôt, `tools/annotate.html` est le seul HTML actif — il produit la
+vérité terrain. `tools/product-concept.html` est gelé : on le consulte, on ne
+le développe plus. Pas de troisième HTML.
 
 ## Où vivent les choses hors de ce dossier
 
