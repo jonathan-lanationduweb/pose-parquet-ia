@@ -12,14 +12,86 @@ Qu'une personne photographie sa pièce, voie immédiatement un vrai parquet
 Premibel posé au sol, en change d'un clic, et — plus tard — s'y déplace comme
 dans une visite.
 
-## 2. Les quatre références, et ce qu'on prend à chacune
+## 2. Les références, et ce qu'on prend à chacune
+
+**Roomvo est la référence fonctionnelle principale** — décision humaine du
+10 septembre 2026. Trois simulateurs comparés relèvent de la même famille de
+solution : `panaget.com/imaginebypanaget`, `lamaisonsaintgobain.fr/simulateur-3d`
+et `parquet-carrelage.com` (simulateur 3D). Panaget l'annonce explicitement.
+
+Ce qu'être « référence fonctionnelle » signifie ici, et ce que ça ne signifie
+pas : Roomvo répond à **« comment ça fonctionne »**, jamais à « à quoi ça doit
+ressembler ». Nous reproduisons des **capacités** et une simplicité de
+parcours, avec notre architecture et notre design. Ni code, ni assets, ni
+identité, ni interface au pixel. C'est une technologie propriétaire :
+aucun algorithme obtenu par rétro-ingénierie, aucune intégration de leur
+produit dans le nôtre. Le seul matériau du comparatif est ce qui est
+publiquement visible en utilisant ces sites.
 
 | référence | ce qu'on lui prend | ce qu'on ne lui prend pas |
 | --- | --- | --- |
-| Quick-Step, Roomvo, Karndean | l'immédiateté : importer, voir, changer de produit au clic, comparer, avant/après, favoris. Interaction minimale, aucun assistant en plusieurs étapes | leur qualité de sol, souvent approximative : bords qui montent sur la plinthe, tapis repeints |
+| **Roomvo** (et Quick-Step, Karndean, même famille d'expérience) | l'immédiateté : importer, voir, changer de produit au clic, comparer, avant/après, favoris. Interaction minimale, aucun assistant en plusieurs étapes. Photo au centre, catalogue visuel, attente signalée sans modale bloquante | leur qualité de sol, souvent approximative : bords qui montent sur la plinthe, tapis repeints. Et leur généralité — ils traitent murs, carrelage, moquette ; nous ne traitons que le parquet, et c'est là qu'on doit être meilleurs |
 | IKEA Kreativ | la compréhension automatique de la pièce : géométrie, objets, profondeur, occlusions, une représentation exploitable de l'espace | l'ameublement virtuel et le catalogue d'objets, hors de notre sujet |
 | Google Street View | la sensation de déplacement : regarder autour, aller d'un point de vue à un autre | l'interface : pas de Pegman, pas de mini-carte, aucun élément visuel repris |
 | notre spécialité | tout le reste — voir §3 | — |
+
+### 2.1 Le parcours cible, et où nous en sommes
+
+Relevé le 10 septembre 2026, en testant notre propre visualiseur au
+navigateur. « Partiel » n'est pas « presque fait » : c'est présent et
+insuffisant.
+
+| capacité du parcours | chez nous | état exact |
+| --- | --- | --- |
+| photo au centre de l'expérience | **présente** | la photo occupe le cadre, les panneaux sont escamotables |
+| import très simple | **présente** | un clic, la photo est la pièce immédiatement (corrigé au LOT UX.1) |
+| pièces d'exemple immédiates | **présente** | cinq pièces, `SceneData` déjà calibrée, rendu en 0,2 à 2 s |
+| catalogue produit visuel | **présente** | cinq références réelles, vignettes, filtres motif/teinte/largeur |
+| un clic produit = sol mis à jour | **présente** | aucun bouton « Appliquer » |
+| changement **instantané** de produit | **partielle** | 0 ms si déjà vu, 1 à 3 s sinon, jusqu'à 17 s pour une tuile froide. Voir [RENDERER-AUTONOMY-PLAN.md §8](RENDERER-AUTONOMY-PLAN.md) |
+| rotation du plan de pose | **partielle** | le moteur accepte **tout angle** (§2.2) ; notre interface n'en expose que trois |
+| motifs lames, point de Hongrie, bâton rompu | **présente** | les trois rendus par le moteur réel |
+| largeur de lame | **présente** | bornée 0,02–0,5 m par le moteur, refus explicite hors bornes |
+| avant/après | **présente** | volet unique partagé avec la comparaison |
+| comparaison A/B | **présente** | deux rendus live, deux fiches |
+| favoris | **présente** | par session, non persistés |
+| conservation de la lumière | **présente** | l'éclairement est **relu dans la photo** : carte d'éclairement floutée, lumière d'ambiance, part de teinte, assombrissement de contact. Ce n'est pas une texture opaque posée sur le sol |
+| occlusions — parquet derrière les meubles, objets devant | **partielle** | le moteur sait restituer les pixels d'origine sur un `occluder` ; **personne ne produit ces polygones automatiquement**. Sur les cinq pièces d'exemple ils sont calibrés à la main, sur une photo importée il n'y en a aucun |
+| analyse automatique de la pièce | **absente** | c'est l'objet des LOTS B à F. Aucune photo importée ne reçoit de parquet aujourd'hui, et c'est volontaire |
+| continuité du sol sous les meubles (`floorExtent`) | **absente** | ni annotée, ni produite, ni déduite |
+| fiche produit | **présente** | lien vers la fiche Premibel, référence, largeur, motif |
+
+Deux dépendances expliquent tout ce qui est absent : **l'analyse Python**
+(LOTS B→F) et **l'autonomie du moteur** (lot d'extraction). Aucune ne se
+contourne par un masque esthétique — un parquet posé au hasard sur une photo
+non analysée serait pire que pas de parquet.
+
+### 2.2 Rotation du plan de pose — exigence produit
+
+L'utilisateur doit pouvoir tourner **le plan de pose**, en continu de 0° à
+359°, avec des raccourcis (0°, 45°, 90°, 135°, et −45° si l'usage le demande).
+Un contrôle simple — deux flèches et une valeur, ou un cadran, éventuellement
+glissable. Pas de panneau technique, pas de matrice, pas de coordonnées :
+la personne doit comprendre « je tourne mes lames ».
+
+Quatre invariants, et ils ne sont pas négociables :
+
+1. **la photo ne tourne pas.** La pièce reste fixe, le plan du sol reste fixe
+   dans l'espace ; seules les coordonnées de texture tournent ;
+2. **l'échelle ne change pas.** Une lame de 190 mm mesure 190 mm à 0° comme à
+   46° ;
+3. **la perspective est conservée.** La rotation se fait *dans le plan du
+   sol*, après l'homographie — jamais par une rotation d'image ;
+4. **le motif entier tourne**, pas chaque lame indépendamment : un point de
+   Hongrie tourné reste un point de Hongrie.
+
+Et la rotation ne relance **jamais** l'analyse Python : une fois la pièce
+analysée, tourner le sol est un travail de moteur.
+
+**Deux rotations, à ne jamais confondre.** La rotation A est celle du plan de
+pose, ci-dessus. La rotation B sera celle du **regard** dans une pièce à
+plusieurs vues (Mode Visite, §4). Elles sont indépendantes, et leurs états ne
+doivent jamais se mélanger.
 
 ## 3. Notre avantage doit être le sol, et seulement le sol
 

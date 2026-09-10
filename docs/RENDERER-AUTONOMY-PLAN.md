@@ -269,6 +269,52 @@ Deux conclusions qui pèsent sur la suite :
    éventuellement de peindre à résolution réduite pendant le geste. **C'est un
    lot de performance distinct, à ne pas mélanger avec l'extraction.**
 
+## 8bis. Rotation libre du plan de pose — `FREE_FLOOR_ROTATION_SUPPORTED`
+
+Question posée au LOT « référence Roomvo » : le moteur accepte-t-il un angle
+quelconque, ou seulement des valeurs prédéfinies ? **Mesuré, pas supposé.**
+
+Dans le code, l'angle n'est pas une énumération : `renderer-gl.js` calcule
+`angle = (config.angle + zone.plane.rotationDeg) · π/180` puis pose
+`gl.uniform2f(u.uRot, cos(angle), sin(angle))`. C'est une rotation continue des
+**coordonnées de texture**, appliquée dans le plan du sol après l'homographie.
+Rien n'y quantifie l'angle.
+
+Vérifié au canevas réel, scène `sejour`, WebGL2, signature sur cinq lignes de
+sol :
+
+| angle | signature | angle | signature |
+| --- | --- | --- | --- |
+| 0° | `200521815` | 60° | `355176706` |
+| 15° | `815764159` | 90° | `786011544` |
+| 22,5° | `583724116` | 135° | `825571065` |
+| 30° | `606081192` | −45° | `850063927` |
+| 45° | `232024748` | 359° | `117383992` |
+| 46° | `408317454` | | |
+
+**Onze angles, onze signatures distinctes** — y compris 45° contre 46°, et un
+angle non entier. Les trois motifs suivent : point de Hongrie 0° / 30° / 75°
+donne `308949099` / `500309081` / `223956918`, bâton rompu 0° / 45° donne
+`811208216` / `874662077`. La largeur reste `0,19 m` d'un bout à l'autre.
+
+**Conclusion : `FREE_FLOOR_ROTATION_SUPPORTED`.** Aucune limitation du moteur
+ni de l'API `setAngle` ; la seule limite est notre interface, qui n'expose que
+trois valeurs. Ouvrir la rotation continue est un travail d'interface, pas de
+moteur, et il n'exige pas l'extraction.
+
+Deux réserves mesurées, à traiter dans le lot d'interface :
+
+- **le coût.** Chaque changement d'angle demande une repeinture plein cadre :
+  1,4 à 2,9 s selon la scène. Une rotation « qui suit le doigt » demande donc
+  soit une peinture à résolution réduite pendant le geste (`step = 2` existe
+  déjà dans `paint()`), soit un rendu final au relâchement. Ce n'est pas un
+  obstacle, c'est une conception à faire ;
+- **`onRendered` n'est pas fiable sous rafale.** Deux mesures sur onze ont vu
+  le rendu aboutir sans que le rappel se déclenche dans les 20 s — le rendu
+  s'était terminé avant l'abonnement, ou la coalescence a avalé la
+  notification. Un contrôle glissable qui s'appuierait uniquement sur cet
+  évènement se figerait. À vérifier avant de câbler une rotation continue.
+
 ## 9. Rectiligne, multi-vues, 360, 3D
 
 Réponse honnête, tirée du modèle géométrique et non d'un espoir.
