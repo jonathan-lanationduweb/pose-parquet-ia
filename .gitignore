@@ -77,3 +77,6 @@ tools/local-demo-assets/
 
 # Apercus de controle d annotation : images de travail, jamais versionnees
 controle-*.jpg
+
+# Kit de revue visuelle : images de travail, regenerables, jamais versionnees
+review/
