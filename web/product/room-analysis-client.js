@@ -1,0 +1,212 @@
+/**
+ * Client de l'analyse de pièce — le seul endroit qui parle à Python.
+ *
+ * Le visualiseur ne fait aucun `fetch` lui-même : il appelle `analyzeRoom` et
+ * reçoit soit un résultat, soit une raison. Une requête réseau dispersée dans
+ * trois mille lignes d'interface est une requête qu'on ne retrouve plus le
+ * jour où elle échoue.
+ *
+ * ## Ce que le backend sait faire aujourd'hui, et ce qu'il ne sait pas
+ *
+ * `POST /v1/analyze-room` rend un `pose-parquet/analysis@2` :
+ * dimensions après redressement EXIF, netteté, exposition, écrêtage,
+ * courbure des arêtes, avertissements, et un `sceneData` qui vaut **`null`**.
+ *
+ * Il n'y a donc **aucune segmentation du sol**, et ce client ne fabrique rien
+ * pour compenser. Il transporte ce que Python dit, y compris quand Python dit
+ * « je n'ai pas de scène ». Traduire `quality` en `sceneData` serait inventer
+ * une détection — exactement ce que le protocole d'annotation refuse.
+ *
+ * ## La dernière photo gagne
+ *
+ * Deux imports rapprochés lancent deux analyses. Celle d'avant est **annulée**
+ * (`AbortController`) et, si sa réponse arrive quand même, elle est jetée : le
+ * jeton de génération ne correspond plus. Sans cela, une photo A analysée
+ * lentement viendrait écraser l'état de la photo B, et l'interface décrirait
+ * une image que personne ne regarde.
+ *
+ * ## Vie privée
+ *
+ * La photo part en `multipart/form-data`, telle quelle, une fois. Aucune
+ * copie, aucune base64, aucun enregistrement, aucun journal du contenu. C'est
+ * une photo de domicile : elle traverse, elle ne séjourne pas.
+ */
+
+/** Contrat de réponse que ce client sait lire. */
+export const ANALYSIS_SCHEMA_FAMILY = 'pose-parquet/analysis';
+
+/**
+ * Origine de l'API.
+ *
+ * Trois cas, dans cet ordre : `?api=` en développement, la même origine que
+ * la page (cas du serveur unique, voir `PPAI_DEV_SERVE_STATIC`), puis le
+ * défaut local. Une seule fonction décide, et personne d'autre.
+ */
+export function apiBase({ search = '', origin = '', dev = false } = {}) {
+  if (dev) {
+    try {
+      const demande = new URLSearchParams(search).get('api');
+      /* Uniquement une origine http(s) explicite : un chemin relatif ou un
+         `javascript:` n'ont rien à faire ici. */
+      if (demande && /^https?:\/\/[^/]+$/.test(demande)) return demande.replace(/\/$/, '');
+    } catch { /* pas de recherche exploitable : on continue */ }
+  }
+  /* La page est servie par FastAPI lui-même : même origine, pas de CORS. */
+  if (/^https?:/.test(origin)) return origin.replace(/\/$/, '');
+  return 'http://127.0.0.1:8000';
+}
+
+/** Raisons d'échec, distinctes parce qu'elles ne se corrigent pas pareil. */
+export const RAISONS = {
+  RESEAU: 'network',
+  ANNULEE: 'aborted',
+  REFUSEE: 'rejected',
+  SERVEUR: 'server',
+  CONTRAT: 'contract',
+};
+
+const MESSAGES = {
+  400: 'Cette photo n’a pas pu être lue.',
+  413: 'Cette photo est trop lourde.',
+  415: 'Format non pris en charge : utilisez un JPEG, un PNG ou un WebP.',
+  422: 'Cette photo n’a pas pu être décodée.',
+  500: 'L’analyse a échoué.',
+};
+
+/**
+ * Crée le client.
+ * @param {object} options
+ * @param {string} options.base   origine de l'API, de `apiBase()`
+ * @param {number} [options.timeoutMs]
+ */
+export function createRoomAnalysisClient({ base, timeoutMs = 30000 } = {}) {
+  let generation = 0;
+  let enCours = null;
+
+  /** Annule l'analyse en cours, s'il y en a une. */
+  function cancel() {
+    if (enCours) {
+      enCours.abort();
+      enCours = null;
+    }
+  }
+
+  /**
+   * Analyse une photo.
+   *
+   * @param {File} file
+   * @returns {Promise<{ok: boolean, generation: number, perime: boolean,
+   *   analysis?: object, raison?: string, status?: number, message?: string,
+   *   networkMs?: number}>}
+   *
+   * Ne jette jamais : un appelant qui doit envelopper chaque appel dans un
+   * `try` finit par en oublier un, et l'interface meurt avec le backend.
+   */
+  async function analyzeRoom(file) {
+    cancel();
+    generation += 1;
+    const mien = generation;
+    const controleur = new AbortController();
+    enCours = controleur;
+    const minuteur = setTimeout(() => controleur.abort(), timeoutMs);
+    const t0 = performance.now();
+
+    const corps = new FormData();
+    /* Le nom du champ est celui de la signature FastAPI : `image`. */
+    corps.append('image', file, file.name || 'photo.jpg');
+
+    try {
+      const reponse = await fetch(`${base}/v1/analyze-room`, {
+        method: 'POST',
+        body: corps,
+        signal: controleur.signal,
+      });
+      const networkMs = Math.round(performance.now() - t0);
+      /* Périmée : une autre photo est passée entre-temps. On le dit, et
+         l'appelant n'applique rien. */
+      const perime = mien !== generation;
+
+      if (!reponse.ok) {
+        let detail = null;
+        try { detail = await reponse.json(); } catch { /* corps non JSON */ }
+        return {
+          ok: false, generation: mien, perime, networkMs,
+          raison: reponse.status >= 500 ? RAISONS.SERVEUR : RAISONS.REFUSEE,
+          status: reponse.status,
+          message: MESSAGES[reponse.status] || 'L’analyse a échoué.',
+          detail: detail && detail.detail ? detail.detail : null,
+        };
+      }
+
+      const analysis = await reponse.json();
+      if (typeof analysis !== 'object' || !analysis || typeof analysis.schema !== 'string'
+          || !analysis.schema.startsWith(ANALYSIS_SCHEMA_FAMILY)) {
+        return {
+          ok: false, generation: mien, perime, networkMs,
+          raison: RAISONS.CONTRAT, status: reponse.status,
+          message: 'Réponse d’analyse inattendue.',
+        };
+      }
+      return { ok: true, generation: mien, perime, networkMs, analysis };
+    } catch (e) {
+      const networkMs = Math.round(performance.now() - t0);
+      const annulee = e && (e.name === 'AbortError');
+      return {
+        ok: false, generation: mien, perime: mien !== generation, networkMs,
+        raison: annulee ? RAISONS.ANNULEE : RAISONS.RESEAU,
+        message: annulee ? null : 'Analyse indisponible pour le moment.',
+      };
+    } finally {
+      clearTimeout(minuteur);
+      if (enCours === controleur) enCours = null;
+    }
+  }
+
+  /**
+   * État du service. Appelé **à la demande**, jamais en boucle : un service
+   * qu'on interroge chaque seconde coûte plus que ce qu'il apprend.
+   */
+  async function health() {
+    try {
+      const r = await fetch(`${base}/health`, { method: 'GET' });
+      if (!r.ok) return { ok: false, status: r.status };
+      const corps = await r.json();
+      return { ok: corps && corps.status === 'ok', status: r.status, service: corps && corps.service };
+    } catch {
+      return { ok: false, status: 0 };
+    }
+  }
+
+  return {
+    get base() { return base; },
+    get generation() { return generation; },
+    analyzeRoom,
+    health,
+    cancel,
+  };
+}
+
+/**
+ * Ce que l'interface doit dire d'un résultat réel.
+ *
+ * La règle tient en une phrase : **ne jamais annoncer une brique qui
+ * n'existe pas.** Tant que `sceneData` est nul, il n'y a ni sol détecté, ni
+ * perspective, ni objets — et l'écrire serait laisser croire que notre
+ * détection fonctionne mal alors qu'elle n'existe pas encore.
+ *
+ * Le jour où `analysis@3` apportera une scène, ce sont ces deux lignes qui
+ * changeront, et rien d'autre.
+ */
+export function resumerAnalyse(analysis) {
+  if (!analysis) return { etat: 'unavailable', texte: 'Analyse indisponible pour le moment' };
+  if (analysis.status === 'rejected') {
+    return { etat: 'rejected', texte: 'Cette photo n’est pas exploitable' };
+  }
+  if (analysis.sceneData) {
+    /* Chemin encore jamais emprunte : aucun backend ne renvoie de scene
+       aujourd'hui. Il est ecrit pour que le jour ou cela arrive, le client
+       n'ait pas a etre reecrit — pas pour faire croire que cela arrive. */
+    return { etat: 'complete', texte: 'Pièce analysée' };
+  }
+  return { etat: 'partial', texte: 'Analyse initiale terminée' };
+}

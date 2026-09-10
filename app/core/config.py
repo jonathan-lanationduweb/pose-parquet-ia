@@ -68,6 +68,22 @@ class Settings(BaseSettings):
     log_format: str = Field(default="text", pattern="^(text|json)$")
     cors_origins: str = ""
 
+    # --- Développement -----------------------------------------------------
+    #: Servir AUSSI les fichiers du visualiseur, en développement seulement.
+    #:
+    #: Deux serveurs pour regarder une photo dans une pièce, c'est deux
+    #: serveurs à démarrer, deux ports à retenir, et une politique CORS à
+    #: tenir. Avec ce drapeau, FastAPI sert `tools/`, `web/` et `datasets/`
+    #: en plus de son API : le visualiseur et l'analyse partagent alors la
+    #: MÊME ORIGINE, et il n'y a plus de CORS du tout.
+    #:
+    #: **Faux par défaut, et ce défaut compte.** En production ce service est
+    #: un analyseur, pas un serveur de fichiers : c'est un rôle de plus,
+    #: une surface d'attaque de plus, et des fichiers privés
+    #: (`datasets/private-real/`) à un chemin devinable. Le mettre à vrai est
+    #: une décision de poste de travail, jamais un défaut d'image.
+    dev_serve_static: bool = False
+
     # --- Limites d'upload ------------------------------------------------
     #: 20 Mo, aligné sur le contrat du front (docs/future-ai-api-contract.md).
     max_upload_bytes: int = 20 * 1024 * 1024

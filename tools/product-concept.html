@@ -940,7 +940,10 @@
      batterie de controle de juger l'interface sans WebGL. -->
 <script type="module">
   import { createLocalRenderer } from '../web/product/local-renderer.js';
+  import { createRoomAnalysisClient, apiBase, resumerAnalyse, RAISONS }
+    from '../web/product/room-analysis-client.js';
   window.__localEngineFactory = createLocalRenderer;
+  window.__roomAnalysis = { createRoomAnalysisClient, apiBase, resumerAnalyse, RAISONS };
   window.dispatchEvent(new Event('local-engine-ready'));
 </script>
 
@@ -1300,6 +1303,26 @@
   const state = {
     /* `demo` | `uploaded` — état d'interface, pas SceneData. */
     source: null,
+    /**
+     * L'analyse Python. Un état À PART, et c'est délibéré : le renderer, le
+     * produit et la pièce ont chacun le leur, et les mêler ferait qu'une
+     * réponse d'analyse pourrait changer un parquet.
+     *
+     * `status` : idle | uploading | analyzing | complete | partial |
+     * unavailable | error. `generation` : le jeton qui fait que la dernière
+     * photo importée gagne toujours.
+     */
+    roomAnalysis: {
+      status: 'idle',
+      generation: 0,
+      texte: null,
+      analysis: null,
+      raison: null,
+      httpStatus: null,
+      displayLocalMs: null,
+      networkMs: null,
+      totalMs: null,
+    },
     roomId: null,
     uploaded: null,
     productId: 'POINF36005',
@@ -2464,7 +2487,36 @@
   /* La mention de developpement dit ce qui est REELLEMENT a l'ecran : le
      moteur, une capture, ou rien. L'interface normale n'en parle pas. */
   function paintDev(uploaded, hasRender) {
-    if (!DEV || uploaded) { $('devnote').classList.add('hidden'); return; }
+    if (!DEV) { $('devnote').classList.add('hidden'); return; }
+    /* Sur une photo importee, le bandeau parle de l'ANALYSE : le moteur n'a
+       rien a dire d'une photo qu'il ne peut pas rendre. Aucun champ inventé —
+       ce qui est absent reste absent. */
+    if (uploaded || state.source === 'uploaded') {
+      const a = state.roomAnalysis;
+      const bits = [`analyse ${a.status}`];
+      const api = clientAnalyse();
+      if (api) bits.push(api.base);
+      if (a.httpStatus) bits.push(`HTTP ${a.httpStatus}`);
+      if (a.raison) bits.push(a.raison);
+      const r = a.analysis;
+      if (r) {
+        if (r.schema) bits.push(r.schema);
+        if (r.status) bits.push(`statut ${r.status}`);
+        if (r.image && r.image.width) bits.push(`${r.image.width}x${r.image.height}`);
+        bits.push(r.quality ? 'qualite oui' : 'qualite non');
+        bits.push(r.lens ? 'distorsion oui' : 'distorsion non');
+        bits.push(r.sceneData ? 'sceneData oui' : 'sceneData non');
+        if (Array.isArray(r.warnings) && r.warnings.length) {
+          bits.push(`${r.warnings.length} avertissement(s)`);
+        }
+      }
+      if (a.displayLocalMs != null) bits.push(`affichage ${a.displayLocalMs} ms`);
+      if (a.networkMs != null) bits.push(`reseau ${a.networkMs} ms`);
+      if (a.totalMs != null) bits.push(`total ${a.totalMs} ms`);
+      $('devnote').textContent = bits.join(' · ');
+      $('devnote').classList.remove('hidden');
+      return;
+    }
     const src = state.applied.source;
     const bits = [`moteur ${adapter.mode}`];
     if (adapter.apiVersion) bits[0] += ` v${adapter.apiVersion}`;
@@ -2570,11 +2622,24 @@
        de quelqu'un remettrait une modale dans le parcours d'import. */
     const uploaded = state.source === 'uploaded';
     if (uploaded) {
-      $('status').dataset.kind = 'doubt';
+      /* Ce que dit la capsule vient de ce que Python a repondu, et de rien
+         d'autre. Jamais « sol detecte » : la brique n'existe pas, et
+         l'annoncer laisserait croire qu'elle marche mal. */
+      const a = state.roomAnalysis;
+      const enCours = a.status === 'uploading' || a.status === 'analyzing';
+      const texte = a.texte || 'Analyse de la pièce bientôt disponible';
+      const glyphe = a.status === 'complete'
+        ? '<path d="M20 6L9 17l-5-5" />'
+        : '<path d="M12 8v5" /><path d="M12 16.4v.2" />';
+      $('status').dataset.kind = a.status === 'complete' ? 'ok' : 'doubt';
+      /* Le libelle passe par un noeud de TEXTE, pas par du balisage : il
+         vient d'une reponse de service, et une reponse ne doit jamais
+         pouvoir ecrire du HTML dans notre page. */
       $('status').innerHTML = `<span class="dot"><svg width="11" height="11" viewBox="0 0 24 24"
         fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"
-        stroke-linejoin="round"><path d="M12 8v5" /><path d="M12 16.4v.2" /></svg></span>
-        Analyse de la pièce bientôt disponible`;
+        stroke-linejoin="round">${glyphe}</svg></span>`;
+      $('status').appendChild(document.createTextNode(texte));
+      $('status').setAttribute('aria-busy', String(enCours));
     }
     $('rejected').classList.toggle('hidden', uploaded || state.analysis !== 'rejected');
     $('status').classList.remove('hidden');
@@ -2661,9 +2726,86 @@
     if (refit) scheduleFit();
   }
 
+  /* =====================================================================
+     L'analyse Python
+
+     Le tuyau réel vers `POST /v1/analyze-room`. Ce qu'il apporte aujourd'hui :
+     dimensions après redressement EXIF, netteté, exposition, écrêtage,
+     courbure des arêtes, avertissements. Ce qu'il n'apporte pas : `sceneData`
+     vaut `null`, donc **aucun sol, aucune perspective, aucun objet**.
+
+     La conséquence est tenue à la lettre : une photo importée ne reçoit
+     AUCUN parquet. Transformer une mesure de netteté en scène serait
+     fabriquer une détection, et c'est précisément ce que ce projet refuse
+     depuis le premier lot.
+     ===================================================================== */
+  let analysisClient = null;
+
+  function clientAnalyse() {
+    if (analysisClient) return analysisClient;
+    const outils = window.__roomAnalysis;
+    if (!outils) return null;
+    analysisClient = outils.createRoomAnalysisClient({
+      base: outils.apiBase({ search: location.search, origin: location.origin, dev: DEV }),
+    });
+    return analysisClient;
+  }
+
+  /** Écrit l'état d'analyse et rafraîchit ce qui en dépend, sans plus. */
+  function poserAnalyse(champs) {
+    state.roomAnalysis = { ...state.roomAnalysis, ...champs };
+    paintChrome();
+    paintDev();
+  }
+
+  /**
+   * Lance l'analyse de la photo qui vient d'être importée.
+   *
+   * `jeton` est l'intention d'import. Une réponse dont le jeton n'est plus
+   * celui de l'état courant est **jetée** : sans cela, une photo A analysée
+   * lentement écraserait l'état de la photo B, et la capsule décrirait une
+   * image que personne ne regarde.
+   */
+  async function analyserPiece(file, jeton, displayLocalMs) {
+    const client = clientAnalyse();
+    if (!client) {
+      poserAnalyse({ status: 'unavailable', texte: 'Analyse indisponible pour le moment' });
+      return;
+    }
+    const t0 = performance.now();
+    poserAnalyse({
+      status: 'uploading', generation: jeton, texte: 'Analyse de la pièce…',
+      analysis: null, raison: null, httpStatus: null,
+      displayLocalMs, networkMs: null, totalMs: null,
+    });
+
+    const r = await client.analyzeRoom(file);
+    /* Deux gardes, comme pour le rendu : le jeton d'import ET l'état de la
+       source. Un retour d'analyse ne doit rien dire d'une pièce d'exemple. */
+    if (jeton !== state.intent || state.source !== 'uploaded') return;
+    if (r.raison === window.__roomAnalysis.RAISONS.ANNULEE) return;
+
+    const totalMs = Math.round(performance.now() - t0);
+    if (!r.ok) {
+      poserAnalyse({
+        status: r.raison === 'network' ? 'unavailable' : 'error',
+        texte: r.message || 'Analyse indisponible pour le moment',
+        raison: r.raison, httpStatus: r.status || null,
+        networkMs: r.networkMs || null, totalMs,
+      });
+      return;
+    }
+    const resume = window.__roomAnalysis.resumerAnalyse(r.analysis);
+    poserAnalyse({
+      status: resume.etat, texte: resume.texte, analysis: r.analysis,
+      raison: null, httpStatus: 200, networkMs: r.networkMs || null, totalMs,
+    });
+  }
+
   /* La photo de l'utilisateur : lue en local, jamais envoyée, jamais écrite. */
   function loadUpload(file) {
     if (!file) return;
+    const choisiA = performance.now();
     if (!/^image\/(jpeg|png|webp)$/.test(file.type || '')) {
       toast('Formats acceptés : JPEG, PNG, WebP');
       return;
@@ -2687,11 +2829,18 @@
       state.ba = false;
       closeAll();
       toast('Molette pour zoomer, glisser pour déplacer');
+      /* Le temps que la personne a REELLEMENT attendu avant de voir sa
+         photo : du choix du fichier a l'affichage. C'est le seul delai qui
+         la concerne, et il ne depend pas de Python. */
+      const displayLocalMs = Math.round(performance.now() - choisiA);
       /* La photo est la piece, tout de suite : pas de fausse attente, pas de
          voile a refermer. `enter` cadre la vue et rend le pan et le zoom
          disponibles dans le meme geste. Ce qu'on ne sait pas faire est dit
          par la capsule d'etat, pas par une modale. */
       enter(true);
+      /* La photo est affichee. L'analyse part MAINTENANT, en arriere-plan :
+         rien n'attend Python, et Python n'attend rien. */
+      analyserPiece(file, intent, displayLocalMs);
     };
     probe.onerror = () => {
       URL.revokeObjectURL(url);
@@ -2703,6 +2852,13 @@
   function releaseUpload() {
     if (state.uploaded && state.uploaded.url) URL.revokeObjectURL(state.uploaded.url);
     state.uploaded = null;
+    /* Une analyse qui continue pour une photo qu'on ne regarde plus est du
+       calcul jete, et une reponse qui pourrait encore parler. On annule. */
+    if (analysisClient) analysisClient.cancel();
+    state.roomAnalysis = {
+      status: 'idle', generation: 0, texte: null, analysis: null, raison: null,
+      httpStatus: null, displayLocalMs: null, networkMs: null, totalMs: null,
+    };
   }
 
   /* =====================================================================

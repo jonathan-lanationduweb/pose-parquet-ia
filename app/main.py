@@ -8,10 +8,12 @@ donc réplicable et remplaçable sans migration.
 """
 
 from collections.abc import Awaitable, Callable
+from pathlib import Path
 from uuid import uuid4
 
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from PIL import Image
 
 from app.api import analyze, health
@@ -69,7 +71,30 @@ def create_app() -> FastAPI:
 
     app.include_router(health.router)
     app.include_router(analyze.router)
+
+    if settings.dev_serve_static:
+        _monter_fichiers_de_dev(app)
+
     return app
+
+
+def _monter_fichiers_de_dev(app: FastAPI) -> None:
+    """Sert le visualiseur depuis ce processus — développement seulement.
+
+    Le montage vient **après** les routes : `/health` et `/v1/*` sont résolus
+    avant, et rien ne les masque. Ce qui reste tombe sur les fichiers.
+
+    Trois dossiers, et pas la racine du dépôt : le code Python, les tests, la
+    configuration et le `.git` n'ont aucune raison d'être servis, même sur un
+    poste de travail. `datasets/` l'est parce que le visualiseur y lit les
+    photos importées de démonstration ; c'est aussi la raison pour laquelle ce
+    drapeau reste faux par défaut.
+    """
+    racine = Path(__file__).resolve().parent.parent
+    for chemin in ("tools", "web", "datasets"):
+        dossier = racine / chemin
+        if dossier.is_dir():
+            app.mount(f"/{chemin}", StaticFiles(directory=dossier), name=f"dev-{chemin}")
 
 
 app = create_app()

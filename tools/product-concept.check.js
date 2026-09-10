@@ -228,6 +228,13 @@ function make(key) {
     setAttribute(n, v) { this.attrs[n] = String(v); },
     getAttribute(n) { return this.attrs[n] ?? null; },
     focus() {}, setPointerCapture() {}, click() { this._clicked = true; },
+    appendChild(node) {
+      this.children.push(node);
+      /* Un noeud de texte ajoute compte dans le texte lisible : c'est ce que
+         les gardes de capsule d'etat verifient. */
+      if (node && node.nodeType === 3) this.textContent = String(this.textContent || '') + node.data;
+      return node;
+    },
     querySelectorAll(sel) {
       if (sel === 'img') {
         return (String(this._h).match(/<img[^>]*>/g) || []).map(() => {
@@ -249,6 +256,7 @@ global.document = {
   querySelector: (s) => (nodes[s] ??= make(s)),
   querySelectorAll: (sel) => (sel === '[data-vp]' ? vpGroups : []),
   createElement: (t) => make(t),
+  createTextNode: (data) => ({ nodeType: 3, data: String(data), textContent: String(data) }),
   addEventListener() {},
   body: make('body'),
 };

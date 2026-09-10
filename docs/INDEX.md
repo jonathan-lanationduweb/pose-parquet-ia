@@ -59,9 +59,43 @@ remplissent pas la même fonction — les confondre a déjà coûté une revue.
 VISUALIZER ENTRYPOINT = tools/product-concept.html
 STATUS                = ACTIVE PRODUCT VISUALIZER
 RENDERER              = web/  (LOCAL, WebGL — extrait le 10 septembre 2026)
+ANALYSIS API          = POST /v1/analyze-room  (branchee le 10 septembre 2026)
 ANNOTATION ENTRYPOINT = tools/annotate.html
 EXTERNAL FRONT        = pose-parquet.com — FROZEN, ZERO RUNTIME DEPENDENCY
 ```
+
+### Lancer le tout, en développement
+
+**Une seule commande.** Le service sert aussi les fichiers du visualiseur
+quand on le lui demande, ce qui met l'interface et l'analyse sur la **même
+origine** — donc aucun CORS à tenir :
+
+```bash
+cd C:/Users/jonat/Desktop/pose-parquet-ai && PPAI_DEV_SERVE_STATIC=1 .venv/Scripts/python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+Puis `http://127.0.0.1:8000/tools/product-concept.html` — et `?dev=1` pour le
+bandeau de diagnostic.
+
+`PPAI_DEV_SERVE_STATIC` est **faux par défaut**, et ce défaut est celui qui va
+en production : ce service est un analyseur, pas un serveur de fichiers. Trois
+dossiers seulement sont exposés quand le drapeau est vrai (`tools/`, `web/`,
+`datasets/`) ; le code, les tests et la configuration ne le sont jamais, et un
+test le vérifie.
+
+**Deux serveurs, si on préfère** — le visualiseur servi ailleurs, l'API sur son
+port. Il faut alors nommer les origines, jamais `*` :
+
+```bash
+PPAI_CORS_ORIGINS=http://localhost:8801,http://127.0.0.1:8801 .venv/Scripts/python.exe -m uvicorn app.main:app --port 8000
+```
+
+et ouvrir le visualiseur avec `?api=http://127.0.0.1:8000` (accepté en mode
+`?dev=1` seulement, et uniquement si c'est une origine http(s) complète).
+
+En production, rien de tout cela : le drapeau reste faux, les origines sont
+celles du site, et l'interface est servie par ce qui sert le site. Cette
+partie n'est pas conçue dans ce lot.
 
 **Décision humaine du 10 septembre 2026**, qui remplace la précédente :
 `tools/product-concept.html` n'est plus une référence UX gelée, c'est **le
