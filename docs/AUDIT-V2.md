@@ -117,8 +117,25 @@ comme maquette gelée. Décision humaine : `tools/product-concept.html` est le
 
 | composant | état constaté, et ce qui reste à faire |
 | --- | --- |
-| `tools/product-concept.html` | **visualiseur actif**, 2 990 lignes, un seul fichier. Fonctionnent réellement, vérifiés au navigateur : cinq pièces de démonstration, catalogue de cinq produits avec filtres, personnalisation (motif, largeur, teinte, sens de pose), avant/après à volet, comparaison A/B, favoris, pan et zoom, repli immersif quand le plein écran natif est refusé, import de photo avec pan/zoom immédiat. À reprendre : la dépendance d'exécution au moteur du front, le sens de pose sans effet visible, et l'écran modal qui s'interpose après un import |
-| `tools/product-concept.check.js` | 1 323 lignes, aucun échec. Monte la garde contre le retour d'un faux moteur de rendu dans la page — garde à conserver telle quelle |
+| `tools/product-concept.html` | **visualiseur actif**, un seul fichier. Vérifiés au navigateur : cinq pièces, catalogue et filtres, personnalisation (motif, largeur, teinte, sens de pose), avant/après à volet, comparaison A/B, favoris, pan et zoom, repli immersif, import de photo **immédiat et non bloquant** depuis le LOT UX.1. Reste à reprendre : la **dépendance d'exécution** au moteur du front |
+| `tools/product-concept.check.js` | aucun échec. Monte la garde contre le retour d'un faux moteur de rendu dans la page, et depuis le LOT UX.1 contre le retour d'un **voile bloquant** dans le parcours d'import — deux gardes à conserver telles quelles |
+
+Deux constats du LOT UX.1 qui méritent d'être écrits, parce qu'ils corrigent
+des affirmations précédentes :
+
+- **le sens de pose fonctionne.** Mesuré sur `#after` à trois angles :
+  0° → `54502728`, 45° → `952642407`, 90° → `788944580`, trois rendus
+  visiblement différents. Le rapport du 10 septembre le donnait pour cassé ;
+  cette mesure-là lisait `#cmpB`, un canevas de comparaison de 300 × 150 qui
+  ne porte pas le rendu. La clef de cache porte bien l'angle
+  (`api1|scene|famille|motif|largeur|angle`).
+- **l'avertissement `DASSP3903` n'est pas un défaut de ce dépôt.** La fiche
+  vient de `pose-parquet.com/data/products.premibel-pilot.json`, gelé, où elle
+  déclare `"lengthMm": "1,38mm"` — la valeur de la fiche commerciale, recopiée
+  **exprès** avec un commentaire qui demande au validateur de la rejeter. Le
+  rejet et l'avertissement sont donc le comportement voulu, et le faire taire
+  reviendrait à cacher une donnée source fausse. Aucun produit de ce
+  visualiseur n'utilise cette référence.
 
 ### LEGACY REFERENCE — utile comme historique, plus comme base (4)
 

@@ -551,13 +551,32 @@ ok('ni carte produit ni outils quand rien n est pose',
   el('card').classList.contains('hidden') === true
   && el('tools').classList.contains('hidden') === true);
 ok('aucun rendu inconnu invente', api.renderUrl('uploaded', 'POINF36005') === null);
-ok('le message d honnetete est present', /moteur IA n'est pas connecté/.test(html));
-ok('la limite est dite temporaire', /cette limite[\s\S]{0,20}dispara/.test(html));
-ok('deux sorties sont proposees', /id="unkRooms"/.test(html) && /id="unkOther"/.test(html));
-/* Et une troisieme, discrete : sans parquet il reste la photo, et elle se
-   manipule deja — sinon le voile bloquerait le viewport. */
-ok('on peut explorer sa photo malgre tout', /id="unkExplore"/.test(html)
-  && /Explorer ma photo quand même/.test(html));
+/* La garde qui remplace les trois precedentes. Elles exigeaient la modale
+   « L'analyse automatique n'est pas encore branchee » et ses trois sorties ;
+   cette modale a ete retiree le 10 septembre 2026 parce qu'elle BLOQUAIT la
+   photo de l'utilisateur. Le message reste juste, sa forme etait fausse.
+
+   On juge donc `code` et non `html` : l'en-tete et les commentaires citent
+   volontairement les anciens textes pour expliquer ce qui a disparu, et une
+   garde qui trebucherait sur son propre changelog serait a jeter. */
+ok('aucun voile bloquant dans le parcours d import',
+  !/id="unknown"/.test(code) && !/id="analyzing"/.test(code));
+ok('aucune sortie de modale d analyse',
+  !/unkRooms|unkOther|unkExplore/.test(code));
+ok('aucun texte bloquant dans le code',
+  !/n'est pas encore branchée|Explorer ma photo quand même|Tester avec une pièce d'exemple/
+    .test(code));
+ok('aucune fausse analyse simulee',
+  !/Analyse de votre pièce/.test(code) && !/Nous repérons le sol/.test(code));
+/* Ce qui doit rester : le manque est DIT, dans la capsule d etat, et la
+   capsule n est pas un voile — elle ne capture aucun clic. */
+ok('le manque d analyse est dit sans bloquer',
+  /Analyse de la pièce bientôt disponible/.test(code));
+api.paintChrome();
+ok('la capsule d etat reste visible sur une photo importee',
+  el('status').classList.contains('hidden') === false);
+ok('le viewport reste manipulable', el('vp') !== null
+  && el('vp').classList.contains('hidden') === false);
 api.loadUpload({ type: 'image/gif', name: 'anim.gif' });
 ok('un format refuse ne remplace pas la scene', api.state.uploaded.name === 'ma-piece.jpg',
   api.state.uploaded.name);

@@ -61,10 +61,12 @@
 
   ## Ce que ce fichier n'est toujours pas
 
-  * **Pas une analyse.** Une photo inconnue ne reçoit aucun parquet. La
-    maquette dit que le moteur IA n'est pas connecté. Le LOT IA 2B n'existe
-    pas, et faire semblant donnerait l'impression que notre détection
-    fonctionne mal.
+  * **Pas une analyse.** Une photo inconnue ne reçoit aucun parquet, et aucun
+    masque n'est fabriqué : l'analyse Python n'existe pas encore. Ce manque se
+    dit dans la capsule d'état, discrètement, et ne bloque rien — ni le pan, ni
+    le zoom, ni le catalogue, ni la navigation. Faire semblant donnerait
+    l'impression que notre détection fonctionne mal ; bloquer la photo derrière
+    une modale empêcherait de s'en servir.
   * **Pas le catalogue.** Six produits de démonstration, nommés d'après le
     catalogue du front pour rester cohérents.
   * **Pas une copie.** Aucun asset, aucune capture, aucune ligne de code de
@@ -758,36 +760,21 @@
     <div class="vtag hidden" id="tagA">version A</div>
     <div class="vtag hidden" id="tagB">version B</div>
 
-    <div class="veil hidden" id="analyzing">
-      <div class="box">
-        <h2>Analyse de votre pièce…</h2>
-        <p>Nous repérons le sol, la perspective et les obstacles.</p>
-        <div class="bar"><i></i></div>
-      </div>
-    </div>
+    <!-- Deux voiles ont ete retires du parcours d'import le 10 septembre 2026.
 
-    <!-- Photo inconnue : on le dit, on ne pose aucun parquet -->
-    <div class="veil hidden" id="unknown">
-      <div class="box">
-        <h2>L'analyse automatique n'est pas encore branchée</h2>
-        <p>Votre photo s'affiche, mais le visualiseur ne sait pas encore
-          détecter le sol d'une pièce quelconque.</p>
-        <div class="tip">
-          Poser un parquet approximatif donnerait un rendu faux et laisserait
-          croire que la détection fonctionne mal. Les cinq pièces d'exemple
-          arrivent avec des rendus produits par le vrai moteur : elles montrent
-          le résultat réellement visé. Dans le produit final, cette limite
-          disparaîtra.
-        </div>
-        <div class="acts">
-          <button class="btn warm" id="unkRooms" type="button">Tester avec une pièce d'exemple</button>
-          <button class="btn" id="unkOther" type="button">Essayer une autre photo</button>
-        </div>
-        <!-- Troisieme sortie, volontairement discrete : sans parquet, il reste
-             la photo, et elle se manipule deja. -->
-        <button class="quiet" id="unkExplore" type="button">Explorer ma photo quand même</button>
-      </div>
-    </div>
+         « Analyse de votre pièce… » simulait pendant 1,3 s une analyse qui
+         n'existe pas : une barre de progression pour un travail que personne
+         ne fait. « L'analyse automatique n'est pas encore branchée » arrivait
+         ensuite et bloquait la photo derriere trois boutons.
+
+         Le probleme n'etait pas le message, il etait juste : c'etait de le
+         rendre BLOQUANT. Une photo importee EST la piece, immediatement, et
+         l'information « pas encore d'analyse » tient dans la capsule d'etat
+         en bas a gauche — visible, non modale, qui n'empeche ni le pan, ni le
+         zoom, ni le catalogue, ni la navigation.
+
+         Ce qui n'a pas change : aucun parquet n'est pose sur une photo
+         inconnue, et aucun masque n'est fabrique. Voir `paintStatus`. -->
 
     <div class="veil hidden" id="rejected">
       <div class="box">
@@ -2422,8 +2409,21 @@
     $('status').innerHTML = `<span class="dot"><svg width="11" height="11" viewBox="0 0 24 24" fill="none"
       stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">${glyph}</svg></span>
       ${conf.text}`;
-    $('rejected').classList.toggle('hidden', state.analysis !== 'rejected');
-    $('status').classList.toggle('hidden', state.source === 'uploaded');
+    /* Sur une photo importee, la capsule ne dit pas « piece prete » — rien
+       n'a ete analyse. Elle dit ce qui manque, une fois, discretement, et
+       n'empeche rien. Les scenarios de demonstration (`rejected` et les
+       autres) appartiennent aux pieces d'exemple : les rejouer sur la photo
+       de quelqu'un remettrait une modale dans le parcours d'import. */
+    const uploaded = state.source === 'uploaded';
+    if (uploaded) {
+      $('status').dataset.kind = 'doubt';
+      $('status').innerHTML = `<span class="dot"><svg width="11" height="11" viewBox="0 0 24 24"
+        fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"
+        stroke-linejoin="round"><path d="M12 8v5" /><path d="M12 16.4v.2" /></svg></span>
+        Analyse de la pièce bientôt disponible`;
+    }
+    $('rejected').classList.toggle('hidden', uploaded || state.analysis !== 'rejected');
+    $('status').classList.remove('hidden');
   }
 
   function paintNav() {
@@ -2529,14 +2529,12 @@
       state.compare = null;
       state.ba = false;
       closeAll();
+      toast('Molette pour zoomer, glisser pour déplacer');
+      /* La photo est la piece, tout de suite : pas de fausse attente, pas de
+         voile a refermer. `enter` cadre la vue et rend le pan et le zoom
+         disponibles dans le meme geste. Ce qu'on ne sait pas faire est dit
+         par la capsule d'etat, pas par une modale. */
       enter(true);
-      $('analyzing').classList.remove('hidden');
-      setTimeout(() => {
-        $('analyzing').classList.add('hidden');
-        /* Aucun rendu n'existe pour cette photo, et il n'y a pas de moteur
-           ici pour en produire un : on le DIT. */
-        $('unknown').classList.remove('hidden');
-      }, 1300);
     };
     probe.onerror = () => {
       URL.revokeObjectURL(url);
@@ -2548,8 +2546,6 @@
   function releaseUpload() {
     if (state.uploaded && state.uploaded.url) URL.revokeObjectURL(state.uploaded.url);
     state.uploaded = null;
-    $('unknown').classList.add('hidden');
-    $('analyzing').classList.add('hidden');
   }
 
   /* =====================================================================
@@ -2743,7 +2739,7 @@
   function openCat() { closeAll(); state.catalogueView = 'all'; paintCatalogue(); $('catScrim').classList.remove('hidden'); $('catSheet').classList.remove('hidden'); }
   function openCus() { closeAll(); paintCustom(); $('cusScrim').classList.remove('hidden'); $('cusSheet').classList.remove('hidden'); }
 
-  ['doorRooms', 'navRoom', 'hSwap', 'menuRooms', 'unkRooms', 'rejRooms'].forEach((id) => {
+  ['doorRooms', 'navRoom', 'hSwap', 'menuRooms', 'rejRooms'].forEach((id) => {
     $(id).onclick = openRooms;
   });
   $('roomClose').onclick = closeAll;
@@ -2755,12 +2751,7 @@
   $('cusClose').onclick = closeAll;
   $('cusScrim').onclick = closeAll;
 
-  $('unkExplore').onclick = () => {
-    $('unknown').classList.add('hidden');
-    toast('Molette pour zoomer, glisser pour déplacer');
-  };
-
-  ['doorImport', 'sheetImport', 'menuImport', 'unkOther', 'rejOther'].forEach((id) => {
+  ['doorImport', 'sheetImport', 'menuImport', 'rejOther'].forEach((id) => {
     $(id).onclick = () => { closeAll(); $('file').click(); };
   });
   $('file').onchange = (e) => {
