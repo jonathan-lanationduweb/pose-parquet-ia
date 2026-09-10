@@ -185,6 +185,51 @@ mesurent ce que l'auto-relecture est structurellement incapable de voir. Si
 une seconde personne est disponible, ne serait-ce que pour relire deux scènes,
 cela vaut mieux que quatre auto-relectures.
 
+### Relire un relevé produit par la machine, et le promouvoir
+
+Les quatre relevés du pilote portent `annotator = claude-ai`, `passLabel = AI`
+et `status = draft`. Les relire ne demande **ni** de redessiner, **ni** d'ouvrir
+un JSON.
+
+**1. Dessiner les planches**, puis les regarder :
+
+```bash
+.venv/Scripts/python.exe -m scripts.review_board
+```
+
+Deux images dans `review/pilot-AI/` — ignoré par Git, comme les photos :
+`PILOT-REVIEW.jpg` (les quatre scènes, photo, relevé, zone la plus dure) et
+`PILOT-REVIEW-CROPS.jpg` (les douze zones critiques, photo et relevé côte à
+côte). Les cadrages sont **dérivés de la géométrie du relevé** : ils suivent le
+tracé si le tracé change, au lieu de montrer un ancien endroit.
+
+Huit contrôles passent avant que la planche existe — dimensions, disjonction
+du sol et de l'incertain, cohérence des exclusions avec le masque final, rôles
+conservés, empreintes des masques inchangées, statut, annotateur, nom de passe.
+**Si l'un échoue, aucune planche n'est dessinée** : une image qui ne montre pas
+les octets mesurés ne peut pas être approuvée.
+
+**2. Promouvoir**, une scène à la fois, après avoir regardé :
+
+```bash
+.venv/Scripts/python.exe -m scripts.review_annotation --photo sejour --pass-label AI --reviewer jonathan --status approved --note "revue visuelle : conforme"
+```
+
+Ce script ne touche **que** le statut et le bloc de revue. L'auteur du tracé,
+sa date, sa révision, sa passe, ses géométries et ses masques restent
+exactement en place — il n'existe aucune option pour réécrire `annotator`.
+C'est la différence avec une réimportation, qui refait tout et daterait le
+relevé du jour de la revue.
+
+Comme `annotator` vaut `claude-ai` et `reviewer` votre nom, les deux diffèrent :
+c'est une **revue indépendante** au sens du bilan de corpus, et non une
+auto-relecture. Ce que la revue ne fabrique pas, en revanche, c'est une paire
+humaine A/B : la répétabilité reste un autre protocole, et le corpus n'en a
+aucune.
+
+Si une zone ne convient pas, ne promouvez pas : dites laquelle. Le tracé sera
+corrigé, sa `revision` incrémentée, et la planche redessinée.
+
 ### 5 · Passer à la suivante
 
 Rechargez la page (ou **Tout effacer**), puis reprenez au point 2 avec

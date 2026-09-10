@@ -305,6 +305,24 @@ Un masque modifié après coup est détecté par son hash : le validateur signal
 l'écart et demande d'incrémenter `revision`. Un résultat de banc d'essai reste
 ainsi rattachable aux octets exacts sur lesquels il a été calculé.
 
+### Promouvoir n'est pas réattribuer
+
+Un relevé peut avoir été tracé par une machine. Le relire est alors le geste
+d'une personne, et les deux faits doivent rester lisibles séparément :
+`annotator` dit **qui a dessiné**, `review.reviewer` dit **qui a relu**. Une
+promotion de statut ne touche ni l'un, ni la date du tracé, ni sa révision,
+ni sa géométrie — `scripts/review_annotation.py` n'offre aucune option pour
+réécrire `annotator`, et c'est délibéré.
+
+La faute que cette règle empêche est discrète : réimporter un tracé en passant
+son propre nom produirait un relevé qui se présente comme dessiné par le
+relecteur, à la date de la revue. Le corpus resterait valide, et plus personne
+ne saurait qui a dessiné quoi.
+
+La promotion est refusée si un masque ne correspond plus à son empreinte :
+approuver des octets qu'on n'a pas regardés est exactement ce que `approved`
+doit exclure.
+
 ---
 
 ## 6. Double annotation
