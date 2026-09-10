@@ -273,7 +273,7 @@ seul JSON normalisé ; la rastérisation appartient à Python.
 
 | ajout nécessaire | difficulté | pourquoi ici et pas ailleurs |
 | --- | --- | --- |
-| polygone d'objet avec **rôle** parmi 5 | faible — c'est un polygone de plus | même image, même session, même chronomètre |
+| ~~polygone d'objet avec **rôle**~~ — **fait au LOT B.2** | faible, confirmé | même image, même session, même chronomètre |
 | polyligne de **contact au sol** | faible — même primitive que `boundary` | l'annotateur voit déjà le contact quand il trace l'objet |
 | marquage d'**ouverture** | faible | c'est une nature de contour de plus |
 | relations multi-vues | **hors outil** | c'est une donnée de prise de vue, pas de tracé : elle se saisit au manifeste |
@@ -287,6 +287,12 @@ recopiés à la main depuis le schéma Python. Deux tests rejouent une sortie
 réelle de l'outil à travers l'import, ce qui attrape une divergence, mais
 tardivement. Générer les listes depuis le schéma serait mieux ; ce n'est pas
 bloquant.
+
+Le premier ajout de cette table est livré : l'outil demande le rôle d'une
+exclusion à sa fermeture, et l'exporte dans `floorHoleRoles`, parallèle à
+`floorHoles`. La recommandation « étendre, ne pas multiplier » a été tenue à la
+lettre — un seul fichier HTML touché, aucun second outil, et le rôle est
+demandé sur la primitive qui existait déjà plutôt que sur une nouvelle.
 
 **L'outil interne n'a pas à être beau.** Il doit être précis, rapide,
 reproductible et vérifiable. Aucun élément de l'interface publique n'y entre, et
@@ -355,6 +361,16 @@ Le jeu de référence contient aujourd'hui, pour chaque scène, la photo et ses
 métadonnées. La vérité terrain viendra avec les annotations ; les sorties de
 modèle, plus tard.
 
+**Décision LOT B.2 — les métadonnées du jeu de référence ne changent pas.**
+La question était d'y ajouter un résumé des rôles présents dans chaque scène.
+Ce serait une donnée dérivée : les rôles vivent dans les annotations, et
+`corpus_report` les compte déjà. Un champ recopié se désynchronise dès la
+première correction d'annotation, et le jeu de référence deviendrait faux sans
+que rien ne le signale. Le lien `goldenCase` ↔ rôle est de toute façon déjà
+lisible : `thin_occluders` se vérifie par les exclusions `occluder` fines de
+`petite-piece`, et `rug` restera non couvert tant qu'aucune exclusion
+`floor_covering` n'existera.
+
 ## 8. Ce que ces annotations permettront de mesurer, et ce qu'elles ne permettront pas
 
 Contrôle fait maintenant, parce que découvrir après cinq cents relevés qu'une
@@ -369,16 +385,25 @@ métrique est incalculable coûterait le corpus entier.
 | `critical boundary error` | **oui** | les polylignes `wall_floor` localisent déjà la jonction |
 | `wall bleed rate` | **approchée** | exacte demanderait un masque de mur ; la dilatation au-dessus des polylignes `wall_floor` en donne une bonne approximation, à valider |
 | `occluder bleed`, toutes catégories confondues | **oui** | les exclusions tracées forment l'union des occulteurs |
-| `rug bleed` | **NON** | il faut distinguer un tapis d'un meuble : c'est le **rôle** de l'exclusion, que l'outil ne demande pas encore. Et le corpus n'a aucun tapis |
-| `thin-object preservation` | **dérivable** | une exclusion dont l'érosion disparaît est fine : mesurable géométriquement, à valider sur de vraies exclusions |
+| `occluder bleed` et `structural bleed` séparés | **oui, depuis le LOT B.2** | le rôle de chaque exclusion est annoté : 5 `occluder`, 2 `structural` sur le pilote |
+| `rug bleed` | **NON — et la cause a changé** | le rôle existe désormais (`FLOOR_COVERING`) ; ce qui manque est le sujet lui-même : **le corpus pilote n'a aucun tapis**. Aucun code ne lèvera ce blocage, seule une acquisition |
+| `thin-object preservation` | **oui, depuis le LOT B.2** | la finesse est dérivée du rayon inscrit maximal et comparée à la tolérance de contour du projet ; 8 exclusions fines sur les 12 du pilote |
 | `opening continuity error` | **partiellement** | les seuils sont tracés comme contours ; dire « même surface ou non » demande un champ que le protocole ne collecte pas encore |
 | erreurs de profondeur, de caméra | **non**, et c'est assumé | aucune vérité terrain dense n'est demandée à un humain ; ces métriques passent par leurs effets sur le rendu |
 
-Deux conclusions concrètes. **Le rôle des exclusions est le seul manque qui
-coûte deux métriques** — `rug bleed` et la ventilation d'`occluder bleed`. Il
-sera collecté au LOT D, quand l'outil aura un sélecteur de rôle, et le corpus
-n'aura de tapis à annoter qu'après acquisition. **Rien d'autre ne manque** : la
-passe A telle que le protocole la définit produit tout le reste.
+Deux conclusions concrètes, mises à jour au LOT B.2. **Le manque de rôle est
+levé** : la ventilation d'`occluder bleed` et la préservation des objets fins
+sont désormais calculables, et le rôle est un champ additif — une annotation
+antérieure reste valide et ses exclusions valent `unknown`. **Il reste un seul
+blocage, et il n'est pas technique** : `rug bleed` demande des tapis, et le
+corpus pilote en compte zéro (`floor_covering : 0` au bilan, avec
+avertissement explicite du validateur). C'est un manque d'acquisition, pas de
+schéma, et il est le seul de la liste qu'aucun lot de code ne peut résoudre.
+
+Ce que le rôle n'est pas : une classe d'objet. Rien dans le corpus ne dit
+« chaise » ou « radiateur ». Deux exclusions de rôle identique peuvent être des
+objets sans rapport, et c'est voulu — la question mesurée est « le parquet a-t-il
+été peint là où il ne devait pas », qui ne dépend pas du nom de l'objet.
 
 ## 9. Le contrôle visuel d'un relevé
 

@@ -28,7 +28,7 @@ from typing import Any
 
 import numpy as np
 
-from app.schemas.annotation import AnnotationStatus, FloorAnnotation
+from app.schemas.annotation import AnnotationStatus, ExclusionRole, FloorAnnotation
 from benchmarks.dataset import Difficulty, Manifest, Photo, load_manifest, sha256_of
 from benchmarks.segmentation import MaskError, load_mask
 
@@ -422,6 +422,23 @@ def corpus_report(scenes: list[AnnotatedScene]) -> dict[str, Any]:
             status.value: sum(1 for s in scenes if s.annotation.status is status)
             for status in AnnotationStatus
         },
+        #: Exclusions par role fonctionnel. `unknown` n'est pas une faute :
+        #: c'est l'etat d'une zone dont le role n'a pas ete determine, et
+        #: celui d'une annotation ecrite avant que le champ existe.
+        "exclusionsByRole": {
+            role.value: sum(
+                1
+                for scene in scenes
+                for e in scene.annotation.exclusions
+                if e.role is role
+            )
+            for role in ExclusionRole
+        },
+        #: Sous-ensemble assez mince pour qu'une erreur de contour l'avale :
+        #: c'est sur lui que se mesurera la preservation des objets fins.
+        "thinExclusions": sum(
+            1 for scene in scenes for e in scene.annotation.exclusions if e.thin
+        ),
         "photos": len({scene.annotation.photo_id for scene in scenes}),
         #: Approuvées par leur propre auteur. À lire à côté de `usable` : la
         #: différence dit quelle part de la vérité terrain a vu un second

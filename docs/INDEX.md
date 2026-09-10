@@ -2,7 +2,8 @@
 
 > **ACTIF.** Quel document fait foi, et sur quoi. En cas de désaccord entre deux
 > documents, la colonne « fait foi sur » de ce tableau tranche.
-> Dernière révision : **10 septembre 2026** (LOT A).
+> Dernière révision : **10 septembre 2026** (LOT A, puis LOT B.2 — rôles
+> d'exclusion).
 
 ## Comment lire les statuts
 
@@ -24,7 +25,7 @@
 | [BENCHMARK-STRATEGY-V2.md](BENCHMARK-STRATEGY-V2.md) | **CIBLE** | les métriques conservées, les métriques produit à construire, le jeu visuel de référence, le passage de porte du premier lot technique |
 | [ROADMAP-V2.md](ROADMAP-V2.md) | **CIBLE** | les lots A à J, les portes de décision humaines, le registre des risques, la grille d'arrêt du LOT C |
 | [AUDIT-V2.md](AUDIT-V2.md) | **ÉTAT COURANT** | l'inventaire de l'existant, la matrice KEEP / KEEP+EXTEND / REWORK / LEGACY / DROP, les manques, les écarts documentaires |
-| [annotation-protocol.md](annotation-protocol.md) | **DÉCISION** | **la définition officielle de `floor_visible`**, les trois notions à ne pas confondre, les natures de contour, les conventions de masque, le cycle `draft`→`reviewed`→`approved`, l'accord humain, la confidentialité du corpus |
+| [annotation-protocol.md](annotation-protocol.md) | **DÉCISION** | **la définition officielle de `floor_visible`**, les trois notions à ne pas confondre, **le rôle d'une exclusion**, les natures de contour, les conventions de masque, le cycle `draft`→`reviewed`→`approved`, l'accord humain, la confidentialité du corpus |
 | [architecture.md](architecture.md) | **ÉTAT COURANT** | la frontière Python / moteur, le pipeline livré, les deux contrats de schéma, les statuts existants, la journalisation, la configuration, les conditions avant toute dépendance lourde |
 | [scene-data.md](scene-data.md) | **DÉCISION** | la structure de `SceneData@1`, les coordonnées normalisées et non bornées, `plane` ≠ `mask`, `planeRef` comme clé de continuité, les valeurs de `light` verrouillées, la table champ → lot |
 | [product-ai-contract.md](product-ai-contract.md) | **DÉCISION** | le partage des rôles, les cinq statuts et l'écran associé, la règle de repli, `confidence` jamais affiché, le classement des capacités du moteur, les appels réseau, la confidentialité |

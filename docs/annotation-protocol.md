@@ -116,6 +116,34 @@ range pas cette notion dans `floor_visible` par commodité — mesurer un
 segmenteur contre une cible que l'image ne contient pas serait l'erreur la plus
 coûteuse du projet, et elle serait invisible : les chiffres auraient l'air bons.
 
+### Le rôle d'une exclusion — `role`
+
+Ce qui est retiré du sol visible est retiré **pour une raison**, et depuis le
+LOT B.2 cette raison est notée. À la fermeture d'une exclusion, l'outil demande
+un rôle parmi six.
+
+| rôle | ce que le rendu devra en faire | exemples rencontrés |
+| --- | --- | --- |
+| `occluder` | rester devant le parquet | pied de chaise, meuble, carton, objet posé |
+| `floor_covering` | ne jamais devenir du parquet | tapis, carpette, paillasson |
+| `structural` | élément fixe qui n'est pas une surface à recouvrir | grille encastrée, seuil, trappe technique |
+| `opening` | marquer où le sol candidat s'arrête ou continue | passage, baie |
+| `other` | exclusion réelle qui n'entre dans aucune des précédentes | — |
+| `unknown` | **valeur par défaut** : rien n'est supposé | zone dont vous ne savez pas dire ce qu'elle est |
+
+C'est une taxonomie **fonctionnelle**, pas un nom d'objet : la question est
+« qu'est-ce que le rendu doit faire de cette zone », pas « qu'est-ce que c'est ».
+Un fauteuil, une plante et un carton répondent tous `occluder`.
+
+> **`unknown` n'est pas une faute.** Un boîtier dont on ne peut pas dire, même
+> au grossissement, s'il est encastré ou simplement posé, est honnêtement
+> `unknown`. Choisir `structural` « parce que c'est probable » fabrique une
+> vérité terrain fausse dans un champ que personne ne relira.
+
+Le rôle **ne change rien à la géométrie** : le masque percé est exactement le
+même qu'avant que ce champ existe. Une annotation tracée avant le LOT B.2 reste
+valide, et toutes ses exclusions valent `unknown`.
+
 ### L'incertain — `uncertain`
 
 Les pixels dont une personne honnête dit qu'elle **ne sait pas**. Ils sont

@@ -331,9 +331,9 @@
   .choice:hover { border-color: var(--line-strong); color: var(--ink); }
   .choice[aria-pressed="true"] { border-color: var(--edge); color: var(--ink); background: rgba(31, 158, 85, 0.08); }
 
-  #reasonPop { width: 300px; z-index: 5; }
-  #reasonPop h2 { margin: 0 0 3px; font-size: 13px; font-weight: 600; }
-  #reasonPop p { margin: 0 0 12px; font-size: 12px; color: var(--ink-faint); }
+  #rolePop, #reasonPop { width: 300px; z-index: 5; }
+  #rolePop h2, #reasonPop h2 { margin: 0 0 3px; font-size: 13px; font-weight: 600; }
+  #rolePop p, #reasonPop p { margin: 0 0 12px; font-size: 12px; color: var(--ink-faint); }
 
   #footer {
     display: flex;
@@ -633,6 +633,12 @@
       <button class="btn quiet" id="advancedDone" type="button" style="width:100%;margin-top:10px">Fermer</button>
     </aside>
 
+    <aside class="card hidden" id="rolePop">
+      <h2>Qu'est-ce que cette exclusion ?</h2>
+      <p>Ce que le rendu doit en faire, pas le nom de l'objet.</p>
+      <div class="choice-grid" id="roleChoices"></div>
+    </aside>
+
     <aside class="card hidden" id="reasonPop">
       <h2>Pourquoi est-ce indécidable ?</h2>
       <p>Cette zone sortira des mesures.</p>
@@ -698,6 +704,19 @@
     ['cut_by_frame', 'Hors cadre'],
     ['motion_blur', 'Flou de bougé'],
     ['other', 'Autre'],
+  ];
+
+  /* Role d'une exclusion. Taxonomie FONCTIONNELLE : ce que le rendu doit
+     faire de la zone, pas le nom de l'objet. Les VALEURS voyagent dans le
+     JSON et doivent rester exactement celles de `ExclusionRole` dans
+     app/schemas/annotation.py ; seuls les libelles sont francais. */
+  const EXCLUSION_ROLES = [
+    ['occluder', 'Occulteur'],
+    ['floor_covering', 'Revêtement de sol'],
+    ['structural', 'Structure'],
+    ['opening', 'Ouverture'],
+    ['other', 'Autre'],
+    ['unknown', 'Inconnu'],
   ];
 
   const BOUNDARY_KINDS = [
@@ -781,6 +800,7 @@
     reviewing: false,
     layers: { floor: true, hole: true, uncertain: true, boundary: true },
     pendingUncertain: null,
+    pendingHole: null,
   };
 
   /* =====================================================================
@@ -1129,6 +1149,20 @@
 
     const shape = { kind: state.mode, points: state.current };
     if (state.mode === 'boundary') shape.boundaryKind = state.boundaryKind;
+
+    if (state.mode === 'hole') {
+      /* Le role est demande a la fermeture, comme la raison d'une zone
+         incertaine : un menu a remplir d'abord ferait tracer moins
+         d'exclusions qu'il n'en faut. Defaut « inconnu » : on ne range pas
+         d'office une zone dont on n'a rien dit. */
+      shape.role = 'unknown';
+      state.shapes.push(shape);
+      state.current = [];
+      state.pendingHole = state.shapes.length - 1;
+      openRolePop();
+      afterChange();
+      return true;
+    }
 
     if (state.mode === 'uncertain') {
       /* La raison est demandée à la fermeture, pas avant : un menu à remplir
@@ -1524,6 +1558,35 @@
     $('more').setAttribute('aria-expanded', 'false');
   });
 
+  /* Role d'exclusion */
+  $('roleChoices').innerHTML = EXCLUSION_ROLES
+    .map(([value, label]) =>
+      `<button class="choice" type="button" data-role="${value}" aria-pressed="false">${label}</button>`)
+    .join('');
+
+  function openRolePop() {
+    const pop = $('rolePop');
+    const { width, height } = stageSize();
+    pop.classList.remove('hidden');
+    pop.style.left = `${Math.min(Math.max(width / 2 - 150, 16), Math.max(width - 316, 16))}px`;
+    pop.style.top = `${Math.max(Math.min(height / 2 - 90, height - 260), 16)}px`;
+  }
+
+  function chooseRole(value, label) {
+    if (state.pendingHole === null) return;
+    state.shapes[state.pendingHole].role = value;
+    state.pendingHole = null;
+    $('rolePop').classList.add('hidden');
+    flash(`Exclusion · ${label}`);
+    afterChange();
+  }
+
+  $('roleChoices').addEventListener('click', (event) => {
+    const button = event.target.closest && event.target.closest('.choice');
+    if (!button) return;
+    chooseRole(button.dataset.role, button.textContent);
+  });
+
   /* Raison d'incertitude */
   $('reasonChoices').innerHTML = REASONS
     .map(([value, label]) =>
@@ -1652,6 +1715,10 @@
       height: state.height,
       floorPolygons: pick('floor').map((shape) => normalize(shape.points)),
       floorHoles: pick('hole').map((shape) => normalize(shape.points)),
+      /* Parallele a `floorHoles`, index par index. Champ ajoute apres coup :
+         un trace anterieur n'en a pas, et l'import laisse alors les roles a
+         « inconnu » plutot que d'en supposer un. */
+      floorHoleRoles: pick('hole').map((shape) => shape.role || 'unknown'),
       uncertainZones: pick('uncertain').map((shape) => ({
         reason: shape.reason, polygon: normalize(shape.points),
       })),
@@ -1689,10 +1756,10 @@
      minimal, et un test qui réimplémenterait cette logique ne testerait rien. */
   window.__annotate = {
     state, clock, history, DRAW_SCHEMA, IDLE_LIMIT_MS, REASONS, BOUNDARY_KINDS,
-    SCENE_HELP, MODE_LABELS, setMode, mode, pick, normalize, finish, addPoint,
+    SCENE_HELP, MODE_LABELS, EXCLUSION_ROLES, setMode, mode, pick, normalize, finish, addPoint,
     abandonDraft, deleteVertex, insertVertex, undo, redo, commit, buildDraw,
     elapsedSeconds, noteActivity, tick, hitVertex, hitSegment, load, openReview,
-    fitView, zoomAt, toImage, chooseReason,
+    fitView, zoomAt, toImage, chooseReason, chooseRole,
   };
 })();
 </script>

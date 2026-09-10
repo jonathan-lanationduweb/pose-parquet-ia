@@ -125,6 +125,41 @@ class BoundaryKind(StrEnum):
     OTHER = "other"
 
 
+class ExclusionRole(StrEnum):
+    """Ce qu'une exclusion EST, du point de vue du rendu.
+
+    Taxonomie **fonctionnelle** et non semantique : le moteur n'a pas besoin de
+    savoir qu'un masque est une chaise, il a besoin de savoir ce qu'il doit en
+    faire. « Chaise », « canape » et « plante » repondent tous
+    `OCCLUDER` — et une classe manquante dans une taxonomie semantique devient
+    un objet repeint, c'est-a-dire un defaut visible.
+
+    Six valeurs, et pas une de plus : chacune correspond a une consequence
+    differente pour le rendu, et une septieme n'en apporterait aucune.
+    """
+
+    #: Doit rester devant le parquet, pixels d'origine restitues : pied de
+    #: chaise, meuble, objet pose au sol.
+    OCCLUDER = "occluder"
+    #: Recouvre volontairement le sol et ne doit jamais etre remplace : tapis,
+    #: carpette, paillasson. Le cas le plus couteux, et le plus visible.
+    FLOOR_COVERING = "floor_covering"
+    #: Element fixe de la piece qui n'est pas une surface a recouvrir : grille
+    #: encastree, seuil structurel, trappe technique.
+    STRUCTURAL = "structural"
+    #: Qualifie une frontiere utile a la comprehension de continuite entre
+    #: surfaces. **Ne decoupe rien par lui-meme** : une ouverture par laquelle
+    #: le meme parquet continue reste du sol visible.
+    OPENING = "opening"
+    #: Exclusion reelle qui n'entre proprement dans aucune des precedentes.
+    OTHER = "other"
+    #: Role indeterminable avec assez de confiance. **Valeur par defaut** :
+    #: une exclusion sans role declare n'est pas rangee d'office, elle est
+    #: rangee comme inconnue. C'est aussi ce que devient une annotation
+    #: anterieure a ce champ.
+    UNKNOWN = "unknown"
+
+
 class UncertainReason(StrEnum):
     """Pourquoi une personne n'a pas su trancher.
 
@@ -191,6 +226,31 @@ class MaskFiles(_Model):
     #: ranger cette notion dans `floor_visible` — les deux ne se mesurent pas
     #: l'une contre l'autre.
     floor_extent: None = None
+
+
+class Exclusion(_Model):
+    """Une zone retiree du sol visible, et **pourquoi**.
+
+    Le LOT B a montre le manque : on savait qu'une zone etait exclue, pas ce
+    qu'elle etait. Sans cette information, « parquet peint sur un meuble » et
+    « parquet peint sur un tapis » ne se distinguent pas, alors que le second
+    est bien plus grave et bien plus frequent.
+
+    La geometrie est celle qui a servi a percer le masque : ce modele ne la
+    remplace pas, il la conserve avec son role pour que les mesures d'objets
+    soient possibles plus tard.
+    """
+
+    role: ExclusionRole = ExclusionRole.UNKNOWN
+    #: Coordonnees normalisees, identiques a celles du trace. Conservees pour
+    #: pouvoir mesurer un debordement par role sans relire le fichier de trace.
+    polygon: list[Point] = Field(min_length=3)
+    #: Structure fine — pied, montant, piètement. **Derive de la geometrie**,
+    #: jamais saisi : une forme dont l'erosion par un disque de 5 px disparait
+    #: est fine. C'est le sous-ensemble sur lequel se mesure la preservation
+    #: des objets fins, que la moyenne generale ecrase.
+    thin: bool = False
+    note: str | None = None
 
 
 class AnnotationTiming(_Model):
@@ -262,6 +322,11 @@ class FloorAnnotation(_Model):
     masks: MaskFiles
     boundary: list[BoundarySegment] = Field(default_factory=list)
     uncertain_zones: list[UncertainZone] = Field(default_factory=list)
+    #: Les zones retirees du sol, avec leur role. **Ajout additif** : une
+    #: annotation ecrite avant ce champ reste valide, sa liste est vide, et
+    #: aucune de ses exclusions ne se voit attribuer un role par defaut
+    #: silencieux — elles sont simplement inconnues.
+    exclusions: list[Exclusion] = Field(default_factory=list)
 
     #: Qui a dessiné. Un nom, un pseudo, un identifiant — mais quelque chose :
     #: une vérité terrain anonyme n'est pas contestable.

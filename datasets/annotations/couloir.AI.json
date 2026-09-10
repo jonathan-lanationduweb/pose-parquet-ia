@@ -172,6 +172,7 @@
       "note": null
     }
   ],
+  "exclusions": [],
   "annotator": "claude-ai",
   "annotatedOn": "2026-09-10",
   "revision": 1,

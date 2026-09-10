@@ -44,6 +44,8 @@ from app.schemas.annotation import (
     AnnotationTiming,
     BoundaryKind,
     BoundarySegment,
+    Exclusion,
+    ExclusionRole,
     FloorAnnotation,
     MaskFiles,
     Point,
@@ -54,7 +56,7 @@ from app.schemas.annotation import (
 from app.services.image_loader import load_image
 from benchmarks.annotations import ANNOTATIONS_DIR
 from benchmarks.dataset import load_manifest, sha256_of
-from benchmarks.segmentation import save_mask
+from benchmarks.segmentation import MetricConfig, save_mask
 
 #: Format attendu en entrée, produit par `tools/annotate.html`.
 DRAW_SCHEMA = "pose-parquet-ai/floor-draw@1"
@@ -135,6 +137,64 @@ def render_overlay(
     out_path.parent.mkdir(parents=True, exist_ok=True)
     rendu = apercu.clip(0, 255).astype(np.uint8)
     cv2.imwrite(str(out_path), cv2.cvtColor(rendu, cv2.COLOR_RGB2BGR))
+
+
+def _demi_epaisseur(polygon: list[dict[str, float]], width: int, height: int) -> float:
+    """Rayon du plus grand disque inscrit dans la forme, en pixels.
+
+    C'est la mesure d'epaisseur qui ne depend pas de l'inclinaison : la largeur
+    d'une boite englobante grandit avec la pente, ce rayon non.
+    """
+    masque = np.zeros((height, width), np.uint8)
+    cv2.fillPoly(masque, [_polygon_to_pixels(polygon, width, height)], 255)
+    return float(cv2.distanceTransform(masque, cv2.DIST_L2, 5).max())
+
+
+def _est_fine(polygon: list[dict[str, float]], width: int, height: int) -> bool:
+    """Vrai si la forme est assez mince pour qu'une erreur de contour l'avale.
+
+    Le seuil n'est pas choisi au hasard : c'est la tolerance de contour
+    mediane du projet (0,5 % de la diagonale, soit 10 px sur 1600x1067). Une
+    forme dont la demi-epaisseur est inferieure a une tolerance peut
+    disparaitre entierement dans une erreur qui reste « dans la tolerance » —
+    c'est exactement ce que la mesure de preservation des objets fins doit
+    attraper, et ce que la moyenne generale ecrase.
+
+    Derive de la geometrie, jamais saisi : deux personnes ne s'accorderaient
+    pas sur « fin », un rayon inscrit si.
+    """
+    return _demi_epaisseur(polygon, width, height) < MetricConfig().tolerance_px(width, height)
+
+
+def _exclusions(draw: dict[str, Any], width: int, height: int) -> list[Exclusion]:
+    """Les trous du trace, avec leur role.
+
+    `floorHoleRoles` est optionnel et parallele a `floorHoles` : un trace
+    anterieur a ce champ, ou plus court, laisse les roles manquants a
+    `unknown`. On ne devine pas un role qui n'a pas ete declare.
+    """
+    trous = draw.get("floorHoles", []) or []
+    roles = draw.get("floorHoleRoles", []) or []
+    notes = draw.get("floorHoleNotes", []) or []
+    sorties: list[Exclusion] = []
+    for i, polygon in enumerate(trous):
+        brut = roles[i] if i < len(roles) and roles[i] else ExclusionRole.UNKNOWN.value
+        try:
+            role = ExclusionRole(brut)
+        except ValueError as invalide:
+            raise ImportError_(
+                f"role d'exclusion inconnu : « {brut} ». Valeurs admises : "
+                + ", ".join(r.value for r in ExclusionRole)
+            ) from invalide
+        sorties.append(
+            Exclusion(
+                role=role,
+                polygon=[Point(x=float(p["x"]), y=float(p["y"])) for p in polygon],
+                thin=_est_fine(polygon, width, height),
+                note=(notes[i] if i < len(notes) and notes[i] else None),
+            )
+        )
+    return sorties
 
 
 def _load_draw(path: Path) -> dict[str, Any]:
@@ -251,6 +311,7 @@ def build(
             )
             for segment in draw.get("boundary", [])
         ],
+        exclusions=_exclusions(draw, width, height),
         uncertain_zones=[
             UncertainZone(
                 reason=UncertainReason(zone["reason"]),
@@ -387,6 +448,13 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     print(f"Annotation écrite : {path}")
+    roles = json.loads(path.read_text(encoding="utf-8")).get("exclusions", [])
+    if roles:
+        compte: dict[str, int] = {}
+        for e in roles:
+            compte[e["role"]] = compte.get(e["role"], 0) + 1
+        fines = sum(1 for e in roles if e["thin"])
+        print(f"Exclusions : {len(roles)} — {compte}, dont {fines} fine(s)")
     if args.overlay:
         print(f"Aperçu de contrôle : {args.overlay} — regardez-le avant d'approuver")
     print("Contrôlez-la : python -m scripts.validate_dataset")

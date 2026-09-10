@@ -95,7 +95,7 @@ n'a aucun usage de la différence entre un fauteuil et un pouf ; la liste est
 ouverte et donc jamais complète ; et une classe manquante devient un objet
 repeint, c'est-à-dire un défaut visible.
 
-**B — taxonomie fonctionnelle** : cinq rôles, définis par ce que le rendu doit
+**B — taxonomie fonctionnelle** : des rôles définis par ce que le rendu doit
 en faire.
 
 | rôle | ce que le moteur doit faire | exemples |
@@ -105,6 +105,7 @@ en faire.
 | `STRUCTURAL` | borner le sol par le bas | mur, plinthe, seuil, huisserie |
 | `OPENING` | marquer où le sol candidat s'arrête ou continue | porte, passage, baie |
 | `OTHER` | rien de particulier | le reste |
+| `UNKNOWN` | rien supposer | zone dont le rôle n'a pas été déterminé |
 
 **Recommandation : B, avec l'étiquette sémantique conservée en second champ
 facultatif.** La raison est une exigence de mesure : ce qui doit être évalué,
@@ -115,6 +116,31 @@ critère.
 
 Conséquence sur la vérité terrain : les humains annotent des **rôles**, ce qui
 est décidable et rapide, pas des espèces de meubles.
+
+`UNKNOWN` est la sixième valeur, et elle est **normale, pas fautive** : c'est
+l'état d'une zone qu'on n'a pas su qualifier, et celui d'une annotation écrite
+avant que le champ existe. La transformer en erreur pousserait à choisir un
+rôle plausible au hasard, ce qui est exactement le défaut qu'on veut éviter.
+
+Une nuance apparue à l'implémentation, et qui vaut d'être écrite : dans la
+colonne « exemples » ci-dessus, `STRUCTURAL` cite le mur et la plinthe. Ce sont
+des exemples au sens du **moteur**, qui doit borner le sol par le bas. Dans la
+**vérité terrain**, mur et plinthe ne sont pas des exclusions du tout : ils sont
+hors de `floor_visible` par construction, et n'ont donc aucun polygone à
+qualifier. Une exclusion `structural` annotée est un élément *entouré de sol* —
+une grille encastrée, une trappe, un seuil au milieu du champ.
+
+**État — implémenté au LOT B.2** (`ExclusionRole` dans
+`app/schemas/annotation.py`, sélecteur dans `tools/annotate.html`, champ
+`floorHoleRoles` dans le format de tracé, comptage par rôle dans le bilan de
+corpus). Le rôle est **fonctionnel et non sémantique** : `OCCLUDER` ne dit pas
+« chaise », il dit « restituer les pixels d'origine ». L'étiquette sémantique
+facultative n'est toujours pas collectée, et n'est pas nécessaire aux mesures.
+
+Ce que ce champ ouvre, sans que rien n'en soit implémenté ici : la
+détection `sameSurface` / `differentSurface` d'une ouverture (§9), et le
+seuillage d'une continuité, reposeront sur des exclusions dont le rôle est
+`OPENING`. Ce sera un lot dédié, avec ses propres données.
 
 ## 5. Occlusion
 

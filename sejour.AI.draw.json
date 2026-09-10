@@ -474,5 +474,8 @@
       ]
     }
   ],
-  "notes": "TRACE GENERE PAR IA (Claude) — ce n'est pas un releve humain, et il ne doit jamais etre compte comme tel. Revision 2 apres controle visuel de l'apercu. Jonction mur/sol mesuree colonne par colonne et verifiee par deux criteres independants. Sejour et salle a manger en enfilade : meme parquet continu, aucun seuil visible, une seule surface. Porte ouverte contournee, grille de ventilation encastree exclue en parallelogramme. Une zone incertaine au bas de la porte, ou un reflet noie la limite. A controler visuellement par un humain avant tout usage."
+  "notes": "TRACE GENERE PAR IA (Claude) — ce n'est pas un releve humain, et il ne doit jamais etre compte comme tel. Revision 2 apres controle visuel de l'apercu. Jonction mur/sol mesuree colonne par colonne et verifiee par deux criteres independants. Sejour et salle a manger en enfilade : meme parquet continu, aucun seuil visible, une seule surface. Porte ouverte contournee, grille de ventilation encastree exclue en parallelogramme. Une zone incertaine au bas de la porte, ou un reflet noie la limite. A controler visuellement par un humain avant tout usage.",
+  "floorHoleRoles": [
+    "structural"
+  ]
 }

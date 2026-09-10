@@ -293,5 +293,6 @@
       ]
     }
   ],
-  "notes": "TRACE GENERE PAR IA (Claude) — pas un releve humain. Bois clair sur bois clair, sans plinthe : la limite est mesuree par trois criteres croises, pas devinee. Panneau coulissant contourne, barre de seuil de la porte en bois exclue, arete de mur suivie sans lissage. Une zone incertaine sur x 800-920 ou deux mesures divergent de 10 px. A verifier par un humain : trois petits objets sombres au pied du mur du fond (x~585, 655, 865) que je n'ai pas su delimiter — ils sont a la jonction, donc probablement hors du sol, mais je ne l'affirme pas."
+  "notes": "TRACE GENERE PAR IA (Claude) — pas un releve humain. Bois clair sur bois clair, sans plinthe : la limite est mesuree par trois criteres croises, pas devinee. Panneau coulissant contourne, barre de seuil de la porte en bois exclue, arete de mur suivie sans lissage. Une zone incertaine sur x 800-920 ou deux mesures divergent de 10 px. A verifier par un humain : trois petits objets sombres au pied du mur du fond (x~585, 655, 865) que je n'ai pas su delimiter — ils sont a la jonction, donc probablement hors du sol, mais je ne l'affirme pas.",
+  "floorHoleRoles": []
 }

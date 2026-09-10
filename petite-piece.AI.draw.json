@@ -745,5 +745,27 @@
       ]
     }
   ],
-  "notes": "TRACE GENERE PAR IA (Claude) — pas un releve humain. Jonction mur/sol resolue par trois indices convergents a 5 px pres ; le doute de 30 px de la passe precedente venait d'un mauvais indice de ma part (luminosite au lieu de saturation). Radiateur mesure : ne touche pas le sol, donc pas exclu. Rideau gauche : s'arrete au-dessus du sol. Rideau droit : borne le sol a droite. QUATRE pieds fins traces individuellement, sol conserve entre eux ; QUATRE autres non resolus (caches par l'assise et le caisson, ou confondus avec leur reflet). Cinq zones incertaines, 0,3 % de l'image : le contact de chaque pied avec son reflet, et le coin bas droit ou ombre, rideau et sol ne se separent pas. A verifier par un humain."
+  "notes": "TRACE GENERE PAR IA (Claude) — pas un releve humain. Jonction mur/sol resolue par trois indices convergents a 5 px pres ; le doute de 30 px de la passe precedente venait d'un mauvais indice de ma part (luminosite au lieu de saturation). Radiateur mesure : ne touche pas le sol, donc pas exclu. Rideau gauche : s'arrete au-dessus du sol. Rideau droit : borne le sol a droite. QUATRE pieds fins traces individuellement, sol conserve entre eux ; QUATRE autres non resolus (caches par l'assise et le caisson, ou confondus avec leur reflet). Cinq zones incertaines, 0,3 % de l'image : le contact de chaque pied avec son reflet, et le coin bas droit ou ombre, rideau et sol ne se separent pas. A verifier par un humain.",
+  "floorHoleRoles": [
+    "occluder",
+    "occluder",
+    "occluder",
+    "occluder",
+    "occluder",
+    "unknown",
+    "unknown",
+    "unknown",
+    "unknown"
+  ],
+  "floorHoleNotes": [
+    null,
+    null,
+    null,
+    null,
+    null,
+    "contact pied/reflet, indecidable",
+    "contact pied/reflet, indecidable",
+    "contact pied/reflet, indecidable",
+    "contact pied/reflet, indecidable"
+  ]
 }

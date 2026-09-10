@@ -112,6 +112,17 @@ def main(argv: list[str] | None = None) -> int:
             level = "ERREUR " if issue["level"] == "error" else "avertis."
             print(f"  {level} [{issue['code']}] {issue['message']}")
 
+        roles = report["exclusionsByRole"]
+        print(f"Exclusions : {sum(roles.values())}, dont {report['thinExclusions']} fine(s)")
+        for role, compte in roles.items():
+            if compte or role in {"occluder", "floor_covering", "structural", "unknown"}:
+                print(f"  {role:<16} {compte}{'' if compte else '  — aucune'}")
+        if not roles.get("floor_covering"):
+            print(
+                "  avertis. aucun revetement de sol annote : le corpus n'a pas de "
+                "tapis, donc le debordement sur tapis reste NON MESURABLE"
+            )
+
         golden = report["goldenCoverage"]
         print(f"Jeu visuel de référence : {golden['scenes']} scène(s)")
         for case, ids in golden["byCase"].items():

@@ -462,5 +462,13 @@
       ]
     }
   ],
-  "notes": "TRACE GENERE PAR IA (Claude) — pas un releve humain. Terrasse vue par la baie EXCLUE malgre la continuite de plain-pied. Grille de convecteur encastree exclue (detectee par l'energie de ses barreaux). Bande de sol interieur entre encadrement et grille conservee. Petit boitier encastre exclu. Aucune zone incertaine : la jonction se lit partout. Point a verifier par un humain : le decrochement de 12 px au coin du fond (x~885), lu comme un vrai angle et non comme un artefact."
+  "notes": "TRACE GENERE PAR IA (Claude) — pas un releve humain. Terrasse vue par la baie EXCLUE malgre la continuite de plain-pied. Grille de convecteur encastree exclue (detectee par l'energie de ses barreaux). Bande de sol interieur entre encadrement et grille conservee. Petit boitier encastre exclu. Aucune zone incertaine : la jonction se lit partout. Point a verifier par un humain : le decrochement de 12 px au coin du fond (x~885), lu comme un vrai angle et non comme un artefact.",
+  "floorHoleRoles": [
+    "structural",
+    "unknown"
+  ],
+  "floorHoleNotes": [
+    null,
+    "releve a 16x : encastre ou pose, indecidable"
+  ]
 }
