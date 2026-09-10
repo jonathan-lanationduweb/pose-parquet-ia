@@ -22,6 +22,7 @@
 | [PRODUCT-VISION.md](PRODUCT-VISION.md) | **CIBLE** | la cible produit, les deux modes, les trois niveaux d'immersion, la définition de « terminé » |
 | [AI-ARCHITECTURE-V2.md](AI-ARCHITECTURE-V2.md) | **CIBLE** | le périmètre de compréhension de scène, les objets par rôle, les occlusions, la profondeur, la caméra, les extensions de `SceneData`, `analysis@3`, la confiance par composant, les warnings structurés, les familles de modèles, la grille de licences, l'observabilité, les API |
 | [DATASET-STRATEGY-V2.md](DATASET-STRATEGY-V2.md) | **CIBLE** | le corpus à constituer, les trois paliers, le corpus multi-vues, ce qu'on demande aux humains, la direction de l'outil d'annotation |
+| [RENDERER-AUTONOMY-PLAN.md](RENDERER-AUTONOMY-PLAN.md) | **CIBLE** | ce qu'est réellement le moteur de rendu, la seule dépendance d'exécution restante vers le front gelé, le noyau minimal de 15 fichiers, les champs de `SceneData` réellement consommés et l'écart avec la cible Python, les coûts mesurés, la stratégie d'extraction en cinq étapes et son test d'autonomie bloquant |
 | [MODEL-LICENSES.md](MODEL-LICENSES.md) | **DÉCISION** | la licence du code et **celle des poids, vérifiée séparément**, pour chaque candidat envisagé ; les quatre statuts de licence et les trois d'éligibilité ; la réserve ADE20K ; l'écart entre notre `floorVisible` et une classe `floor` académique ; la source officielle de chaque décision. **LICENSE CHECK COMPLETE ≠ MODEL SELECTED** : ce document n'autorise pas le LOT C |
 | [BENCHMARK-STRATEGY-V2.md](BENCHMARK-STRATEGY-V2.md) | **CIBLE** | les métriques conservées, les métriques produit à construire, le jeu visuel de référence, le passage de porte du premier lot technique |
 | [ROADMAP-V2.md](ROADMAP-V2.md) | **CIBLE** | les lots A à J, les portes de décision humaines, le registre des risques, la grille d'arrêt du LOT C |
@@ -76,9 +77,10 @@ que cette règle sert à éviter. Décision ultérieure.
 vérité terrain. Deux HTML dans le dépôt, deux outils, et c'est normal.
 
 `pose-parquet.com` est **gelé** et n'est plus une cible de développement.
-Il reste un consommateur externe. Le visualiseur garde aujourd'hui une
-dépendance d'exécution vers lui pour son rendu — état constaté, décrit dans
-[AUDIT-V2.md](AUDIT-V2.md), pas encore résolu.
+Il reste un consommateur externe. Le visualiseur garde aujourd'hui **une seule**
+dépendance d'exécution vers lui — l'iframe du moteur de rendu — auditée et
+chiffrée dans [RENDERER-AUTONOMY-PLAN.md](RENDERER-AUTONOMY-PLAN.md), avec son
+plan d'extraction. Rien n'en est encore extrait.
 
 ## Où vivent les choses hors de ce dossier
 
