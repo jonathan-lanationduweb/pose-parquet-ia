@@ -1,0 +1,284 @@
+{
+  "schema": "pose-parquet-ai/floor-annotation@1",
+  "photoId": "sejour",
+  "width": 1600,
+  "height": 1067,
+  "masks": {
+    "floorVisible": "masks/sejour.AI.floor-visible.png",
+    "uncertain": "masks/sejour.AI.uncertain.png",
+    "floorExtent": null
+  },
+  "boundary": [
+    {
+      "kind": "wall_floor",
+      "points": [
+        {
+          "x": 0.0,
+          "y": 0.695408
+        },
+        {
+          "x": 0.01875,
+          "y": 0.690722
+        },
+        {
+          "x": 0.0375,
+          "y": 0.685098
+        },
+        {
+          "x": 0.053125,
+          "y": 0.68135
+        }
+      ],
+      "note": null
+    },
+    {
+      "kind": "object_contact",
+      "points": [
+        {
+          "x": 0.055,
+          "y": 0.697282
+        },
+        {
+          "x": 0.095,
+          "y": 0.674789
+        }
+      ],
+      "note": null
+    },
+    {
+      "kind": "wall_floor",
+      "points": [
+        {
+          "x": 0.1075,
+          "y": 0.550141
+        },
+        {
+          "x": 0.134375,
+          "y": 0.546392
+        },
+        {
+          "x": 0.15625,
+          "y": 0.542643
+        },
+        {
+          "x": 0.18125,
+          "y": 0.538894
+        },
+        {
+          "x": 0.20625,
+          "y": 0.535145
+        },
+        {
+          "x": 0.23125,
+          "y": 0.531396
+        },
+        {
+          "x": 0.25625,
+          "y": 0.527648
+        },
+        {
+          "x": 0.26875,
+          "y": 0.52671
+        }
+      ],
+      "note": null
+    },
+    {
+      "kind": "wall_floor",
+      "points": [
+        {
+          "x": 0.26875,
+          "y": 0.52671
+        },
+        {
+          "x": 0.28125,
+          "y": 0.532334
+        },
+        {
+          "x": 0.29375,
+          "y": 0.53702
+        },
+        {
+          "x": 0.30625,
+          "y": 0.541706
+        },
+        {
+          "x": 0.31875,
+          "y": 0.547329
+        },
+        {
+          "x": 0.33125,
+          "y": 0.552015
+        },
+        {
+          "x": 0.340625,
+          "y": 0.554827
+        },
+        {
+          "x": 0.35375,
+          "y": 0.558575
+        }
+      ],
+      "note": null
+    },
+    {
+      "kind": "wall_floor",
+      "points": [
+        {
+          "x": 0.3725,
+          "y": 0.59044
+        },
+        {
+          "x": 0.3875,
+          "y": 0.586692
+        },
+        {
+          "x": 0.4375,
+          "y": 0.592315
+        },
+        {
+          "x": 0.5,
+          "y": 0.615745
+        },
+        {
+          "x": 0.5625,
+          "y": 0.639175
+        },
+        {
+          "x": 0.625,
+          "y": 0.662605
+        },
+        {
+          "x": 0.6875,
+          "y": 0.686036
+        },
+        {
+          "x": 0.75,
+          "y": 0.709466
+        },
+        {
+          "x": 0.8125,
+          "y": 0.731959
+        },
+        {
+          "x": 0.875,
+          "y": 0.754452
+        },
+        {
+          "x": 0.9375,
+          "y": 0.776945
+        },
+        {
+          "x": 0.999375,
+          "y": 0.7985
+        }
+      ],
+      "note": null
+    },
+    {
+      "kind": "other",
+      "points": [
+        {
+          "x": 0.429375,
+          "y": 0.596064
+        },
+        {
+          "x": 0.441875,
+          "y": 0.597001
+        },
+        {
+          "x": 0.454375,
+          "y": 0.604499
+        },
+        {
+          "x": 0.441875,
+          "y": 0.609185
+        },
+        {
+          "x": 0.429375,
+          "y": 0.596064
+        }
+      ],
+      "note": null
+    },
+    {
+      "kind": "frame_cut",
+      "points": [
+        {
+          "x": 0.0,
+          "y": 0.695408
+        },
+        {
+          "x": 0.0,
+          "y": 0.999063
+        }
+      ],
+      "note": null
+    },
+    {
+      "kind": "frame_cut",
+      "points": [
+        {
+          "x": 0.0,
+          "y": 0.999063
+        },
+        {
+          "x": 0.999375,
+          "y": 0.999063
+        }
+      ],
+      "note": null
+    },
+    {
+      "kind": "frame_cut",
+      "points": [
+        {
+          "x": 0.999375,
+          "y": 0.7985
+        },
+        {
+          "x": 0.999375,
+          "y": 0.999063
+        }
+      ],
+      "note": null
+    }
+  ],
+  "uncertainZones": [
+    {
+      "reason": "reflection",
+      "polygon": [
+        {
+          "x": 0.055,
+          "y": 0.677601
+        },
+        {
+          "x": 0.093125,
+          "y": 0.656045
+        },
+        {
+          "x": 0.093125,
+          "y": 0.67104
+        },
+        {
+          "x": 0.055,
+          "y": 0.692596
+        }
+      ],
+      "note": null
+    }
+  ],
+  "annotator": "claude-ai",
+  "annotatedOn": "2026-09-10",
+  "revision": 1,
+  "status": "draft",
+  "review": null,
+  "passLabel": "AI",
+  "independentPass": false,
+  "timing": null,
+  "maskSha256": {
+    "floorVisible": "452919243db7cc3edb70ee3123fb58039fd40c0eb6186e75b0d48ca90da5b7d6",
+    "uncertain": "8b0c034b41365a9e87b3aa27eb4426d85af66b065f621903d2f54fa769250876"
+  },
+  "notes": "TRACE GENERE PAR IA (Claude) — ce n'est pas un releve humain, et il ne doit jamais etre compte comme tel. Revision 2 apres controle visuel de l'apercu. Jonction mur/sol mesuree colonne par colonne et verifiee par deux criteres independants. Sejour et salle a manger en enfilade : meme parquet continu, aucun seuil visible, une seule surface. Porte ouverte contournee, grille de ventilation encastree exclue en parallelogramme. Une zone incertaine au bas de la porte, ou un reflet noie la limite. A controler visuellement par un humain avant tout usage."
+}

@@ -74,3 +74,6 @@ desktop.ini
 #                                  sur nos scènes privées : ils en dérivent,
 #                                  donc même régime que private-real/.
 tools/local-demo-assets/
+
+# Apercus de controle d annotation : images de travail, jamais versionnees
+controle-*.jpg
