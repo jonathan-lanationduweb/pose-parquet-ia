@@ -150,7 +150,14 @@ correspond à une manière connue de se tromper.
 | métriques produit définies | §3 : sans elles, on mesurera le mauvais chiffre |
 | licences des candidats vérifiées | un modèle non redistribuable choisi est un modèle à remplacer |
 
-État actuel de ces six conditions : **une seule est remplie** (le banc d'essai).
+État actuel de ces six conditions : **deux sont remplies**. Le banc d'essai
+l'était déjà ; les licences des candidats ont été vérifiées au LOT B.3, à la
+source officielle et en distinguant le code des poids —
+[MODEL-LICENSES.md](MODEL-LICENSES.md). Cette vérification lève **un** obstacle
+sur quatre : elle ne choisit aucun modèle et n'autorise pas le lot technique.
+Les quatre conditions manquantes tiennent toutes au corpus et à la vérité
+terrain — pas de tapis, corpus du palier 1 incomplet, zéro annotation
+approuvée, accord humain non mesuré.
 
 ## 9. Ce que la mesure n'autorise pas
 
