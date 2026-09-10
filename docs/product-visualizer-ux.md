@@ -1,17 +1,22 @@
 # Expérience publique du Visualiseur — spécification UX
 
-> **UX concept only — not production integration.**
-> `tools/product-concept.html` est une **référence UX**, pas une base technique.
-> Il pilotait le Studio dans une iframe par `window.__studio`, avec des
-> captures statiques en amorce : trop fragile pour un produit. Le Visualiseur
-> produit fonctionnel vit désormais dans `pose-parquet.com`
-> (`outils/visualiseur-produit.html`, `js/product/`), branché directement sur
-> le vrai moteur — voir `docs/product-visualizer-integration-v1.md` là-bas.
-> Le prototype n'est plus modifié ; on le consulte pour la direction visuelle,
-> les libellés et les interactions validées.
+> **VISUALIZER ENTRYPOINT = `tools/product-concept.html` · STATUS = ACTIVE
+> PRODUCT VISUALIZER.** Décision humaine du 10 septembre 2026 : ce fichier est
+> le visualiseur que nous faisons évoluer, et ce document décrit ce qu'il doit
+> devenir. `pose-parquet.com` est gelé et n'est plus une cible de
+> développement.
+>
+> Ce que la décision ne change pas : le fichier pilote toujours le moteur du
+> front dans une iframe par `window.__studio`, avec les captures
+> préfabriquées en repli. C'est une **dépendance d'exécution vers un dépôt
+> gelé**, constatée et non résolue — la rendre autonome est un sujet à part,
+> et personne n'a décidé comment.
 
-Ce document décrit l'expérience **publique cible** : ce que voit un visiteur de
-pose-parquet.com qui envoie une photo de sa pièce.
+Ce document décrit l'expérience **publique cible** : ce que voit une personne
+qui envoie une photo de sa pièce. Le visualiseur doit pouvoir servir plusieurs
+sites — Premibel, Pose Parquet, d'autres, éventuellement en marque blanche —
+donc rien ici ne suppose un site commercial particulier, et aucun nouveau
+couplage à `pose-parquet.com` ne doit être ajouté.
 
 > **Ce document ne décrit pas `tools/annotate.html`.** Cet outil-là fabrique la
 > vérité terrain du banc d'essai : il est interne, destiné à une personne qui
@@ -693,5 +698,8 @@ développe pas l'UX mobile : la disposition du §14 reste à faire.
   sont des exemples d'UX, et le prototype le dit ;
 - il ne modifie **ni le front, ni WordPress, ni `SceneData`**.
 
-Le prototype `tools/product-concept.html` illustre cette spécification. C'est
-une maquette : elle ne rend pas de parquet, elle montre l'interface.
+`tools/product-concept.html` **est** le visualiseur décrit ici. Il ne dessine
+pas le parquet lui-même : il pilote un moteur de rendu et recopie son résultat,
+avec des captures préfabriquées en repli. Cette page n'a jamais contenu son
+propre moteur, et ne doit pas en contenir — la garde de
+`tools/product-concept.check.js` existe pour cela.

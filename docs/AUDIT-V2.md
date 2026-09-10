@@ -109,13 +109,22 @@ maquette, hors Git.
 | tolérance de contour unique par défaut | reste multiple jusqu'à une décision humaine ; le défaut actuel n'est pas un seuil retenu |
 | corpus pilote | conçu autour de pièces vides ; à refaire meublé, avec tapis et pieds fins |
 
-### LEGACY REFERENCE — utile comme historique, plus comme base (6)
+### KEEP + EXTEND — le visualiseur, redevenu actif (2)
+
+Reclassé le 10 septembre 2026 : ces deux fichiers étaient rangés en LEGACY
+comme maquette gelée. Décision humaine : `tools/product-concept.html` est le
+**visualiseur actif** du projet, et c'est là que l'interface évolue désormais.
+
+| composant | état constaté, et ce qui reste à faire |
+| --- | --- |
+| `tools/product-concept.html` | **visualiseur actif**, 2 990 lignes, un seul fichier. Fonctionnent réellement, vérifiés au navigateur : cinq pièces de démonstration, catalogue de cinq produits avec filtres, personnalisation (motif, largeur, teinte, sens de pose), avant/après à volet, comparaison A/B, favoris, pan et zoom, repli immersif quand le plein écran natif est refusé, import de photo avec pan/zoom immédiat. À reprendre : la dépendance d'exécution au moteur du front, le sens de pose sans effet visible, et l'écran modal qui s'interpose après un import |
+| `tools/product-concept.check.js` | 1 323 lignes, aucun échec. Monte la garde contre le retour d'un faux moteur de rendu dans la page — garde à conserver telle quelle |
+
+### LEGACY REFERENCE — utile comme historique, plus comme base (4)
 
 | composant | statut |
 | --- | --- |
-| `tools/product-concept.html` | maquette gelée, désormais marquée d'un bandeau ; référence UX uniquement |
-| `tools/product-concept.check.js` | contrôles de cette maquette ; suit son sort |
-| `docs/product-renderer-integration.md` | compte rendu du branchement par pont et iframe, abandonné comme base technique ; les mesures de latence restent utiles |
+| `docs/product-renderer-integration.md` | compte rendu du branchement par pont et iframe ; les mesures de latence restent utiles |
 | `docs/stabilization-v1.md` | journal de 14 défauts trouvés sur la maquette ; les leçons ont été portées dans le produit |
 | `docs/benchmark-quickstep-karndean.md` | relevé daté d'outils tiers ; l'analyse concurrentielle reste valable, les captures non |
 | `docs/roadmap.md` | **remplacé** par [ROADMAP-V2.md](ROADMAP-V2.md) |
@@ -159,7 +168,7 @@ personne ne s'appuie dessus.
 | scènes calibrées du front | douze (`scene-data.md`) | onze (`dataset.md`) | **seize** aujourd'hui, vérifié dans le front |
 | état du manifeste | vide (`dataset.md`) | onze photos (`quality-methodology.md`) | onze |
 | chemin du contrôle de santé | `/health` | `/v1/health` | `/health`, vérifié dans le code |
-| statut de la maquette | gelée, référence UX (`product-visualizer-ux.md`) | objet de travail actif (trois autres documents) | gelée — et elle porte désormais un bandeau |
+| statut de `product-concept.html` | gelée, référence UX (`product-visualizer-ux.md`) | objet de travail actif (trois autres documents) | **visualiseur actif** depuis le 10 septembre 2026 : c'est la seconde lecture qui était juste, et les documents ont été corrigés |
 
 **Corrigé au LOT B** : deux photos étaient sous-décrites dans le manifeste
 (`piece-claire` portait des pieds fins et une surface extérieure non déclarés).

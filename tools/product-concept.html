@@ -3,11 +3,18 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>RÉFÉRENCE UX (pas le produit) · Visualiseur — concept</title>
+<title>Visualiseur de parquet · Pose Parquet</title>
 
 <!--
-  Concept du Visualiseur public. Illustre `docs/product-visualizer-ux.md` et
-  applique `docs/benchmark-quickstep-karndean.md`.
+  LE VISUALISEUR ACTIF de ce projet. Decision humaine du 10 septembre 2026 :
+  ce fichier n'est plus une reference UX gelee, c'est l'interface produit que
+  nous faisons evoluer. Il suit `docs/product-visualizer-ux.md` et applique
+  `docs/benchmark-quickstep-karndean.md`.
+
+  Point d'entree unique : toute evolution du visualiseur se fait ICI et dans
+  ses fichiers associes. Aucun second HTML de visualiseur ne doit exister —
+  `tools/annotate.html` est un autre outil, pour la verite terrain, et c'est
+  la seule autre page du depot.
 
   ## Ce fichier ne dessine PAS de parquet
 
@@ -574,18 +581,16 @@
 <body>
 
 <!--
-  Bandeau d'identité. Cette maquette et le produit intégré du front partageaient
-  le même en-tête, la même marque et la même baseline : sur une capture d'écran,
-  rien ne les distinguait. Une revue humaine a comparé des captures de CETTE
-  page au rapport du produit et conclu, à juste titre, que le livrable ne
-  correspondait pas. Le bandeau rend la confusion impossible. Il ne change
-  aucun comportement de la maquette.
--->
-<div style="flex:none;display:flex;align-items:center;gap:10px;padding:7px 14px;background:#7a2e12;color:#fff;font:600 12px/1.3 system-ui,sans-serif;letter-spacing:0.02em">
-  <span>RÉFÉRENCE UX — CE N'EST PAS LE PRODUIT</span>
-  <span style="font-weight:400;opacity:0.85">Le produit intégré est dans pose-parquet.com → outils/visualiseur-produit.html</span>
-</div>
+  Le bandeau « REFERENCE UX — CE N'EST PAS LE PRODUIT » a ete retire le
+  10 septembre 2026 : il disait vrai quand cette page etait gelee, et il est
+  devenu faux le jour ou elle est devenue le visualiseur actif. Un avertissement
+  perime est pire qu'aucun — il apprend a ne pas lire les avertissements.
 
+  Ce qui l'avait motive reste vrai et reste traite ailleurs : cette page et le
+  front partageaient marque et en-tete, et des captures de l'une avaient ete
+  prises pour l'autre. La distinction ne passe plus par un bandeau mais par le
+  fait qu'il n'y a plus qu'un seul visualiseur actif, et que c'est celui-ci.
+-->
 <div style="display:flex;flex-direction:column;height:100%">
   <header>
     <div class="brand">
@@ -764,8 +769,8 @@
     <!-- Photo inconnue : on le dit, on ne pose aucun parquet -->
     <div class="veil hidden" id="unknown">
       <div class="box">
-        <h2>Le moteur IA n'est pas connecté à cette maquette</h2>
-        <p>Votre photo s'affiche, mais cette maquette ne sait pas encore
+        <h2>L'analyse automatique n'est pas encore branchée</h2>
+        <p>Votre photo s'affiche, mais le visualiseur ne sait pas encore
           détecter le sol d'une pièce quelconque.</p>
         <div class="tip">
           Poser un parquet approximatif donnerait un rendu faux et laisserait
@@ -890,7 +895,7 @@
   <button class="mi" id="menuImport" type="button">Importer une photo</button>
   <button class="mi" id="menuRooms" type="button">Choisir une pièce</button>
   <div class="sep"></div>
-  <p class="cat">Mode démo · prototype</p>
+  <p class="cat">Scénarios de démonstration</p>
   <button class="mi" type="button" data-demo="success" aria-pressed="true">Analyse réussie</button>
   <button class="mi" type="button" data-demo="partial" aria-pressed="false">Analyse partielle</button>
   <button class="mi" type="button" data-demo="rejected" aria-pressed="false">Photo refusée</button>

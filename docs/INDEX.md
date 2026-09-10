@@ -30,7 +30,7 @@
 | [architecture.md](architecture.md) | **ÉTAT COURANT** | la frontière Python / moteur, le pipeline livré, les deux contrats de schéma, les statuts existants, la journalisation, la configuration, les conditions avant toute dépendance lourde |
 | [scene-data.md](scene-data.md) | **DÉCISION** | la structure de `SceneData@1`, les coordonnées normalisées et non bornées, `plane` ≠ `mask`, `planeRef` comme clé de continuité, les valeurs de `light` verrouillées, la table champ → lot |
 | [product-ai-contract.md](product-ai-contract.md) | **DÉCISION** | le partage des rôles, les cinq statuts et l'écran associé, la règle de repli, `confidence` jamais affiché, le classement des capacités du moteur, les appels réseau, la confidentialité |
-| [product-visualizer-ux.md](product-visualizer-ux.md) | **CIBLE** | l'expérience publique visée, les interdits d'affichage, le traitement UX des statuts. Attention : décrit une maquette gelée ; le visualiseur en service vit dans le dépôt du front |
+| [product-visualizer-ux.md](product-visualizer-ux.md) | **CIBLE** | l'expérience publique visée, les interdits d'affichage, le traitement UX des statuts. S'applique à `tools/product-concept.html`, le visualiseur actif |
 | [quality-methodology.md](quality-methodology.md) | **HISTORIQUE** | la méthode de mise en concurrence, et les deux bornes de netteté retenues, qui sont toujours celles du code |
 | [lens-distortion.md](lens-distortion.md) | **ÉTAT COURANT** | ce que la mesure de distorsion constate, les trois verdicts, la règle « la correction vient avant tout relevé », le besoin d'un bloc `lens` |
 | [dataset.md](dataset.md) | **HISTORIQUE** | les axes de composition du corpus qualité. Son état chiffré est dépassé — voir [AUDIT-V2.md §3](AUDIT-V2.md) |
@@ -54,32 +54,41 @@ Une application = un fichier HTML. Ce dépôt en contient deux, et ils ne
 remplissent pas la même fonction — les confondre a déjà coûté une revue.
 
 ```
-CURRENT FRONT IMPLEMENTATION = pose-parquet.com/outils/visualiseur-produit.html
-FRONT STATUS                 = external consumer / frozen during AI lots
-ANNOTATION ENTRYPOINT        = tools/annotate.html          (actif)
-UX REFERENCE                 = tools/product-concept.html   (legacy, gelée)
+VISUALIZER ENTRYPOINT = tools/product-concept.html
+STATUS                = ACTIVE PRODUCT VISUALIZER
+ANNOTATION ENTRYPOINT = tools/annotate.html
+EXTERNAL FRONT        = pose-parquet.com — FROZEN, NOT A DEVELOPMENT TARGET
 ```
 
-Ces lignes **décrivent l'existant, elles n'autorisent rien**. Pendant les lots
-IA, le front est un **consommateur externe gelé** : décision humaine du
-10 septembre 2026. Aucune modification de `pose-parquet.com` n'est permise,
-et le fait que le produit visuel vive dans un autre dépôt est un sujet
-d'architecture d'intégration **futur**, pas un problème à résoudre pendant les
-lots B à F. L'autorisation d'y toucher sera donnée explicitement, au lot
-d'intégration de bout en bout, et ne s'anticipe pas.
+**Décision humaine du 10 septembre 2026**, qui remplace la précédente :
+`tools/product-concept.html` n'est plus une référence UX gelée, c'est **le
+visualiseur que nous faisons évoluer**. Toute évolution de l'interface, de la
+pièce, du rendu, de l'import de photo, de la navigation, du pan/zoom, de la
+comparaison, du catalogue et de la personnalisation se fait dans ce fichier et
+ses fichiers associés. Aucun second HTML de visualiseur ne doit exister — ni
+`product-concept-v2.html`, ni `visualizer.html`, ni aucune variante.
 
-Dans ce dépôt, `tools/annotate.html` est le seul HTML actif — il produit la
-vérité terrain. `tools/product-concept.html` est gelé : on le consulte, on ne
-le développe plus. Pas de troisième HTML.
+Le nom « concept » est désormais imparfait, et le fichier **n'est pas renommé** :
+le renommer créerait une nouvelle source de confusion, ce qui est exactement ce
+que cette règle sert à éviter. Décision ultérieure.
+
+`tools/annotate.html` reste séparé parce qu'il fait autre chose : produire la
+vérité terrain. Deux HTML dans le dépôt, deux outils, et c'est normal.
+
+`pose-parquet.com` est **gelé** et n'est plus une cible de développement.
+Il reste un consommateur externe. Le visualiseur garde aujourd'hui une
+dépendance d'exécution vers lui pour son rendu — état constaté, décrit dans
+[AUDIT-V2.md](AUDIT-V2.md), pas encore résolu.
 
 ## Où vivent les choses hors de ce dossier
 
 | sujet | emplacement |
 | --- | --- |
-| le visualiseur produit en service | dépôt du front, `outils/visualiseur-produit.html` — **une seule page**, les évolutions se font en JavaScript, CSS et données |
+| le front public, gelé | dépôt `pose-parquet.com`, `outils/visualiseur-produit.html` — consommateur externe, **aucune modification pendant les lots IA** |
 | le protocole de prise de vue d'une visite | dépôt du front, `docs/room-tour-protocol.md` |
 | le contrat de visite et sa validation | dépôt du front, `data/room-tours.json`, `js/product/tour.js` |
-| la maquette UX gelée | `../tools/product-concept.html`, marquée d'un bandeau |
+| le moteur de rendu réellement utilisé aujourd'hui | dépôt du front, `outils/studio.html`, piloté par `window.__studio` depuis `tools/product-concept.html` — dépendance d'exécution à rendre autonome |
+| les captures de repli | `datasets/private-real/_renders/`, hors de Git |
 | tous les seuils du service | `app/core/config.py`, préfixe `PPAI_` |
 | tous les codes d'avertissement | `app/core/warnings.py` |
 
