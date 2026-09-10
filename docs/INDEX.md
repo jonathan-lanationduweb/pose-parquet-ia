@@ -47,6 +47,24 @@
 | [stabilization-v1.md](stabilization-v1.md) | **HISTORIQUE** | journal de défauts sur la maquette gelée ; les leçons sont dans le produit |
 | [benchmark-quickstep-karndean.md](benchmark-quickstep-karndean.md) | **HISTORIQUE** | relevé daté d'outils tiers ; l'analyse concurrentielle reste valable, elle est résumée dans [PRODUCT-VISION.md §2](PRODUCT-VISION.md) |
 
+## Les points d'entrée, une fois pour toutes
+
+Une application = un fichier HTML. Ce dépôt en contient deux, et ils ne
+remplissent pas la même fonction — les confondre a déjà coûté une revue.
+
+```
+VISUALIZER ENTRYPOINT   = pose-parquet.com/outils/visualiseur-produit.html
+                          (autre dépôt ; ce dépôt n'héberge aucun visualiseur)
+ANNOTATION ENTRYPOINT   = tools/annotate.html
+UX REFERENCE (gelée)    = tools/product-concept.html
+```
+
+Toute évolution du visualiseur — interface, pièce, rendu, import de photo,
+navigation, pan/zoom, comparaison, catalogue, personnalisation — se fait dans
+`visualiseur-produit.html` et ses fichiers JS/CSS/données, jamais dans une
+copie ni dans un nouveau fichier. `tools/annotate.html` reste séparé parce
+qu'il fait autre chose : produire la vérité terrain.
+
 ## Où vivent les choses hors de ce dossier
 
 | sujet | emplacement |
