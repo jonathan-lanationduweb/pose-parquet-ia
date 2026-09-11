@@ -11,13 +11,29 @@ toute géométrie parce qu'une distorsion non détectée entre dans tous les
 relevés suivants sans plus rien qui la distingue.
 """
 
-from dataclasses import dataclass
+# Annotations differees : `numpy` et le schema experimental ne sont importes
+# que pour la verification de types, et ce module doit rester importable sans
+# torch ni transformers.
+from __future__ import annotations
 
+import base64
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
+
+from app.core.config import get_settings
+from app.core.logging import get_logger
 from app.core.timing import Timings
 from app.core.warnings import BLOCKING, Warn
 from app.schemas.analysis import AnalysisResult, AnalysisStatus, ImageInfo
 from app.services import image_quality, lens_analysis, scene_builder
 from app.services.image_loader import LoadedImage, load_image, luma
+
+if TYPE_CHECKING:
+    import numpy as np
+
+    from app.schemas.analysis import ExperimentalOutputs
+
+log = get_logger("services.pipeline")
 
 
 @dataclass(frozen=True, slots=True)
@@ -69,6 +85,62 @@ def _decide_status(warnings: list[Warn], scene_present: bool) -> AnalysisStatus:
     return AnalysisStatus.NEEDS_MANUAL_ADJUSTMENT if warnings else AnalysisStatus.SUCCESS
 
 
+def _segmentation_experimentale(rgb: np.ndarray) -> ExperimentalOutputs | None:
+    """Segmentation exploratoire du sol — **hors contrat, sur demande**.
+
+    Trois refus tenus ici, et ils tiennent ensemble :
+
+    * un echec ne casse jamais l'analyse. Un modele absent, une memoire
+      insuffisante, une dependance manquante : l'analyse normale a deja
+      reussi, et une sortie experimentale ne doit pas l'emporter avec elle ;
+    * aucune `sceneData` n'est produite. Ce masque ne devient pas une scene,
+      donc aucun parquet ne se pose ;
+    * rien n'est renvoye quand le drapeau est faux, et c'est l'appelant qui
+      l'a verifie avant d'entrer ici.
+    """
+    from app.schemas.analysis import ExperimentalFloor, ExperimentalOutputs
+    from app.schemas.scene_data import Point
+
+    try:
+        candidat = get_settings().experimental_floor_candidate
+        if candidat == "opencv":
+            from app.services.floor_geometric import GeometricFloorBaseline
+
+            moteur: Any = GeometricFloorBaseline()
+        elif candidat == "upernet":
+            from app.services.floor_semantic import UperNetFloor
+
+            moteur = UperNetFloor()
+        else:
+            from app.services.floor_semantic import OneFormerFloor
+
+            moteur = OneFormerFloor()
+
+        from app.services.floor_segmentation import mask_to_png_bytes
+
+        resultat = moteur.segment(rgb)
+        png = mask_to_png_bytes(resultat.mask)
+        hauteur, largeur = resultat.mask.shape[:2]
+        return ExperimentalOutputs(
+            floor=ExperimentalFloor(
+                candidate=resultat.candidate,
+                mask_png_base64=base64.b64encode(png).decode("ascii"),
+                mask_width=largeur,
+                mask_height=hauteur,
+                coverage=round(resultat.coverage, 4),
+                boundary=[[Point(x=x, y=y) for x, y in contour] for contour in resultat.boundary],
+                timings_ms=resultat.timings,
+                metadata=dict(resultat.metadata),
+            )
+        )
+    except Exception:
+        # On ne dit rien de plus qu'ici : la sortie experimentale est absente,
+        # l'analyse normale est intacte, et la trace reste dans les logs du
+        # service — jamais dans la reponse.
+        log.exception("segmentation experimentale indisponible")
+        return None
+
+
 def analyse_room(data: bytes) -> Analysis:
     """Analyse une photo de pièce, d'octets bruts à `AnalysisResult`.
 
@@ -103,6 +175,17 @@ def analyse_room(data: bytes) -> Analysis:
         scene = scene_builder.build_scene_data()
     warnings += scene_builder.missing_stage_warnings()
 
+    # L'etage experimental, et son defaut : RIEN. Sans le drapeau, le
+    # pipeline se termine exactement comme avant le LOT C.0.
+    experimental = None
+    if get_settings().experimental_floor:
+        # L'etage `segmentation` etait declare depuis le LOT 0 et jamais
+        # execute : c'est exactement celui-ci. On ne cree pas un nom de plus
+        # pour la meme chose, et une duree mesuree ici dit enfin quelque
+        # chose. Ce qu'elle ne dit pas : que la segmentation soit livree.
+        with timings.measure("segmentation"):
+            experimental = _segmentation_experimentale(image.rgb)
+
     status = _decide_status(warnings, scene is not None)
     result = AnalysisResult(
         status=status,
@@ -117,6 +200,7 @@ def analyse_room(data: bytes) -> Analysis:
         lens=lens,
         scene_data=scene,
         timings=timings.as_dict(),
+        experimental=experimental,
     )
 
     return Analysis(

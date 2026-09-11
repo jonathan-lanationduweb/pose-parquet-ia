@@ -84,6 +84,26 @@ class Settings(BaseSettings):
     #: une décision de poste de travail, jamais un défaut d'image.
     dev_serve_static: bool = False
 
+    #: Joindre à l'analyse une segmentation du sol **EXPÉRIMENTALE**.
+    #:
+    #: Faux par défaut, et le défaut est ici une garantie de contrat : sans ce
+    #: drapeau, `POST /v1/analyze-room` répond exactement ce qu'il répondait
+    #: avant le LOT C.0 — `sceneData` nul, aucun champ de plus.
+    #:
+    #: À vrai, la réponse gagne un bloc `experimental.floor`, clairement nommé,
+    #: contenant un masque encodé et le candidat qui l'a produit. Ce bloc n'est
+    #: **pas** une `sceneData` : il ne déclenche aucun rendu, et le visualiseur
+    #: ne pose aucun parquet dessus. Il existe pour être REGARDÉ.
+    #:
+    #: Le coût est réel : le modèle se charge en dizaines de secondes et une
+    #: inférence prend plusieurs secondes sur processeur. Ce n'est pas un
+    #: réglage de production, c'est un réglage de poste de travail.
+    experimental_floor: bool = False
+
+    #: Le candidat utilisé quand le drapeau ci-dessus est vrai. Aucun n'est
+    #: « choisi » au sens du LOT C : c'est celui qu'on veut regarder.
+    experimental_floor_candidate: str = "oneformer"
+
     # --- Limites d'upload ------------------------------------------------
     #: 20 Mo, aligné sur le contrat du front (docs/future-ai-api-contract.md).
     max_upload_bytes: int = 20 * 1024 * 1024

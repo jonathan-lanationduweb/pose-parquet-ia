@@ -2506,6 +2506,17 @@
         bits.push(r.quality ? 'qualite oui' : 'qualite non');
         bits.push(r.lens ? 'distorsion oui' : 'distorsion non');
         bits.push(r.sceneData ? 'sceneData oui' : 'sceneData non');
+        /* Un masque experimental peut arriver quand le service tourne avec
+           PPAI_EXPERIMENTAL_FLOOR. On le SIGNALE, en developpement, et on
+           s'arrete la : il ne devient pas une scene, il ne declenche aucun
+           rendu, et aucun parquet ne se pose sur la photo de quelqu'un. Le
+           regarder est le geste suivant, et il appartient a un humain. */
+        const xp = r.experimental && r.experimental.floor;
+        if (xp) {
+          const part = Math.round(xp.coverage * 100);
+          bits.push('masque experimental : ' + xp.candidate + ', ' + part
+            + ' pour cent - non fiable, aucun rendu');
+        }
         if (Array.isArray(r.warnings) && r.warnings.length) {
           bits.push(`${r.warnings.length} avertissement(s)`);
         }

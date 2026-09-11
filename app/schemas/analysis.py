@@ -16,13 +16,13 @@ pas de quoi conclure.
 """
 
 from enum import StrEnum
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
 from app.core.warnings import Warn
-from app.schemas.scene_data import SceneData
+from app.schemas.scene_data import Point, SceneData
 
 #: Version du contrat d'analyse. Indépendante de celle de SceneData.
 #:
@@ -301,6 +301,43 @@ class LensMetrics(_Model):
     correction_applied: Literal[False] = False
 
 
+class ExperimentalFloor(_Model):
+    """Un masque de sol produit par un candidat, **à regarder, pas à croire**.
+
+    Le masque voyage en PNG binaire encodé en base64 : quelques kilo-octets,
+    relisible par n'importe quoi, et comparable octet à octet. Un tableau de
+    pixels en JSON serait illisible et énorme ; un codage par plages serait
+    plus compact mais demanderait un décodeur de plus, à écrire et à éprouver,
+    pour un gain invisible à cette échelle.
+    """
+
+    candidate: str
+    #: PNG binaire, encodé en base64. 0 = hors du sol, 255 = sol visible.
+    mask_png_base64: str
+    mask_width: int = Field(ge=1)
+    mask_height: int = Field(ge=1)
+    #: Part de l'image jugée « sol visible ». Sert à repérer d'un coup d'œil
+    #: une prédiction absurde — 0 %, ou 90 %.
+    coverage: float = Field(ge=0.0, le=1.0)
+    #: Contour du masque, en coordonnées normalisées. C'est là que se juge la
+    #: limite sol/mur, et il se dérive de la prédiction sans autre modèle.
+    boundary: list[list[Point]] = Field(default_factory=list)
+    timings_ms: dict[str, float] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    #: Dit dans la réponse elle-même ce que le nom du champ dit déjà : rien
+    #: ici n'est une vérité terrain, et rien n'autorise à poser un parquet.
+    disclaimer: str = (
+        "EXPERIMENTAL — segmentation exploratoire, aucune verite terrain, "
+        "aucun modele retenu, ne declenche aucun rendu"
+    )
+
+
+class ExperimentalOutputs(_Model):
+    """Ce que le service sait produire hors contrat, quand on le lui demande."""
+
+    floor: ExperimentalFloor | None = None
+
+
 class AnalysisResult(_Model):
     """Réponse de `POST /v1/analyze-room`."""
 
@@ -321,3 +358,16 @@ class AnalysisResult(_Model):
     #: Durée par étage, en ms. `None` = étage non exécuté, `0.0` =
     #: instantané. Voir app/core/timing.py.
     timings: dict[str, float | None] = Field(default_factory=dict)
+    #: Sorties **EXPÉRIMENTALES**, absentes par défaut.
+    #:
+    #: Ajout **additif** : le champ est optionnel et nul sans le drapeau
+    #: `PPAI_EXPERIMENTAL_FLOOR`, donc `analysis@2` reste `analysis@2` — un
+    #: client écrit avant ce champ lit la même réponse qu'avant, au champ près
+    #: qu'il ne demande pas. Ce n'est pas une rupture de contrat, et ce n'en
+    #: sera une que le jour où quelque chose ici deviendra obligatoire ou
+    #: entrera dans `sceneData`.
+    #:
+    #: Ce que ce bloc n'est PAS : une `sceneData`. Il ne déclenche aucun
+    #: rendu, et le nom `experimental` est là pour qu'aucun appelant ne puisse
+    #: prétendre l'avoir pris pour un résultat.
+    experimental: ExperimentalOutputs | None = None
