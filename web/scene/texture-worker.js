@@ -14,8 +14,14 @@
  *
  * Protocole :
  *   → { id, material, config }
- *   ← { id, albedo: {size, data}, relief: {size, data} }
+ *   ← { id, albedo: {size, data}, relief: {size, data}, etapes: {…} }
  *   ← { id, erreur: string }
+ *
+ * `etapes` porte trois durées en millisecondes — dessin, lecture des pixels,
+ * relief. Elles sont mesurées ici parce qu'elles ne peuvent l'être ailleurs :
+ * `perf.js` s'active sur `window.location.search`, et un worker n'a pas de
+ * `window`. Trois `performance.now()` par tuile ne coûtent rien, et sans eux
+ * la seule chose qu'on sait de cette seconde et demie, c'est sa durée totale.
  */
 import { buildTexture, buildMips } from './texture.js';
 import { reliefFromAlbedo } from './relief.js';
@@ -31,14 +37,28 @@ self.onmessage = (event) => {
       self.postMessage({ id, bitmap }, [bitmap]);
       return;
     }
+    const t0 = performance.now();
     const tile = buildTexture(material, {
       pattern: config.pattern || material.defaultPattern,
       width: config.width || null,
     });
+    const t1 = performance.now();
     const [albedo] = buildMips(tile, 1);
+    const t2 = performance.now();
     const relief = reliefFromAlbedo(albedo, material.surface);
+    const t3 = performance.now();
     self.postMessage(
-      { id, albedo, relief },
+      {
+        id,
+        albedo,
+        relief,
+        etapes: {
+          dessin: t1 - t0,
+          lecturePixels: t2 - t1,
+          relief: t3 - t2,
+          taille: albedo.size,
+        },
+      },
       [albedo.data.buffer, relief.data.buffer],
     );
   } catch (erreur) {

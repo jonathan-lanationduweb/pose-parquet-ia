@@ -196,7 +196,7 @@ function obtenirWorker() {
     return null;
   }
   worker.onmessage = (event) => {
-    const { id, albedo, relief, erreur, bitmap } = event.data || {};
+    const { id, albedo, relief, erreur, bitmap, etapes } = event.data || {};
     const attente = enCours.get(id);
     if (!attente) return;
     enCours.delete(id);
@@ -215,6 +215,12 @@ function obtenirWorker() {
     const a0 = { size: albedo.size, data: new Uint8ClampedArray(albedo.data.buffer || albedo.data) };
     const r0 = { size: relief.size, data: new Uint8ClampedArray(relief.data.buffer || relief.data) };
     releve('G.tuile.worker', performance.now() - attente.depart);
+    /* Le detail vient du worker : il est le seul a pouvoir le mesurer. */
+    if (etapes) {
+      releve('G1.dessin.canvas2d', etapes.dessin);
+      releve('G2.lecturePixels', etapes.lecturePixels);
+      releve('G3.relief', etapes.relief);
+    }
     const maps = retenir(attente.cle, assemble(attente.material, null, a0, r0));
     attente.resolve(maps);
     abonnes.forEach((cb) => { try { cb(attente.cle, maps); } catch { /* un abonné défaillant n'arrête pas les autres */ } });

@@ -729,7 +729,32 @@ export function buildTexture(material, { pattern = 'lames', width, size = TILE }
   const tex = material.texture;
   const profile = patternProfile(material, pattern, width);
   const canvas = creerCanvas(size, size);
-  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  /* Pas de `willReadFrequently` ici, et c'est mesure.
+     ---------------------------------------------------------------
+     L'indice demande au navigateur un canevas garde en memoire centrale,
+     rasterise par le processeur. Il se justifie quand on LIT souvent et
+     qu'on dessine peu. Ici c'est l'inverse exact : une tuile recoit 72 000
+     traces de courbes — le point de Hongrie en emet 71 509 — et n'est lue
+     qu'UNE fois, pour en tirer le niveau 0 et la carte de relief.
+
+     Mesure du cout total, dessin plus lecture, sur cette machine :
+
+                        avec l'indice   sans
+       lames                599 ms      197 ms
+       baton rompu        1 158 ms      ~380 ms
+       point de Hongrie   2 441 ms      768 ms
+
+     La lecture unique redevient un transfert synchrone depuis le GPU, et ce
+     transfert est compte dans les chiffres ci-dessus.
+
+     Ce que cela change a l'image : les deux rasteriseurs ne posent pas
+     l'antialiasing au meme endroit. Ecart moyen mesure sur la tuile,
+     1,8/255 par canal, p99 a 6-9, maximum 31. La tuile n'est donc PAS
+     identique au bit pres. Ce qui compte est le sol rendu, apres eclairage,
+     mipmaps et perspective : ses cinq mesures de caractere — luminance
+     moyenne, ombres, contraste relatif, saturation, micro-contraste — sont
+     reportees dans le rapport du LOT PERF.2. */
+  const ctx = canvas.getContext('2d');
   const random = seeded(seedOf(material.id) + Math.round(profile.width * 1000));
 
   // Tout est dessiné dans le repère de la tuile pleine : une taille réduite
