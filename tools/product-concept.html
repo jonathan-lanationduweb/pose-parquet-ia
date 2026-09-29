@@ -16,23 +16,28 @@
   `tools/annotate.html` est un autre outil, pour la verite terrain, et c'est
   la seule autre page du depot.
 
-  ## Ce fichier ne dessine PAS de parquet
+  ## Ce fichier ne dessine pas le parquet lui-même — il commande le moteur
 
-  C'était l'erreur des versions précédentes. À force de vouloir un rendu
-  crédible, la maquette s'était mise à contenir un troisième moteur de rendu :
-  masques SVG, recomposition de `floorZones`, recoloration, joints simulés,
-  motifs synthétiques, occulteurs, retouches de couverture. Chaque défaut
-  corrigé en révélait un autre, et le résultat restait un faux parquet —
-  parfois partiel, parfois mal masqué.
+  Correction du 29 septembre 2026. Cet en-tête affirmait encore que le
+  visualiseur ne dessinait pas de parquet et que « les rendus sont
+  préfabriqués ». C'était vrai avant le LOT UX.4, et faux depuis : le moteur
+  de `web/scene/` vit désormais dans ce dépôt, cette page le charge par
+  `web/product/local-renderer.js`, et c'est lui qui peint `#after`.
 
-  L'architecture du projet dit qui fait quoi :
+  Ce qui reste vrai, et qui est la vraie règle : **il n'y a pas de moteur de
+  rendu ICI.** Les versions anciennes en avaient fabriqué un troisième —
+  masques SVG, recoloration, joints simulés — et chaque défaut corrigé en
+  révélait un autre. L'architecture n'a pas changé :
 
       Python                comprend la pièce
-      le JS/WebGL du front  dessine le parquet
-      ce fichier            valide l'UX du futur produit
+      web/scene/ (WebGL)    dessine le parquet
+      ce fichier            commande, et montre
 
-  Un troisième moteur n'a donc pas lieu d'être. Ici, changer de parquet
-  **change d'image** : les rendus sont préfabriqués par le vrai moteur.
+  Les captures de `local-demo-assets/renderings/` subsistent comme AMORCE :
+  dessinées tout de suite pour que la pièce ne soit jamais nue, remplacées par
+  le rendu réel dès que le moteur répond. Le premier rendu d'une pièce coûte
+  une vingtaine de secondes (fabrication de la tuile), et c'est la raison
+  d'être de l'amorce.
 
   ## D'où viennent les images
 
@@ -264,7 +269,6 @@
      La piece prend l'ecran. Il ne reste que ce qui sert a la regarder : les
      trois outils du haut, la barre de zoom, et la sortie. */
   body.immersive header,
-  body.immersive #nav,
   body.immersive #status,
   body.immersive #card .sheet,
   body.immersive #card .dim,
@@ -600,6 +604,11 @@
     *, *::before, *::after { transition-duration: 1ms !important; animation-duration: 1ms !important; }
   }
 </style>
+
+<!-- Apres le <style> de la page, et pas avant : a specificite egale,
+     c'est l'ordre qui tranche. Ce fichier redefinit volontairement des regles
+     de la feuille ci-dessus. -->
+<link rel="stylesheet" href="visualizer.css" />
 </head>
 <body>
 
@@ -623,30 +632,39 @@
         </svg>
       </span>
       <div>
-        <h1>Pose Parquet</h1>
+        <!-- La marque n'est pas le titre de la page : le titre est ce que la
+             page fait. Le vrai h1 est plus bas, dans <main>, et il ne bouge
+             pas quand on passe de l'accueil à la pièce. -->
+        <p class="wordmark">Pose Parquet</p>
         <p>Visualisez. Imaginez. Réalisez.</p>
       </div>
     </div>
 
-    <button class="hbtn hidden" id="hSwap" type="button">
+    <button class="hbtn hidden" id="hSwap" type="button" aria-label="Changer de pièce">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
            stroke-linecap="round" stroke-linejoin="round">
         <rect x="3" y="4" width="18" height="16" rx="2.5" /><path d="M3 16l4.5-4 3.5 3 3-2.5L21 17" />
       </svg>
-      Changer de pièce
+      <span class="lbl">Changer de pièce</span>
     </button>
-    <button class="hbtn" id="hFav" type="button" aria-pressed="false">
+    <button class="hbtn" id="hFav" type="button" aria-pressed="false" aria-label="Favoris">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
            stroke-linecap="round" stroke-linejoin="round">
         <path d="M12 20.5s-7.5-4.7-7.5-10.2A4.3 4.3 0 0112 7a4.3 4.3 0 017.5 3.3c0 5.5-7.5 10.2-7.5 10.2z" />
       </svg>
-      Favoris <span class="cnt hidden" id="favCount">0</span>
+      <span class="lbl">Favoris</span> <span class="cnt hidden" id="favCount">0</span>
     </button>
     <button class="hbtn" id="hMenu" type="button" aria-expanded="false" aria-label="Menu">
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
            stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
     </button>
   </header>
+
+  <main id="main">
+  <!-- Le titre de la page, pour les lecteurs d'écran et pour la structure :
+       il vaut pour l'accueil comme pour la pièce, et ne disparaît donc pas
+       quand l'un remplace l'autre. -->
+  <h1 class="vh">Visualiseur de parquet</h1>
 
   <!-- ===================== Entrée ===================== -->
   <section id="entry">
@@ -705,45 +723,29 @@
       </div>
     </div>
 
-    <nav id="nav">
-      <button type="button" id="navRoom">
-        <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-          stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="3" y="4" width="18" height="16" rx="2.5" /><path d="M3 16l4.5-4 3.5 3 3-2.5L21 17" /></svg></span>
-        <span class="tx"><b>Changer de pièce</b><span id="navRoomVal">—</span></span>
-        <span class="ch"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-          stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg></span>
-      </button>
-      <button type="button" id="navFloor">
-        <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-          stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M4 7h16M4 12h16M4 17h16" /><path d="M9 7v10M15 7v10" /></svg></span>
-        <span class="tx"><b>Choisir un parquet</b><span id="navFloorVal">—</span></span>
-        <span class="ch"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-          stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg></span>
-      </button>
-      <button type="button" id="navCustom">
-        <span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-          stroke-width="1.7" stroke-linecap="round"><path d="M4 8h9M17 8h3M4 16h3M11 16h9" />
-          <circle cx="15" cy="8" r="2" /><circle cx="9" cy="16" r="2" /></svg></span>
-        <span class="tx"><b>Personnaliser</b><span id="navCustomVal">—</span></span>
-        <span class="ch"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-          stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg></span>
-      </button>
-    </nav>
+    <!-- Le panneau de navigation permanent a ete retire le 29 septembre 2026.
+         Il occupait 208 a 238 px sur la photo en permanence, et sur telephone
+         son premier bouton etait recouvert par la capsule d'outils : mesure a
+         430 px, `elementFromPoint` au centre de « Changer de pièce » rendait
+         `baBtn`. Un bouton visible et inatteignable.
+
+         Ses trois entrees n'ont pas disparu, elles ont demenage :
+           Changer de pièce   -> bandeau (#hSwap) et menu
+           Choisir un parquet -> barre produit (data-open="cat")
+           Personnaliser      -> barre produit (data-open="cus") -->
 
     <div id="tools">
-      <button type="button" id="baBtn" aria-pressed="false">
+      <button type="button" id="baBtn" aria-pressed="false" aria-label="Avant / après">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
              stroke-linecap="round" stroke-linejoin="round">
           <rect x="3.5" y="5" width="17" height="14" rx="2" /><path d="M12 5v14" />
         </svg>
-        Avant / après
+        <span class="lbl">Avant / après</span>
       </button>
-      <button type="button" id="cmpBtn">
+      <button type="button" id="cmpBtn" aria-label="Comparer deux parquets">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
              stroke-linecap="round" stroke-linejoin="round"><path d="M8 6l-4 6 4 6M16 6l4 6-4 6" /></svg>
-        Comparer
+        <span class="lbl">Comparer</span>
       </button>
       <button type="button" id="fsBtn" aria-label="Plein écran">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
@@ -753,6 +755,20 @@
       </button>
     </div>
 
+    <!-- Ce qui remplace la barre produit quand la photo importee n'a pas de
+         scene : elle DIT ce qui manque, au lieu de laisser une barre annoncer
+         un parquet qui n'est pose nulle part. Le catalogue reste ouvrable —
+         on peut explorer les references — et les favoris fonctionnent. -->
+    <aside id="noscene" class="hidden">
+      <span class="tx">
+        <b>Photo importée</b>
+        <span>La détection automatique du sol n'est pas encore disponible.
+          Le parquet s'appliquera lorsque l'analyse de la pièce sera complète.</span>
+      </span>
+      <span class="row">
+        <button type="button" data-open="cat">Voir le catalogue</button>
+      </span>
+    </aside>
     <aside id="card"></aside>
     <aside id="cardB" class="hidden"></aside>
     <div id="status"></div>
@@ -813,9 +829,13 @@
     </div>
   </section>
 </div>
+  </main>
 
 <!-- ===== Sélecteur de pièce ===== -->
-<div class="scrim hidden" id="roomScrim"></div>
+<!-- Les trois panneaux ci-dessous ne sont plus des calques independants :
+     `PPDrawer` les adopte au demarrage et les presente comme les quatre modes
+     d'un SEUL tiroir. Ils gardent leur identifiant et leur contenu, donc les
+     fonctions de peinture n'ont pas bouge. -->
 <div class="sheetp hidden" id="roomSheet" role="dialog" aria-label="Choisir une pièce">
   <div class="head">
     <h2>Choisir une pièce</h2>
@@ -843,7 +863,6 @@
 </div>
 
 <!-- ===== Catalogue ===== -->
-<div class="scrim hidden" id="catScrim"></div>
 <div class="sheetp right hidden" id="catSheet" role="dialog" aria-label="Choisir un parquet">
   <div class="head">
     <h2>Choisir un parquet</h2>
@@ -869,7 +888,6 @@
 </div>
 
 <!-- ===== Personnaliser ===== -->
-<div class="scrim hidden" id="cusScrim"></div>
 <div class="sheetp right hidden" id="cusSheet" role="dialog" aria-label="Personnaliser">
   <div class="head">
     <h2>Personnaliser</h2>
@@ -959,6 +977,7 @@
 
 <div id="toast" role="status" aria-live="polite"></div>
 
+<script src="visualizer-drawer.js"></script>
 <script>
 (() => {
   'use strict';
@@ -1300,6 +1319,23 @@
 
   const $ = (id) => document.getElementById(id);
 
+  const CLE_FAVORIS = 'pp.favourites.v1';
+
+  function lireFavoris() {
+    try {
+      const brut = JSON.parse(localStorage.getItem(CLE_FAVORIS) || '[]');
+      if (!Array.isArray(brut)) return new Set();
+      return new Set(brut.filter((x) => typeof x === 'string'));
+    } catch { return new Set(); }
+  }
+
+  function ecrireFavoris(ensemble) {
+    /* Le stockage peut echouer : navigation privee, quota, site bloque. Ce
+       n'est pas une raison pour que le coeur cesse de reagir a l'ecran. */
+    try { localStorage.setItem(CLE_FAVORIS, JSON.stringify([...ensemble])); }
+    catch { /* la session courante garde ses favoris, la suivante non */ }
+  }
+
   const state = {
     /* `demo` | `uploaded` — état d'interface, pas SceneData. */
     source: null,
@@ -1332,7 +1368,13 @@
     category: 'Séjour',
     analysis: 'success',
     ba: false, split: 0.5,
-    favourites: new Set(),
+    /* Les favoris survivent au rechargement. On ne stocke QUE des
+       identifiants de reference : ni fiche commerciale, ni prix, ni photo.
+       Une valeur illisible — absente, tronquee, ecrite par une version
+       precedente — donne un ensemble vide plutot qu'une exception : perdre
+       ses favoris est desagreable, ne plus pouvoir ouvrir la page l'est
+       davantage. */
+    favourites: lireFavoris(),
     compare: null,
     picking: false,
     /* Le catalogue montre soit tout, soit les favoris. Sans cet etat, retirer
@@ -2283,6 +2325,24 @@
   const reborner = () => { if (state.source) setVp(state.vp, false); };
   window.addEventListener('resize', reborner);
   if (typeof ResizeObserver === 'function') new ResizeObserver(reborner).observe($('stage'));
+
+  /* La hauteur de la barre produit, mesuree plutot que devinee.
+     Le zoom et la capsule d'etat se calent dessus. Une constante CSS avait ete
+     posee au jugé : mesure a 430, 390, 375 et 320 px, les quatre boutons de
+     zoom se retrouvaient DERRIERE la barre — `elementFromPoint` rendait
+     `card`. La barre change de hauteur avec la largeur, avec la longueur du
+     nom du produit et avec le retour a la ligne des boutons : aucune valeur
+     fixe ne pouvait etre juste partout. */
+  function mesurerBarre() {
+    const barre = $('noscene').classList.contains('hidden') ? $('card') : $('noscene');
+    const h = barre.classList.contains('hidden') ? 0 : barre.getBoundingClientRect().height;
+    document.documentElement.style.setProperty('--dock-h', `${Math.round(h)}px`);
+  }
+  if (typeof ResizeObserver === 'function') {
+    const suivi = new ResizeObserver(mesurerBarre);
+    suivi.observe($('card'));
+    suivi.observe($('noscene'));
+  }
   /* Un onglet cache ne recoit ni `resize` ni observation : ils sont livres
      avec les frames, et un document cache n'en a pas. Le cadre a pu changer
      pendant ce temps — on reborne au retour. */
@@ -2476,6 +2536,13 @@
        viewport, lui, reste manipulable : on peut explorer sa photo. */
     $('card').classList.toggle('hidden', !hasRender);
     $('tools').classList.toggle('hidden', !hasRender);
+    /* Une photo importee sans scene n'a pas de parquet, donc pas de barre
+       produit — mais elle a droit a une phrase qui explique pourquoi, et a
+       l'acces au catalogue. Sur une piece de demonstration dont le rendu
+       n'est pas encore arrive, non : il arrive, et la capture est deja a
+       l'ecran. */
+    $('noscene').classList.toggle('hidden', !(uploaded && !hasRender));
+    if (typeof mesurerBarre === 'function') mesurerBarre();
     applyTransform();
 
     paintCard();
@@ -2580,12 +2647,13 @@
     const on = state.favourites.has(entry.id);
     return `<span class="sw${swatchClass(entry)}" style="${swatchStyle(entry)}"></span>
       <b>${entry.name}</b>
-      <span class="dim">${PATTERNS[entry.pattern]} · ${entry.widthMm} mm</span>
+      <span class="dim">${side === 'A' ? resumeConfig() : `${PATTERNS[entry.pattern]} · ${entry.widthMm} mm`}</span>
       <span class="ref">Réf. ${entry.ref}</span>
       ${side === 'A' && state.applying ? '<span class="busy"><i></i>Application…</span>' : ''}
       <a class="sheet" href="${entry.productUrl}" target="_blank"
          rel="noopener noreferrer" data-sheet="${entry.ref}">VOIR LA FICHE PREMIBEL</a>
       <span class="row">
+        ${side === 'A' ? '<button type="button" data-open="cat">Choisir un parquet</button>' : ''}
         <button type="button" data-open="cus">Personnaliser</button>
         <span class="sep"></span>
         <button class="fav" type="button" data-fav="${entry.id}" aria-pressed="${on}"
@@ -2600,18 +2668,14 @@
     if (state.compare) {
       $('cardB').innerHTML = cardHtml(product(state.compare.b), 'B');
       $('cardB').classList.remove('hidden');
-      $('card').style.right = 'auto';
-      $('card').style.left = '16px';
-      $('nav').classList.add('hidden');
+      $('stage').classList.add('comparing');
       $('tagA').classList.remove('hidden');
       $('tagB').classList.remove('hidden');
       $('tagA').style.left = `calc(${state.split * 100}% - 84px)`;
       $('tagB').style.left = `calc(${state.split * 100}% + 12px)`;
     } else {
       $('cardB').classList.add('hidden');
-      $('card').style.right = '16px';
-      $('card').style.left = 'auto';
-      $('nav').classList.remove('hidden');
+      $('stage').classList.remove('comparing');
       $('tagA').classList.add('hidden');
       $('tagB').classList.add('hidden');
     }
@@ -2656,17 +2720,22 @@
     $('status').classList.remove('hidden');
   }
 
-  function paintNav() {
-    $('navRoomVal').textContent = room().label;
-    $('navFloorVal').textContent = product().name;
+  /**
+   * Le resume de la configuration, tel que la barre produit l'affiche.
+   *
+   * Portait les trois sous-titres du panneau de navigation ; il n'en reste
+   * qu'un, celui qui dit ce qu'on est en train de regarder. La piece est deja
+   * nommee dans le bandeau, et le produit dans la barre juste a cote.
+   */
+  function resumeConfig() {
     /* Un angle libre n'a pas de nom : on ecrit le nombre. Inventer un libelle
        approchant (« presque en diagonale ») serait pire que le chiffre. */
     const o = ORIENTATIONS.find(([d]) => d === state.orientationDeg);
     const sens = o ? o[1].toLowerCase() : `${state.orientationDeg}°`;
-    $('navCustomVal').textContent =
-      `${PATTERNS[product().pattern]} · ${product().widthMm} mm`
+    return `${PATTERNS[product().pattern]} · ${product().widthMm} mm`
       + (adapter.getCapabilities().orientation ? ` · ${sens}` : '');
   }
+  function paintNav() { /* la navigation permanente n'existe plus */ }
 
   /* =====================================================================
      Sélecteur de pièce — catégories + import, comme chez Quick-Step
@@ -2693,7 +2762,7 @@
     $('roomCount').textContent = `(${DEMO_ROOMS.length} pièces)`;
     $('roomGrid').innerHTML = list.map((r) => `
       <button class="rcard" type="button" data-room="${r.id}">
-        <span class="ph"><img alt="" src="${originalUrl(r.id)}" />${
+        <span class="ph"><img alt="${r.label}" src="${originalUrl(r.id)}" />${
           r.id === state.roomId ? `<span class="tick"><svg width="12" height="12" viewBox="0 0 24 24"
           fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"
           stroke-linejoin="round"><path d="M20 6L9 17l-5-5" /></svg></span>` : ''}</span>
@@ -2706,7 +2775,7 @@
   function paintQuick() {
     $('quickRooms').innerHTML = DEMO_ROOMS.slice(0, 3).map((r) => `
       <button class="rcard" type="button" data-room="${r.id}">
-        <span class="ph"><img alt="" src="${originalUrl(r.id)}" /></span>
+        <span class="ph"><img alt="${r.label}" src="${originalUrl(r.id)}" /></span>
         <span class="nm">${r.label}</span>
         <span class="cat">${r.category}</span>
       </button>`).join('');
@@ -3196,13 +3265,26 @@
     select(next.id);
   }
 
-  function toggleFav(id) {
-    if (state.favourites.has(id)) state.favourites.delete(id);
-    else state.favourites.add(id);
+  /**
+   * Le compteur de l'en-tete, ecrit depuis l'etat.
+   *
+   * Extrait de `toggleFav` : depuis que les favoris survivent au
+   * rechargement, il y a DEUX moments ou le compteur doit etre juste — au
+   * clic, et au demarrage. Il affichait « Favoris 0 » sur une page rouverte
+   * avec des favoris en memoire.
+   */
+  function paintFavCount() {
     const n = state.favourites.size;
     $('favCount').textContent = String(n);
     $('favCount').classList.toggle('hidden', n === 0);
     $('hFav').setAttribute('aria-pressed', String(n > 0));
+  }
+
+  function toggleFav(id) {
+    if (state.favourites.has(id)) state.favourites.delete(id);
+    else state.favourites.add(id);
+    ecrireFavoris(state.favourites);
+    paintFavCount();
     paint();
     paintCatalogue();
     toast(state.favourites.has(id)
@@ -3212,33 +3294,44 @@
   /* =====================================================================
      Modales
      ===================================================================== */
-  function closeAll() {
-    ['roomSheet', 'roomScrim', 'catSheet', 'catScrim', 'cusSheet', 'cusScrim', 'menu']
-      .forEach((id) => $(id).classList.add('hidden'));
-    $('hMenu').setAttribute('aria-expanded', 'false');
-    /* Fermer le catalogue sans choisir B annule le choix de B. Sinon le
-       prochain clic sur « Choisir un parquet » posait une comparaison au lieu
-       de changer de sol — l'interface se contredisait, silencieusement. */
-    if (state.picking) {
-      state.picking = false;
-      $('catCount').textContent = `(${visible().length})`;
-    }
-  }
-  function openRooms() { closeAll(); paintRoomSheet(); $('roomScrim').classList.remove('hidden'); $('roomSheet').classList.remove('hidden'); }
-  function openCat() { closeAll(); state.catalogueView = 'all'; paintCatalogue(); $('catScrim').classList.remove('hidden'); $('catSheet').classList.remove('hidden'); }
-  function openCus() { closeAll(); paintCustom(); $('cusScrim').classList.remove('hidden'); $('cusSheet').classList.remove('hidden'); }
+  /* UN tiroir, quatre modes. Les trois panneaux lui sont confies une fois,
+     au demarrage ; ils gardent leur contenu et leurs gestionnaires, seule leur
+     presentation change. Voir tools/visualizer-drawer.js.
 
-  ['doorRooms', 'navRoom', 'hSwap', 'menuRooms', 'rejRooms'].forEach((id) => {
+     `favorites` n'a pas de panneau a lui : c'est le catalogue avec une autre
+     vue. Un quatrieme panneau aurait fait un quatrieme endroit ou dessiner une
+     carte produit. */
+  const drawer = PPDrawer.createDrawer({
+    root: document.body,
+    panes: { rooms: $('roomSheet'), catalog: $('catSheet'), customize: $('cusSheet') },
+    onClose: () => { annulerChoixB(); },
+  });
+
+  /* Fermer le catalogue sans choisir B annule le choix de B. Sinon le prochain
+     clic sur « Choisir un parquet » posait une comparaison au lieu de changer
+     de sol — l'interface se contredisait, silencieusement. */
+  function annulerChoixB() {
+    if (!state.picking) return;
+    state.picking = false;
+    $('catCount').textContent = `(${visible().length})`;
+  }
+
+  function closeAll() {
+    drawer.close();
+    $('menu').classList.add('hidden');
+    $('hMenu').setAttribute('aria-expanded', 'false');
+    annulerChoixB();
+  }
+  function openRooms() { $('menu').classList.add('hidden'); paintRoomSheet(); drawer.open('rooms'); }
+  function openCat() { $('menu').classList.add('hidden'); state.catalogueView = 'all'; paintCatalogue(); drawer.open('catalog'); }
+  function openCus() { $('menu').classList.add('hidden'); paintCustom(); drawer.open('customize'); }
+
+  ['doorRooms', 'hSwap', 'menuRooms', 'rejRooms'].forEach((id) => {
     $(id).onclick = openRooms;
   });
   $('roomClose').onclick = closeAll;
-  $('roomScrim').onclick = closeAll;
-  $('navFloor').onclick = openCat;
   $('catClose').onclick = closeAll;
-  $('catScrim').onclick = closeAll;
-  $('navCustom').onclick = openCus;
   $('cusClose').onclick = closeAll;
-  $('cusScrim').onclick = closeAll;
 
   ['doorImport', 'sheetImport', 'menuImport', 'rejOther'].forEach((id) => {
     $(id).onclick = () => { closeAll(); $('file').click(); };
@@ -3304,7 +3397,8 @@
       if (fav) { toggleFav(fav.dataset.fav); return; }
       const open = e.target.closest('[data-open]');
       if (open) {
-        if (open.dataset.open === 'cus') openCus();
+        if (open.dataset.open === 'cat') openCat();
+        else if (open.dataset.open === 'cus') openCus();
         else if (open.dataset.open === 'cmpB') pickB();
         else startCompare();
         return;
@@ -3400,6 +3494,10 @@
     /* APRES openCat : il remet la vue a « tout ». */
     state.catalogueView = 'favourites';
     paintCatalogue();
+    /* Le tiroir nomme ce qu'il montre. Les favoris partagent le panneau du
+       catalogue — c'est le meme contenu, filtre — mais pas son mode : sans
+       cela, `drawer.mode` mentirait sur ce que l'utilisateur regarde. */
+    drawer.open('favorites');
   };
   /* « Enregistrer » et « Partager » n'existent plus dans cette version : ils
      n'avaient pas de comportement, seulement un message disant qu'ils n'en
@@ -3438,6 +3536,7 @@
   }
 
   paintQuick();
+  paintFavCount();
   probeImages();
 
   /* On tente le moteur des le chargement : la premiere piece ouverte a ainsi

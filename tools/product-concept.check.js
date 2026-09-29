@@ -22,6 +22,11 @@ const html = fs.readFileSync('tools/product-concept.html', 'utf8');
    certaines proprietes ne se prouvent que la, comme le fait qu un apercu ne
    fabrique jamais de texture. */
 const moteurLocal = fs.readFileSync('web/product/local-renderer.js', 'utf8');
+/* Les deux fichiers voisins sortis du HTML par la refonte du 29 septembre
+   2026. Ils sont lus ici pour la meme raison que le HTML : ce que la batterie
+   ne lit pas, elle ne protege pas. */
+const css = fs.readFileSync('tools/visualizer.css', 'utf8');
+const drawerSrc = fs.readFileSync('tools/visualizer-drawer.js', 'utf8');
 let bad = 0;
 const ok = (n, c, d) => {
   if (!c) bad += 1;
@@ -76,9 +81,13 @@ ok('decoupage uniquement pour le separateur',
   `${clips.length} occurrence(s)`);
 
 /* ================= 2. Autonomie et confidentialite ================= */
+/* Les deux gardes « aucun <script src> » et « aucun <link> » ont ete
+   remplacees le 29 septembre 2026 par des gardes de RESEAU. Elles exigeaient
+   un fichier unique ; ce qu'elles protegeaient vraiment, c'est qu'aucune
+   ressource ne vienne d'ailleurs. La refonte sort le style et le tiroir dans
+   deux fichiers voisins, relatifs, versionnes ici : l'autonomie est intacte,
+   la page n'est simplement plus un seul fichier. */
 for (const [label, re] of [
-  ['<script src', /<script\s+[^>]*src=/i],
-  ['<link', /<link\s/i],
   ['fetch(', /\bfetch\s*\(/],
   ['XMLHttpRequest', /XMLHttpRequest/],
   ['WebSocket', /WebSocket/],
@@ -88,20 +97,37 @@ for (const [label, re] of [
   ['@import', /@import/],
   ['url(http)', /url\(\s*['"]?https?:/i],
   ['src distant', /src=["']https?:/i],
-  ['localStorage', /localStorage/],
   ['sessionStorage', /sessionStorage/],
   ['indexedDB', /indexedDB/i],
   ['data URI', /;base64,/i],
   ['FileReader', /FileReader/],
 ]) ok(`aucun ${label}`, !re.test(html));
+
+/* Ce qui reste interdit : la ressource distante, sous toutes ses formes. */
+ok('aucune ressource distante', !/(src|href)=["']https?:/i.test(html));
+ok('les fichiers voisins sont relatifs',
+  /<link rel="stylesheet" href="visualizer\.css"/.test(html)
+  && /<script src="visualizer-drawer\.js"><\/script>/.test(html));
+
+/* localStorage n'est plus interdit, il est BORNE. Un seul usage, une seule
+   clef, et rien d'autre que des identifiants de reference : la photo, elle,
+   ne doit jamais s'y trouver. */
+const usages = code.match(/localStorage\.[a-zA-Z]+\([^)]*\)/g) || [];
+ok('localStorage : un seul role, les favoris',
+  usages.length === 2
+  && usages.every((u) => /CLE_FAVORIS/.test(u))
+  && /const CLE_FAVORIS = 'pp\.favourites\.v1'/.test(code),
+  usages.join(' | '));
+ok('rien de la photo ne part en stockage',
+  !/localStorage[^;]*uploaded/.test(code) && !/localStorage[^;]*blob/.test(code));
 /* Deux <script> depuis le LOT UX.4, et pas un de plus : celui de la page,
    et le module qui charge le moteur LOCAL. La garde d'origine exigeait un
    fichier entierement autonome — elle avait raison quand le rendu venait
    d'une iframe et que le fichier ne devait donc rien charger. Le moteur est
    maintenant ici, et un moteur de 3 900 lignes ne se colle pas dans une
    page. Ce qui reste garde, c'est qu'aucun script ne vienne du RESEAU. */
-ok('deux <script> : la page et le moteur local',
-  (html.match(/<script/g) || []).length === 2
+ok('trois <script> : la page, le moteur local, le tiroir',
+  (html.match(/<script/g) || []).length === 3
   && /<script type="module">/.test(html)
   && /from '\.\.\/web\/product\/local-renderer\.js'/.test(html));
 ok('le moteur local est charge en relatif, jamais depuis le reseau',
@@ -140,13 +166,20 @@ ok('en-tete minimal : 3 actions',
 ok('aucun bouton placebo dans l en-tete ni le menu',
   !/id="hSave"/.test(html) && !/id="menuShare"/.test(html)
   && !/besoin documenté, pas développé ici/.test(code));
-ok('trois entrees de navigation',
-  /id="navRoom"/.test(html) && /id="navFloor"/.test(html) && /id="navCustom"/.test(html));
-ok('chaque entree affiche sa valeur',
-  /id="navRoomVal"/.test(html) && /id="navFloorVal"/.test(html) && /id="navCustomVal"/.test(html));
+/* Le panneau de navigation permanent a ete retire : il occupait 208 a 238 px
+   de photo en permanence, et sur telephone son premier bouton etait recouvert
+   par la capsule d'outils. Ce qui compte desormais n'est pas qu'il existe,
+   c'est que ses trois entrees soient TOUTES joignables ailleurs. */
+ok('aucun panneau de navigation permanent',
+  !/<nav id="nav">/.test(html) && !/id="navRoomVal"/.test(html));
+ok('ses trois entrees ont demenage',
+  /id="hSwap"/.test(html) && /data-open="cat"/.test(code) && /data-open="cus"/.test(code));
 ok('barre centrale a trois outils',
   /id="baBtn"/.test(html) && /id="cmpBtn"/.test(html) && /id="fsBtn"/.test(html));
-ok('petite carte produit flottante', /#card, #cardB \{[\s\S]*?width: 196px/.test(html));
+ok('la fiche produit est une barre basse, pas un panneau lateral',
+  /#card, #cardB \{[\s\S]*?bottom: 14px/.test(css)
+  && /#card, #cardB \{[\s\S]*?grid-template-columns/.test(css));
+ok('la barre porte le choix de parquet', /data-open="cat"/.test(code));
 ok('aucun bouton « Appliquer »', !/>Appliquer</.test(html) && !/<button[^>]*>[^<]*Appliquer/.test(html));
 
 /* ================= 4. Trois images, et c'est tout ================= */
@@ -227,6 +260,11 @@ function make(key) {
     addEventListener(t, f) { (listeners[key] ??= {})[t] = f; },
     setAttribute(n, v) { this.attrs[n] = String(v); },
     getAttribute(n) { return this.attrs[n] ?? null; },
+    removeAttribute(n) { delete this.attrs[n]; },
+    /* `querySelector` singulier manquait : le tiroir s'en sert pour trouver
+       le titre d'un panneau et son premier element focalisable. */
+    querySelector(sel) { return this.querySelectorAll(sel)[0] || null; },
+    get isConnected() { return true; },
     focus() {}, setPointerCapture() {}, click() { this._clicked = true; },
     appendChild(node) {
       this.children.push(node);
@@ -256,6 +294,9 @@ global.document = {
   querySelector: (s) => (nodes[s] ??= make(s)),
   querySelectorAll: (sel) => (sel === '[data-vp]' ? vpGroups : []),
   createElement: (t) => make(t),
+  /* La racine du document : `mesurerBarre` y ecrit la hauteur de la barre
+     produit sous forme de propriete personnalisee. */
+  documentElement: make('html'),
   createTextNode: (data) => ({ nodeType: 3, data: String(data), textContent: String(data) }),
   addEventListener() {},
   body: make('body'),
@@ -311,6 +352,18 @@ nodes.vpA = vpGroups[2];
 
 const script = html.match(/<script>([\s\S]*)<\/script>/)[1];
 try {
+  /* Le tiroir est un script classique, charge par la page avant le sien : on
+     l'execute ici dans le meme ordre, sans quoi `PPDrawer` manquerait. */
+  new Function(drawerSrc)();
+  /* Dans un navigateur, `window` EST l'objet global : le tiroir s'y depose et
+     le script de la page le trouve. Ici le `window` est une facade posee sur
+     `global`, et les deux sont distincts — d'ou ce pont, qui n'existe que
+     pour la batterie. */
+  global.PPDrawer = global.window.PPDrawer;
+  /* Meme raison : la facade `window` n'est pas l'objet global, elle n'a donc
+     pas herite de `document`. Le tiroir, lui, s'attend a la regle du
+     navigateur ou `window.document` existe. */
+  global.window.document = global.document;
   new Function(script)();
   ok("le prototype s'execute sans exception", true);
 } catch (error) {
@@ -458,8 +511,7 @@ ok('aucun decoupage hors avant/apres', el('clipA').style.clipPath === 'none');
 api.select('CHENF36015');
 ok('choisir une reference change le sol applique',
   api.state.applied.key === 'sejour|CHENF36015|0', api.state.applied.key);
-ok('la navigation suit', el('navFloorVal').textContent === 'Chêne Invisible Pivoine',
-  el('navFloorVal').textContent);
+ok('la barre produit suit', /Chêne Invisible Pivoine/.test(h('card')), h('card').slice(0, 80));
 ok('la fiche produit affiche motif, largeur et reference',
   /Lames · 150 mm/.test(h('card')) && /Réf\. CHENF36015/.test(h('card')));
 ok('le lien de fiche est un vrai lien, en nouvel onglet',
@@ -503,7 +555,7 @@ ok('la version A reste decoupee', el('clipA').style.clipPath === 'inset(0 50.00%
 ok('deux cartes produit', el('cardB').classList.contains('hidden') === false);
 ok('les versions sont etiquetees',
   el('tagA').classList.contains('hidden') === false && el('tagB').classList.contains('hidden') === false);
-ok('la navigation s efface pendant la comparaison', el('nav').classList.contains('hidden') === true);
+ok('la scene passe en mode comparaison', el('stage').classList.contains('comparing') === true);
 api.stepProduct(1, 'B');
 ok('le cote B change seul',
   api.state.compare.b !== 'CHENF36014' && api.state.productId === before,
@@ -511,7 +563,7 @@ ok('le cote B change seul',
 api.state.compare = null;
 api.paint();
 ok('fermer la comparaison masque la version B', el('vpB').classList.contains('hidden') === true);
-ok('fermer la comparaison rend la navigation', el('nav').classList.contains('hidden') === false);
+ok('fermer la comparaison quitte le mode', el('stage').classList.contains('comparing') === false);
 
 /* ================= 10. Changer de piece ================= */
 const kept = api.state.productId;
@@ -574,6 +626,15 @@ ok('aucun parquet pose dessus', el('clipA').classList.contains('hidden') === tru
 ok('ni carte produit ni outils quand rien n est pose',
   el('card').classList.contains('hidden') === true
   && el('tools').classList.contains('hidden') === true);
+/* Et a la place, une phrase qui dit pourquoi. La version precedente laissait
+   le panneau de navigation annoncer « Choisir un parquet — Point de Hongrie
+   Zeus Naturel » sur une photo ou aucun parquet n'etait pose. */
+ok('une photo sans scene le DIT',
+  el('noscene').classList.contains('hidden') === false,
+  el('noscene').classList.contains('hidden') ? 'barre cachee' : '');
+ok('et la phrase dit ce qui manque, sans promettre',
+  /<aside id="noscene"[\s\S]*?détection automatique du sol[\s\S]*?<\/aside>/.test(html)
+  && /<aside id="noscene"[\s\S]*?data-open="cat"[\s\S]*?<\/aside>/.test(html));
 ok('aucun rendu inconnu invente', api.renderUrl('uploaded', 'POINF36005') === null);
 /* La garde qui remplace les trois precedentes. Elles exigeaient la modale
    « L'analyse automatique n'est pas encore branchee » et ses trois sorties ;
@@ -609,7 +670,15 @@ ok('un format refuse ne remplace pas la scene', api.state.uploaded.name === 'ma-
 api.openRoom('chambre');
 ok('changer de piece libere la photo importee', api.state.uploaded === null);
 ok("l'URL d'objet est revoquee", revoked.includes('blob:local-only'));
-ok('aucune persistance de la photo', !/localStorage|sessionStorage|indexedDB/.test(html));
+/* Les favoris survivent au rechargement depuis le 29 septembre 2026 : le
+   compteur de l'en-tete doit donc etre juste des le demarrage, pas seulement
+   apres un clic. */
+ok('le compteur de favoris est peint au demarrage',
+  /paintQuick\(\);\s*paintFavCount\(\);/.test(code));
+ok('les favoris sont relus au demarrage', /favourites: lireFavoris\(\)/.test(code));
+
+ok('aucune persistance de la photo',
+  !/sessionStorage|indexedDB/.test(html) && !/localStorage[^;]*(uploaded|blob|photo)/.test(code));
 
 /* ================= 14. Catalogue ================= */
 api.openCat();
@@ -924,9 +993,9 @@ ok('le viewport a une description accessible',
   /role="group"/.test(html) && /Molette pour zoomer/.test(html));
 api.setImmersive(true);
 ok('le mode immersif s active', api.state.immersive === true);
-ok("l'en-tete et la navigation s effacent",
+ok("l'en-tete s efface en immersif",
   /body\.immersive header,[\s\S]*?display: none/.test(html)
-  && /body\.immersive #nav/.test(html));
+  && /body\.immersive #status/.test(html));
 ok('les outils et le zoom restent',
   !/body\.immersive #tools \{[^}]*display: none/.test(html)
   && !/body\.immersive #zoombar \{[^}]*display: none/.test(html));

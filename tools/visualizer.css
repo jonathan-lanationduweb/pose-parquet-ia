@@ -1,0 +1,653 @@
+/* =====================================================================
+   Visualiseur — mise en page de repos, barre produit, tiroir unique.
+
+   Ce fichier est chargé APRÈS la feuille de la page : ce qu'il redéfinit,
+   il le redéfinit exprès. Il ne contient que ce que la refonte du
+   29 septembre 2026 touche — pas la totalité du style, qui reste dans
+   product-concept.html en attendant sa propre passe.
+
+   Ce que cette refonte change, et pourquoi :
+
+   1. les deux panneaux permanents (navigation à gauche, fiche produit à
+      droite) disparaissent. Ils occupaient ensemble 404 px de large sur la
+      photo, et sur téléphone ils se recouvraient l'un l'autre — mesuré :
+      « Plein écran » et « Changer de pièce » étaient géométriquement
+      inatteignables à 320, 390 et 430 px ;
+
+   2. la photo devient l'élément dominant. Au repos il ne reste que le
+      bandeau, une capsule d'outils, la barre produit basse et le zoom ;
+
+   3. les trois panneaux deviennent UN tiroir, qui monte du bas. Sur
+      téléphone il ne prend jamais plus de 58 % de la hauteur : on doit
+      continuer à voir le sol qu'on est en train de régler.
+   ===================================================================== */
+
+/* ---------------------------------------------------------------------
+   1. Contraste et typographie
+
+   Mesuré avant : 18 textes sous le seuil AA, dont la baseline de marque à
+   2,16:1 et toutes les métadonnées produit à 3,58:1. Les deux jetons de gris
+   portaient à eux seuls la quasi-totalité des échecs — les corriger ici les
+   corrige partout, plutôt qu'au cas par cas.
+   --------------------------------------------------------------------- */
+:root {
+  --ink-3: #6b685f;   /* 5,4:1 sur blanc — était #8a8781, 3,58:1 */
+  --ink-4: #757167;   /* 4,8:1 sur blanc — était #b4b0a8, 2,16:1 */
+  --dock-h: 74px;     /* hauteur de la barre produit, pour décaler le reste */
+}
+
+/* Une information utile ne se lit pas en 10 px. */
+.brand span { font-size: 11.5px; }
+#card .ref, #cardB .ref { font-size: 11.5px; }
+#card .dim, #cardB .dim { font-size: 12.5px; }
+
+/* ---------------------------------------------------------------------
+   2. Le panneau de navigation permanent disparaît
+
+   Ses trois entrées se retrouvent : « Changer de pièce » dans le bandeau
+   (bouton déjà présent), « Choisir un parquet » et « Personnaliser » dans la
+   barre produit. Aucune fonction n'est perdue ; c'est l'endroit qui change.
+   --------------------------------------------------------------------- */
+#nav { display: none !important; }
+
+/* ---------------------------------------------------------------------
+   3. La fiche produit devient une barre basse compacte
+
+   Même élément, même contenu, mêmes gestionnaires : seule la mise en page
+   change. Garder `#card` plutôt que fabriquer une barre neuve évite de
+   réécrire la peinture de la carte, les favoris et la comparaison — une
+   seule cause de régression à la fois.
+   --------------------------------------------------------------------- */
+#card, #cardB {
+  position: absolute;
+  top: auto;
+  bottom: 14px;
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+  z-index: 8;
+  width: auto;
+  max-width: min(760px, calc(100% - 28px));
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px;
+  text-align: left;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(18px);
+  border-radius: var(--r-pill);
+  box-shadow: 0 1px 3px rgba(24, 22, 18, 0.07), 0 10px 34px rgba(24, 22, 18, 0.13);
+}
+
+/* La vignette : carrée et petite, elle situe le produit sans prendre la
+   place de la pièce. */
+#card .sw, #cardB .sw {
+  grid-row: 1 / span 3;
+  width: 52px;
+  height: 52px;
+  aspect-ratio: auto;
+  margin: 0;
+  border-radius: 11px;
+}
+
+#card b, #cardB b {
+  grid-column: 2;
+  font-size: 13.5px;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#card .dim, #cardB .dim {
+  grid-column: 2;
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* La référence commerciale est une donnée de vérification, pas une donnée de
+   choix : elle reste, sur la même ligne que le format, au lieu de manger une
+   troisième ligne dans une barre. */
+#card .ref, #cardB .ref {
+  grid-column: 2;
+  display: inline;
+  margin: 0;
+}
+#card .dim::after, #cardB .dim::after { content: ' ·'; }
+
+#card .row, #cardB .row {
+  grid-column: 3;
+  grid-row: 1 / span 3;
+  margin: 0;
+  padding: 0;
+  border-top: 0;
+  gap: 2px;
+}
+#card .row button, #cardB .row button {
+  flex: none;
+  min-height: 40px;
+  padding: 0 12px;
+  border-radius: var(--r-pill);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink-2);
+}
+#card .row button:hover, #cardB .row button:hover { background: var(--track); }
+#card .row .fav, #cardB .row .fav { min-width: 40px; padding: 0 10px; }
+#card .row .sep, #cardB .row .sep { height: 20px; }
+
+/* L'action principale se voit : c'est par elle qu'on change de sol. */
+#card .row button[data-open="cat"] {
+  background: var(--graphite);
+  color: #fff;
+}
+#card .row button[data-open="cat"]:hover { background: var(--ink); }
+
+/* Le lien commercial quitte le repos : il ouvre un autre site, ce n'est pas
+   une action du visualiseur. Il revient dans le tiroir, à côté du produit. */
+#card .sheet, #cardB .sheet { display: none; }
+
+#card .busy, #cardB .busy {
+  grid-column: 2;
+  margin: 2px 0 0;
+  font-size: 11.5px;
+}
+
+/* En comparaison, les deux fiches se partagent la largeur. */
+#stage.comparing #card { left: 25%; }
+#stage.comparing #cardB { left: 75%; display: grid; }
+
+/* ---------------------------------------------------------------------
+   4. Ce qui flottait en bas remonte au-dessus de la barre
+   --------------------------------------------------------------------- */
+#zoombar { bottom: calc(14px + var(--dock-h)); }
+#status { bottom: calc(14px + var(--dock-h)); }
+
+/* ---------------------------------------------------------------------
+   5. Le tiroir unique
+
+   Un conteneur, un voile, quatre modes. Il monte du bas à toutes les
+   largeurs : c'est le même geste sur un téléphone et sur un écran, et cela
+   supprime le panneau latéral qui écrasait la photo sur desktop.
+   --------------------------------------------------------------------- */
+.dw-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  background: rgba(30, 28, 24, 0.3);
+  animation: dwFade 180ms var(--ease, ease) both;
+}
+
+.dw {
+  position: fixed;
+  z-index: 31;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  width: min(1080px, 100%);
+  max-height: 62vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  box-shadow: 0 -2px 10px rgba(24, 22, 18, 0.08), 0 -18px 60px rgba(24, 22, 18, 0.18);
+  overflow: hidden;
+  animation: dwUp 260ms cubic-bezier(0.22, 0.9, 0.3, 1) both;
+}
+
+.dw-grip {
+  flex: none;
+  width: 38px;
+  height: 4px;
+  margin: 8px auto 0;
+  border-radius: var(--r-pill);
+  background: var(--track-2);
+}
+
+/* Les panneaux hérités deviennent des pages : elles perdent leur position
+   fixe et leur ombre, le tiroir les porte désormais. */
+.dw-pane {
+  position: static !important;
+  inset: auto !important;
+  width: auto !important;
+  max-height: none;
+  min-height: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  background: transparent;
+  overflow: hidden;
+}
+.dw-pane.hidden { display: none !important; }
+
+.dw-pane .head {
+  padding: 10px 20px 12px;
+}
+.dw-pane .body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@keyframes dwUp {
+  from { transform: translate(-50%, 100%); }
+  to   { transform: translate(-50%, 0); }
+}
+@keyframes dwFade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dw, .dw-scrim { animation: none; }
+}
+
+/* Le bouton de fermeture est une cible tactile, pas une croix de 24 px. */
+.dw-pane .close {
+  min-width: 40px;
+  min-height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-pill);
+}
+.dw-pane .close:hover { background: var(--track); }
+
+/* ---------------------------------------------------------------------
+   6. Tablette — 768 à 1024
+
+   Rien de particulier : la barre et le tiroir tiennent déjà. On empêche
+   seulement le tiroir de devenir une bande étroite au milieu d'un écran
+   large, et la barre de coller aux bords.
+   --------------------------------------------------------------------- */
+@media (max-width: 1024px) {
+  .dw { width: 100%; max-height: 60vh; }
+  #card, #cardB { max-width: calc(100% - 24px); }
+}
+
+/* ---------------------------------------------------------------------
+   7. Téléphone — sous 700 px
+
+   Le seuil est celui de la disposition, pas d'un appareil : en dessous, la
+   barre produit ne peut plus tenir son nom, son format et trois boutons sur
+   une ligne. Elle passe alors sur deux lignes, et les cibles montent à 44 px.
+
+   Contrainte tenue : le tiroir ne dépasse jamais 58 % de la hauteur, donc il
+   reste au moins 42 % de pièce visible pendant qu'on la personnalise.
+   --------------------------------------------------------------------- */
+@media (max-width: 700px) {
+  :root { --dock-h: 116px; }
+
+  /* Le bandeau se resserre, et la baseline s'efface : elle débordait sous le
+     bandeau et recouvrait le haut de la photo. */
+  .brand span { display: none; }
+
+  #card, #cardB {
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    transform: none;
+    max-width: none;
+    width: auto;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas:
+      'sw  nom'
+      'sw  dim'
+      'row row';
+    gap: 3px 12px;
+    padding: 10px 12px 8px;
+    border-radius: 18px;
+  }
+  #card .sw, #cardB .sw { grid-area: sw; grid-row: auto; width: 44px; height: 44px; }
+  #card b, #cardB b { grid-area: nom; align-self: end; }
+  #card .dim, #cardB .dim { grid-area: dim; align-self: start; }
+  #card .ref, #cardB .ref { display: none; }  /* la référence vit dans le tiroir */
+  #card .busy, #cardB .busy { display: none; }
+
+  #card .row, #cardB .row {
+    grid-area: row;
+    grid-row: auto;
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid var(--line);
+    gap: 4px;
+  }
+  #card .row button, #cardB .row button {
+    flex: 1;
+    min-height: 44px;
+    font-size: 13px;
+  }
+  #card .row .fav, #cardB .row .fav { flex: none; min-width: 44px; }
+  #card .row .sep, #cardB .row .sep { display: none; }
+
+  /* La comparaison ne tient pas deux fiches côte à côte sur un téléphone :
+     seule celle de A reste, et les étiquettes A/B disent déjà laquelle est
+     laquelle de part et d'autre du séparateur. */
+  #stage.comparing #card { left: 12px; }
+  #stage.comparing #cardB { display: none; }
+
+  /* La capsule d'outils passe au ras du bandeau et se resserre : elle doit
+     tenir sur 320 px sans recouvrir la fiche ni sortir de l'écran. */
+  #tools {
+    top: 10px;
+    gap: 2px;
+    padding: 4px;
+  }
+  #tools button {
+    min-height: 40px;
+    padding: 0 11px;
+    font-size: 12.5px;
+  }
+
+  /* Zoom : 44 px, et au-dessus de la barre produit. */
+  #zoombar {
+    right: 12px;
+    bottom: calc(12px + var(--dock-h));
+    padding: 3px;
+  }
+  #zoombar button { min-width: 44px; height: 44px; }
+  #zoombar #zLevel { min-width: 56px; }
+
+  #status {
+    left: 12px;
+    right: auto;
+    bottom: calc(12px + var(--dock-h));
+    max-width: calc(100% - 140px);
+  }
+
+  .dw {
+    width: 100%;
+    max-height: 58vh;
+    border-radius: 20px 20px 0 0;
+  }
+  .dw-pane .head { padding: 8px 16px 10px; }
+  .dw-pane .head h2 { font-size: 16px; }
+}
+
+/* Très petits écrans : le bandeau doit rester entier. Mesuré à 320 px, le
+   bouton de menu sortait de l'écran (bord droit à 357 px). */
+@media (max-width: 380px) {
+  header .hbtn .lbl { display: none; }
+  header { padding-left: 10px; padding-right: 10px; }
+  .brand b { font-size: 15px; }
+  #tools button .lbl { display: none; }
+  #tools button { padding: 0 9px; }
+}
+
+/* ---------------------------------------------------------------------
+   8. Accessibilité — focus visible partout
+
+   Les panneaux hérités déclaraient trois règles `:focus`. Un tiroir qui
+   piège le focus sans le montrer est pire que pas de piège du tout.
+   --------------------------------------------------------------------- */
+.dw button:focus-visible,
+.dw a:focus-visible,
+.dw [tabindex]:focus-visible,
+#card button:focus-visible,
+#tools button:focus-visible,
+#zoombar button:focus-visible,
+header button:focus-visible {
+  outline: 2px solid var(--terre);
+  outline-offset: 2px;
+}
+
+/* ---------------------------------------------------------------------
+   9. Reste de la refonte : titre masqué, marque, barre « pas de scène »
+   --------------------------------------------------------------------- */
+
+/* Le vrai h1 de la page. Visible pour les lecteurs d'écran, absent à l'œil :
+   la marque occupe déjà le coin, et deux titres à l'écran n'en font pas un
+   meilleur. */
+.vh {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* La marque garde exactement l'allure qu'elle avait comme h1. */
+.brand .wordmark {
+  margin: 0;
+  font-family: var(--serif, Georgia, serif);
+  font-size: 17px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  line-height: 1.15;
+}
+
+/* La barre honnête d'une photo sans scène. Même place et même forme que la
+   barre produit : c'est la même ligne de l'interface, avec autre chose à
+   dire. */
+#noscene {
+  position: absolute;
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 8;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  max-width: min(680px, calc(100% - 28px));
+  padding: 11px 12px 11px 18px;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(18px);
+  border-radius: 18px;
+  box-shadow: 0 1px 3px rgba(24, 22, 18, 0.07), 0 10px 34px rgba(24, 22, 18, 0.13);
+}
+#noscene.hidden { display: none; }
+#noscene .tx { min-width: 0; }
+#noscene .tx b { display: block; font-size: 13px; font-weight: 600; }
+#noscene .tx span {
+  display: block;
+  margin-top: 2px;
+  font-size: 12.5px;
+  line-height: 1.35;
+  color: var(--ink-3);
+}
+#noscene .row button {
+  flex: none;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: var(--r-pill);
+  background: var(--graphite);
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 500;
+}
+#noscene .row button:hover { background: var(--ink); }
+
+@media (max-width: 700px) {
+  #noscene {
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    transform: none;
+    max-width: none;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding: 12px;
+  }
+  #noscene .row button { width: 100%; min-height: 44px; }
+}
+
+/* ---------------------------------------------------------------------
+   10. Le repère principal ne doit rien changer à la mise en page
+
+   `<main>` a été ajouté pour la structure ; sans ces trois lignes il
+   s'intercale entre le corps en colonne flexible et `#stage`, dont le
+   `flex: 1` ne trouve alors plus de hauteur à occuper. La page devenait
+   blanche sous l'en-tête.
+   --------------------------------------------------------------------- */
+#main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---------------------------------------------------------------------
+   11. Réglages de hauteur de la barre produit
+
+   Mesurée à 133 px au premier jet : la référence prenait une troisième ligne
+   et l'indicateur « Application… » une quatrième. Une barre qui change de
+   hauteur pendant qu'on l'utilise fait sauter tout ce qui se cale dessus.
+   L'indicateur passe donc en coin, hors du flux, et la hauteur devient fixe.
+   --------------------------------------------------------------------- */
+:root { --dock-h: 96px; }
+
+#card, #cardB { padding: 9px 12px; }
+#card b, #cardB b { line-height: 1.2; }
+#card .dim, #cardB .dim { margin-top: 0; line-height: 1.25; }
+#card .ref, #cardB .ref { margin-top: 0; line-height: 1.25; }
+
+/* Hors du flux : la barre ne grandit pas quand le moteur travaille. */
+#card .busy, #cardB .busy {
+  position: absolute;
+  top: -26px;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 4px 11px;
+  white-space: nowrap;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(14px);
+  border-radius: var(--r-pill);
+  box-shadow: var(--sh-1);
+}
+
+/* ---------------------------------------------------------------------
+   12. Corrections issues du balayage 320 → 1920
+
+   Trois défauts mesurés après le premier jet, chacun avec sa preuve :
+
+   a. les quatre boutons de zoom rendaient `card` à `elementFromPoint` à 430,
+      390, 375 et 320 px : la barre passait devant. La hauteur est désormais
+      mesurée en JS (`mesurerBarre`), et l'écart de sécurité ajouté ici ;
+   b. à 320 px, « Comparer » sortait de l'écran : quatre boutons ne tiennent
+      pas sur une ligne de 296 px. La rangée passe à la ligne ;
+   c. les boutons d'en-tête restaient à 31–35 px de haut sur téléphone.
+   --------------------------------------------------------------------- */
+@media (max-width: 700px) {
+  #zoombar { bottom: calc(24px + var(--dock-h)); }
+  #status  { bottom: calc(24px + var(--dock-h)); }
+
+  /* La rangée d'actions peut passer à la ligne : mieux vaut deux lignes que
+     quatre boutons dont un sort du cadre. */
+  #card .row, #cardB .row { flex-wrap: wrap; }
+  #card .row button, #cardB .row button { flex: 1 1 auto; min-width: 88px; }
+  #card .row .fav, #cardB .row .fav { flex: 0 0 auto; }
+
+  header { min-height: 54px; }
+  header .hbtn { min-height: 44px; padding: 0 10px; }
+}
+
+@media (max-width: 380px) {
+  /* 296 px utiles : trois actions par ligne au plus, et le cœur avec elles. */
+  #card .row button, #cardB .row button { min-width: 0; font-size: 12.5px; }
+}
+
+/* ---------------------------------------------------------------------
+   13. Resserrement téléphone, mesuré
+
+   Premier jet à 390 px : la barre produit faisait 188 px de haut, soit 22 %
+   de l'écran, parce que « Comparer » passait à la ligne et que la baseline de
+   marque débordait sur deux lignes sous l'en-tête.
+
+   « Comparer » ne disparaît pas : il est déjà dans la capsule d'outils, en
+   haut. Le garder aux deux endroits sur un écran de 390 px coûtait une ligne
+   entière pour une action qu'on pouvait déjà atteindre.
+   --------------------------------------------------------------------- */
+@media (max-width: 700px) {
+  /* La baseline est un <p>, pas un <span> : la règle précédente ne la visait
+     pas, et elle débordait sur trois lignes dans un en-tête de 54 px. */
+  .brand > div > p:not(.wordmark) { display: none; }
+  .brand .wordmark { font-size: 15.5px; }
+
+  #card .row button[data-open="cmpA"],
+  #cardB .row button[data-open="cmpB"] { display: none; }
+}
+
+/* Sous 480 px, les libellés cèdent la place aux icônes. Les boutons gardent
+   leur nom accessible par `aria-label` : le lecteur d'écran ne perd rien. */
+@media (max-width: 480px) {
+  header .hbtn .lbl,
+  #tools button .lbl { display: none; }
+  header .hbtn { padding: 0 9px; }
+  #tools button { padding: 0 12px; }
+}
+
+/* Mesure suivante : 140 px de barre et des boutons d'icône à 33–39 px de
+   large. Les deux se corrigent au même endroit — la barre respire moins, les
+   cibles respirent plus. */
+@media (max-width: 700px) {
+  #card, #cardB { padding: 8px 10px 6px; gap: 2px 10px; }
+  #card .sw, #cardB .sw { width: 40px; height: 40px; }
+  #card .row, #cardB .row { margin-top: 4px; padding-top: 4px; }
+  #card .row button, #cardB .row button { min-height: 42px; }
+}
+@media (max-width: 480px) {
+  header .hbtn, #tools button { min-width: 44px; justify-content: center; }
+}
+
+/* ---------------------------------------------------------------------
+   14. Cibles tactiles : la bonne question n'est pas la largeur
+
+   À 768 et 820 px les commandes restaient à 28–35 px. La largeur ne dit pas
+   si l'on vise au doigt ou à la souris ; `pointer: coarse` le dit. Une
+   tablette de 1024 px est un écran tactile, un portable de 1280 px ne l'est
+   pas, et la même règle les sert tous les deux correctement.
+   --------------------------------------------------------------------- */
+@media (pointer: coarse) {
+  header .hbtn { min-height: 44px; }
+  #tools button { min-height: 44px; }
+  #zoombar button { min-width: 44px; height: 44px; }
+  #card .row button, #cardB .row button { min-height: 44px; }
+  .dw-pane .close { min-width: 44px; min-height: 44px; }
+}
+
+/* ---------------------------------------------------------------------
+   15. Le catalogue sur téléphone
+
+   Mesuré à 390 px : le rail de filtres prenait 212 px et laissait 178 px aux
+   produits — deux cartes par ligne dans 178 px, soit des vignettes de 80 px.
+   On regardait un tableau de bord, pas des parquets.
+
+   Les deux colonnes deviennent deux bandes : les filtres au-dessus, sur une
+   ligne qui défile latéralement, et toute la largeur pour les sols. C'est
+   l'ordre dans lequel on s'en sert — on regarde d'abord, on filtre ensuite.
+   --------------------------------------------------------------------- */
+@media (max-width: 700px) {
+  .dw-pane .body { flex-direction: column; }
+
+  .dw-pane .body > .side {
+    flex: none;
+    width: auto !important;
+    max-height: none;
+    overflow-x: auto;
+    overflow-y: hidden;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+    padding: 8px 16px 10px;
+  }
+  /* Les groupes de filtres se suivent horizontalement au lieu de s'empiler. */
+  .dw-pane .body > .side > * {
+    display: inline-flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 6px;
+    margin: 0 14px 0 0;
+    vertical-align: middle;
+    white-space: nowrap;
+  }
+  .dw-pane .body > .main { flex: 1; min-height: 0; overflow: auto; }
+}

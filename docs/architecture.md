@@ -202,3 +202,52 @@ Il faut l'écrire ici, avec :
 
 Les points 3 et 5 demandent le banc d'essai. C'est pour cela qu'il vient
 d'abord.
+
+## Risques connus, ouverts, et pourquoi ils le restent
+
+Trois choses mesurées lors de la passe du 29 septembre 2026 n'ont **pas** été
+corrigées ce jour-là. Elles sont écrites ici plutôt que perdues dans un
+rapport : un risque qu'on ne retrouve pas est un risque qu'on redécouvre.
+
+### CSP_DEFERRED_UNTIL_INLINE_CODE_REMOVED
+
+Le service pose trois en-têtes de sécurité (`nosniff`, `Referrer-Policy`,
+`X-Frame-Options`) et **aucune Content-Security-Policy**.
+
+La raison est mécanique : `tools/product-concept.html` porte encore son script
+dans la page — environ trois mille lignes en ligne. Une CSP honnête les
+refuserait et casserait le visualiseur ; une CSP avec `unsafe-inline` les
+autoriserait toutes et ne protégerait de rien, tout en donnant l'apparence
+d'une politique. La passe du 29 septembre a commencé à sortir le code du HTML
+(`tools/visualizer.css`, `tools/visualizer-drawer.js`) ; la CSP arrivera quand
+le script de page aura suivi, et pas avant.
+
+### Concurrence de l'analyse
+
+`POST /v1/analyze-room` coûte **1,29 s de processeur** pour une photo de
+1,7 Mpx (mesuré le 28 septembre 2026, CPU seul). L'analyse s'exécute dans le
+fil d'exécution de Starlette (`run_in_threadpool`), dont le défaut est de
+quarante fils : quarante photos simultanées, c'est quarante calculs OpenCV sur
+le même processeur, sans file d'attente ni limite.
+
+Aucune charge réelle ne l'a encore atteint, et corriger sans mesurer
+produirait un réglage arbitraire de plus. Ce qu'il faudra : une borne de
+concurrence explicite, et un `429` franc au-delà plutôt qu'une dégradation
+silencieuse de tous les appels à la fois.
+
+### DEMO_ASSET_GAP
+
+Le visualiseur affiche cinq pièces de démonstration et cinq références
+produit. Toutes ces images vivent dans `tools/local-demo-assets/`, qui est
+**ignoré par Git** — les vignettes produit viennent de premibel.fr et ne sont
+pas les nôtres, donc ni versionnées ni redistribuées (voir
+`docs/premibel-demo-catalog.md` pour les URL sources et la date de relevé).
+
+Conséquence à écrire noir sur blanc : **sur un clone frais, le visualiseur
+s'ouvre sans une seule image.** Ce n'est pas un défaut de code, c'est une
+dépendance à des fichiers qu'on n'a pas le droit de publier.
+
+La sortie n'est pas technique : il faut un jeu d'images à nous —
+photographies de pièces dont nous détenons les droits, et vignettes produit
+issues de nos propres rendus. Tant que ce jeu n'existe pas, toute
+« correction » consisterait à versionner les images de quelqu'un d'autre.

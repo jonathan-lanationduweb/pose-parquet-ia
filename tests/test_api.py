@@ -115,8 +115,16 @@ def test_les_timings_declarent_tous_les_etages(client):
     assert timings["perspective_ms"] is None
 
 
-def test_openapi_se_construit(client):
-    """Les schémas Pydantic doivent rester sérialisables en OpenAPI."""
-    response = client.get("/openapi.json")
-    assert response.status_code == 200
-    assert "/v1/analyze-room" in response.json()["paths"]
+def test_openapi_se_construit():
+    """Les schémas Pydantic doivent rester sérialisables en OpenAPI.
+
+    Construit depuis l'application plutôt que demandé à `/openapi.json` :
+    depuis le 29 septembre 2026 la route n'est ouverte qu'en développement
+    (voir `app.main`), et ce test ne parle pas de la route — il parle des
+    schémas. Un test qui aurait exigé le 200 aurait fait echouer une décision
+    de sécurité pour une raison qui n'est pas la sienne.
+    """
+    from app.main import create_app
+
+    document = create_app().openapi()
+    assert "/v1/analyze-room" in document["paths"]
