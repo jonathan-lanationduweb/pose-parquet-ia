@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import io
 import json
 import platform
 import shutil
@@ -209,8 +210,12 @@ def defauts_par_role(
                 fines_perdues += 1
 
     for entree in par_role.values():
-        aire = entree["aire"]
-        entree["bleed_ratio"] = round(entree["deborde"] / aire, 4) if aire else 0.0
+        # Nom distinct de l'`aire` de la boucle precedente : la premiere est le
+        # compte de pixels d'UNE exclusion (un entier), celle-ci le cumul d'un
+        # role. Le meme nom pour les deux passait, et cachait que la fonction
+        # reutilisait une variable d'une boucle a l'autre.
+        aire_role = entree["aire"]
+        entree["bleed_ratio"] = round(entree["deborde"] / aire_role, 4) if aire_role else 0.0
 
     return {
         "par_role": par_role,
@@ -237,9 +242,14 @@ def executer(
 def main(argv: list[str] | None = None) -> int:
     # La console Windows est en cp1252 : sans cela, un tiret cadratin arrete
     # le script au milieu d'une mesure de quarante secondes.
+    # `reconfigure` appartient a TextIOWrapper, pas au protocole TextIO : le
+    # test d'instance n'est pas une formalite de typage, c'est le cas reel ou
+    # la sortie a ete remplacee par un tampon en memoire (capture de pytest,
+    # redirection) et ou l'appel n'aurait aucun sens.
     for flux in (sys.stdout, sys.stderr):
-        with contextlib.suppress(Exception):
-            flux.reconfigure(encoding="utf-8")
+        if isinstance(flux, io.TextIOWrapper):
+            with contextlib.suppress(Exception):
+                flux.reconfigure(encoding="utf-8")
 
     parser = argparse.ArgumentParser(description="Passe exploratoire de segmentation du sol")
     parser.add_argument("--dataset", type=Path, default=Path("datasets"))

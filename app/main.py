@@ -23,6 +23,35 @@ from app.core.logging import configure_logging
 #: En-tête de corrélation, posé sur chaque réponse.
 REQUEST_ID_HEADER = "X-Request-ID"
 
+#: En-têtes posés sur chaque réponse.
+#:
+#: Trois seulement, et chacun répond à une question précise :
+#:
+#:   nosniff        un JSON que le navigateur déciderait de lire comme du
+#:                  HTML est un XSS ; l'en-tête interdit la devinette ;
+#:   no-referrer    une photo de domicile s'analyse à une URL qui n'a pas à
+#:                  voyager dans le `Referer` d'une requête suivante ;
+#:   DENY           ce service n'a aucune raison d'être encadré ailleurs.
+#:
+#: **Pas de Content-Security-Policy ici, et c'est délibéré.** Le visualiseur
+#: servi en développement porte aujourd'hui son script en ligne — trois mille
+#: lignes dans `tools/product-concept.html`. Une CSP honnête les refuserait et
+#: casserait la page ; une CSP avec `unsafe-inline` ne protégerait de rien tout
+#: en cochant la case. La politique arrivera quand le code en ligne sera sorti
+#: du HTML : voir `CSP_DEFERRED_UNTIL_INLINE_CODE_REMOVED` dans
+#: docs/architecture.md.
+#: Les seuls dossiers que le montage de développement peut servir.
+#:
+#: `datasets/` n'y est pas : il contient `private-real/`, c'est-à-dire des
+#: photos de domicile. Voir `_monter_fichiers_de_dev`.
+DOSSIERS_DE_DEV: tuple[str, ...] = ("tools", "web")
+
+SECURITY_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "no-referrer",
+    "X-Frame-Options": "DENY",
+}
+
 
 def create_app() -> FastAPI:
     """Construit l'application. Une fonction, pour que les tests l'isolent."""
@@ -34,9 +63,18 @@ def create_app() -> FastAPI:
     # gigaoctets de mémoire au décodage.
     Image.MAX_IMAGE_PIXELS = settings.max_image_pixels
 
+    # La documentation interactive est une carte de l'API : utile sur un poste
+    # de travail, inutile à un service qui n'a qu'un seul client connu. Elle
+    # suit donc le même drapeau que les fichiers statiques — le drapeau « je
+    # suis sur une machine de développement ».
+    exposer_docs = settings.dev_serve_static
+
     app = FastAPI(
         title=SERVICE_NAME,
         version="0.1.0",
+        docs_url="/docs" if exposer_docs else None,
+        redoc_url="/redoc" if exposer_docs else None,
+        openapi_url="/openapi.json" if exposer_docs else None,
         summary="Analyse d'une photo de pièce pour le Visualiseur Parquet",
         description=(
             "Service d'analyse d'image. **LOT IA 0** : contrôles techniques "
@@ -67,6 +105,8 @@ def create_app() -> FastAPI:
         request.state.request_id = request_id
         response = await call_next(request)
         response.headers[REQUEST_ID_HEADER] = request_id
+        for nom, valeur in SECURITY_HEADERS.items():
+            response.headers.setdefault(nom, valeur)
         return response
 
     app.include_router(health.router)
@@ -84,14 +124,26 @@ def _monter_fichiers_de_dev(app: FastAPI) -> None:
     Le montage vient **après** les routes : `/health` et `/v1/*` sont résolus
     avant, et rien ne les masque. Ce qui reste tombe sur les fichiers.
 
-    Trois dossiers, et pas la racine du dépôt : le code Python, les tests, la
-    configuration et le `.git` n'ont aucune raison d'être servis, même sur un
-    poste de travail. `datasets/` l'est parce que le visualiseur y lit les
-    photos importées de démonstration ; c'est aussi la raison pour laquelle ce
-    drapeau reste faux par défaut.
+    ## Liste blanche, et une seule ligne à lire pour la vérifier
+
+    `DOSSIERS_DE_DEV` est la liste complète de ce qui peut être servi. Le code
+    Python, les tests, la configuration, `.git` et **les photos privées** n'y
+    sont pas, et l'absence est le mécanisme : il n'y a pas de filtre à
+    contourner, il y a des dossiers qui ne sont jamais montés.
+
+    ## `datasets/` a été retiré, et c'était un vrai trou
+
+    Le montage précédent servait `datasets/` en entier, donc
+    `GET /datasets/private-real/chambre.jpg` renvoyait 200 et 175 ko de photo
+    de domicile à quiconque devinait le nom. Le drapeau était faux par défaut,
+    la porte n'en existait pas moins. Le visualiseur n'en avait pas besoin :
+    ses images viennent de `web/assets/` et de `tools/local-demo-assets/`.
+
+    Si un jour un corpus doit être servi, ce sera `datasets/public/` nommé
+    explicitement ici — jamais le dossier parent.
     """
     racine = Path(__file__).resolve().parent.parent
-    for chemin in ("tools", "web", "datasets"):
+    for chemin in DOSSIERS_DE_DEV:
         dossier = racine / chemin
         if dossier.is_dir():
             app.mount(f"/{chemin}", StaticFiles(directory=dossier), name=f"dev-{chemin}")

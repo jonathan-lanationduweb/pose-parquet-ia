@@ -7,8 +7,14 @@ développement le justifie ; l'avoir par défaut, non.
 
 Ces tests verrouillent donc les deux moitiés de la décision : **rien n'est
 servi par défaut**, et ce qui est servi quand on le demande explicitement se
-limite à trois dossiers — le code Python, les tests et la configuration
-restent hors d'atteinte.
+limite à une liste blanche — le code Python, les tests, la configuration et
+**les photos privées** restent hors d'atteinte.
+
+Correction du 29 septembre 2026 : le montage servait `datasets/` en entier, et
+donc `datasets/private-real/`. Un `GET` sur une photo de domicile répondait
+200. `test_les_photos_privees_ne_sont_jamais_servies` est la garde qui manquait
+— elle vaut plus que la correction elle-même, parce qu'un dossier se remonte
+un jour par commodité et que personne ne s'en souvient.
 """
 
 from __future__ import annotations
@@ -108,3 +114,79 @@ def test_les_origines_de_developpement_sont_nommees(monkeypatch: pytest.MonkeyPa
 
     refusee = client.get("/health", headers={"Origin": "http://ailleurs.invalide"})
     assert refusee.headers.get("access-control-allow-origin") != "*"
+
+
+def test_les_photos_privees_ne_sont_jamais_servies(monkeypatch: pytest.MonkeyPatch) -> None:
+    """La garde qui manquait, et la seule qui compte vraiment ici.
+
+    Une photo de domicile n'est pas une ressource de développement. Le drapeau
+    peut être levé sur un poste partagé, sur une machine exposée au réseau
+    local, dans un conteneur avec un port publié : aucune de ces situations ne
+    doit rendre `private-real/` atteignable.
+    """
+    monkeypatch.setenv("PPAI_DEV_SERVE_STATIC", "1")
+    client = TestClient(create_app())
+
+    for interdit in (
+        "/datasets/private-real/chambre.jpg",
+        "/datasets/private-real/",
+        "/datasets/annotations/",
+        "/datasets/",
+    ):
+        assert client.get(interdit).status_code == 404, interdit
+
+
+def test_la_liste_blanche_est_la_liste_complete() -> None:
+    """Le mécanisme est l'absence, pas un filtre.
+
+    Vérifier la constante plutôt que seulement ses effets : un dossier ajouté
+    ici sans y penser fera tomber ce test, et c'est exactement le moment où
+    l'on veut relire la décision.
+    """
+    from app.main import DOSSIERS_DE_DEV
+
+    assert DOSSIERS_DE_DEV == ("tools", "web")
+    assert "datasets" not in DOSSIERS_DE_DEV
+
+
+def test_la_documentation_est_fermee_hors_developpement(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """En production le service n'a qu'un client connu : sa carte est inutile."""
+    monkeypatch.setenv("PPAI_DEV_SERVE_STATIC", "0")
+    client = TestClient(create_app())
+
+    for ferme in ("/docs", "/redoc", "/openapi.json"):
+        assert client.get(ferme).status_code == 404, ferme
+    assert client.get("/health").status_code == 200, "l'API reste entière"
+
+
+def test_la_documentation_est_ouverte_en_developpement(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Sur un poste de travail, elle reste ce qu'elle a de mieux à être."""
+    monkeypatch.setenv("PPAI_DEV_SERVE_STATIC", "1")
+    client = TestClient(create_app())
+
+    assert client.get("/openapi.json").status_code == 200
+    assert client.get("/docs").status_code == 200
+
+
+def test_les_en_tetes_de_securite_sont_sur_chaque_reponse(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Y compris sur une erreur : un 404 se sniffe aussi bien qu'un 200.
+
+    Pas de CSP dans cette liste, et le rapport le dit : elle attend que le
+    script du visualiseur sorte du HTML. Une CSP avec `unsafe-inline` aurait
+    fait passer ce test sans rien protéger.
+    """
+    monkeypatch.setenv("PPAI_DEV_SERVE_STATIC", "0")
+    client = TestClient(create_app())
+
+    for chemin in ("/health", "/inexistant"):
+        entetes = client.get(chemin).headers
+        assert entetes["X-Content-Type-Options"] == "nosniff", chemin
+        assert entetes["Referrer-Policy"] == "no-referrer", chemin
+        assert entetes["X-Frame-Options"] == "DENY", chemin
+        assert "content-security-policy" not in {k.lower() for k in entetes}
