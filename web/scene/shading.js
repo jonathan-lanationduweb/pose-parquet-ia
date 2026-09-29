@@ -264,3 +264,48 @@ export function buildGlossMap(source, coverage, shading) {
   }
   return gloss;
 }
+
+
+/**
+ * Luminance moyenne d'une tuile de bois, 0 a 1. Memoisee sur les cartes.
+ *
+ * Sert a l'ancrage d'exposition : pour savoir de combien deplacer le rendu
+ * vers la lumiere de la piece, il faut d'abord savoir ou la matiere se situe
+ * d'elle-meme. Calcule sur les octets reels de la tuile, pas sur la couleur
+ * declaree du catalogue : le veinage, les joints et le degrade de lame
+ * assombrissent sensiblement une lame par rapport a son `base`.
+ *
+ * Le cout est celui d'un parcours de 1024x1024 pixels, une fois par materiau
+ * et par motif, a cote des 0,8 a 3 secondes que coute la tuile elle-meme.
+ */
+export function albedoMeanLuma(maps) {
+  if (typeof maps.albedoMean === 'number') return maps.albedoMean;
+  const { data } = maps.albedo[0];
+  let somme = 0;
+  for (let i = 0; i < data.length; i += 4) {
+    somme += 0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2];
+  }
+  maps.albedoMean = somme / (data.length / 4) / 255;
+  return maps.albedoMean;
+}
+
+/**
+ * Facteur d'exposition : de combien le rendu doit se rapprocher du niveau
+ * lumineux reel du sol photographie.
+ *
+ * `shading.reference` est la luminance moyenne du sol d'origine — la seule
+ * mesure de la piece que nous ayons, et elle est deja calculee. Le rapport
+ * `piece / matiere` vaut 1 quand le parquet choisi a par chance la clarte de
+ * ce qu'il remplace, moins de 1 quand il est plus clair que la piece.
+ *
+ * Les bornes ne sont pas decoratives : sans plancher, un chene blanchi pose
+ * dans un couloir sombre deviendrait gris souris et ne serait plus le produit
+ * qu'on a clique. Le plafond evite symetriquement qu'un bois fonce pose sur un
+ * carrelage blanc parte en surexposition.
+ */
+export function exposureScale(shading, albedoMean, exposure) {
+  if (!(exposure > 0) || !(albedoMean > 0.02)) return 1;
+  const piece = shading.reference / 255;
+  const vise = piece / albedoMean;
+  return Math.min(1.25, Math.max(0.6, 1 + exposure * (vise - 1)));
+}

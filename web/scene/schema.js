@@ -208,6 +208,82 @@ export function normalizeScene(raw) {
       tint: num(light.tint, 0.5),
       // Assombrissement au pied des murs et des meubles.
       contact: num(light.contact, 0.35),
+
+      /* --- Corrections mesurees du 29 septembre 2026 ---------------------
+       *
+       * Quatre reglages ajoutes apres mesure du rendu contre la photo, sur
+       * le masque des pixels reellement repeints. Ce qui etait mesure, sur
+       * le sejour puis la chambre :
+       *
+       *   luminance moyenne   131,6 -> 192,4   (+46 %)
+       *   ombres (p5)          84,9 -> 144,6   (+70 %)
+       *   contraste relatif    0,287 -> 0,166  (-42 %)
+       *   micro-contraste rel. 0,091 -> 0,040  (-56 %)
+       *   saturation           0,625 -> 0,250  (-60 %)
+       *
+       * Un sol plus clair que la piece, sans ombres, sans veinage et sans
+       * couleur : c'est la definition de « pose par-dessus ». Chacun de ces
+       * quatre reglages repond a une de ces lignes, et une seule.
+       */
+
+      /**
+       * `exposure` — ancrage sur la lumiere de la piece.
+       *
+       * L'eclairement est un RAPPORT a la moyenne du sol d'origine : le gain
+       * vaut donc 1 en moyenne, et le parquet rendu atterrit exactement a la
+       * clarte de sa propre matiere, quelle que soit la piece. Un chene clair
+       * rendait aussi lumineux dans un couloir sombre que dans une baie plein
+       * sud — et c'est le signal le plus fort du collage.
+       *
+       * Ce reglage ramene la moyenne rendue vers le niveau reel du sol
+       * photographie. A 0 le comportement d'avant ; a 1 le parquet prend
+       * exactement l'exposition de l'ancien sol, ce qui serait faux dans
+       * l'autre sens (un chene clair deviendrait aussi sombre que le carrelage
+       * qu'il remplace). Le defaut est une part, pas un remplacement.
+       */
+      exposure: num(light.exposure, 0.55),
+
+      /**
+       * `gamma` — compression de l'eclairement, 1 = aucune.
+       *
+       * Valait 0,88 en dur dans les deux moteurs : une racine appliquee au
+       * gain, qui remonte toutes les ombres et rabaisse toutes les lumieres.
+       * Personne ne l'avait choisie pour une raison ecrite. A 1, l'eclairement
+       * mesure sur la photo est reporte tel quel.
+       */
+      gamma: num(light.gamma, 1),
+
+      /**
+       * `micro` — relance du micro-contraste de la matiere.
+       *
+       * Le veinage perd plus de la moitie de son energie entre la tuile et
+       * l'image finale. Une part est physique et se garde : le filtrage
+       * anisotrope efface le detail au fond de la piece, et c'est ce qui doit
+       * arriver. Le reste vient du gain multiplicatif, qui comprime l'ecart au
+       * niveau moyen. On amplifie donc l'ecart de l'albedo a sa propre moyenne,
+       * proportionnellement par canal — la teinte ne bouge pas, seul le relief
+       * de la matiere revient.
+       */
+      micro: num(light.micro, 0.55),
+
+      /**
+       * `saturation` — saturation finale.
+       *
+       * Multiplier un albedo par un gain lumineux desature : chaque canal se
+       * rapproche du plafond a des vitesses differentes. Ajoute au reflet, qui
+       * tirait 55 % vers un gris clair, le bois virait au delave. Le reflet
+       * tire maintenant a 30 %, et ce reglage rend la couleur perdue.
+       */
+      saturation: num(light.saturation, 1.12),
+
+      /**
+       * `shadowFloor` — plancher du gain dans les ombres.
+       *
+       * Valait 0,42 en dur. Un sol ne descend jamais sous 42 % de sa clarte
+       * moyenne dans une piece ou un meuble projette une ombre franche : la
+       * borne effacait les ombres portees avant meme le reste de la chaine.
+       */
+      shadowFloor: num(light.shadowFloor, 0.32),
     },
 
     warnings: Array.isArray(raw.warnings) ? raw.warnings.slice() : [],

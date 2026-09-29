@@ -186,7 +186,7 @@ export function createSceneRenderer({ prefer = 'auto' } = {}) {
       // pinceau) : on relit les cartes avant de peindre.
       if (gl) {
         gl.setMasks(masks);
-        gl.draw({ scene, masks, surfaces, lightDir });
+        gl.draw({ scene, masks, surfaces, lightDir, shading });
         const ctx = target.getContext('2d');
         ctx.clearRect(0, 0, width, height);
         ctx.drawImage(gl.canvas, 0, 0);

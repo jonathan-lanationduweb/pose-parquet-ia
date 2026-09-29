@@ -27,8 +27,10 @@
  */
 import { zoneTransform, lightDirection, tileLight } from './geometry.js';
 import { TILE, TILE_METERS, patternProfile } from './texture.js';
+import { albedoMeanLuma, exposureScale } from './shading.js';
 
 const clamp = (v, min, max) => (v < min ? min : v > max ? max : v);
+const clampByte = (v) => (v < 0 ? 0 : v > 255 ? 255 : v);
 
 /** Compression des hautes lumières, identique à celle du shader WebGL. */
 const KNEE = 0.86 * 255;
@@ -146,6 +148,17 @@ export function createCanvasRenderer() {
         const strength = light.strength;
         const ambient = light.ambient;
         const tint = light.tint;
+        // Les memes six reglages que le shader, lus une fois par zone. Les
+        // deux moteurs doivent rendre la meme image : toute valeur qui diverge
+        // ici est une divergence visible.
+        const gamma = light.gamma;
+        const micro = light.micro;
+        const saturation = light.saturation;
+        const shadowFloor = light.shadowFloor;
+        const albedoMean = albedoMeanLuma(maps) * 255;
+        const exposure = shading
+          ? exposureScale(shading, albedoMean / 255, light.exposure)
+          : 1;
 
         for (let y = box.y0; y < box.y1; y += px) {
           const py = y + 0.5;
@@ -250,16 +263,25 @@ export function createCanvasRenderer() {
             // remarque tout de suite.
             shading.sample(x, y, lit);
             const lum = 0.2126 * lit[0] + 0.7152 * lit[1] + 0.0722 * lit[2];
-            const raw = 1 + strength * (Math.pow(Math.max(0.02, lum), 0.88) - 1);
+            const raw = 1 + strength * (Math.pow(Math.max(0.02, lum), gamma) - 1);
             // Même formule que le shader : le relèvement ne touche que les
             // ombres, et seulement à proportion du manque de marge du
             // matériau. Voir `uAmbient` dans renderer-gl.js.
+            // Relance du micro-contraste, avant tout calcul de lumiere et
+            // dans les trois canaux a la fois : cf. `uMicro` dans
+            // renderer-gl.js. `acc` est en 0..255, `albedoMean` aussi.
+            const aBrut = 0.2126 * acc[0] + 0.7152 * acc[1] + 0.0722 * acc[2];
+            const relance = 1 + micro * (aBrut - albedoMean) / Math.max(aBrut, 12.75);
+            acc[0] = clampByte(acc[0] * relance);
+            acc[1] = clampByte(acc[1] * relance);
+            acc[2] = clampByte(acc[2] * relance);
+
             const aLum = (0.2126 * acc[0] + 0.7152 * acc[1] + 0.0722 * acc[2]) / 255;
             const lift = ambient * (1 - aLum);
-            const shade = clamp(raw < 1 ? lift + (1 - lift) * raw : raw, 0.42, 1.9);
-            const gainR = shade + tint * (lit[0] - lum) * strength;
-            const gainG = shade + tint * (lit[1] - lum) * strength;
-            const gainB = shade + tint * (lit[2] - lum) * strength;
+            const shade = clamp(raw < 1 ? lift + (1 - lift) * raw : raw, shadowFloor, 1.9);
+            const gainR = (shade + tint * (lit[0] - lum) * strength) * exposure;
+            const gainG = (shade + tint * (lit[1] - lum) * strength) * exposure;
+            const gainB = (shade + tint * (lit[2] - lum) * strength) * exposure;
 
             // Relief : le gradient de la tuile fait office de normale. Les
             // joints et les chanfreins prennent la lumière, ce qui suffit à
@@ -291,9 +313,21 @@ export function createCanvasRenderer() {
             // teintes sombres : même formule que le shader, cf. `teinteReflet`
             // dans renderer-gl.js.
             const dose = specular * (0.35 + 0.65 * aLum);
-            const r = knee(acc[0] * gainR * factor + (acc[0] * 0.45 + 210 * 0.55) * dose);
-            const gg = knee(acc[1] * gainG * factor + (acc[1] * 0.45 + 205 * 0.55) * dose);
-            const bb = knee(acc[2] * gainB * factor + (acc[2] * 0.45 + 195 * 0.55) * dose);
+            // 0,70 / 0,30 et non 0,45 / 0,55 : meme correction que le shader,
+            // un reflet majoritairement gris delave le bois au lieu de le
+            // faire briller.
+            let r = knee(acc[0] * gainR * factor + (acc[0] * 0.70 + 210 * 0.30) * dose);
+            let gg = knee(acc[1] * gainG * factor + (acc[1] * 0.70 + 205 * 0.30) * dose);
+            let bb = knee(acc[2] * gainB * factor + (acc[2] * 0.70 + 195 * 0.30) * dose);
+
+            // Saturation rendue en fin de chaine : multiplier par un gain
+            // desature mecaniquement. Cf. `uSaturation` dans renderer-gl.js.
+            if (saturation !== 1) {
+              const gris = 0.2126 * r + 0.7152 * gg + 0.0722 * bb;
+              r = clampByte(gris + (r - gris) * saturation);
+              gg = clampByte(gris + (gg - gris) * saturation);
+              bb = clampByte(gris + (bb - gris) * saturation);
+            }
 
             // Écriture : un bloc px × px en rendu allégé, chaque pixel gardant
             // sa propre couverture pour que les bords restent nets.

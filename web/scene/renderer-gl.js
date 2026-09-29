@@ -26,6 +26,7 @@
  * de référence — les deux doivent donner la même image.
  */
 import { zoneTransform, tileLight } from './geometry.js';
+import { albedoMeanLuma, exposureScale } from './shading.js';
 import { TILE_METERS, patternProfile } from './texture.js';
 
 const VERTEX = `#version 300 es
@@ -63,6 +64,12 @@ uniform float uAmbient;     // plancher de lumière indirecte
 uniform float uTint;        // part de la couleur de la lumière
 uniform float uReliefGain;  // amplitude du relief
 uniform float uGlossGain;   // dose de reflet
+uniform float uGamma;       // compression de l'eclairement, 1 = aucune
+uniform float uExposure;    // ancrage sur le niveau lumineux de la piece
+uniform float uMicro;       // relance du micro-contraste de la matiere
+uniform float uAlbedoMean;  // luminance moyenne de la tuile, 0..1
+uniform float uSaturation;  // saturation finale
+uniform float uShadowFloor; // plancher du gain dans les ombres
 
 void main() {
   // gl_FragCoord a son origine en bas ; l'image, en haut.
@@ -128,11 +135,21 @@ void main() {
   float footprint = max(length(dFdx(rotated)), length(dFdy(rotated)));
   float near = clamp(0.006 / (footprint + 0.003), 0.0, 1.0);
 
+  // Relance du micro-contraste, avant tout calcul de lumiere.
+  //
+  // L'ecart de chaque pixel a la luminance moyenne de la tuile est amplifie,
+  // et le facteur est applique aux trois canaux ensemble : la teinte du bois
+  // ne bouge pas, seul son relief revient. Le faire ici plutot qu'a la fin
+  // compte — a la fin, on amplifierait aussi l'ombre portee du meuble, qui
+  // vient de la photo et n'a aucune raison d'etre accentuee.
+  float aBrut = dot(albedo, vec3(0.2126, 0.7152, 0.0722));
+  albedo = clamp(albedo * (1.0 + uMicro * (aBrut - uAlbedoMean) / max(aBrut, 0.05)), 0.0, 1.0);
+
   float aLum = dot(albedo, vec3(0.2126, 0.7152, 0.0722));
 
   vec4 lit = texture(uShading, texel);
   float lum = max(0.02, dot(lit.rgb, vec3(0.2126, 0.7152, 0.0722)));
-  float raw = 1.0 + uStrength * (pow(lum, 0.88) - 1.0);
+  float raw = 1.0 + uStrength * (pow(lum, uGamma) - 1.0);
 
   // Relèvement des ombres, sur deux conditions.
   //
@@ -147,10 +164,13 @@ void main() {
   //    faisait qu'aplatir son éclairement. Le garde-fou est proportionnel au
   //    manque de marge, pas constant.
   float lift = uAmbient * (1.0 - aLum);
-  float shade = clamp(raw < 1.0 ? lift + (1.0 - lift) * raw : raw, 0.42, 1.9);
+  float shade = clamp(raw < 1.0 ? lift + (1.0 - lift) * raw : raw, uShadowFloor, 1.9);
   // La couleur de la lumière, pas seulement son intensité : un bois neutre au
   // milieu d'une pièce dorée se remarque tout de suite.
-  vec3 gain = vec3(shade) + uTint * (lit.rgb - vec3(lum)) * uStrength;
+  // uExposure deplace tout l'eclairement vers le niveau reel du sol
+  // photographie. Sans lui, le gain vaut 1 en moyenne et le parquet atterrit
+  // a la clarte de sa propre matiere, quelle que soit la piece.
+  vec3 gain = (vec3(shade) + uTint * (lit.rgb - vec3(lum)) * uStrength) * uExposure;
 
   vec2 slope = (relief.rg - 0.5) * 2.0;
   float bump = clamp(1.0 + dot(slope, uLight) * uReliefGain * near, 0.55, 1.6);
@@ -163,7 +183,10 @@ void main() {
   // Le reflet emprunte sa couleur au bois plutôt qu'au blanc, et s'atténue sur
   // les teintes sombres. Un ajout quasi blanc sur un albédo foncé ne fait pas
   // briller la matière : il la délave, et la tache de soleil part au gris.
-  vec3 teinteReflet = mix(albedo, vec3(0.82, 0.80, 0.76), 0.55);
+  // 0,30 et non 0,55 : un reflet tire a plus de la moitie vers un gris clair
+  // ne fait pas briller le bois, il le delave. Mesure : la saturation du sol
+  // rendu tombait a 0,25 la ou la photo d'origine tenait 0,63.
+  vec3 teinteReflet = mix(albedo, vec3(0.82, 0.80, 0.76), 0.30);
   vec3 color = albedo * gain * (bump * lit.a) + teinteReflet * specular * (0.35 + 0.65 * aLum);
 
   // Genou doux sur les hautes lumières. Dans une tache de soleil, un simple
@@ -172,6 +195,12 @@ void main() {
   // veinage reste lisible en pleine lumière.
   vec3 over = max(color - 0.86, vec3(0.0));
   color = color - over + over / (1.0 + over * 4.0);
+
+  // Saturation rendue en fin de chaine. Multiplier un albedo par un gain
+  // desature mecaniquement : les trois canaux s'approchent du plafond a des
+  // vitesses differentes, et le bois vire au gris a mesure qu'il s'eclaire.
+  float gris = dot(color, vec3(0.2126, 0.7152, 0.0722));
+  color = mix(vec3(gris), color, uSaturation);
 
   outColor = vec4(clamp(color, 0.0, 1.0), cover);
 }`;
@@ -290,6 +319,7 @@ export function createGlRenderer() {
     'uQuad', 'uViewport', 'uInverse', 'uMeters', 'uOrigin', 'uRot', 'uTileMeters',
     'uRowsPerTile', 'uJitter',
     'uLabel', 'uLight', 'uStrength', 'uAmbient', 'uTint', 'uReliefGain', 'uGlossGain',
+    'uGamma', 'uExposure', 'uMicro', 'uAlbedoMean', 'uSaturation', 'uShadowFloor',
     'uMask', 'uAlbedo', 'uReliefMap', 'uShading', 'uGloss',
   ]);
   const uBlit = uniforms(blit, ['uTex']);
@@ -404,7 +434,7 @@ export function createGlRenderer() {
      * Peint la scène : la photo, puis chaque zone de la plus lointaine à la
      * plus proche. Chaque zone n'écrit que ses propres pixels.
      */
-    draw({ scene, masks, surfaces, lightDir }) {
+    draw({ scene, masks, surfaces, lightDir, shading }) {
       const { width, height } = size;
       gl.viewport(0, 0, width, height);
       gl.disable(gl.DEPTH_TEST);
@@ -429,6 +459,10 @@ export function createGlRenderer() {
       gl.uniform1f(u.uStrength, scene.light.strength);
       gl.uniform1f(u.uAmbient, scene.light.ambient);
       gl.uniform1f(u.uTint, scene.light.tint);
+      gl.uniform1f(u.uGamma, scene.light.gamma);
+      gl.uniform1f(u.uMicro, scene.light.micro);
+      gl.uniform1f(u.uSaturation, scene.light.saturation);
+      gl.uniform1f(u.uShadowFloor, scene.light.shadowFloor);
 
       scene.floorZones.forEach((zone, index) => {
         const surface = surfaces.get(zone.surfaceId);
@@ -465,6 +499,15 @@ export function createGlRenderer() {
         gl.uniform1f(u.uJitter, droit ? 1 : 0);
         gl.uniform1f(u.uLabel, index + 1);
         gl.uniform2f(u.uLight, light.u, light.v);
+        // Les deux valeurs qui dependent de la MATIERE, donc de la zone : la
+        // moyenne de sa tuile, et l'ecart entre cette moyenne et la lumiere
+        // reelle de la piece.
+        const moyenneTuile = albedoMeanLuma(surface.maps);
+        gl.uniform1f(u.uAlbedoMean, moyenneTuile);
+        gl.uniform1f(
+          u.uExposure,
+          shading ? exposureScale(shading, moyenneTuile, scene.light.exposure) : 1
+        );
         gl.uniform1f(u.uReliefGain, surf.relief * 0.9);
         gl.uniform1f(u.uGlossGain, surf.clearcoat * 1.15);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
