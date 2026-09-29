@@ -24,7 +24,7 @@
  */
 import { buildTexture, buildMips, etendreMips, TILE, TILE_METERS } from './texture.js';
 import { reliefFromAlbedo } from './relief.js';
-import { chrono } from '../utils/perf.js';
+import { chrono, releve } from '../utils/perf.js';
 
 /** Rugosité de référence par finition : ce qui distingue mat, satiné, verni. */
 const FINISH = {
@@ -214,6 +214,7 @@ function obtenirWorker() {
     // le tampon reçu, sans copie.
     const a0 = { size: albedo.size, data: new Uint8ClampedArray(albedo.data.buffer || albedo.data) };
     const r0 = { size: relief.size, data: new Uint8ClampedArray(relief.data.buffer || relief.data) };
+    releve('G.tuile.worker', performance.now() - attente.depart);
     const maps = retenir(attente.cle, assemble(attente.material, null, a0, r0));
     attente.resolve(maps);
     abonnes.forEach((cb) => { try { cb(attente.cle, maps); } catch { /* un abonné défaillant n'arrête pas les autres */ } });
@@ -259,7 +260,10 @@ export function materialMapsAsync(material, config = {}) {
   let resolve; let reject;
   const promesse = new Promise((res, rej) => { resolve = res; reject = rej; });
   const id = (compteur += 1);
-  enCours.set(id, { cle, material, resolve, reject, promesse });
+  /* L'etape la plus chere du premier rendu, et la seule qui ne soit pas sur
+     le fil principal : sans ce repere, le rapport de performance montre un
+     trou d'une a trois secondes que rien n'explique. */
+  enCours.set(id, { cle, material, resolve, reject, promesse, depart: performance.now() });
   // Le matériau part en copie structurée : données pures uniquement.
   w.postMessage({
     id,

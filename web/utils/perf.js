@@ -74,6 +74,19 @@ export const mesure = actif
   }
   : () => null;
 
+/**
+ * Retient une durée DÉJÀ écoulée.
+ *
+ * `chrono` mesure le temps que prend une fonction ; il ne sait rien faire
+ * d'une durée qu'on lui tend. Il manquait, et son absence a produit un relevé
+ * faux : une attente de worker mesurée comme « 0 ms », parce que c'était bien
+ * le temps qu'avait pris la fonction qui rendait la durée. Ce qui s'étend sur
+ * deux fils, ou de part et d'autre d'un `await`, se relève ici.
+ */
+export const releve = actif
+  ? (nom, ms) => { releves.push({ nom, duree: Math.round(ms * 100) / 100 }); }
+  : () => {};
+
 /** Chronomètre direct, pour ce qui n'a pas besoin de deux repères. */
 export const chrono = actif
   ? (nom, fn) => {

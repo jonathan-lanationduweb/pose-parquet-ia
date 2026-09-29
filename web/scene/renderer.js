@@ -15,7 +15,7 @@
  * éclairement et la même caméra. Seul le matériau change.
  */
 import { createSceneMasks } from './mask.js';
-import { mark, mesure } from '../utils/perf.js';
+import { mark, mesure, chrono } from '../utils/perf.js';
 import { buildShadingMap, buildGlossMap } from './shading.js';
 import { lightDirection } from './geometry.js';
 import { materialMaps, materialMapsAsync, warmMaterial } from './material.js';
@@ -42,13 +42,17 @@ export function createSceneRenderer({ prefer = 'auto' } = {}) {
 
   /** Cartes d'éclairement et de reflets : refaites seulement si le sol bouge. */
   function prepareLighting() {
-    shading = buildShadingMap(source, masks.coverage, scene.light);
+    shading = chrono('J.lumiere.shading', () => buildShadingMap(source, masks.coverage, scene.light));
     lightDir = lightDirection(shading);
-    gloss = glossWanted ? buildGlossMap(source, masks.coverage, shading) : null;
+    gloss = glossWanted
+      ? chrono('J.lumiere.gloss', () => buildGlossMap(source, masks.coverage, shading))
+      : null;
     if (gl) {
-      gl.setShading(shading);
-      gl.setGloss(gloss);
-      gl.setMasks(masks);
+      chrono('I.gpu.cartes', () => {
+        gl.setShading(shading);
+        gl.setGloss(gloss);
+        gl.setMasks(masks);
+      });
     }
   }
 
@@ -83,7 +87,7 @@ export function createSceneRenderer({ prefer = 'auto' } = {}) {
       source = prepared.canvas
         .getContext('2d', { willReadFrequently: true })
         .getImageData(0, 0, prepared.width, prepared.height);
-      masks = createSceneMasks(scene, prepared.width, prepared.height);
+      masks = chrono('C.masques', () => createSceneMasks(scene, prepared.width, prepared.height));
       buffers.clear();
       if (gl) gl.setPhoto(source);
       prepareLighting();

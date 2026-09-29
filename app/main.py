@@ -15,6 +15,7 @@ from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from PIL import Image
+from starlette.types import Scope
 
 from app.api import analyze, health
 from app.core.config import SERVICE_NAME, get_settings
@@ -118,6 +119,42 @@ def create_app() -> FastAPI:
     return app
 
 
+class _FichiersDeDev(StaticFiles):
+    """`StaticFiles`, sans cache de navigateur.
+
+    Starlette envoie `etag` et `last-modified` mais aucun `cache-control` :
+    le navigateur applique alors sa fraîcheur heuristique et peut servir un
+    module JS depuis son cache sans rien redemander. Sur un poste de travail
+    c'est une perte de temps déguisée en mystère — on modifie un fichier, la
+    page ne change pas, et l'on cherche le bug dans le code.
+
+    Le cas s'est produit pendant le LOT PERF.1 : une instrumentation posée
+    dans `web/scene/renderer.js` n'apparaissait dans aucune mesure parce que
+    le navigateur exécutait encore la version précédente.
+
+    `no-store` ne concerne que ce montage, qui n'existe qu'en développement.
+    """
+
+    #: Ce qu'on réécrit sans cesse, et qu'on veut donc toujours relire.
+    CODE = (".js", ".css", ".html", ".json", ".mjs")
+
+    def is_not_modified(self, *_args: object, **_kwargs: object) -> bool:
+        """Jamais « non modifié » : on veut toujours l'octet frais."""
+        return False
+
+    async def get_response(self, path: str, scope: Scope) -> Response:
+        reponse = await super().get_response(path, scope)
+        # Le code seulement. Les photos de scène et les vignettes produit ne
+        # changent pas pendant qu'on développe, elles pèsent deux cents kilo-
+        # octets, et les redemander à chaque rechargement fausse toute mesure
+        # de démarrage — c'est arrivé en mesurant ce lot : le premier rendu
+        # variait de 154 à 1 694 ms selon que le préchauffage avait eu ou non
+        # le temps de partir.
+        if path.lower().endswith(self.CODE):
+            reponse.headers["Cache-Control"] = "no-store, must-revalidate"
+        return reponse
+
+
 def _monter_fichiers_de_dev(app: FastAPI) -> None:
     """Sert le visualiseur depuis ce processus — développement seulement.
 
@@ -146,7 +183,7 @@ def _monter_fichiers_de_dev(app: FastAPI) -> None:
     for chemin in DOSSIERS_DE_DEV:
         dossier = racine / chemin
         if dossier.is_dir():
-            app.mount(f"/{chemin}", StaticFiles(directory=dossier), name=f"dev-{chemin}")
+            app.mount(f"/{chemin}", _FichiersDeDev(directory=dossier), name=f"dev-{chemin}")
 
 
 app = create_app()

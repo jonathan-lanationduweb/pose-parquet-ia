@@ -46,7 +46,10 @@
 import { analyzeScene, loadSceneIndex } from '../scene/analyzer.js';
 import { loadImage } from '../scene/image-loader.js';
 import { createSceneRenderer } from '../scene/renderer.js';
-import { createMaterial, enCache, warmMaterial, quandCartesPretes } from '../scene/material.js';
+import {
+  createMaterial, enCache, warmMaterial, quandCartesPretes, materialMapsAsync,
+} from '../scene/material.js';
+import { chrono, releve } from '../utils/perf.js';
 
 /** Version du contrat local. */
 export const API_VERSION = 1;
@@ -79,8 +82,14 @@ async function loadMaterials(base) {
  */
 export async function createLocalRenderer({ base = '', prefer = 'auto' } = {}) {
   const renderer = createSceneRenderer({ prefer });
-  const materials = await loadMaterials(base);
-  const index = await loadSceneIndex(base).catch(() => ({ scenes: [] }));
+  /* Deux requêtes indépendantes : le catalogue de matières ne dit rien des
+     scènes, et l'index des scènes ne dit rien des matières. Elles étaient
+     enchaînées par deux `await` successifs — un aller-retour réseau de plus,
+     payé à chaque démarrage pour rien. */
+  const [materials, index] = await Promise.all([
+    loadMaterials(base),
+    loadSceneIndex(base).catch(() => ({ scenes: [] })),
+  ]);
 
   /** Le seul état de configuration. Pas d'état d'iframe, pas d'état de Studio. */
   let config = { material: null, pattern: 'lames', width: null, angle: 0, scale: 1 };
@@ -97,6 +106,11 @@ export async function createLocalRenderer({ base = '', prefer = 'auto' } = {}) {
     file = tour.catch(() => {});
     return tour;
   };
+
+  /** Releve une duree deja ecoulee, sans envelopper l'appel. */
+  function marquer(nom, depuis) {
+    releve(nom, performance.now() - depuis);
+  }
 
   function prevenir(quality) {
     [...abonnes].forEach((cb) => {
@@ -125,11 +139,22 @@ export async function createLocalRenderer({ base = '', prefer = 'auto' } = {}) {
     Promise.resolve().then(() => {
       demande = false;
       enFile(async () => {
-        if (!renderer.ready || !config.material) return false;
+        if (!renderer.ready || !config.material) {
+          /* On prévient MÊME quand on ne peint pas.
+             Un abonné qui attend un rendu doit apprendre qu'il n'y en aura
+             pas ; sans cela il attend son délai de garde entier. Mesuré :
+             `applyProfile` appelé avant toute ouverture de pièce rendait la
+             main au bout de 20 006 ms. Le zéro dit « rien n'a été peint »,
+             et se distingue de 1 (rendu complet) et 0,5 (brouillon). */
+          prevenir(0);
+          return false;
+        }
         /* `preparer` attend les cartes du worker : sans cela `paint` rend
            `false` sur une texture froide, et l'appelant croirait à un échec. */
         await renderer.preparer(config);
-        return peindre(1);
+        const fait = peindre(1);
+        if (!fait) prevenir(0);
+        return fait;
       });
     });
   }
@@ -150,14 +175,18 @@ export async function createLocalRenderer({ base = '', prefer = 'auto' } = {}) {
       return enFile(async () => {
         if (sceneId === id && renderer.ready) return true;
         const entree = (index.scenes || []).find((s) => s.id === id);
+        const tScene = performance.now();
         const scene = await analyzeScene({ sceneId: id, base }, 'precalibrated');
+        marquer('C.sceneData', tScene);
         const fichier = (entree && entree.file) || (scene.image && scene.image.file);
         if (!fichier) throw new Error(`Scène « ${id} » sans photo déclarée`);
         /* `loadImage` prend une URL et rend { canvas, width, height }, déjà
            redimensionné pour l'écran s'il le faut : exactement ce qu'attend
            `setScene`, et le même chemin que le front. */
+        const tPhoto = performance.now();
         const prete = await loadImage(`${base}assets/images/${fichier}`);
-        renderer.setScene(scene, prete);
+        marquer('B.photo', tPhoto);
+        chrono('D.setScene', () => renderer.setScene(scene, prete));
         sceneId = id;
         return true;
       });
@@ -221,14 +250,44 @@ export async function createLocalRenderer({ base = '', prefer = 'auto' } = {}) {
       return Boolean(config.material) && enCache(config.material, config);
     },
 
-    /** Prépare la tuile courante en tâche de fond, pour que le clic soit immédiat. */
-    prechauffer(materialId, pattern, width) {
+    /**
+     * Prépare une tuile d'avance.
+     *
+     * Deux régimes, et la différence compte :
+     *
+     *   opportuniste (défaut)  `requestIdleCallback` sans délai de garde. Si
+     *                          le navigateur ne trouve jamais de répit, la
+     *                          tuile ne se fabrique pas — c'est le
+     *                          comportement voulu pour des références
+     *                          voisines, dont personne n'attend rien.
+     *
+     *   `urgent: true`         la demande part tout de suite au worker. À
+     *                          réserver à la tuile que l'on SAIT être sur le
+     *                          chemin critique : celle du produit
+     *                          sélectionné, qu'il faudra de toute façon
+     *                          fabriquer dès que l'utilisateur ouvrira une
+     *                          pièce. La fabriquer pendant que la photo se
+     *                          décode ne coûte rien au fil principal — le
+     *                          travail est dans le worker — et retire une à
+     *                          trois secondes de l'attente visible.
+     *
+     * Mesuré : sans cela, ouvrir une pièce coûtait 355 ms de scène PUIS
+     * 1 534 à 3 357 ms de tuile, en série. Les deux ne dépendent pas l'un de
+     * l'autre : une tuile de bois ne sait rien de la pièce où elle sera posée.
+     */
+    prechauffer(materialId, pattern, width, { urgent = false } = {}) {
       const material = materialId ? materials.get(materialId) : config.material;
       if (!material) return false;
-      warmMaterial(material, {
+      const conf = {
         pattern: pattern || config.pattern,
         width: width === undefined ? config.width : width,
-      });
+      };
+      if (enCache(material, conf)) return true;
+      if (urgent) {
+        materialMapsAsync(material, conf).catch(() => { /* la demande normale refera */ });
+        return true;
+      }
+      warmMaterial(material, conf);
       return true;
     },
 

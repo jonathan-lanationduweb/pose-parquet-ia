@@ -1110,7 +1110,15 @@ api.closeAll();
 ok('le stage est observe en taille',
   /new ResizeObserver\(reborner\)\.observe\(\$\('stage'\)\)/.test(code)
   && /window\.addEventListener\('resize', reborner\)/.test(code)
-  && /visibilitychange[^;]*\{ if \(!document\.hidden\) reborner\(\); \}/.test(code));
+  && /visibilitychange[\s\S]{0,400}?reborner\(\);/.test(code));
+/* La barre produit se remesure au retour de visibilite, pour la meme raison :
+   les observations de taille sont livrees avec les frames, et un onglet cache
+   n'en produit pas. Mesure a 320 px apres un redimensionnement en arriere-plan :
+   `--dock-h` valait 92 px pour une barre de 175 px, et les quatre boutons de
+   zoom passaient derriere elle. */
+ok('la hauteur de la barre produit se rattrape au retour',
+  /visibilitychange[\s\S]{0,700}?mesurerBarre\(\);/.test(code)
+  && /suivi\.observe\(\$\('card'\)\)/.test(code));
 
 /* ---- Raccourcis ---- */
 ok('les raccourcis + - 0 f Escape existent',
@@ -1250,7 +1258,15 @@ const CONTRAT_V1 = ['apiVersion', 'openRoom', 'selectMaterial', 'setPattern',
      `tuilePrete` dit s'il peut le faire. L'appel reste garde par un
      `typeof === 'function'` : un moteur qui ne les a pas continue de
      fonctionner, sans apercu. */
-  'apercuAngle', 'tuilePrete'];
+  'apercuAngle', 'tuilePrete',
+  /* `prechauffer` rejoint le contrat le 29 septembre 2026, pour la meme
+     raison que les deux precedents : le moteur local peut ce que le pont ne
+     pouvait pas. Une tuile de bois ne depend d'aucune scene, donc sa
+     fabrication peut commencer avant qu'une piece soit ouverte. Mesure : le
+     premier rendu enchainait 355 ms de scene puis 1 534 a 3 357 ms de tuile ;
+     lancees ensemble, la seconde disparait de l'attente visible.
+     L'appel reste garde par un `typeof === 'function'`. */
+  'prechauffer'];
 /* `studio` est le moteur negocie, `st` le candidat qu'examine `connect()`.
    Le nom doit etre entier, d'ou la classe ecrite en clair : les raccourcis
    comme la sequence mot-frontiere ne survivent pas aux couches

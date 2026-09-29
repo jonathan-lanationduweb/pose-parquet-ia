@@ -1699,6 +1699,17 @@
         let affine = null;
         const stop = studio.onRendered((quality) => {
           if (settled) return;
+          /* Zero : le moteur dit qu'il n'a rien peint et ne peindra rien pour
+             cette demande. On rend la main tout de suite au lieu d'aller au
+             bout du delai de garde. */
+          if (quality === 0) {
+            settled = true;
+            if (affine) clearTimeout(affine);
+            clearTimeout(deadline);
+            stop();
+            resolve(null);
+            return;
+          }
           if (quality > 1 && affine === null) {
             affine = setTimeout(() => { settled = true; stop(); resolve('brouillon'); }, 400);
             return;
@@ -1899,15 +1910,53 @@
       /** Vide les captures retenues : a l'import d'une photo, par exemple. */
       forget() { renderCache.clear(); },
 
-      /** Ouvre une scene dans le moteur. */
+      /**
+       * Lance la fabrication de la tuile du produit SELECTIONNE, tout de
+       * suite, dans le worker.
+       *
+       * Le moteur offrait `prechauffer` depuis le LOT UX.4 ; personne ne
+       * l'appelait. Consequence mesuree : ouvrir une piece enchainait 355 ms
+       * de scene puis 1 534 a 3 357 ms de tuile, alors que les deux sont
+       * independants — une tuile de bois ne sait rien de la piece.
+       *
+       * Un seul produit, celui qui est a l'ecran. Prechauffer le catalogue
+       * entier ferait travailler le worker pour des references que personne
+       * ne regardera, et retarderait celle qu'on attend.
+       */
+      prechaufferCourant(profile) {
+        if (mode !== 'live' || !studio || typeof studio.prechauffer !== 'function') return false;
+        if (!profile) return false;
+        const largeur = Number.isFinite(profile.widthM) ? profile.widthM : null;
+        return studio.prechauffer(profile.materialFamily, profile.pattern, largeur, { urgent: true });
+      },
+
+      /**
+       * Ouvre une scene dans le moteur.
+       *
+       * ## Le heritage qui coutait vingt secondes
+       *
+       * Cette methode attendait un RENDU (`nextRender(20000)`) apres avoir
+       * lance `studio.openRoom(...)`. Ouvrir une piece ne peint rien : le
+       * moteur installe la scene, ses masques et ses cartes de lumiere, et
+       * s'arrete la — il n'a pas encore de matiere a poser. Aucun
+       * `onRendered` ne partait donc jamais, et l'attente allait jusqu'au
+       * bout de son delai de garde. Mesure : **20 001 ms**, dont 71 ms de
+       * peinture reelle et deux taches longues en tout. Le fil principal
+       * etait inactif vingt secondes.
+       *
+       * L'erreur venait du pont par iframe : `openRoom` y partait en
+       * `postMessage` sans retour, et guetter un rendu etait le SEUL moyen de
+       * savoir qu'il avait abouti. Le moteur local, lui, rend une promesse
+       * qui se resout quand la scene est reellement installee. On l'attend.
+       */
       openRoom(sceneId) {
         if (mode !== 'live' || !studio) return Promise.resolve(false);
         return enFile(async () => {
           if (engineScene === sceneId) return true;
-          const attente = nextRender(20000);
-          studio.openRoom(sceneId);
+          await studio.openRoom(sceneId);
+          /* Apres l'attente, jamais avant : une ouverture qui echoue ne doit
+             pas laisser croire que la scene du moteur a change. */
           engineScene = sceneId;
-          await attente;
           return true;
         });
       },
@@ -2346,7 +2395,18 @@
   /* Un onglet cache ne recoit ni `resize` ni observation : ils sont livres
      avec les frames, et un document cache n'en a pas. Le cadre a pu changer
      pendant ce temps — on reborne au retour. */
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) reborner(); });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) return;
+    reborner();
+    /* Meme raison, et la meme qu'au-dessus : les observations de taille sont
+       livrees avec les frames. Un onglet cache n'en produit pas, donc la
+       hauteur de la barre produit n'a pas suivi les changements de largeur
+       survenus pendant ce temps — et le zoom, qui se cale dessus, se
+       retrouve derriere elle. Constate en mesurant ce lot : a 320 px,
+       `--dock-h` valait encore 92 px pour une barre de 175 px, et les quatre
+       boutons de zoom rendaient `card` a `elementFromPoint`. */
+    mesurerBarre();
+  });
 
   /* =====================================================================
      Appliquer un sol
@@ -3543,6 +3603,12 @@
      des chances d'etre rendue en direct, et non seulement amorcee. */
   adapter.connect().then((mode) => {
     if (state.source) { paintCustom(); paint(); }
+    /* La tuile du produit affiche part AVANT que l'utilisateur choisisse une
+       piece. Elle ne depend d'aucune scene, elle se fabrique dans le worker,
+       et c'est le poste le plus cher du premier rendu. La lancer ici, c'est
+       la mettre en parallele du decodage de la photo et de l'installation de
+       la scene au lieu de l'enchainer derriere. */
+    adapter.prechaufferCourant(product().renderProfile);
     if (DEV) toast(`Moteur : ${mode}`);
   });
 
