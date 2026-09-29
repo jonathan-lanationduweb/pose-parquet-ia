@@ -61,6 +61,17 @@ Thumbs.db
 desktop.ini
 .DS_Store
 
+# Outils d'assistance (Claude Code, Kilo, ...). Ces dossiers sont de la
+# configuration de poste de travail : ils n'ont rien a faire dans le depot,
+# et un worktree duplique par un agent y ferait entrer une copie complete du
+# projet. `.kilo/` n'etait ignore que par `.git/info/exclude`, qui est local a
+# ce clone et ne suit aucun `git clone` : la regle est remontee ici pour que
+# la protection voyage avec le projet.
+.claude/
+.claude-project/
+.kilo/
+.kilocode/
+
 # Cache de démonstration locale, hors Git.
 #
 #   local-demo-assets/premibel/    images produit récupérées sur premibel.fr
