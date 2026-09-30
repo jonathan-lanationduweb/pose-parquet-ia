@@ -372,3 +372,5 @@ quand le dépôt est présent localement, et s'ignore sinon
 prouve que le schéma n'a rien inventé.
 
 Rien n'est connecté : ni WordPress, ni le Visualiseur. Voir LOT IA 8.
+#   p o s e - p a r q u e t - i a  
+ 
