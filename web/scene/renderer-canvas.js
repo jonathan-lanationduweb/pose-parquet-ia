@@ -83,11 +83,12 @@ export function createCanvasRenderer() {
      * @param {object} o.scene            SceneData
      * @param {object} o.masks            createSceneMasks()
      * @param {object} o.shading          buildShadingMap()
-     * @param {Float32Array|null} o.gloss buildGlossMap(), si utile
+     * @param {Float32Array|null} o.gloss  buildResidualMaps().gloss, reflets
+     * @param {Float32Array|null} o.shadow buildResidualMaps().shadow, ombres de contact
      * @param {Map} o.surfaces            surfaceId → { material, maps, config }
      * @param {number} [o.step]           1 = pleine résolution, 2 = allégé
      */
-    paint({ source, target, scene, masks, shading, gloss, surfaces, step = 1 }) {
+    paint({ source, target, scene, masks, shading, gloss, shadow, surfaces, step = 1 }) {
       const width = source.width;
       const height = source.height;
       const src = source.data;
@@ -144,10 +145,18 @@ export function createCanvasRenderer() {
           : () => 0;
 
         const reliefGain = surf.relief * 0.9;
-        const glossGain = gloss ? surf.clearcoat * 1.15 : 0;
+        // Memes doses que le shader : un quart de l'eclat pour une finition
+        // mate, presque tout pour un verni.
+        const glossGain = gloss ? 0.25 + surf.clearcoat * 0.9 : 0;
+        const shadowGain = shadow ? light.contactShadow : 0;
         const strength = light.strength;
         const ambient = light.ambient;
         const tint = light.tint;
+        // Dominante globale de la lumiere, dosee par `tint` : cf. uLightTint.
+        const teinte = (shading && shading.lightTint) || [1, 1, 1];
+        const tintR = 1 + (teinte[0] - 1) * tint;
+        const tintG = 1 + (teinte[1] - 1) * tint;
+        const tintB = 1 + (teinte[2] - 1) * tint;
         // Les memes six reglages que le shader, lus une fois par zone. Les
         // deux moteurs doivent rendre la meme image : toute valeur qui diverge
         // ici est une divergence visible.
@@ -265,10 +274,9 @@ export function createCanvasRenderer() {
 
             /* ---- Lumière ---- */
 
-            // Éclairement de la pièce : un gain par canal autour de 1, plus
-            // l'ombre de contact. La couleur de la lumière compte autant que
-            // son intensité — un bois neutre au milieu d'une pièce dorée se
-            // remarque tout de suite.
+            // Éclairement de la pièce : un gain de LUMINANCE autour de 1, plus
+            // l'ombre de contact. La couleur du parquet vient du parquet ; la
+            // lumiere n'apporte qu'une dominante globale (cf. shading.js).
             shading.sample(x, y, lit);
             const lum = 0.2126 * lit[0] + 0.7152 * lit[1] + 0.0722 * lit[2];
             const raw = 1 + strength * (Math.pow(Math.max(0.02, lum), gamma) - 1);
@@ -287,9 +295,11 @@ export function createCanvasRenderer() {
             const aLum = (0.2126 * acc[0] + 0.7152 * acc[1] + 0.0722 * acc[2]) / 255;
             const lift = ambient * (1 - aLum);
             const shade = clamp(raw < 1 ? lift + (1 - lift) * raw : raw, shadowFloor, 1.9);
-            const gainR = (shade + tint * (lit[0] - lum) * strength) * exposure;
-            const gainG = (shade + tint * (lit[1] - lum) * strength) * exposure;
-            const gainB = (shade + tint * (lit[2] - lum) * strength) * exposure;
+            // Ombre de contact lue dans la photo : cf. `uShadowGain` dans le shader.
+            const ombre = shadowGain ? 1 - shadowGain * shadow[index0] : 1;
+            const gainR = shade * tintR * exposure * ombre;
+            const gainG = shade * tintG * exposure * ombre;
+            const gainB = shade * tintB * exposure * ombre;
 
             // Relief : le gradient de la tuile fait office de normale. Les
             // joints et les chanfreins prennent la lumière, ce qui suffit à

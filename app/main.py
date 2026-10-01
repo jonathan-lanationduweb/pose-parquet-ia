@@ -7,7 +7,8 @@ ailleurs (voir docs/architecture.md), et ce service reste un pur analyseur —
 donc réplicable et remplaçable sans migration.
 """
 
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
+from contextlib import asynccontextmanager
 from pathlib import Path
 from uuid import uuid4
 
@@ -20,6 +21,7 @@ from starlette.types import Scope
 from app.api import analyze, health
 from app.core.config import SERVICE_NAME, get_settings
 from app.core.logging import configure_logging
+from app.services import model_warmup
 
 #: En-tête de corrélation, posé sur chaque réponse.
 REQUEST_ID_HEADER = "X-Request-ID"
@@ -70,7 +72,22 @@ def create_app() -> FastAPI:
     # suis sur une machine de développement ».
     exposer_docs = settings.dev_serve_static
 
+    @asynccontextmanager
+    async def cycle_de_vie(_app: FastAPI) -> AsyncIterator[None]:
+        """Préchauffe le candidat expérimental SANS bloquer le démarrage.
+
+        LOT PHOTO.2 : le chargement du modèle et sa première inférence
+        coûtaient 37 à 95 s à la première photo. Ils partent ici dans un fil
+        d'arrière-plan ; uvicorn accepte les requêtes aussitôt, et `/health`
+        dit où en est le préchauffage.
+        """
+        reglages = get_settings()
+        if reglages.experimental_floor and reglages.experimental_floor_warmup:
+            model_warmup.start_warmup(reglages.experimental_floor_candidate)
+        yield
+
     app = FastAPI(
+        lifespan=cycle_de_vie,
         title=SERVICE_NAME,
         version="0.1.0",
         docs_url="/docs" if exposer_docs else None,

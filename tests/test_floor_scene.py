@@ -191,3 +191,14 @@ def test_la_geometrie_tient_a_toutes_les_resolutions(taille: tuple[int, int]) ->
     assert s.scene is not None
     for p in s.scene.planes["sol"].quad:
         assert -0.5 < p.x < 1.5 and -0.5 < p.y < 1.5
+
+
+def test_l_exposition_des_scenes_photo_est_moderee() -> None:
+    """LOT PHOTO.2 : un sol d'origine foncé l'est par sa matière, pas par la
+    lumière. L'ancrage d'exposition des scènes photo reste donc sous celui des
+    pièces calibrées (0,55 côté front)."""
+    s = build_experimental_scene(_sol_trapeze(), W, H)
+    assert s.scene is not None
+    assert s.scene.light.exposure is not None
+    assert s.scene.light.exposure < 0.55
+    assert s.scene.light.contact_shadow > 0

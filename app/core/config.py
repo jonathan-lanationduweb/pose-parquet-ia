@@ -111,6 +111,11 @@ class Settings(BaseSettings):
     #: il n'y en a pas pour cette chaîne — c'est une borne de prudence.
     experimental_floor_min_confidence: float = Field(default=0.55, ge=0.0, le=1.0)
 
+    #: Préchauffer le candidat expérimental au démarrage, en arrière-plan.
+    #: Sans effet quand `experimental_floor` est faux. Le serveur répond
+    #: pendant le chargement ; `/health` dit `experimentalFloor: loading`.
+    experimental_floor_warmup: bool = True
+
     # --- Limites d'upload ------------------------------------------------
     #: 20 Mo, aligné sur le contrat du front (docs/future-ai-api-contract.md).
     max_upload_bytes: int = 20 * 1024 * 1024

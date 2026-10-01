@@ -299,6 +299,20 @@ export function normalizeScene(raw) {
        * plusieurs paquets.
        */
       repeatVar: num(light.repeatVar, 0.05),
+
+      /**
+       * `contactShadow` — dose des ombres de contact lues dans la photo.
+       *
+       * LOT PHOTO.2. L'eclairement basse frequence (flou de 3,5 a 4,5 % de la
+       * largeur) efface tout ce qui fait moins de soixante pixels : l'ombre
+       * sous une chaise, le pied d'un radiateur, la ligne sombre au bas d'un
+       * mur. Sans elles, le meuble flotte au-dessus du nouveau sol. Le residu
+       * sombre de la photo, seuille et ouvert pour en retirer joints et veines
+       * (voir shading.js), est reapplique a cette dose : 0,6 assombrit une
+       * ombre franche de 60 % au plus, soit un peu moins que dans la photo —
+       * un nouveau parquet plus clair renvoie plus de lumiere dans l'ombre.
+       */
+      contactShadow: num(light.contactShadow, 0.6),
     },
 
     warnings: Array.isArray(raw.warnings) ? raw.warnings.slice() : [],

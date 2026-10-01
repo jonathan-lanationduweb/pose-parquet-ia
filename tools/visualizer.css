@@ -783,3 +783,87 @@ body.floor-editing #stage { cursor: crosshair; }
   #noscene .row { justify-content: stretch; }
   #noscene .row button { flex: 1 1 auto; }
 }
+
+/* =====================================================================
+   LOT PHOTO.2 — téléphone : la pièce d'abord
+   ===================================================================== */
+
+/* ---------------------------------------------------------------------
+   19. Barre produit sur deux lignes, vraiment
+
+   Mesuré à 390 × 844 (revue du 1er octobre 2026) : la barre faisait 164 px,
+   la barre de zoom 50 px au-dessus, la capsule d'état à côté — le parquet
+   n'était visible que sur une centaine de pixels. « Ajuster le sol » occupait
+   à lui seul une troisième ligne.
+
+     ligne 1   [vignette]  nom court        [pinceau] [♡]
+     ligne 2   Choisir un parquet  |  Personnaliser
+
+   « Ajuster le sol » devient une icône de la ligne 1, avec son nom
+   accessible. La référence, le motif et la largeur vivent dans le tiroir.
+   --------------------------------------------------------------------- */
+#card .row button[data-open="floor"] { display: inline-flex; align-items: center; gap: 6px; }
+
+@media (max-width: 700px) {
+  #card, #cardB {
+    grid-template-columns: 36px minmax(0, 1fr) minmax(0, 1fr) 44px 44px;
+    grid-template-areas:
+      'sw  nom nom flr fav'
+      'cat cat cus cus cus';
+    gap: 4px 8px;
+    padding: 8px 10px;
+  }
+  #card .sw, #cardB .sw { width: 36px; height: 36px; border-radius: 9px; }
+  #card .row button[data-open="floor"] {
+    grid-area: flr;
+    min-width: 44px; min-height: 44px; padding: 0; justify-content: center;
+  }
+  #card .row button[data-open="floor"] .lbl { display: none; }
+  #card .row button, #cardB .row button { min-height: 44px; }
+
+  /* -------------------------------------------------------------------
+     20. Zoom compact : −  100 %  +, rien d'autre au repos
+
+     « Plein écran » est déjà dans la capsule du haut ; « Voir toute la
+     photo » ne revient que pendant la correction du sol, où il sert à
+     atteindre un bord hors du cadre.
+     ------------------------------------------------------------------- */
+  #zoombar { padding: 2px; gap: 0; }
+  #zoombar .sep, #zoombar #zFull, #zoombar #zFit { display: none; }
+  body.floor-editing #zoombar #zFit { display: grid; }
+  #zoombar #zLevel { min-width: 52px; font-size: 12px; }
+
+  /* La capsule d'état quitte le bas : elle disait « sol détecté » par-dessus
+     le sol. Sous la capsule d'outils, elle ne cache plus que du mur. */
+  #status {
+    top: 64px; bottom: auto !important; left: 12px;
+    padding: 6px 11px 6px 8px; font-size: 11.5px;
+    max-width: calc(100% - 24px);
+  }
+
+  /* Le tiroir s'ouvre plus bas : la moitié de l'écran pour choisir, l'autre
+     moitié pour voir la pièce. La poignée garde les deux autres hauteurs. */
+  .dw { max-height: 50vh; max-height: 50dvh; }
+
+  /* Outils du pinceau sur deux lignes au lieu de trois. */
+  #floorTools {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 4px;
+    padding: 6px;
+  }
+  #floorTools button[data-brush] { grid-column: span 3; }
+  #floorTools .size { grid-column: span 3; display: flex; gap: 2px; }
+  #floorTools .size button { flex: 1; min-width: 0; }
+  #floorTools #floorUndo { grid-column: span 1; padding: 0 4px; font-size: 12px; }
+  #floorTools #floorDone { grid-column: span 2; }
+}
+
+/* Pendant la correction du sol, la barre de zoom remonte au-dessus des
+   outils du pinceau (elle passait dessous : la fiche produit, qui donnait sa
+   hauteur au dock, est masquée), et la mention de développement s'efface. */
+body.floor-editing #zoombar { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
+body.floor-editing #devnote { display: none !important; }
+@media (max-width: 700px) {
+  body.floor-editing #zoombar { bottom: calc(126px + env(safe-area-inset-bottom, 0px)); }
+}

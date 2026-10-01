@@ -30,6 +30,11 @@ from app.core.errors import (
 
 #: Balise EXIF d'orientation.
 _EXIF_ORIENTATION = 0x0112
+#: Sous-répertoire EXIF (« Exif IFD ») et balise « FocalLengthIn35mmFilm ».
+#: La seule focale réellement mesurée dont la chaîne de géométrie puisse
+#: disposer : quand l'appareil l'écrit, on la lit ; sinon on l'estime.
+_EXIF_IFD = 0x8769
+_EXIF_FOCAL_35MM = 0xA405
 
 #: Valeurs d'orientation qui impliquent une transformation.
 #: 1 = déjà droite ; absente = rien de déclaré.
@@ -51,6 +56,10 @@ class LoadedImage:
     #: Format réellement décodé, jamais celui annoncé par le client.
     format: ImageFormat
     exif_orientation_applied: bool
+    #: Équivalent 35 mm déclaré par l'appareil, en millimètres. `None` quand
+    #: la photo ne le porte pas — c'est le cas de la plupart des photos
+    #: retouchées ou téléchargées, et de toutes celles dont l'EXIF a été retiré.
+    focal_35mm: float | None = None
 
     @property
     def width(self) -> int:
@@ -68,6 +77,18 @@ def _declared_orientation(image: Image.Image) -> int | None:
     except Exception:  # noqa: BLE001 — un EXIF corrompu ne doit pas tout arrêter
         return None
     return int(value) if isinstance(value, int) else None
+
+
+def _declared_focal_35mm(image: Image.Image) -> float | None:
+    """Équivalent 35 mm, s'il est déclaré et plausible (3 à 400 mm)."""
+    try:
+        valeur = image.getexif().get_ifd(_EXIF_IFD).get(_EXIF_FOCAL_35MM)
+        focale = float(valeur) if valeur is not None else None
+    except Exception:  # noqa: BLE001 — un EXIF corrompu ne doit pas tout arrêter
+        return None
+    if focale is None or not (3.0 <= focale <= 400.0):
+        return None
+    return focale
 
 
 def load_image(data: bytes) -> LoadedImage:
@@ -99,6 +120,7 @@ def load_image(data: bytes) -> LoadedImage:
                 raise too_many_pixels()
 
             orientation = _declared_orientation(probe)
+            focal_35mm = _declared_focal_35mm(probe)
             upright = ImageOps.exif_transpose(probe) or probe
             rgb = np.asarray(upright.convert("RGB"), dtype=np.uint8)
             if upright is not probe:
@@ -118,6 +140,7 @@ def load_image(data: bytes) -> LoadedImage:
         rgb=rgb,
         format=cast(ImageFormat, declared_format),
         exif_orientation_applied=orientation in _ORIENTATIONS_TO_APPLY,
+        focal_35mm=focal_35mm,
     )
 
 

@@ -85,7 +85,9 @@ def _decide_status(warnings: list[Warn], scene_present: bool) -> AnalysisStatus:
     return AnalysisStatus.NEEDS_MANUAL_ADJUSTMENT if warnings else AnalysisStatus.SUCCESS
 
 
-def _segmentation_experimentale(rgb: np.ndarray) -> ExperimentalOutputs | None:
+def _segmentation_experimentale(
+    rgb: np.ndarray, focal_35mm: float | None = None
+) -> ExperimentalOutputs | None:
     """Segmentation exploratoire du sol — **hors contrat, sur demande**.
 
     Trois refus tenus ici, et ils tiennent ensemble :
@@ -105,18 +107,12 @@ def _segmentation_experimentale(rgb: np.ndarray) -> ExperimentalOutputs | None:
 
     try:
         candidat = get_settings().experimental_floor_candidate
-        if candidat == "opencv":
-            from app.services.floor_geometric import GeometricFloorBaseline
+        from app.services import model_warmup
 
-            moteur: Any = GeometricFloorBaseline()
-        elif candidat == "upernet":
-            from app.services.floor_semantic import UperNetFloor
-
-            moteur = UperNetFloor()
-        else:
-            from app.services.floor_semantic import OneFormerFloor
-
-            moteur = OneFormerFloor()
+        # LOT PHOTO.2 : si le préchauffage de démarrage est en cours, on
+        # l'attend au lieu de charger le modèle une seconde fois en parallèle.
+        model_warmup.wait_ready(timeout=300)
+        moteur: Any = model_warmup.segmenter_pour(candidat)
 
         from app.services.floor_segmentation import mask_to_png_bytes
 
@@ -138,6 +134,11 @@ def _segmentation_experimentale(rgb: np.ndarray) -> ExperimentalOutputs | None:
                 labels=resultat.labels,
                 candidate=resultat.candidate,
                 min_confidence=get_settings().experimental_floor_min_confidence,
+                # LOT PHOTO.2 : l'horizon et la focale se lisent dans les
+                # droites de la photo et dans son EXIF, pas seulement dans le
+                # masque. L'image reste en mémoire, jamais écrite.
+                image_rgb=rgb,
+                exif_focal_35mm=focal_35mm,
             )
         except Exception:
             log.exception("scene experimentale indisponible")
@@ -211,7 +212,7 @@ def analyse_room(data: bytes) -> Analysis:
         # pour la meme chose, et une duree mesuree ici dit enfin quelque
         # chose. Ce qu'elle ne dit pas : que la segmentation soit livree.
         with timings.measure("segmentation"):
-            experimental = _segmentation_experimentale(image.rgb)
+            experimental = _segmentation_experimentale(image.rgb, image.focal_35mm)
 
     status = _decide_status(warnings, scene is not None)
     result = AnalysisResult(

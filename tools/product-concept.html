@@ -1,6 +1,10 @@
 <!doctype html>
 <html lang="fr">
 <head>
+  <!-- Pas de fichier d'icone : sans cette ligne, le navigateur demande
+       /favicon.ico, le service repond 404, et la console porte une erreur
+       qui n'en est pas une. -->
+  <link rel="icon" href="data:," />
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Visualiseur de parquet · Pose Parquet</title>
@@ -400,7 +404,10 @@
   .vtag {
     position: absolute; top: 88px; z-index: 5; padding: 5px 11px; border-radius: var(--r-pill);
     background: var(--graphite); color: #fff; font-size: 11.5px; font-weight: 600;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 42vw;
   }
+  /* L'etiquette de gauche est ancree par son bord DROIT au separateur. */
+  #tagA { transform: translateX(-100%); }
 
   /* ---------------- Modales ----------------
      Ancrées à la page, pas à la scène : sur l'écran d'entrée #stage est
@@ -1107,7 +1114,7 @@
       /* Ce que l'adaptateur envoie au renderer. Uniquement des proprietes
          que le moteur honore vraiment : materiau, motif, largeur, angle. */
       renderProfile: {
-        materialFamily: 'chene-sable',
+        materialFamily: 'chene-miel',  // LOT PHOTO.2 : couleur de la vignette, mesuree
         pattern: 'point-de-hongrie',
         widthM: 0.092,
         lengthM: 0.52,
@@ -1149,7 +1156,7 @@
       /* Ce que l'adaptateur envoie au renderer. Uniquement des proprietes
          que le moteur honore vraiment : materiau, motif, largeur, angle. */
       renderProfile: {
-        materialFamily: 'chene-craie',
+        materialFamily: 'chene-naturel',  // LOT PHOTO.2 : couleur de la vignette, mesuree
         pattern: 'baton-rompu',
         widthM: 0.09,
         lengthM: 0.6,
@@ -1232,7 +1239,7 @@
       /* Ce que l'adaptateur envoie au renderer. Uniquement des proprietes
          que le moteur honore vraiment : materiau, motif, largeur, angle. */
       renderProfile: {
-        materialFamily: 'chene-sable',
+        materialFamily: 'chene-caramel',  // LOT PHOTO.2 : couleur de la vignette, mesuree
         pattern: 'lames',
         widthM: 0.15,
         lengthM: 1.9,
@@ -1273,7 +1280,7 @@
       /* Ce que l'adaptateur envoie au renderer. Uniquement des proprietes
          que le moteur honore vraiment : materiau, motif, largeur, angle. */
       renderProfile: {
-        materialFamily: 'chene-rustique',
+        materialFamily: 'chene-naturel',  // LOT PHOTO.2 : couleur de la vignette, mesuree
         pattern: 'lames',
         widthM: 0.15,
         lengthM: 1.9,
@@ -2648,10 +2655,20 @@
     /* Avant/après et comparaison partagent le même séparateur : un seul
        geste, jamais deux contrôles concurrents. Le découpage est posé sur
        #clipA, qui n'est PAS transformé : la ligne reste où l'utilisateur l'a
-       laissée, quel que soit le zoom. */
+       laissée, quel que soit le zoom.
+
+       Le sens compte, et il a ete corrige le 1er octobre 2026 (LOT PHOTO.2) :
+       en avant/apres, l'ORIGINAL est a GAUCHE et le PARQUET a DROITE — le
+       sens de lecture du libelle « Avant / après ». La couche A (le rendu)
+       n'est donc visible qu'a droite du separateur. En comparaison, A reste a
+       gauche et B a droite, comme les etiquettes le disent. */
     const cut = state.ba || Boolean(state.compare);
-    $('clipA').style.clipPath = cut
-      ? `inset(0 ${((1 - state.split) * 100).toFixed(2)}% 0 0)` : 'none';
+    const pct = (v) => (v * 100).toFixed(2);
+    $('clipA').style.clipPath = !cut
+      ? 'none'
+      : state.compare
+        ? `inset(0 ${pct(1 - state.split)}% 0 0)`
+        : `inset(0 0 0 ${pct(state.split)}%)`;
 
     $('split').classList.toggle('hidden', !cut || !hasRender);
     if (cut) $('split').style.left = `${state.split * 100}%`;
@@ -2698,17 +2715,29 @@
         if (r.image && r.image.width) bits.push(`${r.image.width}x${r.image.height}`);
         bits.push(r.quality ? 'qualite oui' : 'qualite non');
         bits.push(r.lens ? 'distorsion oui' : 'distorsion non');
-        bits.push(r.sceneData ? 'sceneData oui' : 'sceneData non');
-        /* Un masque experimental peut arriver quand le service tourne avec
-           PPAI_EXPERIMENTAL_FLOOR. On le SIGNALE, en developpement, et on
-           s'arrete la : il ne devient pas une scene, il ne declenche aucun
-           rendu, et aucun parquet ne se pose sur la photo de quelqu'un. Le
-           regarder est le geste suivant, et il appartient a un humain. */
+        bits.push(r.sceneData ? 'sceneData officielle oui' : 'sceneData officielle non');
+        /* Le bloc experimental dit ce qui est REELLEMENT a l'ecran. Depuis le
+           LOT PHOTO.1 une scene experimentale peut etre posee ; la mention
+           « non fiable, aucun rendu » du LOT C.0 restait affichee a cote d'un
+           rendu live — un texte contradictoire, corrige au LOT PHOTO.2. */
         const xp = r.experimental && r.experimental.floor;
         if (xp) {
+          const ps = state.photoScene;
           const part = Math.round(xp.coverage * 100);
-          bits.push('masque experimental : ' + xp.candidate + ', ' + part
-            + ' pour cent - non fiable, aucun rendu');
+          if (ps && ps.posee) {
+            const conf = ps.confidence != null ? ps.confidence.toFixed(2) : '?';
+            bits.push(`EXPERIMENTAL FLOOR · confidence ${conf} · sceneData: experimental`
+              + ` · renderer: ${adapter.mode === 'live' ? 'live local' : adapter.mode}`);
+            const p = xp.perspective;
+            if (p && p.horizon != null) {
+              bits.push(`horizon ${p.horizon} · ${p.metersWidth} x ${p.metersDepth} m`
+                + ` · focale ${p.focalSource || '?'} · echelle ${p.metricScaleConfidence || '?'}`);
+            }
+          } else if (ps && ps.raw) {
+            bits.push(`EXPERIMENTAL FLOOR · ${xp.candidate} ${part} % · statut ${ps.status} · non pose`);
+          } else {
+            bits.push(`masque experimental : ${xp.candidate}, ${part} % · aucune scene`);
+          }
         }
         if (Array.isArray(r.warnings) && r.warnings.length) {
           bits.push(`${r.warnings.length} avertissement(s)`);
@@ -2782,7 +2811,10 @@
         ${side === 'A' ? '<button type="button" data-open="cat">Choisir un parquet</button>' : ''}
         <button type="button" data-open="cus">Personnaliser</button>
         ${side === 'A' && state.photoScene && state.photoScene.posee
-          ? '<button type="button" data-open="floor" aria-label="Ajuster la zone du sol">Ajuster le sol</button>' : ''}
+          ? `<button type="button" data-open="floor" aria-label="Ajuster la zone du sol"><svg width="15" height="15"
+              viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+              stroke-linejoin="round" aria-hidden="true"><path d="M14 4l6 6-9 9H5v-6z" /><path d="M12 6l6 6" /></svg><span
+              class="lbl">Ajuster le sol</span></button>` : ''}
         <span class="sep"></span>
         <button class="fav" type="button" data-fav="${entry.id}" aria-pressed="${on}"
                 aria-label="Favori">${heart(on)}</button>
@@ -2797,16 +2829,42 @@
       $('cardB').innerHTML = cardHtml(product(state.compare.b), 'B');
       $('cardB').classList.remove('hidden');
       $('stage').classList.add('comparing');
-      $('tagA').classList.remove('hidden');
-      $('tagB').classList.remove('hidden');
-      $('tagA').style.left = `calc(${state.split * 100}% - 84px)`;
-      $('tagB').style.left = `calc(${state.split * 100}% + 12px)`;
     } else {
       $('cardB').classList.add('hidden');
       $('stage').classList.remove('comparing');
-      $('tagA').classList.add('hidden');
-      $('tagB').classList.add('hidden');
     }
+    paintTags();
+  }
+
+  /* Le nom court d'un produit : sans le motif ni l'essence, qui sont deja
+     dits par l'image. « Point de Hongrie Zeus Naturel » -> « Zeus Naturel ». */
+  function nomCourt(p) {
+    let n = p.name;
+    [PATTERNS[p.pattern], p.species].filter(Boolean).forEach((mot) => {
+      if (n.toLowerCase().startsWith(mot.toLowerCase() + ' ')) n = n.slice(mot.length + 1);
+    });
+    return n.charAt(0).toUpperCase() + n.slice(1);
+  }
+
+  /* Les etiquettes de part et d'autre du separateur DISENT ce qu'on voit.
+     Avant/apres : « Avant » a gauche (la photo), « Après » a droite (le
+     parquet) — LOT PHOTO.2. Comparaison : « A — nom » a gauche, « B — nom » a
+     droite ; sur telephone c'est la seule facon de savoir ce qu'est B, sa
+     fiche n'ayant pas la place d'etre affichee. */
+  function paintTags() {
+    const cut = (state.ba || Boolean(state.compare)) && !$('split').classList.contains('hidden');
+    $('tagA').classList.toggle('hidden', !cut);
+    $('tagB').classList.toggle('hidden', !cut);
+    if (!cut) return;
+    if (state.compare) {
+      $('tagA').textContent = `A — ${nomCourt(product())}`;
+      $('tagB').textContent = `B — ${nomCourt(product(state.compare.b))}`;
+    } else {
+      $('tagA').textContent = 'Avant';
+      $('tagB').textContent = 'Après';
+    }
+    $('tagA').style.left = `calc(${state.split * 100}% - 12px)`;
+    $('tagB').style.left = `calc(${state.split * 100}% + 12px)`;
   }
 
   function paintStatus() {
@@ -3777,10 +3835,14 @@
      la zone, et redemander un rendu a la fin du geste.
 
      Pendant la correction, les gestes du viewport sont suspendus : un trait
-     ne doit pas deplacer la photo. On recadre AVANT d'editer pour que toute
-     la photo soit visible, et le pan/zoom reprennent a « Terminé ».
+     ne doit pas deplacer la photo. Le cadrage, lui, ne bouge PAS : on corrige
+     le sol dans la vue ou on le regarde. La version du LOT PHOTO.1 recadrait
+     sur toute la photo (« contain ») ; a 390 px cela reduisait la scene a
+     390 x 260 entre deux bandes sombres, et le pinceau perdait toute
+     precision. Celui qui veut voir toute la photo a « Ajuster » dans la barre
+     de zoom, avant comme pendant la correction.
      ===================================================================== */
-  const floorEdit = { actif: false, mode: 'add', trait: false, snap: null, taille: 30 };
+  const floorEdit = { actif: false, mode: 'add', trait: false, geste: false, snap: null, taille: 30 };
 
   function floorEditStart() {
     const ps = state.photoScene;
@@ -3796,7 +3858,9 @@
       document.body.classList.add('floor-editing');
       $('vpEdit').classList.remove('hidden');
       $('floorTools').classList.remove('hidden');
-      fitAll();
+      /* Pas de recadrage : le calque recoit la transformation courante du
+         viewport (c'est un [data-vp]) et se superpose a la photo telle
+         qu'elle est vue. Voir le commentaire de section. */
       floorEditSize();
       floorEditRefresh();
       paintChrome();
@@ -3811,9 +3875,7 @@
     document.body.classList.remove('floor-editing');
     $('vpEdit').classList.add('hidden');
     $('floorTools').classList.add('hidden');
-    /* On avait recadre sur toute la photo pour corriger : on rend le cadrage
-       immersif, celui dans lequel on regarde son sol. */
-    scheduleFit();
+    /* Le cadrage n'a pas change en entrant : il ne change pas en sortant. */
     if (appliquer) {
       /* La correction a change le masque : les captures retenues sont
          fausses, et le rendu doit etre refait avec le nouveau sol. */
@@ -3864,22 +3926,63 @@
     return Math.max(2, (px / 2) * echelle);
   }
 
+  /* Un doigt peint, deux doigts deplacent et zooment.
+
+     Depuis que la correction garde le cadrage (LOT PHOTO.2), une partie de la
+     photo peut etre hors du cadre : il faut pouvoir s'y rendre sans quitter
+     l'outil. Le second doigt annule le trait que le premier venait de
+     commencer — un pincement commence toujours par un doigt seul — puis les
+     deux pointeurs sont confies aux gestionnaires du viewport, les memes que
+     hors correction. Un seul geste a la fois, jamais les deux. */
+  const editPtrs = new Map();
+  const versViewport = (e) => ({
+    pointerId: e.pointerId, clientX: e.clientX, clientY: e.clientY,
+    target: $('stage'), preventDefault() {},
+  });
   $('floorEdit').addEventListener('pointerdown', (e) => {
     if (!floorEdit.actif) return;
     e.stopPropagation(); e.preventDefault();
+    try { $('floorEdit').setPointerCapture(e.pointerId); } catch { /* sans capture */ }
+    editPtrs.set(e.pointerId, { clientX: e.clientX, clientY: e.clientY });
+    if (editPtrs.size >= 2) {
+      if (floorEdit.trait) {
+        floorEdit.trait = false;
+        adapter.pinceau.end();
+        adapter.pinceau.undo();
+        floorEditRefresh();
+      }
+      if (!floorEdit.geste) {
+        floorEdit.geste = true;
+        editPtrs.forEach((p, id) => onDown(versViewport({ pointerId: id, ...p })));
+      } else {
+        onDown(versViewport(e));
+      }
+      return;
+    }
+    if (floorEdit.geste) return;
     const pt = floorEditPoint(e);
     if (!pt) return;
-    $('floorEdit').setPointerCapture(e.pointerId);
     floorEdit.trait = adapter.pinceau.begin(floorEdit.mode, floorEditRadius(), pt);
   });
   $('floorEdit').addEventListener('pointermove', (e) => {
-    if (!floorEdit.actif || !floorEdit.trait) return;
+    if (!floorEdit.actif) return;
+    if (editPtrs.has(e.pointerId)) editPtrs.set(e.pointerId, { clientX: e.clientX, clientY: e.clientY });
+    if (floorEdit.geste) { e.stopPropagation(); e.preventDefault(); onMove(versViewport(e)); return; }
+    if (!floorEdit.trait) return;
     e.stopPropagation(); e.preventDefault();
     const pt = floorEditPoint(e);
     if (pt) adapter.pinceau.extend(pt);
   });
   const floorEditUp = (e) => {
-    if (!floorEdit.actif || !floorEdit.trait) return;
+    editPtrs.delete(e.pointerId);
+    if (!floorEdit.actif) return;
+    if (floorEdit.geste) {
+      e.stopPropagation();
+      onUp(versViewport(e));
+      if (!editPtrs.size) floorEdit.geste = false;
+      return;
+    }
+    if (!floorEdit.trait) return;
     e.stopPropagation();
     floorEdit.trait = false;
     adapter.pinceau.end();

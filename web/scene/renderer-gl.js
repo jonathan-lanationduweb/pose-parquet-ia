@@ -46,8 +46,8 @@ out vec4 outColor;
 uniform sampler2D uMask;      // R = zone, G = couverture, B = occlusion
 uniform sampler2D uAlbedo;    // tuile de bois, mipmaps + anisotrope
 uniform sampler2D uReliefMap; // R,G = pente ; B = rugosité locale
-uniform sampler2D uShading;   // RGB = gain de lumière par canal, A = contact
-uniform sampler2D uGloss;     // résidu clair, pour les finitions brillantes
+uniform sampler2D uShading;   // RGB = gain de luminance (identique), A = contact
+uniform sampler2D uGloss;     // R = résidu clair (reflets), G = résidu sombre (ombres de contact)
 
 uniform vec2  uViewport;
 uniform mat3  uInverse;     // pixels image → carré unité
@@ -71,6 +71,8 @@ uniform float uAlbedoMean;  // luminance moyenne de la tuile, 0..1
 uniform float uSaturation;  // saturation finale
 uniform float uShadowFloor; // plancher du gain dans les ombres
 uniform float uRepeatVar;   // variation d'exposition par repetition de tuile
+uniform vec3  uLightTint;   // dominante GLOBALE de la lumiere, luminance 1
+uniform float uShadowGain;  // dose des ombres de contact lues dans la photo
 
 void main() {
   // gl_FragCoord a son origine en bas ; l'image, en haut.
@@ -175,19 +177,27 @@ void main() {
   //    manque de marge, pas constant.
   float lift = uAmbient * (1.0 - aLum);
   float shade = clamp(raw < 1.0 ? lift + (1.0 - lift) * raw : raw, uShadowFloor, 1.9);
-  // La couleur de la lumière, pas seulement son intensité : un bois neutre au
-  // milieu d'une pièce dorée se remarque tout de suite.
+  // Le gain est une LUMINANCE : la couleur du parquet vient du parquet. La
+  // lumiere n'apporte qu'une dominante globale (uLightTint, ±8 % au plus),
+  // dosee par uTint. L'ancienne version teintait pixel par pixel avec la
+  // couleur locale de l'ancien sol, et un chene miel sur un sol brun virait
+  // au vert olive — voir shading.js.
   // uExposure deplace tout l'eclairement vers le niveau reel du sol
   // photographie. Sans lui, le gain vaut 1 en moyenne et le parquet atterrit
   // a la clarte de sa propre matiere, quelle que soit la piece.
-  vec3 gain = (vec3(shade) + uTint * (lit.rgb - vec3(lum)) * uStrength) * uExposure;
+  vec3 gain = vec3(shade) * mix(vec3(1.0), uLightTint, uTint) * uExposure;
+
+  // Ombres de contact lues dans la photo (residu sombre large, joints exclus) :
+  // la chaise, le radiateur et le bas du mur reprennent leur ombre.
+  vec2 residu = texture(uGloss, texel).rg;
+  gain *= 1.0 - uShadowGain * residu.g;
 
   vec2 slope = (relief.rg - 0.5) * 2.0;
   float bump = clamp(1.0 + dot(slope, uLight) * uReliefGain * near, 0.55, 1.6);
 
   float specular = 0.0;
   if (uGlossGain > 0.0) {
-    specular = texture(uGloss, texel).r * uGlossGain * (1.0 - relief.b) * near;
+    specular = residu.r * uGlossGain * (1.0 - relief.b) * near;
   }
 
   // Le reflet emprunte sa couleur au bois plutôt qu'au blanc, et s'atténue sur
@@ -330,6 +340,7 @@ export function createGlRenderer() {
     'uRowsPerTile', 'uJitter',
     'uLabel', 'uLight', 'uStrength', 'uAmbient', 'uTint', 'uReliefGain', 'uGlossGain',
     'uGamma', 'uExposure', 'uMicro', 'uAlbedoMean', 'uSaturation', 'uShadowFloor', 'uRepeatVar',
+    'uLightTint', 'uShadowGain',
     'uMask', 'uAlbedo', 'uReliefMap', 'uShading', 'uGloss',
   ]);
   const uBlit = uniforms(blit, ['uTex']);
@@ -367,7 +378,7 @@ export function createGlRenderer() {
     albedo: makeTexture(2, { wrap: gl.REPEAT, mips: true }),
     relief: makeTexture(3, { wrap: gl.REPEAT, mips: true }),
     shading: makeTexture(4, { filter: gl.LINEAR }),
-    gloss: makeTexture(5),
+    gloss: makeTexture(5, { filter: gl.LINEAR }),
   };
 
   gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
@@ -380,9 +391,9 @@ export function createGlRenderer() {
 
   let size = { width: 0, height: 0 };
   let maskBytes = null;
-  let glossBytes = null;
+  let residualBytes = null;
   let currentMaterial = null;
-  const noGloss = new Uint8Array([0]);
+  const noResidual = new Uint8Array([0, 0]);
 
   shared = {
     backend: 'webgl2',
@@ -395,7 +406,7 @@ export function createGlRenderer() {
       canvas.height = height;
       size = { width, height };
       maskBytes = new Uint8Array(width * height * 4);
-      glossBytes = new Uint8Array(width * height);
+      residualBytes = new Uint8Array(width * height * 2);
       currentMaterial = null;
     },
 
@@ -422,13 +433,23 @@ export function createGlRenderer() {
       upload(tex.shading, gl.RGBA16F, gl.RGBA, gl.HALF_FLOAT, shading.width, shading.height, toHalf(shading.rgba));
     },
 
-    setGloss(gloss) {
-      if (!gloss) {
-        upload(tex.gloss, gl.R8, gl.RED, gl.UNSIGNED_BYTE, 1, 1, noGloss);
+    /** Reflets (R) et ombres de contact (G), dans une seule texture. */
+    setResidual(residual) {
+      if (!residual) {
+        upload(tex.gloss, gl.RG8, gl.RG, gl.UNSIGNED_BYTE, 1, 1, noResidual);
         return;
       }
-      for (let i = 0; i < gloss.length; i += 1) glossBytes[i] = Math.min(255, Math.round(gloss[i] * 255));
-      upload(tex.gloss, gl.R8, gl.RED, gl.UNSIGNED_BYTE, size.width, size.height, glossBytes);
+      const { gloss, shadow } = residual;
+      const w = residual.width || size.width;
+      const h = residual.height || size.height;
+      const octets = residualBytes && residualBytes.length >= w * h * 2 ? residualBytes : new Uint8Array(w * h * 2);
+      for (let i = 0, p = 0; i < gloss.length; i += 1, p += 2) {
+        octets[p] = Math.min(255, Math.round(gloss[i] * 255));
+        octets[p + 1] = shadow ? Math.min(255, Math.round(shadow[i] * 255)) : 0;
+      }
+      // La carte peut etre plus petite que la photo : le shader la lit en
+      // coordonnees normalisees, et le filtrage lineaire l'agrandit.
+      upload(tex.gloss, gl.RG8, gl.RG, gl.UNSIGNED_BYTE, w, h, octets);
     },
 
     /** Cartes du matériau. Les mipmaps sont fabriquées par le GPU. */
@@ -474,6 +495,9 @@ export function createGlRenderer() {
       gl.uniform1f(u.uSaturation, scene.light.saturation);
       gl.uniform1f(u.uShadowFloor, scene.light.shadowFloor);
       gl.uniform1f(u.uRepeatVar, scene.light.repeatVar);
+      gl.uniform1f(u.uShadowGain, scene.light.contactShadow);
+      const teinte = (shading && shading.lightTint) || [1, 1, 1];
+      gl.uniform3f(u.uLightTint, teinte[0], teinte[1], teinte[2]);
 
       scene.floorZones.forEach((zone, index) => {
         const surface = surfaces.get(zone.surfaceId);
@@ -520,7 +544,10 @@ export function createGlRenderer() {
           shading ? exposureScale(shading, moyenneTuile, scene.light.exposure) : 1
         );
         gl.uniform1f(u.uReliefGain, surf.relief * 0.9);
-        gl.uniform1f(u.uGlossGain, surf.clearcoat * 1.15);
+        // Les reflets de la piece touchent toutes les finitions : un quart de
+        // l'eclat pour une finition mate, presque tout pour un verni. Avant,
+        // un sol mat perdait entierement la lumiere des fenetres.
+        gl.uniform1f(u.uGlossGain, 0.25 + surf.clearcoat * 0.9);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       });
 

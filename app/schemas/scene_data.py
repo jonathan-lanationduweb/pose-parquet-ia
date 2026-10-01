@@ -204,6 +204,11 @@ class Light(_Model):
     ambient: float = 0.22
     tint: float = 0.5
     contact: float = 0.35
+    #: Dose des ombres de contact relues dans la photo (LOT PHOTO.2).
+    contact_shadow: float = 0.6
+    #: Ancrage de l'exposition sur la clarté de l'ancien sol. `None` : le
+    #: défaut du front (0,55), réglé sur les pièces calibrées.
+    exposure: float | None = None
 
 
 class SceneData(_Model):

@@ -530,8 +530,12 @@ ok('la fleche precedent revient', api.state.productId === before);
 api.state.ba = true;
 api.state.split = 0.4;
 api.paint();
-ok('avant/apres decoupe la couche du parquet',
-  el('clipA').style.clipPath === 'inset(0 60.00% 0 0)', el('clipA').style.clipPath);
+/* LOT PHOTO.2 : GAUCHE = original (avant), DROITE = parquet (apres). La
+   couche du parquet n'est visible qu'a droite du separateur. L'ancien test
+   verifiait le sens inverse — rendu a gauche — que la revue visuelle a
+   releve comme contraire au libelle « Avant / après ». */
+ok('avant/apres : parquet a droite du separateur, original a gauche',
+  el('clipA').style.clipPath === 'inset(0 0 0 40.00%)', el('clipA').style.clipPath);
 ok('le fond reste la scene d origine',
   el('photo').getAttribute('src').endsWith('sejour.original.jpg'));
 ok('le separateur est visible', el('split').classList.contains('hidden') === false);

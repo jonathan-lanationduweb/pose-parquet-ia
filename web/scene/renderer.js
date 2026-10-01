@@ -16,14 +16,11 @@
  */
 import { createSceneMasks } from './mask.js';
 import { mark, mesure, chrono } from '../utils/perf.js';
-import { buildShadingMap, buildGlossMap } from './shading.js';
+import { buildShadingMap, buildResidualMaps } from './shading.js';
 import { lightDirection } from './geometry.js';
 import { materialMaps, materialMapsAsync, warmMaterial } from './material.js';
 import { createCanvasRenderer } from './renderer-canvas.js';
 import { createGlRenderer, glAvailable } from './renderer-gl.js';
-
-/** Une finition sous ce seuil ne réfléchit rien qui se voie : carte inutile. */
-const GLOSS_THRESHOLD = 0.06;
 
 export function createSceneRenderer({ prefer = 'auto' } = {}) {
   const gl = prefer === 'canvas' || !glAvailable() ? null : createGlRenderer();
@@ -35,22 +32,24 @@ export function createSceneRenderer({ prefer = 'auto' } = {}) {
   let source = null; // ImageData
   let masks = null;
   let shading = null;
-  let gloss = null;
+  let residual = null; // { gloss, shadow }
   let lightDir = null;
-  let glossWanted = false;
   const buffers = new Map(); // canevas cible → ImageData réutilisée
 
-  /** Cartes d'éclairement et de reflets : refaites seulement si le sol bouge. */
+  /** Cartes d'éclairement, de reflets et d'ombres : refaites si le sol bouge.
+   *
+   * Les résidus sont calculés pour toute scène depuis le LOT PHOTO.2 : les
+   * reflets touchent désormais toutes les finitions, et les ombres de contact
+   * ne dépendent pas du matériau. Avant, la carte de reflets n'existait que
+   * pour une finition brillante, fabriquée au premier clic sur l'une d'elles. */
   function prepareLighting() {
     shading = chrono('J.lumiere.shading', () => buildShadingMap(source, masks.coverage, scene.light));
     lightDir = lightDirection(shading);
-    gloss = glossWanted
-      ? chrono('J.lumiere.gloss', () => buildGlossMap(source, masks.coverage, shading))
-      : null;
+    residual = chrono('J.lumiere.residus', () => buildResidualMaps(source, masks.coverage, shading));
     if (gl) {
       chrono('I.gpu.cartes', () => {
         gl.setShading(shading);
-        gl.setGloss(gloss);
+        gl.setResidual(residual);
         gl.setMasks(masks);
       });
     }
@@ -155,13 +154,6 @@ export function createSceneRenderer({ prefer = 'auto' } = {}) {
         // `null` : les cartes se fabriquent dans le worker. On ne peint pas
         // cette surface maintenant ; l'application sera prévenue et repeindra.
         if (!maps) { this.enAttente = true; return; }
-        if (maps.surface.clearcoat > GLOSS_THRESHOLD && !glossWanted) {
-          // Première finition brillante rencontrée : la carte de reflets n'a
-          // pas été calculée, on la fabrique maintenant plutôt qu'à l'avance.
-          glossWanted = true;
-          gloss = buildGlossMap(source, masks.coverage, shading);
-          if (gl) gl.setGloss(gloss);
-        }
         map.set(surface.id, { material: entry.material, config: entry, maps });
       });
       return map;
@@ -205,7 +197,10 @@ export function createSceneRenderer({ prefer = 'auto' } = {}) {
       // Le moteur logiciel échantillonne toute la pyramide : on la complète ici,
       // une fois, plutôt que de la calculer pour tout le monde.
       surfaces.forEach((entry) => { if (entry.maps.completer) entry.maps.completer(); });
-      const ok = cpu.paint({ source, target: buffer, scene, masks, shading, gloss, surfaces, step });
+      const ok = cpu.paint({
+        source, target: buffer, scene, masks, shading,
+        gloss: residual && residual.fullRes().gloss, shadow: residual && residual.fullRes().shadow, surfaces, step,
+      });
       if (!ok) return false;
       ctx.putImageData(buffer, 0, 0);
       mark('paint:fin');
@@ -233,7 +228,8 @@ export function createSceneRenderer({ prefer = 'auto' } = {}) {
         scene,
         masks,
         shading,
-        gloss,
+        gloss: residual && residual.fullRes().gloss,
+        shadow: residual && residual.fullRes().shadow,
         surfaces,
         step,
       });
