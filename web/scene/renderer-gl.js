@@ -70,6 +70,7 @@ uniform float uMicro;       // relance du micro-contraste de la matiere
 uniform float uAlbedoMean;  // luminance moyenne de la tuile, 0..1
 uniform float uSaturation;  // saturation finale
 uniform float uShadowFloor; // plancher du gain dans les ombres
+uniform float uRepeatVar;   // variation d'exposition par repetition de tuile
 
 void main() {
   // gl_FragCoord a son origine en bas ; l'image, en haut.
@@ -144,6 +145,15 @@ void main() {
   // vient de la photo et n'a aucune raison d'etre accentuee.
   float aBrut = dot(albedo, vec3(0.2126, 0.7152, 0.0722));
   albedo = clamp(albedo * (1.0 + uMicro * (aBrut - uAlbedoMean) / max(aBrut, 0.05)), 0.0, 1.0);
+
+  // Rupture de la periodicite de la TUILE : chaque repetition recoit une
+  // exposition propre, tiree de son indice par la meme recurrence doree que
+  // uJitter — pas de sin(), dont la precision differe entre float32 et le
+  // float64 du moteur Canvas. Lu sur 'uv' (avant decalage de rangee) pour
+  // que toute la tuile recoive la meme valeur.
+  vec2 cel = floor(uv);
+  float hRep = fract(cel.x * 0.6180339887 + cel.y * 0.3819660113);
+  albedo *= 1.0 + uRepeatVar * (hRep - 0.5) * 2.0;
 
   float aLum = dot(albedo, vec3(0.2126, 0.7152, 0.0722));
 
@@ -319,7 +329,7 @@ export function createGlRenderer() {
     'uQuad', 'uViewport', 'uInverse', 'uMeters', 'uOrigin', 'uRot', 'uTileMeters',
     'uRowsPerTile', 'uJitter',
     'uLabel', 'uLight', 'uStrength', 'uAmbient', 'uTint', 'uReliefGain', 'uGlossGain',
-    'uGamma', 'uExposure', 'uMicro', 'uAlbedoMean', 'uSaturation', 'uShadowFloor',
+    'uGamma', 'uExposure', 'uMicro', 'uAlbedoMean', 'uSaturation', 'uShadowFloor', 'uRepeatVar',
     'uMask', 'uAlbedo', 'uReliefMap', 'uShading', 'uGloss',
   ]);
   const uBlit = uniforms(blit, ['uTex']);
@@ -463,6 +473,7 @@ export function createGlRenderer() {
       gl.uniform1f(u.uMicro, scene.light.micro);
       gl.uniform1f(u.uSaturation, scene.light.saturation);
       gl.uniform1f(u.uShadowFloor, scene.light.shadowFloor);
+      gl.uniform1f(u.uRepeatVar, scene.light.repeatVar);
 
       scene.floorZones.forEach((zone, index) => {
         const surface = surfaces.get(zone.surfaceId);

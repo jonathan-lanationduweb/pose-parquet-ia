@@ -46,6 +46,7 @@
 import { analyzeScene, loadSceneIndex } from '../scene/analyzer.js';
 import { loadImage } from '../scene/image-loader.js';
 import { createSceneRenderer } from '../scene/renderer.js';
+import { normalizeScene } from '../scene/schema.js';
 import {
   createMaterial, enCache, warmMaterial, quandCartesPretes, materialMapsAsync,
 } from '../scene/material.js';
@@ -190,6 +191,97 @@ export async function createLocalRenderer({ base = '', prefer = 'auto' } = {}) {
         sceneId = id;
         return true;
       });
+    },
+
+    /**
+     * Ouvre une scène fournie telle quelle — la photo de l'utilisateur et la
+     * scène EXPÉRIMENTALE que Python en a tirée.
+     *
+     * Même chemin que `openRoom` à une différence près : la scène ne vient
+     * pas de `data/scenes/`, elle arrive déjà construite, et la photo est une
+     * URL d'objet locale — jamais envoyée, jamais écrite. `normalizeScene`
+     * lève si la scène est inutilisable : mieux vaut un message qu'un
+     * parquet posé sur une géométrie fausse.
+     *
+     * @param {object} raw     SceneData brute (`pose-parquet/scene@1`)
+     * @param {string} imageUrl URL de la photo (object URL)
+     * @param {string} [id]    identifiant d'état, `photo` par défaut
+     */
+    openScene(raw, imageUrl, id = 'photo') {
+      return enFile(async () => {
+        const scene = normalizeScene(raw);
+        const tPhoto = performance.now();
+        const prete = await loadImage(imageUrl);
+        marquer('B.photo', tPhoto);
+        chrono('D.setScene', () => renderer.setScene(scene, prete));
+        sceneId = id;
+        return true;
+      });
+    },
+
+    /* ---------------- Correction du sol au pinceau ----------------
+
+       Les masques du moteur savent déjà recevoir des coups de pinceau
+       (`beginStroke` / `extendStroke` / `undo`) : c'est l'outil de la
+       sélection manuelle du front, jamais branché ici. On l'expose pour le
+       Mode Photo — ajouter au sol, retirer du sol — sans rien inventer.
+
+       Un trait se peint dans la première zone : les zones d'une scène IA
+       partagent toutes le même plan, donc un pixel ajouté y reçoit la même
+       perspective que ses voisins. */
+    beginStroke(mode, radius, point) {
+      const masks = renderer.masks;
+      const zone = renderer.scene && renderer.scene.floorZones[0];
+      if (!masks || !zone) return false;
+      masks.beginStroke(zone.id, mode === 'remove' ? 'remove' : 'add', radius, point);
+      return true;
+    },
+    extendStroke(point) {
+      if (!renderer.masks) return false;
+      renderer.masks.extendStroke(point);
+      return true;
+    },
+    /** Fin de geste : masques refaits au prochain rendu, lumière recalculée. */
+    endStroke() {
+      if (!renderer.ready) return false;
+      renderer.invalidateMasks();
+      renderer.refreshLighting();
+      demandeRendu();
+      return true;
+    },
+    undoStroke() {
+      if (!renderer.masks) return false;
+      const fait = renderer.masks.undo();
+      if (fait) { renderer.invalidateMasks(); renderer.refreshLighting(); demandeRendu(); }
+      return fait;
+    },
+    /**
+     * La zone de sol courante, dessinée en teinte translucide, pour la montrer
+     * pendant la correction.
+     *
+     * C'est le MOTEUR qui écrit ces pixels, pas la page : la page ne compose
+     * rien, elle copie un canevas — c'est la règle qui interdit qu'un
+     * troisième moteur de rendu renaisse dans le HTML, et sa batterie de
+     * contrôle la vérifie à la lettre (`putImageData` y est banni).
+     *
+     * @returns {{canvas:HTMLCanvasElement|OffscreenCanvas,width:number,height:number}|null}
+     */
+    coverageOverlay() {
+      const masks = renderer.masks;
+      if (!masks) return null;
+      const { width, height, coverage } = masks;
+      const image = new ImageData(width, height);
+      const d = image.data;
+      for (let i = 0, p = 0; i < coverage.length; i += 1, p += 4) {
+        const a = coverage[i];
+        if (!a) continue;
+        d[p] = 60; d[p + 1] = 130; d[p + 2] = 255; d[p + 3] = Math.round(a * 0.42);
+      }
+      const teinte = document.createElement('canvas');
+      teinte.width = width;
+      teinte.height = height;
+      teinte.getContext('2d').putImageData(image, 0, 0);
+      return { canvas: teinte, width, height };
     },
 
     /** La matière, par son identifiant de matière — jamais par une référence produit. */

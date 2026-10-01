@@ -265,7 +265,8 @@ function make(key) {
        le titre d'un panneau et son premier element focalisable. */
     querySelector(sel) { return this.querySelectorAll(sel)[0] || null; },
     get isConnected() { return true; },
-    focus() {}, setPointerCapture() {}, click() { this._clicked = true; },
+    focus() {}, setPointerCapture() {}, releasePointerCapture() {}, click() { this._clicked = true; },
+    getBoundingClientRect() { return { left: 0, top: 0, width: 1200, height: 800 }; },
     appendChild(node) {
       this.children.push(node);
       /* Un noeud de texte ajoute compte dans le texte lisible : c'est ce que
@@ -1266,7 +1267,13 @@ const CONTRAT_V1 = ['apiVersion', 'openRoom', 'selectMaterial', 'setPattern',
      premier rendu enchainait 355 ms de scene puis 1 534 a 3 357 ms de tuile ;
      lancees ensemble, la seconde disparait de l'attente visible.
      L'appel reste garde par un `typeof === 'function'`. */
-  'prechauffer'];
+  'prechauffer',
+  /* LOT PHOTO.1 : la scene EXPERIMENTALE d'une photo s'ouvre par `openScene`,
+     et le sol se corrige au pinceau par les quatre suivants — les masques du
+     moteur savaient deja recevoir des traits, personne ne les branchait.
+     `coverageSnapshot` montre la zone pendant la correction. Tous gardes par
+     `typeof === 'function'`. */
+  'openScene', 'beginStroke', 'extendStroke', 'endStroke', 'undoStroke', 'coverageOverlay'];
 /* `studio` est le moteur negocie, `st` le candidat qu'examine `connect()`.
    Le nom doit etre entier, d'ou la classe ecrite en clair : les raccourcis
    comme la sequence mot-frontiere ne survivent pas aux couches

@@ -284,6 +284,21 @@ export function normalizeScene(raw) {
        * borne effacait les ombres portees avant meme le reste de la chaine.
        */
       shadowFloor: num(light.shadowFloor, 0.32),
+
+      /**
+       * `repeatVar` — rupture de la periodicite de la tuile.
+       *
+       * La tuile couvre 4,80 m ; une piece en fait six ou huit, et l'oeil
+       * retrouve le meme noeud au meme endroit une tuile plus loin. Pour la
+       * pose droite, le decalage par rangee (`uJitter`) suffisait. Pour le
+       * point de Hongrie et le baton rompu, qui traversent les rangees, non.
+       * Chaque repetition de tuile recoit donc une exposition propre, tiree
+       * de son indice : ±5 % par defaut. Le motif ne bouge pas, les joints
+       * non plus — seule la lumiere apparente d'un lot a l'autre change, ce
+       * qui est exactement ce qu'on voit sur un vrai parquet pose en
+       * plusieurs paquets.
+       */
+      repeatVar: num(light.repeatVar, 0.05),
     },
 
     warnings: Array.isArray(raw.warnings) ? raw.warnings.slice() : [],

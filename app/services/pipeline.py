@@ -93,8 +93,10 @@ def _segmentation_experimentale(rgb: np.ndarray) -> ExperimentalOutputs | None:
     * un echec ne casse jamais l'analyse. Un modele absent, une memoire
       insuffisante, une dependance manquante : l'analyse normale a deja
       reussi, et une sortie experimentale ne doit pas l'emporter avec elle ;
-    * aucune `sceneData` n'est produite. Ce masque ne devient pas une scene,
-      donc aucun parquet ne se pose ;
+    * le champ officiel `sceneData` reste nul. Depuis le LOT PHOTO.1, une
+      scene EXPERIMENTALE peut voyager dans `experimental.floor.sceneData`,
+      avec sa confiance et son statut : c'est une proposition que le front
+      montre comme telle, pas une detection validee ;
     * rien n'est renvoye quand le drapeau est faux, et c'est l'appelant qui
       l'a verifie avant d'entrer ici.
     """
@@ -121,6 +123,25 @@ def _segmentation_experimentale(rgb: np.ndarray) -> ExperimentalOutputs | None:
         resultat = moteur.segment(rgb)
         png = mask_to_png_bytes(resultat.mask)
         hauteur, largeur = resultat.mask.shape[:2]
+
+        # LOT PHOTO.1 : du masque a une scene EXPERIMENTALE. Son echec est
+        # separe de celui du masque : une geometrie impossible laisse le
+        # masque visible et dit `no_floor`, elle n'efface pas la segmentation.
+        scene_exp = None
+        try:
+            from app.services.floor_scene import build_experimental_scene
+
+            scene_exp = build_experimental_scene(
+                resultat.mask,
+                largeur,
+                hauteur,
+                labels=resultat.labels,
+                candidate=resultat.candidate,
+                min_confidence=get_settings().experimental_floor_min_confidence,
+            )
+        except Exception:
+            log.exception("scene experimentale indisponible")
+
         return ExperimentalOutputs(
             floor=ExperimentalFloor(
                 candidate=resultat.candidate,
@@ -131,6 +152,12 @@ def _segmentation_experimentale(rgb: np.ndarray) -> ExperimentalOutputs | None:
                 boundary=[[Point(x=x, y=y) for x, y in contour] for contour in resultat.boundary],
                 timings_ms=resultat.timings,
                 metadata=dict(resultat.metadata),
+                scene_data=scene_exp.scene if scene_exp else None,
+                scene_status=scene_exp.status if scene_exp else "no_floor",
+                scene_confidence=scene_exp.confidence if scene_exp else None,
+                perspective=scene_exp.perspective if scene_exp else {},
+                rug=scene_exp.rug if scene_exp else {},
+                scene_provenance=scene_exp.provenance if scene_exp else {},
             )
         )
     except Exception:

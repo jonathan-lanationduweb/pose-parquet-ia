@@ -479,13 +479,20 @@ function board(ctx, x, y, w, h, tex, random) {
     }
     ctx.stroke();
   };
-  ctx.strokeStyle = `rgba(38,26,16,${(tex.joint * 0.6).toFixed(3)})`;
+  // Pas tous du meme noir. Un joint reel depend de l'affleurement des deux
+  // lames et de la poussiere qu'il a prise : deux joints voisins n'ont pas
+  // la meme force. On reutilise la dispersion de teinte de la lame — deja
+  // tiree, donc sans consommer un nombre aleatoire de plus — pour faire
+  // varier l'encre du joint de ±18 %. Une grille de traits identiques est le
+  // signal le plus sur d'une texture de synthese.
+  const jointVar = 0.82 + 0.36 * Math.min(1, Math.max(0, shift / Math.max(1, tex.spread) + 0.5));
+  ctx.strokeStyle = `rgba(38,26,16,${(tex.joint * 0.6 * jointVar).toFixed(3)})`;
   longSides();
   // Les joints de bout restent nettement plus discrets que les joints
   // lateraux — sinon on dessine une grille — mais les effacer donne des lames
   // infinies, ce qui est un aussi mauvais signal. 0,32 est le dosage ou ils se
   // devinent sans structurer l image.
-  ctx.strokeStyle = `rgba(38,26,16,${(tex.joint * 0.32).toFixed(3)})`;
+  ctx.strokeStyle = `rgba(38,26,16,${(tex.joint * 0.32 * jointVar).toFixed(3)})`;
   buttSides();
   ctx.restore();
 }

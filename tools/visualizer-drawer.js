@@ -87,6 +87,7 @@
       shell.classList.add('hidden');
       scrim.classList.add('hidden');
       shell.removeAttribute('data-mode');
+      shell.removeAttribute('data-size');
       Object.values(panes).forEach((p) => p && p.classList.add('hidden'));
       mode = null;
       /* Rendre le focus là où il était. Sans cela, fermer au clavier renvoie
@@ -108,6 +109,7 @@
       Object.values(panes).forEach((p) => p && p.classList.add('hidden'));
       pane.classList.remove('hidden');
       shell.dataset.mode = next;
+      if (!shell.dataset.size) shell.dataset.size = 'medium';
       shell.classList.remove('hidden');
       scrim.classList.remove('hidden');
       mode = next;
@@ -128,6 +130,35 @@
     }
 
     scrim.addEventListener('click', close);
+
+    /* Trois hauteurs — repliee, moyenne, deployee — commandees par la
+       poignee. Un appui bascule moyenne ↔ deployee ; un glissement vers le
+       haut deploie, vers le bas replie puis ferme. La hauteur est une classe
+       de donnee, et c'est le CSS qui en fait des `dvh`. */
+    const TAILLES = ['collapsed', 'medium', 'expanded'];
+    const poser = (taille) => { shell.dataset.size = taille; };
+    let glisse = null;
+    grip.addEventListener('pointerdown', (e) => {
+      glisse = { y: e.clientY, bouge: false };
+      grip.setPointerCapture(e.pointerId);
+    });
+    grip.addEventListener('pointermove', (e) => {
+      if (!glisse) return;
+      const dy = e.clientY - glisse.y;
+      if (Math.abs(dy) < 40) return;
+      glisse.bouge = true;
+      const i = TAILLES.indexOf(shell.dataset.size || 'medium');
+      if (dy < 0 && i < TAILLES.length - 1) poser(TAILLES[i + 1]);
+      else if (dy > 0 && i > 0) poser(TAILLES[i - 1]);
+      else if (dy > 0 && i === 0) close();
+      glisse.y = e.clientY;
+    });
+    const lacher = () => {
+      if (glisse && !glisse.bouge) poser(shell.dataset.size === 'expanded' ? 'medium' : 'expanded');
+      glisse = null;
+    };
+    grip.addEventListener('pointerup', lacher);
+    grip.addEventListener('pointercancel', () => { glisse = null; });
 
     /* Échappement et piège à focus, une fois pour les quatre modes. */
     global.document.addEventListener('keydown', (e) => {

@@ -60,6 +60,12 @@ export function apiBase({ search = '', origin = '', dev = false } = {}) {
 export const RAISONS = {
   RESEAU: 'network',
   ANNULEE: 'aborted',
+  /* Le delai de garde a expire. Distinct de `aborted` : une annulation vient
+     d'un geste de l'utilisateur (nouvelle photo) et ne doit rien afficher ;
+     un delai depasse est un echec qu'il faut DIRE. Les confondre laissait la
+     capsule sur « Analyse de la piece… » pour toujours — vu en situation,
+     avec un modele qui mettait quatre-vingt-dix secondes a se charger. */
+  DELAI: 'timeout',
   REFUSEE: 'rejected',
   SERVEUR: 'server',
   CONTRAT: 'contract',
@@ -79,7 +85,14 @@ const MESSAGES = {
  * @param {string} options.base   origine de l'API, de `apiBase()`
  * @param {number} [options.timeoutMs]
  */
-export function createRoomAnalysisClient({ base, timeoutMs = 30000 } = {}) {
+/*
+ * 120 s de garde, et non 30. L'analyse de qualite seule tient en une
+ * seconde ; la segmentation experimentale, quand le service la porte, charge
+ * un modele a la premiere requete (mesure : 20 a 95 s) puis infere en 8 a
+ * 12 s. Un delai de 30 s coupait systematiquement la premiere analyse d'un
+ * service frais, et l'interface ne le disait pas.
+ */
+export function createRoomAnalysisClient({ base, timeoutMs = 120000 } = {}) {
   let generation = 0;
   let enCours = null;
 
@@ -108,7 +121,8 @@ export function createRoomAnalysisClient({ base, timeoutMs = 30000 } = {}) {
     const mien = generation;
     const controleur = new AbortController();
     enCours = controleur;
-    const minuteur = setTimeout(() => controleur.abort(), timeoutMs);
+    let delaiDepasse = false;
+    const minuteur = setTimeout(() => { delaiDepasse = true; controleur.abort(); }, timeoutMs);
     const t0 = performance.now();
 
     const corps = new FormData();
@@ -150,11 +164,14 @@ export function createRoomAnalysisClient({ base, timeoutMs = 30000 } = {}) {
       return { ok: true, generation: mien, perime, networkMs, analysis };
     } catch (e) {
       const networkMs = Math.round(performance.now() - t0);
-      const annulee = e && (e.name === 'AbortError');
+      const abandon = e && (e.name === 'AbortError');
+      const raison = abandon ? (delaiDepasse ? RAISONS.DELAI : RAISONS.ANNULEE) : RAISONS.RESEAU;
       return {
         ok: false, generation: mien, perime: mien !== generation, networkMs,
-        raison: annulee ? RAISONS.ANNULEE : RAISONS.RESEAU,
-        message: annulee ? null : 'Analyse indisponible pour le moment.',
+        raison,
+        message: raison === RAISONS.ANNULEE ? null
+          : raison === RAISONS.DELAI ? 'L’analyse a pris trop de temps.'
+            : 'Analyse indisponible pour le moment.',
       };
     } finally {
       clearTimeout(minuteur);
@@ -197,10 +214,44 @@ export function createRoomAnalysisClient({ base, timeoutMs = 30000 } = {}) {
  * Le jour où `analysis@3` apportera une scène, ce sont ces deux lignes qui
  * changeront, et rien d'autre.
  */
+/**
+ * La scène EXPÉRIMENTALE, si Python en a produit une.
+ *
+ * Elle vit dans `experimental.floor.sceneData`, jamais dans `sceneData` : ce
+ * client ne confond pas les deux, et rend un objet qui dit son statut. Le
+ * front décide ensuite — poser, proposer d'ajuster, ou ne rien faire — et il
+ * le décide sur `status` et `confidence`, pas sur la seule présence d'une
+ * scène.
+ *
+ * @returns {{scene:object|null, status:string, confidence:number|null,
+ *            perspective:object, rug:object, provenance:object}|null}
+ */
+export function sceneExperimentale(analysis) {
+  const sol = analysis && analysis.experimental && analysis.experimental.floor;
+  if (!sol) return null;
+  return {
+    scene: sol.sceneData || null,
+    status: sol.sceneStatus || 'no_floor',
+    confidence: Number.isFinite(sol.sceneConfidence) ? sol.sceneConfidence : null,
+    perspective: sol.perspective || {},
+    rug: sol.rug || {},
+    provenance: sol.sceneProvenance || {},
+  };
+}
+
 export function resumerAnalyse(analysis) {
   if (!analysis) return { etat: 'unavailable', texte: 'Analyse indisponible pour le moment' };
   if (analysis.status === 'rejected') {
     return { etat: 'rejected', texte: 'Cette photo n’est pas exploitable' };
+  }
+  /* La scène expérimentale a ses propres mots, et ils disent « expérimental ».
+     « Sol détecté » tout court laisserait croire à une brique validée. */
+  const xp = sceneExperimentale(analysis);
+  if (xp && xp.scene && xp.status === 'auto_render') {
+    return { etat: 'experimental_scene', texte: 'Sol détecté (expérimental)' };
+  }
+  if (xp && xp.scene && xp.status === 'needs_manual_adjustment') {
+    return { etat: 'experimental_adjust', texte: 'Sol détecté approximativement' };
   }
   if (analysis.sceneData) {
     /* Chemin encore jamais emprunte : aucun backend ne renvoie de scene

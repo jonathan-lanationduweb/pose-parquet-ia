@@ -104,6 +104,13 @@ class Settings(BaseSettings):
     #: « choisi » au sens du LOT C : c'est celui qu'on veut regarder.
     experimental_floor_candidate: str = "oneformer"
 
+    #: Confiance sous laquelle la scène expérimentale n'est PAS posée
+    #: automatiquement : le front montre la photo, dit que le sol est
+    #: approximatif, et propose d'ajuster. Au-dessus, le parquet se pose et
+    #: reste corrigible. Le chiffre n'est pas calibré sur une vérité terrain —
+    #: il n'y en a pas pour cette chaîne — c'est une borne de prudence.
+    experimental_floor_min_confidence: float = Field(default=0.55, ge=0.0, le=1.0)
+
     # --- Limites d'upload ------------------------------------------------
     #: 20 Mo, aligné sur le contrat du front (docs/future-ai-api-contract.md).
     max_upload_bytes: int = 20 * 1024 * 1024

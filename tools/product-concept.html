@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Visualiseur de parquet · Pose Parquet</title>
 
 <!--
@@ -755,6 +755,23 @@
       </button>
     </div>
 
+    <!-- Correction du sol au pinceau — Mode Photo. Un calque dans le MEME
+         repere que la photo (il recoit la transformation du viewport), une
+         barre de quatre commandes. Pas de polygone, pas d'outil de dataset :
+         ajouter au sol, retirer du sol, annuler, terminer. -->
+    <div class="vp hidden" data-vp id="vpEdit"><canvas id="floorEdit" aria-label="Zone du sol : ajoutez ou retirez au pinceau"></canvas></div>
+    <div id="floorTools" class="hidden" role="toolbar" aria-label="Ajuster le sol">
+      <button type="button" data-brush="add" aria-pressed="true">Ajouter au sol</button>
+      <button type="button" data-brush="remove" aria-pressed="false">Retirer du sol</button>
+      <span class="size" role="group" aria-label="Taille de la brosse">
+        <button type="button" data-size="16" aria-pressed="false" aria-label="Brosse fine">S</button>
+        <button type="button" data-size="30" aria-pressed="true" aria-label="Brosse moyenne">M</button>
+        <button type="button" data-size="60" aria-pressed="false" aria-label="Brosse large">L</button>
+      </span>
+      <button type="button" id="floorUndo">Annuler</button>
+      <button type="button" id="floorDone" class="primary">Terminé</button>
+    </div>
+
     <!-- Ce qui remplace la barre produit quand la photo importee n'a pas de
          scene : elle DIT ce qui manque, au lieu de laisser une barre annoncer
          un parquet qui n'est pose nulle part. Le catalogue reste ouvrable —
@@ -958,10 +975,10 @@
      batterie de controle de juger l'interface sans WebGL. -->
 <script type="module">
   import { createLocalRenderer } from '../web/product/local-renderer.js';
-  import { createRoomAnalysisClient, apiBase, resumerAnalyse, RAISONS }
+  import { createRoomAnalysisClient, apiBase, resumerAnalyse, sceneExperimentale, RAISONS }
     from '../web/product/room-analysis-client.js';
   window.__localEngineFactory = createLocalRenderer;
-  window.__roomAnalysis = { createRoomAnalysisClient, apiBase, resumerAnalyse, RAISONS };
+  window.__roomAnalysis = { createRoomAnalysisClient, apiBase, resumerAnalyse, sceneExperimentale, RAISONS };
   window.dispatchEvent(new Event('local-engine-ready'));
 </script>
 
@@ -1336,6 +1353,17 @@
     catch { /* la session courante garde ses favoris, la suivante non */ }
   }
 
+  /**
+   * Vrai quand la photo importee n'a PAS (encore) de scene posee.
+   *
+   * C'est la seule question que les gardes de rendu ont a poser. Avant le
+   * LOT PHOTO.1 elles demandaient « est-ce une photo importee ? » et la
+   * reponse valait « donc pas de parquet ». Depuis qu'une scene
+   * experimentale peut arriver, la bonne question est celle-ci.
+   */
+  const photoSansScene = () => state.source === 'uploaded'
+    && !(state.photoScene && state.photoScene.posee);
+
   const state = {
     /* `demo` | `uploaded` — état d'interface, pas SceneData. */
     source: null,
@@ -1375,6 +1403,13 @@
        ses favoris est desagreable, ne plus pouvoir ouvrir la page l'est
        davantage. */
     favourites: lireFavoris(),
+    /**
+     * La scene EXPERIMENTALE de la photo importee, quand Python en a produit
+     * une. `raw` est la SceneData telle que recue ; `status` et `confidence`
+     * viennent du service ; `posee` dit si le moteur l'a ouverte. Tant que
+     * `posee` est faux, la photo n'a pas de parquet et l'interface le dit.
+     */
+    photoScene: null,
     compare: null,
     picking: false,
     /* Le catalogue montre soit tout, soit les favoris. Sans cet etat, retirer
@@ -1961,6 +1996,36 @@
         });
       },
 
+      /**
+       * Ouvre la scene EXPERIMENTALE d'une photo importee.
+       *
+       * Meme file que `openRoom`, meme etat `engineScene` : pour le reste de
+       * la page, la photo devient une piece comme une autre, dont
+       * l'identifiant est `uploaded` — celui que `room()` rend deja.
+       */
+      openPhotoScene(raw, url) {
+        if (mode !== 'live' || !studio || typeof studio.openScene !== 'function') {
+          return Promise.resolve(false);
+        }
+        return enFile(async () => {
+          await studio.openScene(raw, url, 'uploaded');
+          engineScene = 'uploaded';
+          return true;
+        });
+      },
+
+      /* Le pinceau de correction du sol : des passe-plats gardes, comme le
+         reste du contrat. Un moteur qui ne les a pas rend faux, et
+         l'interface n'affiche pas l'outil. */
+      pinceau: {
+        disponible() { return !!(studio && typeof studio.beginStroke === 'function'); },
+        begin(mode, radius, point) { return !!(studio && typeof studio.beginStroke === 'function' && studio.beginStroke(mode, radius, point)); },
+        extend(point) { return !!(studio && typeof studio.extendStroke === 'function' && studio.extendStroke(point)); },
+        end() { return !!(studio && typeof studio.endStroke === 'function' && studio.endStroke()); },
+        undo() { return !!(studio && typeof studio.undoStroke === 'function' && studio.undoStroke()); },
+        overlay() { return studio && typeof studio.coverageOverlay === 'function' ? studio.coverageOverlay() : null; },
+      },
+
       get scene() { return engineScene; },
       get lastKey() { return lastKey; },
       get refus() { return refus; },
@@ -2460,7 +2525,7 @@
 
   async function applyFloor() {
     const entry = room();
-    if (state.source === 'uploaded') {
+    if (photoSansScene()) {
       $('clipA').classList.add('hidden');
       state.applied = { key: null, source: null };
       paintChrome();
@@ -2530,7 +2595,7 @@
 
   /** Prepare la version B de la comparaison, dans son VRAI etat. */
   async function applyCompareB() {
-    if (!state.compare || state.source === 'uploaded') {
+    if (!state.compare || photoSansScene()) {
       $('vpB').classList.add('hidden');
       state.appliedB = { key: null, source: null };
       return;
@@ -2578,7 +2643,7 @@
   /** Tout ce qui entoure la pièce : découpage, cartes, capsules. */
   function paintChrome() {
     const uploaded = state.source === 'uploaded';
-    const hasRender = Boolean($('after').width) && !uploaded;
+    const hasRender = Boolean($('after').width) && !photoSansScene();
 
     /* Avant/après et comparaison partagent le même séparateur : un seul
        geste, jamais deux contrôles concurrents. Le découpage est posé sur
@@ -2602,6 +2667,7 @@
        n'est pas encore arrive, non : il arrive, et la capture est deja a
        l'ecran. */
     $('noscene').classList.toggle('hidden', !(uploaded && !hasRender));
+    paintNoscene(uploaded && !hasRender);
     if (typeof mesurerBarre === 'function') mesurerBarre();
     applyTransform();
 
@@ -2715,6 +2781,8 @@
       <span class="row">
         ${side === 'A' ? '<button type="button" data-open="cat">Choisir un parquet</button>' : ''}
         <button type="button" data-open="cus">Personnaliser</button>
+        ${side === 'A' && state.photoScene && state.photoScene.posee
+          ? '<button type="button" data-open="floor" aria-label="Ajuster la zone du sol">Ajuster le sol</button>' : ''}
         <span class="sep"></span>
         <button class="fav" type="button" data-fav="${entry.id}" aria-pressed="${on}"
                 aria-label="Favori">${heart(on)}</button>
@@ -2763,10 +2831,11 @@
       const a = state.roomAnalysis;
       const enCours = a.status === 'uploading' || a.status === 'analyzing';
       const texte = a.texte || 'Analyse de la pièce bientôt disponible';
-      const glyphe = a.status === 'complete'
+      const ok = a.status === 'complete' || a.status === 'experimental_scene';
+      const glyphe = ok
         ? '<path d="M20 6L9 17l-5-5" />'
         : '<path d="M12 8v5" /><path d="M12 16.4v.2" />';
-      $('status').dataset.kind = a.status === 'complete' ? 'ok' : 'doubt';
+      $('status').dataset.kind = ok ? 'ok' : 'doubt';
       /* Le libelle passe par un noeud de TEXTE, pas par du balisage : il
          vient d'une reponse de service, et une reponse ne doit jamais
          pouvoir ecrire du HTML dans notre page. */
@@ -2928,7 +2997,7 @@
     const totalMs = Math.round(performance.now() - t0);
     if (!r.ok) {
       poserAnalyse({
-        status: r.raison === 'network' ? 'unavailable' : 'error',
+        status: (r.raison === 'network' || r.raison === 'timeout') ? 'unavailable' : 'error',
         texte: r.message || 'Analyse indisponible pour le moment',
         raison: r.raison, httpStatus: r.status || null,
         networkMs: r.networkMs || null, totalMs,
@@ -2940,6 +3009,89 @@
       status: resume.etat, texte: resume.texte, analysis: r.analysis,
       raison: null, httpStatus: 200, networkMs: r.networkMs || null, totalMs,
     });
+    /* LOT PHOTO.1 : si Python a produit une scene EXPERIMENTALE, on la
+       retient — et on ne la pose que si son statut l'autorise. */
+    const xp = window.__roomAnalysis.sceneExperimentale
+      ? window.__roomAnalysis.sceneExperimentale(r.analysis) : null;
+    if (xp && xp.scene) await poserScenePhoto(xp, jeton, r.analysis);
+  }
+
+  /* =====================================================================
+     Mode Photo — la scene EXPERIMENTALE et sa pose
+
+     Python comprend la piece UNE fois. Tout ce qui suit — produit, motif,
+     largeur, angle, comparaison — est l'affaire du moteur, et ne relance
+     jamais l'analyse. C'est la regle de Roomvo, et c'est la seule qui rende
+     le changement de parquet instantane.
+     ===================================================================== */
+  async function poserScenePhoto(xp, jeton, analysis) {
+    if (jeton !== state.intent || state.source !== 'uploaded' || !state.uploaded) return;
+    const timings = (analysis && analysis.timings) || {};
+    state.photoScene = {
+      raw: xp.scene, status: xp.status, confidence: xp.confidence,
+      perspective: xp.perspective, rug: xp.rug, provenance: xp.provenance,
+      posee: false, sceneBuildMs: timings.segmentation_ms || null, firstRenderMs: null,
+    };
+    /* Sous le seuil, la scene est une PROPOSITION : la photo reste nue, la
+       barre dit que le sol est approximatif et propose d'ajuster. Rien ne se
+       pose sans un geste. */
+    if (xp.status !== 'auto_render') { paintChrome(); return; }
+    await appliquerScenePhoto(jeton);
+  }
+
+  /** Ouvre la scene photo dans le moteur et pose le produit courant. */
+  async function appliquerScenePhoto(jeton) {
+    const ps = state.photoScene;
+    if (!ps || !ps.raw || !state.uploaded) return false;
+    const t0 = performance.now();
+    const ok = await adapter.openPhotoScene(ps.raw, state.uploaded.url);
+    if (!ok || jeton !== state.intent || state.source !== 'uploaded') return false;
+    ps.posee = true;
+    /* Les captures retenues decrivent d'autres etats : on repart de zero. */
+    adapter.forget();
+    state.applied = { key: null, source: null };
+    state.appliedB = { key: null, source: null };
+    await applyFloor();
+    if (ps.firstRenderMs === null) ps.firstRenderMs = Math.round(performance.now() - t0);
+    paintChrome();
+    return true;
+  }
+
+  /**
+   * La barre d'une photo sans parquet dit ce qui manque — et depuis le LOT
+   * PHOTO.1, ce qui est POSSIBLE : ajuster le sol, ou poser la proposition.
+   * Que des chaines constantes : rien de la reponse du service n'ecrit du
+   * HTML ici.
+   */
+  function paintNoscene(visible) {
+    if (!visible) return;
+    const ps = state.photoScene;
+    const a = state.roomAnalysis;
+    const enCours = a.status === 'uploading' || a.status === 'analyzing';
+    let titre = 'Photo importée';
+    let texte = "La détection automatique du sol n'est pas encore disponible. Le parquet s'appliquera lorsque l'analyse de la pièce sera complète.";
+    let actions = '<button type="button" data-open="cat">Voir le catalogue</button>';
+    if (enCours) {
+      texte = 'Analyse de la pièce… Le sol sera détecté dans quelques secondes.';
+    } else if (ps && ps.raw && ps.status === 'needs_manual_adjustment') {
+      titre = 'Sol détecté approximativement';
+      texte = 'La zone du sol est incertaine sur cette photo. Ajustez-la en deux gestes, ou posez le parquet tel quel.';
+      actions = '<button type="button" data-open="floor" class="primary">Ajuster le sol</button>'
+        + '<button type="button" data-open="poser">Poser quand même</button>';
+    } else if (ps && ps.status === 'no_floor') {
+      titre = 'Sol non détecté';
+      texte = "Aucun sol n'a pu être identifié sur cette photo. Cadrez le sol au premier plan, ou essayez une autre photo.";
+    }
+    /* Les textes passent par des noeuds de texte, les actions (constantes)
+       par du balisage : meme discipline que la capsule d'etat. */
+    const tx = document.createElement('span'); tx.className = 'tx';
+    const b = document.createElement('b'); b.textContent = titre;
+    const s = document.createElement('span'); s.textContent = texte;
+    tx.appendChild(b); tx.appendChild(s);
+    const row = document.createElement('span'); row.className = 'row'; row.innerHTML = actions;
+    $('noscene').innerHTML = '';
+    $('noscene').appendChild(tx);
+    $('noscene').appendChild(row);
   }
 
   /* La photo de l'utilisateur : lue en local, jamais envoyée, jamais écrite. */
@@ -2992,6 +3144,8 @@
   function releaseUpload() {
     if (state.uploaded && state.uploaded.url) URL.revokeObjectURL(state.uploaded.url);
     state.uploaded = null;
+    state.photoScene = null;
+    floorEditStop(false);
     /* Une analyse qui continue pour une photo qu'on ne regarde plus est du
        calcul jete, et une reponse qui pourrait encore parler. On annule. */
     if (analysisClient) analysisClient.cancel();
@@ -3458,6 +3612,8 @@
       const open = e.target.closest('[data-open]');
       if (open) {
         if (open.dataset.open === 'cat') openCat();
+        else if (open.dataset.open === 'floor') floorEditStart();
+        else if (open.dataset.open === 'poser') appliquerScenePhoto(state.intent);
         else if (open.dataset.open === 'cus') openCus();
         else if (open.dataset.open === 'cmpB') pickB();
         else startCompare();
@@ -3612,6 +3768,147 @@
     if (DEV) toast(`Moteur : ${mode}`);
   });
 
+  /* =====================================================================
+     Ajuster le sol — le pinceau
+
+     L'outil le plus simple qui corrige un masque : on peint ce qui est du sol,
+     on efface ce qui n'en est pas. Le moteur sait deja le faire (ses masques
+     recoivent des traits) ; cette couche ne fait que capter le doigt, montrer
+     la zone, et redemander un rendu a la fin du geste.
+
+     Pendant la correction, les gestes du viewport sont suspendus : un trait
+     ne doit pas deplacer la photo. On recadre AVANT d'editer pour que toute
+     la photo soit visible, et le pan/zoom reprennent a « Terminé ».
+     ===================================================================== */
+  const floorEdit = { actif: false, mode: 'add', trait: false, snap: null, taille: 30 };
+
+  function floorEditStart() {
+    const ps = state.photoScene;
+    if (!ps || !ps.raw || !state.uploaded) return;
+    if (!adapter.pinceau.disponible()) { toast('Correction indisponible sur ce moteur'); return; }
+    closeAll();
+    const lancer = async () => {
+      if (!ps.posee) {
+        const ok = await appliquerScenePhoto(state.intent);
+        if (!ok) { toast("Impossible d'ouvrir la scène"); return; }
+      }
+      floorEdit.actif = true;
+      document.body.classList.add('floor-editing');
+      $('vpEdit').classList.remove('hidden');
+      $('floorTools').classList.remove('hidden');
+      fitAll();
+      floorEditSize();
+      floorEditRefresh();
+      paintChrome();
+    };
+    lancer();
+  }
+
+  function floorEditStop(appliquer = true) {
+    if (!floorEdit.actif) return;
+    floorEdit.actif = false;
+    floorEdit.trait = false;
+    document.body.classList.remove('floor-editing');
+    $('vpEdit').classList.add('hidden');
+    $('floorTools').classList.add('hidden');
+    /* On avait recadre sur toute la photo pour corriger : on rend le cadrage
+       immersif, celui dans lequel on regarde son sol. */
+    scheduleFit();
+    if (appliquer) {
+      /* La correction a change le masque : les captures retenues sont
+         fausses, et le rendu doit etre refait avec le nouveau sol. */
+      adapter.forget();
+      state.applied = { key: null, source: null };
+      state.appliedB = { key: null, source: null };
+      applyFloor();
+    }
+    paintChrome();
+  }
+
+  /** Le calque a la taille intrinseque de la scene, comme les autres couches. */
+  function floorEditSize() {
+    const c = $('floorEdit');
+    const s = sceneSize();
+    if (c.width !== s.w || c.height !== s.h) { c.width = s.w; c.height = s.h; }
+  }
+
+  /**
+   * Recopie la teinte du sol courant, dessinee par le MOTEUR.
+   *
+   * La page ne compose aucun pixel : elle vide le calque (en lui redonnant sa
+   * taille) et copie ce que le moteur lui tend. C'est la meme regle que pour
+   * les couches de rendu — `paintLayer` copie, et rien d'autre n'ecrit.
+   */
+  function floorEditRefresh() {
+    const ov = adapter.pinceau.overlay();
+    floorEdit.snap = ov ? { width: ov.width, height: ov.height } : null;
+    const c = $('floorEdit');
+    c.width = c.width;
+    if (!ov) return;
+    c.getContext('2d').drawImage(ov.canvas, 0, 0, c.width, c.height);
+  }
+
+  /** Point du doigt → coordonnees normalisees de la scene. */
+  function floorEditPoint(e) {
+    const r = $('floorEdit').getBoundingClientRect();
+    if (!r.width || !r.height) return null;
+    return { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height };
+  }
+
+  /** Rayon de brosse : en pixels de MASQUE, depuis la taille a l'ecran. */
+  function floorEditRadius() {
+    const px = floorEdit.taille || 30;
+    const r = $('floorEdit').getBoundingClientRect();
+    const snap = floorEdit.snap;
+    const echelle = snap && r.width ? snap.width / r.width : 1;
+    return Math.max(2, (px / 2) * echelle);
+  }
+
+  $('floorEdit').addEventListener('pointerdown', (e) => {
+    if (!floorEdit.actif) return;
+    e.stopPropagation(); e.preventDefault();
+    const pt = floorEditPoint(e);
+    if (!pt) return;
+    $('floorEdit').setPointerCapture(e.pointerId);
+    floorEdit.trait = adapter.pinceau.begin(floorEdit.mode, floorEditRadius(), pt);
+  });
+  $('floorEdit').addEventListener('pointermove', (e) => {
+    if (!floorEdit.actif || !floorEdit.trait) return;
+    e.stopPropagation(); e.preventDefault();
+    const pt = floorEditPoint(e);
+    if (pt) adapter.pinceau.extend(pt);
+  });
+  const floorEditUp = (e) => {
+    if (!floorEdit.actif || !floorEdit.trait) return;
+    e.stopPropagation();
+    floorEdit.trait = false;
+    adapter.pinceau.end();
+    /* Apercu immediat : la teinte suit le trait, le parquet suivra « Terminé »
+       — un rendu complet par trait ferait attendre a chaque geste. */
+    floorEditRefresh();
+  };
+  $('floorEdit').addEventListener('pointerup', floorEditUp);
+  $('floorEdit').addEventListener('pointercancel', floorEditUp);
+  $('floorTools').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-brush]');
+    if (b) {
+      floorEdit.mode = b.dataset.brush;
+      $('floorTools').querySelectorAll('[data-brush]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+      return;
+    }
+    const s = e.target.closest('[data-size]');
+    if (s) {
+      floorEdit.taille = Number(s.dataset.size) || 30;
+      $('floorTools').querySelectorAll('[data-size]').forEach((x) => x.setAttribute('aria-pressed', String(x === s)));
+      return;
+    }
+    if (e.target.closest('#floorUndo')) { adapter.pinceau.undo(); floorEditRefresh(); return; }
+    if (e.target.closest('#floorDone')) floorEditStop(true);
+  });
+  document.addEventListener('keydown', (e) => {
+    if (floorEdit.actif && e.key === 'Escape') { e.stopPropagation(); floorEditStop(true); }
+  }, true);
+
   /* Exposé pour les tests : le vrai script est exécuté sous Node avec un DOM
      minimal, et un test qui réimplémenterait cette logique ne testerait rien. */
   window.__concept = {
@@ -3621,6 +3918,7 @@
     room, product, renderUrl, originalUrl, preload, probeImages,
     findMatchingProduct, findVariant: findMatchingProduct, presentPatterns, presentTones, presentWidths, startCompare,
     adapter, paintLayer, applyFloor, applyCompareB, appliedKey, paintChrome,
+    photoSansScene, poserScenePhoto, appliquerScenePhoto, floorEditStart, floorEditStop, floorEdit,
     getRenderStateKey: (profile, deg) => adapter.getRenderStateKey(profile, deg),
     ORIENTATIONS, ORIENT_PRESETS, normDeg, paintDial, setOrientation,
     ENGINE_URL, CAPABILITIES_NONE,

@@ -251,3 +251,45 @@ La sortie n'est pas technique : il faut un jeu d'images à nous —
 photographies de pièces dont nous détenons les droits, et vignettes produit
 issues de nos propres rendus. Tant que ce jeu n'existe pas, toute
 « correction » consisterait à versionner les images de quelqu'un d'autre.
+
+## Mode Photo expérimental (LOT PHOTO.1, 1ᵉʳ octobre 2026)
+
+    EXPERIMENTAL PRODUCT PIPELINE · AUCUN MODÈLE RETENU · LOT C OFFICIEL SÉPARÉ
+
+Une photo importée peut désormais recevoir un parquet. La chaîne, et ce que
+chaque maillon sait vraiment :
+
+    photo ─► quality/lens ─► segmentation (candidat expérimental)
+          ─► FloorMaskRefiner ─► polygones + trous
+          ─► perspective (rails du masque → point de fuite, ou horizon supposé)
+          ─► SceneData @1 dans experimental.floor.sceneData
+          ─► moteur local (openScene) ─► parquet, corrigible au pinceau
+
+**Ce qui est mesuré et ce qui est supposé.** L'horizon est *mesuré* quand les
+deux bords latéraux du sol sont visibles (méthode `vanishing-point`) ; il est
+*supposé* un peu au-dessus du mur du fond sinon (`far-edge-fallback`), et la
+confiance le dit. L'échelle est une *hypothèse* de sténopé : focale 0,85 ×
+largeur, caméra à 1,50 m. Elle est plausible, pas mesurée — et sur les photos
+d'essai la profondeur est surestimée (15 m rendus pour une chambre de 5 m) :
+le rapport du lot le chiffre.
+
+**Le contrat officiel ne bouge pas.** `sceneData` reste `null`. La scène vit
+dans `experimental.floor.sceneData`, avec `sceneStatus`
+(`auto_render` | `needs_manual_adjustment` | `no_floor`), `sceneConfidence`,
+`perspective` et `sceneProvenance`. Un client qui ignore ce bloc ne voit rien.
+
+**La porte de confiance** (`PPAI_EXPERIMENTAL_FLOOR_MIN_CONFIDENCE`, 0,55)
+décide si le parquet se pose seul ou si la photo reste nue avec « Ajuster le
+sol ». La correction est un pinceau — ajouter, retirer, annuler, terminer —
+branché sur les traits que les masques du moteur savaient déjà recevoir.
+
+**Occlusions : masque seul.** Un objet n'est protégé que là où le modèle de
+sol l'a laissé hors du masque. Pieds fins préservés par le raffineur ;
+aucune segmentation d'occulteurs. **LOT D n'est pas fait.** Le tapis est un
+signal ADE20K marqué `EXPERIMENTAL / UNVALIDATED` : le corpus officiel n'en
+contient aucun.
+
+**Réseau pendant l'analyse.** Vu en situation : `from_pretrained` interrogeait
+huggingface.co à chaque premier chargement malgré des poids en cache. Le
+chargement est désormais `local_files_only` d'abord, réseau seulement si le
+cache est vide — une analyse de photo de domicile ne dépend plus d'un tiers.

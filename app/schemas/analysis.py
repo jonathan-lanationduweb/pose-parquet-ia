@@ -324,11 +324,31 @@ class ExperimentalFloor(_Model):
     boundary: list[list[Point]] = Field(default_factory=list)
     timings_ms: dict[str, float] = Field(default_factory=dict)
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+    #: --- LOT PHOTO.1 : la scène EXPÉRIMENTALE ------------------------------
+    #:
+    #: Une `SceneData` dérivée du masque, **ici et pas dans `sceneData`**. La
+    #: différence n'est pas cosmétique : `sceneData` est le contrat officiel,
+    #: `experimental.floor.sceneData` est une proposition que le front montre
+    #: comme telle, avec sa confiance et son statut. Un client qui ignore ce
+    #: bloc ne voit rien ; un client qui le lit sait exactement ce qu'il lit.
+    scene_data: SceneData | None = None
+    #: `auto_render` | `needs_manual_adjustment` | `no_floor`.
+    scene_status: str = "no_floor"
+    scene_confidence: float | None = Field(default=None, ge=0.0, le=1.0)
+    #: Comment l'horizon et l'échelle ont été obtenus — mesure ou hypothèse.
+    perspective: dict[str, Any] = Field(default_factory=dict)
+    #: Tapis vus par la sémantique. Toujours marqué non validé.
+    rug: dict[str, Any] = Field(default_factory=dict)
+    scene_provenance: dict[str, Any] = Field(default_factory=dict)
+
     #: Dit dans la réponse elle-même ce que le nom du champ dit déjà : rien
-    #: ici n'est une vérité terrain, et rien n'autorise à poser un parquet.
+    #: ici n'est une vérité terrain, et rien n'autorise à prendre cette scène
+    #: pour une détection validée.
     disclaimer: str = (
         "EXPERIMENTAL — segmentation exploratoire, aucune verite terrain, "
-        "aucun modele retenu, ne declenche aucun rendu"
+        "aucun modele retenu ; la scene eventuelle est une proposition "
+        "a confiance declaree, corrigible par l'utilisateur"
     )
 
 

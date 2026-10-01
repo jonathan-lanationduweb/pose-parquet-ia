@@ -651,3 +651,135 @@ header button:focus-visible {
   }
   .dw-pane .body > .main { flex: 1; min-height: 0; overflow: auto; }
 }
+
+/* =====================================================================
+   LOT PHOTO.1 — mobile premium, zones sûres, correction du sol
+   ===================================================================== */
+
+/* ---------------------------------------------------------------------
+   16. Zones sûres (iPhone) et hauteurs modernes
+
+   `viewport-fit=cover` est posé dans la page : sans lui, `env()` vaut zéro.
+   `dvh` suit la barre d'adresse mobile ; `vh` reste en repli juste avant.
+   --------------------------------------------------------------------- */
+header { padding-top: env(safe-area-inset-top, 0px); }
+#card, #cardB, #noscene { bottom: calc(14px + env(safe-area-inset-bottom, 0px)); }
+.dw {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  max-height: 62vh;
+  max-height: 62dvh;
+  touch-action: pan-y;
+}
+.dw[data-size="collapsed"] { max-height: 34vh; max-height: 34dvh; }
+.dw[data-size="expanded"]  { max-height: 88vh; max-height: 88dvh; }
+.dw-grip { width: 44px; height: 5px; margin: 10px auto 4px; cursor: grab; touch-action: none; }
+.dw-grip::before { content: ''; position: absolute; left: 0; right: 0; height: 28px; margin-top: -12px; }
+
+/* ---------------------------------------------------------------------
+   17. Téléphone : barre produit sur deux lignes, capsule en icônes,
+       bandeau à trois actions
+   --------------------------------------------------------------------- */
+@media (max-width: 700px) {
+  #card, #cardB, #noscene { bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+  .dw { max-height: 58vh; max-height: 58dvh; }
+  .dw[data-size="collapsed"] { max-height: 30vh; max-height: 30dvh; }
+  .dw[data-size="expanded"]  { max-height: 86vh; max-height: 86dvh; }
+
+  /* « Changer de pièce » vit dans le menu et dans le tiroir : quatre actions
+     dans un bandeau de 390 px, c'était une de trop. */
+  #hSwap { display: none !important; }
+
+  /* La capsule d'outils en icônes. Les noms accessibles sont des
+     `aria-label`, posés dans la page : rien n'est perdu pour le lecteur. */
+  #tools button .lbl { display: none; }
+  #tools button { min-width: 44px; padding: 0 12px; justify-content: center; }
+
+  /* La barre produit : ligne 1 = vignette, nom, cœur ; ligne 2 = Choisir,
+     Personnaliser. Les métadonnées vivent dans le tiroir. */
+  #card, #cardB {
+    grid-template-columns: 40px minmax(0, 1fr) minmax(0, 1fr) 44px;
+    grid-template-areas:
+      'sw  nom nom fav'
+      'cat cat cus cus';
+    gap: 6px 10px;
+    padding: 10px 12px 10px;
+  }
+  #card .sw, #cardB .sw { grid-area: sw; grid-row: auto; width: 40px; height: 40px; }
+  #card b, #cardB b { grid-area: nom; align-self: center; font-size: 14px; }
+  #card .dim, #card .ref, #cardB .dim, #cardB .ref { display: none; }
+  #card .row, #cardB .row { display: contents; }
+  #card .row .sep, #cardB .row .sep { display: none; }
+  #card .row .fav, #cardB .row .fav { grid-area: fav; min-width: 44px; min-height: 44px; margin: 0; }
+  #card .row button[data-open="cat"] { grid-area: cat; }
+  #card .row button[data-open="cus"], #cardB .row button[data-open="cus"] { grid-area: cus; }
+  #card .row button[data-open="cmpA"], #cardB .row button[data-open="cmpB"] { display: none; }
+  #card .row button[data-open="floor"] { grid-column: 1 / -1; }
+  #card .row button, #cardB .row button { min-height: 44px; font-size: 13px; }
+}
+
+/* ---------------------------------------------------------------------
+   18. Ajuster le sol — le pinceau
+
+   Un calque dans le repère du viewport, une barre à la place de la fiche.
+   Pendant la correction, le reste du chrome s'efface : un seul geste à la
+   fois, et la photo entière sous le doigt.
+   --------------------------------------------------------------------- */
+#vpEdit { pointer-events: none; z-index: 5; }
+#vpEdit.hidden { display: none; }
+#floorEdit {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: auto;
+  cursor: crosshair;
+  touch-action: none;
+}
+body.floor-editing #card,
+body.floor-editing #cardB,
+body.floor-editing #noscene,
+body.floor-editing #tools,
+body.floor-editing #status { display: none !important; }
+body.floor-editing #stage { cursor: crosshair; }
+
+#floorTools {
+  position: absolute;
+  left: 50%;
+  bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  z-index: 9;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: calc(100% - 24px);
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(18px);
+  border-radius: var(--r-pill);
+  box-shadow: 0 1px 3px rgba(24, 22, 18, 0.07), 0 10px 34px rgba(24, 22, 18, 0.13);
+}
+#floorTools.hidden { display: none; }
+#floorTools button {
+  min-height: 40px;
+  padding: 0 12px;
+  border-radius: var(--r-pill);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+#floorTools button[aria-pressed="true"] { background: var(--track-2); color: var(--ink); }
+#floorTools button.primary { background: var(--graphite); color: #fff; }
+#floorTools .size { display: flex; align-items: center; gap: 2px; }
+#floorTools .size button { min-width: 40px; padding: 0 8px; font-weight: 600; }
+#noscene .row { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+#noscene .row button.primary { background: var(--graphite); color: #fff; }
+#noscene .row button:not(.primary) { background: var(--track); color: var(--ink-2); }
+
+@media (max-width: 700px) {
+  #floorTools { left: 12px; right: 12px; transform: none; max-width: none; flex-wrap: wrap; justify-content: center; border-radius: 18px; }
+  #floorTools button { min-height: 44px; flex: 1 1 auto; }
+  #floorTools .size { flex: 1 1 100%; justify-content: center; }
+  #noscene .row { justify-content: stretch; }
+  #noscene .row button { flex: 1 1 auto; }
+}

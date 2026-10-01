@@ -80,6 +80,24 @@ def environnement() -> dict[str, object]:
     }
 
 
+def _depuis_le_cache(classe: Any, checkpoint: str) -> Any:
+    """Charge d'abord SANS réseau, et ne va au Hub que si le cache est vide.
+
+    Vu en situation (LOT PHOTO.1) : avec les poids déjà sur le disque,
+    `from_pretrained` interrogeait quand même huggingface.co à chaque premier
+    chargement — commits, discussions, HEAD sur les fichiers — pendant
+    l'analyse de la photo de quelqu'un. Aucun pixel ne part, mais une analyse
+    de photo de domicile n'a pas à dépendre d'un service tiers, ni à échouer
+    sans réseau quand tout est déjà là. Le téléchargement reste possible : il
+    n'arrive que la première fois, et c'est alors une opération d'installation,
+    pas d'analyse.
+    """
+    try:
+        return classe.from_pretrained(checkpoint, cache_dir=CACHE_DIR, local_files_only=True)
+    except OSError:
+        return classe.from_pretrained(checkpoint, cache_dir=CACHE_DIR)
+
+
 class OneFormerFloor:
     """OneFormer ADE20K : segmentation sémantique à 150 classes."""
 
@@ -94,11 +112,9 @@ class OneFormerFloor:
         from transformers import OneFormerForUniversalSegmentation, OneFormerProcessor
 
         t0 = time.perf_counter()
-        processeur = OneFormerProcessor.from_pretrained(self.checkpoint, cache_dir=CACHE_DIR)
-        modele = OneFormerForUniversalSegmentation.from_pretrained(
-            self.checkpoint, cache_dir=CACHE_DIR
-        )
-        modele.eval()  # type: ignore[no-untyped-call]
+        processeur = _depuis_le_cache(OneFormerProcessor, self.checkpoint)
+        modele = _depuis_le_cache(OneFormerForUniversalSegmentation, self.checkpoint)
+        modele.eval()
         ms = (time.perf_counter() - t0) * 1000
         _charges[self.checkpoint] = (processeur, modele)
         return processeur, modele, ms
@@ -128,6 +144,7 @@ class OneFormerFloor:
         return FloorSegmentationResult(
             candidate=self.name,
             mask=masque,
+            labels=labels,
             probability=None,
             boundary=bord,
             timings={
@@ -162,13 +179,9 @@ class UperNetFloor:
         from transformers import AutoImageProcessor, UperNetForSemanticSegmentation
 
         t0 = time.perf_counter()
-        processeur = AutoImageProcessor.from_pretrained(  # type: ignore[no-untyped-call]
-            self.checkpoint, cache_dir=CACHE_DIR
-        )
-        modele = UperNetForSemanticSegmentation.from_pretrained(
-            self.checkpoint, cache_dir=CACHE_DIR
-        )
-        modele.eval()  # type: ignore[no-untyped-call]
+        processeur = _depuis_le_cache(AutoImageProcessor, self.checkpoint)
+        modele = _depuis_le_cache(UperNetForSemanticSegmentation, self.checkpoint)
+        modele.eval()
         ms = (time.perf_counter() - t0) * 1000
         _charges[self.checkpoint] = (processeur, modele)
         return processeur, modele, ms
@@ -202,6 +215,7 @@ class UperNetFloor:
         return FloorSegmentationResult(
             candidate=self.name,
             mask=masque,
+            labels=labels,
             probability=proba_sol,
             boundary=bord,
             timings={

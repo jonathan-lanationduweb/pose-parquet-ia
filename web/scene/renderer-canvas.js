@@ -155,6 +155,7 @@ export function createCanvasRenderer() {
         const micro = light.micro;
         const saturation = light.saturation;
         const shadowFloor = light.shadowFloor;
+        const repeatVar = light.repeatVar;
         const albedoMean = albedoMeanLuma(maps) * 255;
         const exposure = shading
           ? exposureScale(shading, albedoMean / 255, light.exposure)
@@ -198,7 +199,14 @@ export function createCanvasRenderer() {
             // shader, voir 'uJitter' dans renderer-gl.js. Le décalage est
             // calculé une fois pour le pixel, avant l'étalement anisotrope,
             // pour que tous ses échantillons restent dans la même rangée.
-            const tx = (fu * cos - fv * sin) * perMeter + decalageRangee(ty);
+            const txBrut = (fu * cos - fv * sin) * perMeter;
+            const tx = txBrut + decalageRangee(ty);
+            // Variation d'exposition par repetition de tuile : cf. uRepeatVar
+            // dans renderer-gl.js, meme recurrence, memes constantes.
+            const celX = Math.floor(txBrut / TILE);
+            const celY = Math.floor(ty / TILE);
+            const hRep = ((celX * 0.6180339887 + celY * 0.3819660113) % 1 + 1) % 1;
+            const expoRep = 1 + repeatVar * (hRep - 0.5) * 2;
 
             // Empreinte du pixel dans la tuile : deux axes, souvent très
             // inégaux en perspective rasante. Filtrer sur le plus grand rend
@@ -272,9 +280,9 @@ export function createCanvasRenderer() {
             // renderer-gl.js. `acc` est en 0..255, `albedoMean` aussi.
             const aBrut = 0.2126 * acc[0] + 0.7152 * acc[1] + 0.0722 * acc[2];
             const relance = 1 + micro * (aBrut - albedoMean) / Math.max(aBrut, 12.75);
-            acc[0] = clampByte(acc[0] * relance);
-            acc[1] = clampByte(acc[1] * relance);
-            acc[2] = clampByte(acc[2] * relance);
+            acc[0] = clampByte(acc[0] * relance * expoRep);
+            acc[1] = clampByte(acc[1] * relance * expoRep);
+            acc[2] = clampByte(acc[2] * relance * expoRep);
 
             const aLum = (0.2126 * acc[0] + 0.7152 * acc[1] + 0.0722 * acc[2]) / 255;
             const lift = ambient * (1 - aLum);

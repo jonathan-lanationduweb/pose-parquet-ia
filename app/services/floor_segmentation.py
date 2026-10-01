@@ -82,6 +82,11 @@ class FloorSegmentationResult:
     #: signifie « étage non exécuté », jamais « instantané ».
     timings: dict[str, float] = field(default_factory=dict)
     metadata: dict[str, object] = field(default_factory=dict)
+    #: Carte de classes complète, quand le candidat est sémantique. Sert au
+    #: pipeline expérimental pour lire d'autres classes que le sol — le tapis
+    #: en premier — sans relancer le modèle. `None` pour une base géométrique,
+    #: qui ne connaît aucune classe.
+    labels: np.ndarray | None = None
 
     @property
     def coverage(self) -> float:
