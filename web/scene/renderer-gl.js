@@ -75,6 +75,39 @@ uniform vec3  uLightTint;   // dominante GLOBALE de la lumiere, luminance 1
 uniform float uShadowGain;  // dose des ombres de contact lues dans la photo
 uniform float uHighlight;   // dose de la lumiere haute frequence (soleil, reflets)
 uniform vec3  uChevron;     // colonne (u), pas (v), rangs par tuile ; x = 0 hors point de Hongrie
+uniform vec4  uBaton;       // w, l (fraction de tuile), na, nb ; x = 0 hors baton rompu
+uniform float uMidLight;    // dose de la lumiere a echelle moyenne (bandes de soleil)
+uniform float uLightMax;    // eclaircissement maximal des couches lumiere
+
+// Identite d'une lame de baton rompu — LOT PHOTO.4. Meme calcul que
+// lameBaton() / hacheLame() dans texture.js.
+float hacheLame(vec3 c, float n) {
+  float x = c.x * 0.7548776662 + c.y * 0.5698402910 + c.z * 0.4142135624 + n * 0.2360679775;
+  return fract(x * x * 0.6180339887 + x);
+}
+vec4 lameBaton(vec2 p, vec2 wl) {
+  float s = 1.41421356 * (p.y - 0.5);
+  float d = 1.41421356 * (p.x - 0.5);
+  float w = wl.x;
+  float l = wl.y;
+  float i0 = floor((s - 2.0 * l - w) / (2.0 * l)) - 1.0;
+  float j0 = floor((d - 2.0 * l - w) / (2.0 * w)) - 1.0;
+  for (int a = 0; a < 5; a++) {
+    float i = i0 + float(a);
+    for (int b = 0; b < 18; b++) {
+      float j = j0 + float(b);
+      float sa = s - 2.0 * i * l;
+      float da = d - 2.0 * j * w;
+      float pa = (sa + da) * 0.5;
+      float qa = (sa - da) * 0.5;
+      if (pa >= -1e-6 && pa < l + 1e-6 && qa >= -1e-6 && qa < w + 1e-6) return vec4(i, j, 0.0, 1.0);
+      float pb = (sa - l + da - l) * 0.5;
+      float qb = (sa - l - (da - l)) * 0.5;
+      if (pb >= -1e-6 && pb < w + 1e-6 && qb >= -1e-6 && qb < l + 1e-6) return vec4(i, j, 1.0, 1.0);
+    }
+  }
+  return vec4(0.0);
+}
 
 // Bruit de valeur continu, en metres de sol — LOT PHOTO.3. Remplace une
 // exposition CONSTANTE par tuile, qui posait une marche de luminance a chaque
@@ -147,6 +180,18 @@ void main() {
     float colonne = floor(uv.x / uChevron.x);
     uvLu.y += floor(fract(colonne * 0.6180339887) * uChevron.z) * uChevron.y;
   }
+  // Baton rompu : chaque lame lit l'apparence d'une autre lame de la tuile,
+  // par une translation entiere du reseau. La geometrie ne bouge pas.
+  vec2 varLame = vec2(1.0, 0.0);
+  if (uBaton.x > 0.0) {
+    vec4 lame = lameBaton(uv, uBaton.xy);
+    if (lame.w > 0.0) {
+      uvLu += vec2(floor(hacheLame(lame.xyz, 1.0) * uBaton.w) * uBaton.x,
+                   floor(hacheLame(lame.xyz, 2.0) * uBaton.z) * uBaton.y) * 1.41421356;
+      varLame = vec2(1.0 + 0.035 * (hacheLame(lame.xyz, 3.0) - 0.5) * 2.0,
+                     0.02 * (hacheLame(lame.xyz, 4.0) - 0.5) * 2.0);
+    }
+  }
   if (uJitter > 0.0) {
     float rangee = floor(uv.y * uRowsPerTile);
     // Recurrence doree plutot que fract(sin(x)) : la seconde depend de la
@@ -161,6 +206,7 @@ void main() {
   // 'uvLu' lui ferait lire un saut à chaque changement de rangée et choisir un
   // mipmap absurde — une ligne floue apparaîtrait à chaque joint de lame.
   vec3 albedo = textureGrad(uAlbedo, uvLu, dFdx(uv), dFdy(uv)).rgb;
+  albedo *= varLame.x * vec3(1.0 + varLame.y, 1.0, 1.0 - varLame.y);
   vec3 relief = textureGrad(uReliefMap, uvLu, dFdx(uv), dFdy(uv)).rgb;
 
   // Taille du pixel au sol, en mètres : sert à estomper le relief au loin,
@@ -218,11 +264,11 @@ void main() {
 
   // Ombres de contact lues dans la photo (residu sombre large, joints exclus) :
   // la chaise, le radiateur et le bas du mur reprennent leur ombre.
-  vec3 residu = texture(uGloss, texel).rgb;
+  vec4 residu = texture(uGloss, texel);
   gain *= 1.0 - uShadowGain * residu.g;
-  // Lumiere haute frequence : soleil et reflets de fenetre, que le flou de la
-  // carte basse frequence etalait en halo. En LUMINANCE, comme le reste.
-  gain *= 1.0 + uHighlight * residu.b;
+  // Lumiere haute frequence (reflets) et a echelle moyenne (bandes de soleil),
+  // en LUMINANCE, bornees ensemble : le bois doit rester visible dessous.
+  gain *= min(uLightMax, (1.0 + uHighlight * residu.b) * (1.0 + uMidLight * residu.a));
 
   vec2 slope = (relief.rg - 0.5) * 2.0;
   float bump = clamp(1.0 + dot(slope, uLight) * uReliefGain * near, 0.55, 1.6);
@@ -372,7 +418,7 @@ export function createGlRenderer() {
     'uRowsPerTile', 'uJitter',
     'uLabel', 'uLight', 'uStrength', 'uAmbient', 'uTint', 'uReliefGain', 'uGlossGain',
     'uGamma', 'uExposure', 'uMicro', 'uAlbedoMean', 'uSaturation', 'uShadowFloor', 'uRepeatVar',
-    'uLightTint', 'uShadowGain', 'uHighlight', 'uChevron',
+    'uLightTint', 'uShadowGain', 'uHighlight', 'uChevron', 'uBaton', 'uMidLight', 'uLightMax',
     'uMask', 'uAlbedo', 'uReliefMap', 'uShading', 'uGloss',
   ]);
   const uBlit = uniforms(blit, ['uTex']);
@@ -425,7 +471,7 @@ export function createGlRenderer() {
   let maskBytes = null;
   let residualBytes = null;
   let currentMaterial = null;
-  const noResidual = new Uint8Array([0, 0, 0]);
+  const noResidual = new Uint8Array([0, 0, 0, 0]);
 
   shared = {
     backend: 'webgl2',
@@ -438,7 +484,7 @@ export function createGlRenderer() {
       canvas.height = height;
       size = { width, height };
       maskBytes = new Uint8Array(width * height * 4);
-      residualBytes = new Uint8Array(width * height * 3);
+      residualBytes = new Uint8Array(width * height * 4);
       currentMaterial = null;
     },
 
@@ -468,21 +514,22 @@ export function createGlRenderer() {
     /** Reflets (R), ombres de contact (G) et lumiere (B), dans une seule texture. */
     setResidual(residual) {
       if (!residual) {
-        upload(tex.gloss, gl.RGB8, gl.RGB, gl.UNSIGNED_BYTE, 1, 1, noResidual);
+        upload(tex.gloss, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, 1, 1, noResidual);
         return;
       }
-      const { gloss, shadow, light } = residual;
+      const { gloss, shadow, light, mid } = residual;
       const w = residual.width || size.width;
       const h = residual.height || size.height;
-      const octets = residualBytes && residualBytes.length >= w * h * 3 ? residualBytes : new Uint8Array(w * h * 3);
-      for (let i = 0, p = 0; i < gloss.length; i += 1, p += 3) {
+      const octets = residualBytes && residualBytes.length >= w * h * 4 ? residualBytes : new Uint8Array(w * h * 4);
+      for (let i = 0, p = 0; i < gloss.length; i += 1, p += 4) {
         octets[p] = Math.min(255, Math.round(gloss[i] * 255));
         octets[p + 1] = shadow ? Math.min(255, Math.round(shadow[i] * 255)) : 0;
         octets[p + 2] = light ? Math.min(255, Math.round(light[i] * 255)) : 0;
+        octets[p + 3] = mid ? Math.min(255, Math.round(mid[i] * 255)) : 0;
       }
       // La carte peut etre plus petite que la photo : le shader la lit en
       // coordonnees normalisees, et le filtrage lineaire l'agrandit.
-      upload(tex.gloss, gl.RGB8, gl.RGB, gl.UNSIGNED_BYTE, w, h, octets);
+      upload(tex.gloss, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, w, h, octets);
     },
 
     /** Cartes du matériau. Les mipmaps sont fabriquées par le GPU. */
@@ -530,6 +577,8 @@ export function createGlRenderer() {
       gl.uniform1f(u.uRepeatVar, scene.light.repeatVar);
       gl.uniform1f(u.uShadowGain, scene.light.contactShadow);
       gl.uniform1f(u.uHighlight, scene.light.highlight);
+      gl.uniform1f(u.uMidLight, scene.light.midLight);
+      gl.uniform1f(u.uLightMax, scene.light.lightMax);
       const teinte = (shading && shading.lightTint) || [1, 1, 1];
       gl.uniform3f(u.uLightTint, teinte[0], teinte[1], teinte[2]);
 
@@ -567,7 +616,10 @@ export function createGlRenderer() {
         gl.uniform1f(u.uRowsPerTile, droit ? Math.max(1, Math.round(TILE_METERS / profil.width)) : 1);
         gl.uniform1f(u.uJitter, droit ? 1 : 0);
         const periode = motifPeriode(surface.material, config.pattern, config.width || null);
-        gl.uniform3f(u.uChevron, periode ? periode.colonne : 0, periode ? periode.pas : 0, periode ? periode.rangs : 0);
+        const chevron = periode && periode.type !== 'baton' ? periode : null;
+        gl.uniform3f(u.uChevron, chevron ? chevron.colonne : 0, chevron ? chevron.pas : 0, chevron ? chevron.rangs : 0);
+        const baton = periode && periode.type === 'baton' ? periode : null;
+        gl.uniform4f(u.uBaton, baton ? baton.w : 0, baton ? baton.l : 0, baton ? baton.na : 0, baton ? baton.nb : 0);
         gl.uniform1f(u.uLabel, index + 1);
         gl.uniform2f(u.uLight, light.u, light.v);
         // Les deux valeurs qui dependent de la MATIERE, donc de la zone : la

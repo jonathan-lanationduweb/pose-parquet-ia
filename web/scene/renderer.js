@@ -200,7 +200,8 @@ export function createSceneRenderer({ prefer = 'auto' } = {}) {
       const ok = cpu.paint({
         source, target: buffer, scene, masks, shading,
         gloss: residual && residual.fullRes().gloss, shadow: residual && residual.fullRes().shadow,
-        light: residual && residual.fullRes().light, surfaces, step,
+        light: residual && residual.fullRes().light,
+        mid: residual && residual.fullRes().mid, mid: residual && residual.fullRes().mid, surfaces, step,
       });
       if (!ok) return false;
       ctx.putImageData(buffer, 0, 0);

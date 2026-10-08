@@ -26,7 +26,7 @@
  * disponible ; voir docs/renderer-canvas-vs-webgl.md.
  */
 import { zoneTransform, lightDirection, tileLight } from './geometry.js';
-import { TILE, TILE_METERS, patternProfile, motifPeriode } from './texture.js';
+import { TILE, TILE_METERS, patternProfile, motifPeriode, apparenceBaton } from './texture.js';
 
 /* Même bruit continu que le shader (cf. `bruitSol` dans renderer-gl.js). */
 const fract = (v) => v - Math.floor(v);
@@ -108,7 +108,7 @@ export function createCanvasRenderer() {
      * @param {Map} o.surfaces            surfaceId → { material, maps, config }
      * @param {number} [o.step]           1 = pleine résolution, 2 = allégé
      */
-    paint({ source, target, scene, masks, shading, gloss, shadow, light: lumiere, surfaces, step = 1 }) {
+    paint({ source, target, scene, masks, shading, gloss, shadow, light: lumiere, mid, surfaces, step = 1 }) {
       const width = source.width;
       const height = source.height;
       const src = source.data;
@@ -170,7 +170,10 @@ export function createCanvasRenderer() {
         const glossGain = gloss ? surf.clearcoat * 0.9 : 0;
         const shadowGain = shadow ? light.contactShadow : 0;
         const highlightGain = lumiere ? light.highlight : 0;
-        const periode = motifPeriode(surface.material, config.pattern, config.width || null);
+        const midGain = mid ? light.midLight : 0;
+        const motif = motifPeriode(surface.material, config.pattern, config.width || null);
+        const periode = motif && motif.type !== 'baton' ? motif : null;
+        const baton = motif && motif.type === 'baton' ? motif : null;
         const strength = light.strength;
         const ambient = light.ambient;
         const tint = light.tint;
@@ -236,7 +239,17 @@ export function createCanvasRenderer() {
             // calculé une fois pour le pixel, avant l'étalement anisotrope,
             // pour que tous ses échantillons restent dans la même rangée.
             const txBrut = (fu * cos - fv * sin) * perMeter;
-            const tx = txBrut + decalageRangee(ty);
+            let tx = txBrut + decalageRangee(ty);
+            // Baton rompu : apparence propre a chaque lame (cf. `uBaton`).
+            let varExpo = 1;
+            let varChaleur = 0;
+            if (baton) {
+              const a = apparenceBaton(txBrut / TILE, ty / TILE, baton);
+              tx += a.du * TILE;
+              ty += a.dv * TILE;
+              varExpo = a.expo;
+              varChaleur = a.chaleur;
+            }
             // Variation d'exposition par repetition de tuile : cf. uRepeatVar
             // dans renderer-gl.js, meme recurrence, memes constantes.
             // Variation lente et CONTINUE, en metres de sol : cf. `bruitSol`.
@@ -313,16 +326,17 @@ export function createCanvasRenderer() {
             // renderer-gl.js. `acc` est en 0..255, `albedoMean` aussi.
             const aBrut = 0.2126 * acc[0] + 0.7152 * acc[1] + 0.0722 * acc[2];
             const relance = 1 + micro * (aBrut - albedoMean) / Math.max(aBrut, 12.75);
-            acc[0] = clampByte(acc[0] * relance * expoRep);
-            acc[1] = clampByte(acc[1] * relance * expoRep);
-            acc[2] = clampByte(acc[2] * relance * expoRep);
+            acc[0] = clampByte(acc[0] * relance * expoRep * varExpo * (1 + varChaleur));
+            acc[1] = clampByte(acc[1] * relance * expoRep * varExpo);
+            acc[2] = clampByte(acc[2] * relance * expoRep * varExpo * (1 - varChaleur));
 
             const aLum = (0.2126 * acc[0] + 0.7152 * acc[1] + 0.0722 * acc[2]) / 255;
             const lift = ambient * (1 - aLum);
             const shade = clamp(raw < 1 ? lift + (1 - lift) * raw : raw, shadowFloor, 1.9);
             // Ombre de contact lue dans la photo : cf. `uShadowGain` dans le shader.
             const ombre = (shadowGain ? 1 - shadowGain * shadow[index0] : 1)
-              * (highlightGain ? 1 + highlightGain * lumiere[index0] : 1);
+              * Math.min(light.lightMax, (highlightGain ? 1 + highlightGain * lumiere[index0] : 1)
+                * (midGain ? 1 + midGain * mid[index0] : 1));
             const gainR = shade * tintR * exposure * ombre;
             const gainG = shade * tintG * exposure * ombre;
             const gainB = shade * tintB * exposure * ombre;

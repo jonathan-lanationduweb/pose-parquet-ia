@@ -323,6 +323,16 @@ export function normalizeScene(raw) {
        * le reste.
        */
       highlight: num(light.highlight, 1.2),
+
+      /**
+       * `midLight` — dose de la lumière à échelle moyenne (LOT PHOTO.4) : les
+       * bandes de soleil plus larges qu'une lame, que la carte basse
+       * fréquence étale et que la couche de hautes lumières, faute d'excès
+       * local, ne voyait pas. `lightMax` borne l'éclaircissement total des
+       * deux couches : au-delà, le bois devenait une tache blanche.
+       */
+      midLight: num(light.midLight, 1.2),
+      lightMax: num(light.lightMax, 1.4),
     },
 
     warnings: Array.isArray(raw.warnings) ? raw.warnings.slice() : [],

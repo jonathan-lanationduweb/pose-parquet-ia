@@ -209,6 +209,10 @@ class Light(_Model):
     #: Dose de la lumière haute fréquence relue dans la photo — soleil,
     #: reflets de fenêtre (LOT PHOTO.3).
     highlight: float = 1.2
+    #: Dose de la lumière à échelle moyenne (bandes de soleil) et borne de
+    #: l'éclaircissement total des couches lumière (LOT PHOTO.4).
+    mid_light: float = 1.2
+    light_max: float = 1.4
     #: Ancrage de l'exposition sur la clarté de l'ancien sol. `None` : le
     #: défaut du front (0,55), réglé sur les pièces calibrées.
     exposure: float | None = None

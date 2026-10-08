@@ -70,6 +70,16 @@ const SHADOW_THRESHOLD = 0.18;
  *  revenaient. 0,10 garde le reflet de fenêtre et la baie, et l'ouverture
  *  morphologique retire ce qui est plus fin qu'une lame. */
 const LIGHT_THRESHOLD = 0.10;
+/** Lumière à ÉCHELLE MOYENNE (LOT PHOTO.4) : excès de la luminance floutée à
+ *  ~1,1 % de la largeur sur l'éclairage basse fréquence. À cette échelle une
+ *  lame isolée, un joint, un veinage sont moyennés ; une bande de soleil ne
+ *  l'est pas. Seuil 0,05, normalisé sur 0,4, puis seules les zones connexes de
+ *  plus de 0,15 % de l'image sont gardées : une lame plus claire que ses
+ *  voisines fait une tache plus petite. Mesuré sur la chambre et le séjour :
+ *  0,001 à 0,004 dans les zones de sol ordinaire, 0,06 à 0,31 dans le soleil
+ *  et les reflets. */
+const MID_THRESHOLD = 0.05;
+const MID_MIN_AREA = 0.0015;
 
 /**
  * Flou par boîte séparable, appliqué trois fois : très proche d'un gaussien.
@@ -378,6 +388,8 @@ export function buildResidualMaps(source, coverage, shading) {
   const shadow = new Float32Array(width * height);
   const light = new Float32Array(width * height);
   const sol = new Uint8Array(width * height);
+  const lumi = new Float32Array(width * height);
+  const locale = new Float32Array(width * height);
   const out = new Float32Array(4);
   for (let y = 0; y < height; y += 1) {
     const sy = Math.min(fullH - 1, y * k);
@@ -391,6 +403,8 @@ export function buildResidualMaps(source, coverage, shading) {
       const luma = 0.2126 * src[p] + 0.7152 * src[p + 1] + 0.0722 * src[p + 2];
       shading.sample(sx, sy, out);
       const local = (0.2126 * out[0] + 0.7152 * out[1] + 0.0722 * out[2]) * shading.reference;
+      lumi[i] = luma;
+      locale[i] = local;
       const ecart = (luma - local) / Math.max(24, local);
       if (ecart > GLOSS_THRESHOLD) gloss[i] = Math.min(1, ecart - GLOSS_THRESHOLD);
       if (ecart > LIGHT_THRESHOLD) light[i] = Math.min(1, (ecart - LIGHT_THRESHOLD) / 0.4);
@@ -420,15 +434,61 @@ export function buildResidualMaps(source, coverage, shading) {
   const lightDoux = filterChannel(lumOuverte, width, height, Math.max(1, Math.round((fullW * 0.004) / k)), 'blur');
   for (let i = 0; i < lightDoux.length; i += 1) if (!sol[i]) lightDoux[i] = 0;
 
+  /* Lumière à échelle moyenne — LOT PHOTO.4. Flou pondéré par le sol (trois
+     boîtes ≈ un gaussien de 1,1 % de la largeur), excès sur l'éclairage local,
+     seuil, puis tri des zones par taille. */
+  const rMid = Math.max(2, Math.round((fullW * 0.011) / k));
+  let numer = new Float32Array(width * height);
+  let poids = new Float32Array(width * height);
+  for (let i = 0; i < numer.length; i += 1) { if (sol[i]) { numer[i] = lumi[i]; poids[i] = 1; } }
+  for (let passe = 0; passe < 3; passe += 1) {
+    numer = filterChannel(numer, width, height, rMid, 'blur');
+    poids = filterChannel(poids, width, height, rMid, 'blur');
+  }
+  const midBrut = new Float32Array(width * height);
+  for (let i = 0; i < midBrut.length; i += 1) {
+    if (!sol[i] || poids[i] < 1e-3) continue;
+    const ex = numer[i] / poids[i] / Math.max(24, locale[i]) - 1;
+    if (ex > MID_THRESHOLD) midBrut[i] = Math.min(1, (ex - MID_THRESHOLD) / 0.4);
+  }
+  // Composantes connexes : on ne garde que les zones assez grandes.
+  const vu = new Uint8Array(width * height);
+  const pile = new Int32Array(width * height);
+  const aireMin = MID_MIN_AREA * width * height;
+  for (let depart = 0; depart < midBrut.length; depart += 1) {
+    if (vu[depart] || midBrut[depart] <= 0) continue;
+    let haut = 0;
+    let aire = 0;
+    const membres = [];
+    pile[haut++] = depart;
+    vu[depart] = 1;
+    while (haut) {
+      const p = pile[--haut];
+      membres.push(p);
+      aire += 1;
+      const x = p % width;
+      const voisins = [p - width, p + width, x > 0 ? p - 1 : -1, x < width - 1 ? p + 1 : -1];
+      for (const q of voisins) {
+        if (q < 0 || q >= midBrut.length || vu[q] || midBrut[q] <= 0) continue;
+        vu[q] = 1;
+        pile[haut++] = q;
+      }
+    }
+    if (aire < aireMin) for (const p of membres) midBrut[p] = 0;
+  }
+  const midDoux = filterChannel(midBrut, width, height, Math.max(1, Math.round((fullW * 0.004) / k)), 'blur');
+  for (let i = 0; i < midDoux.length; i += 1) if (!sol[i]) midDoux[i] = 0;
+
   /* Le moteur Canvas lit les cartes au pixel de l'image : il reçoit une
      version agrandie, fabriquée seulement s'il la demande. */
   let pleine = null;
   const fullRes = () => {
     if (pleine) return pleine;
-    if (k === 1) { pleine = { gloss: glossFlou, shadow: shadowDoux, light: lightDoux }; return pleine; }
+    if (k === 1) { pleine = { gloss: glossFlou, shadow: shadowDoux, light: lightDoux, mid: midDoux }; return pleine; }
     const g = new Float32Array(fullW * fullH);
     const o = new Float32Array(fullW * fullH);
     const l = new Float32Array(fullW * fullH);
+    const mm = new Float32Array(fullW * fullH);
     for (let y = 0; y < fullH; y += 1) {
       const ry = Math.min(height - 1, (y / k) | 0) * width;
       const row = y * fullW;
@@ -437,13 +497,14 @@ export function buildResidualMaps(source, coverage, shading) {
         g[row + x] = glossFlou[i];
         o[row + x] = shadowDoux[i];
         l[row + x] = lightDoux[i];
+        mm[row + x] = midDoux[i];
       }
     }
-    pleine = { gloss: g, shadow: o, light: l };
+    pleine = { gloss: g, shadow: o, light: l, mid: mm };
     return pleine;
   };
 
-  return { gloss: glossFlou, shadow: shadowDoux, light: lightDoux, width, height, fullRes };
+  return { gloss: glossFlou, shadow: shadowDoux, light: lightDoux, mid: midDoux, width, height, fullRes };
 }
 
 /**

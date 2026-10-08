@@ -149,6 +149,10 @@ const fit = (target) => TILE / Math.max(1, Math.round(TILE / target));
  * jamais. `null` pour les autres motifs.
  */
 export function motifPeriode(material, pattern, widthOverride) {
+  if (pattern === 'baton-rompu') {
+    const g = reseauBaton(patternProfile(material, pattern, widthOverride));
+    return { type: 'baton', w: g.w / TILE, l: g.l / TILE, na: g.na, nb: g.nb };
+  }
   if (pattern !== 'point-de-hongrie') return null;
   const profile = patternProfile(material, pattern, widthOverride);
   const w = fit((profile.width / TILE_METERS) * TILE);
@@ -588,6 +592,95 @@ function drawStraight(ctx, tex, profile, graine) {
   }
 }
 
+/** Réseau du bâton rompu, en pixels de tuile. Un seul calcul, pour le
+ *  générateur ET le moteur (`motifPeriode`, `lameBaton`). */
+function reseauBaton(profile) {
+  const k = Math.max(2, Math.round(profile.length / profile.width));
+  const cible = (profile.width / TILE_METERS) * TILE;
+  const n = Math.max(k, Math.round(TILE / (cible * Math.SQRT2) / k) * k);
+  const w = TILE / (n * Math.SQRT2);
+  return { k, n, w, l: w * k, na: n / k, nb: n };
+}
+
+/**
+ * Hachage d'une lame — LOT PHOTO.4. Même formule dans le shader (`hacheLame`)
+ * et dans le moteur Canvas : pas de sin(), dont la précision diffère entre
+ * float32 et float64. Rend un nombre dans [0, 1).
+ */
+export function hacheLame(i, j, t, n) {
+  const x = i * 0.7548776662 + j * 0.569840291 + t * 0.4142135624 + n * 0.2360679775;
+  const v = x * x * 0.6180339887 + x;
+  return v - Math.floor(v);
+}
+
+/**
+ * La lame de bâton rompu sous un point de la tuile, par ses indices ABSOLUS
+ * dans le réseau — LOT PHOTO.4.
+ *
+ * Coordonnées en fraction de tuile, non bornées (le sol déborde de la tuile).
+ * Le réseau est tourné de 45° autour du centre ; dans le repère tourné, une
+ * lame « A » occupe [ox, ox + l] × [oy, oy + w] et une lame « B »
+ * [ox + l, ox + l + w] × [oy, oy + l], avec ox = i·l + j·w, oy = i·l − j·w.
+ * En posant s = X' + Y' et d = X' − Y', les deux indices se lisent presque
+ * directement ; on teste les quelques candidats voisins.
+ *
+ * Rend { i, j, t } ou null (impossible à l'intérieur du réseau : c'est un
+ * pavage).
+ */
+export function lameBaton(u, v, g) {
+  const s = Math.SQRT2 * (v - 0.5);
+  const d = Math.SQRT2 * (u - 0.5);
+  const { w, l } = g;
+  // Un cran de plus de chaque côté, et une tolérance : un point posé pile sur
+  // une frontière doit tomber dans une lame, pas entre deux par arrondi.
+  const e = 1e-7;
+  const i0 = Math.floor((s - 2 * l - w) / (2 * l)) - 1;
+  const i1 = Math.floor(s / (2 * l)) + 1;
+  const j0 = Math.floor((d - 2 * l - w) / (2 * w)) - 1;
+  const j1 = Math.floor((d + w) / (2 * w)) + 1;
+  for (let i = i0; i <= i1; i += 1) {
+    for (let j = j0; j <= j1; j += 1) {
+      const sa = s - 2 * i * l;
+      const da = d - 2 * j * w;
+      let p = (sa + da) / 2;
+      let q = (sa - da) / 2;
+      if (p >= -e && p < l + e && q >= -e && q < w + e) return { i, j, t: 0 };
+      p = (sa - l + da - l) / 2;
+      q = (sa - l - (da - l)) / 2;
+      if (p >= -e && p < w + e && q >= -e && q < l + e) return { i, j, t: 1 };
+    }
+  }
+  return null;
+}
+
+/**
+ * Où lire l'apparence d'une lame de bâton rompu — LOT PHOTO.4.
+ *
+ * La GÉOMÉTRIE du motif est périodique (4,80 m), l'APPARENCE ne doit plus
+ * l'être. Le réseau est invariant par ses deux pas — w·√2 en largeur, l·√2 en
+ * hauteur dans la tuile — donc translater la lecture d'un multiple entier de
+ * ces pas fait lire une AUTRE lame du même type, exactement à la même place
+ * relative : aucun joint ne bouge, aucune lame n'est coupée. Chaque lame du
+ * sol, identifiée par ses indices absolus, reçoit ainsi l'une des 2·na·nb
+ * lames de la tuile, choisie par hachage — et deux répétitions de la tuile ne
+ * se ressemblent plus. Une lame coupée par le bord de la tuile a les mêmes
+ * indices absolus des deux côtés : même choix, même apparence.
+ *
+ * Rend le décalage (du, dv) en fraction de tuile, et deux variations très
+ * légères propres à la lame : exposition (±3,5 %) et chaleur (±2 %).
+ */
+export function apparenceBaton(u, v, g) {
+  const lame = lameBaton(u, v, g);
+  if (!lame) return { du: 0, dv: 0, expo: 1, chaleur: 0 };
+  const { i, j, t } = lame;
+  return {
+    du: Math.floor(hacheLame(i, j, t, 1) * g.nb) * g.w * Math.SQRT2,
+    dv: Math.floor(hacheLame(i, j, t, 2) * g.na) * g.l * Math.SQRT2,
+    expo: 1 + 0.035 * (hacheLame(i, j, t, 3) - 0.5) * 2,
+    chaleur: 0.02 * (hacheLame(i, j, t, 4) - 0.5) * 2,
+  };
+}
+
 function drawHerringbone(ctx, tex, profile, graine) {
   /* Réseau périodique sur la tuile — LOT PHOTO.3.
 
@@ -597,13 +690,7 @@ function drawHerringbone(ctx, tex, profile, graine) {
      raccordait pas au bord gauche. On choisit donc w pour que w·√2 divise la
      tuile, et n multiple de k = l / w pour que l·√2 la divise aussi. La
      largeur réelle bouge de quelques pour cent au plus. */
-  const k = Math.max(2, Math.round(profile.length / profile.width));
-  const cible = (profile.width / TILE_METERS) * TILE;
-  const n = Math.max(k, Math.round(TILE / (cible * Math.SQRT2) / k) * k);
-  const w = TILE / (n * Math.SQRT2);
-  const l = w * k;
-  const nb = n; // pas horizontaux par tuile (indice j)
-  const na = n / k; // pas verticaux par tuile (indice i)
+  const { w, l, nb, na } = reseauBaton(profile); // nb : pas horizontaux (j), na : verticaux (i)
   const steps = Math.ceil((TILE * 1.6) / w) + 2;
   /**
    * Marge de couverture, calculée sur la géométrie et non au doigt mouillé.
