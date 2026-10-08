@@ -1277,7 +1277,10 @@ const CONTRAT_V1 = ['apiVersion', 'openRoom', 'selectMaterial', 'setPattern',
      moteur savaient deja recevoir des traits, personne ne les branchait.
      `coverageSnapshot` montre la zone pendant la correction. Tous gardes par
      `typeof === 'function'`. */
-  'openScene', 'beginStroke', 'extendStroke', 'endStroke', 'undoStroke', 'coverageOverlay'];
+  'openScene', 'beginStroke', 'extendStroke', 'endStroke', 'undoStroke', 'coverageOverlay',
+  /* MISSION STABILISATION : une scène MANUELLE (plan par défaut, sol tracé au
+     pinceau) quand l'analyse n'a rien d'exploitable. Gardée par typeof. */
+  'openManualScene'];
 /* `studio` est le moteur negocie, `st` le candidat qu'examine `connect()`.
    Le nom doit etre entier, d'ou la classe ecrite en clair : les raccourcis
    comme la sequence mot-frontiere ne survivent pas aux couches
@@ -1516,5 +1519,16 @@ api.DEMO_ROOMS.forEach((r) => {
 console.log(`  total ${api.RENDERED_ROOMS.length * P.length} rendus`
   + ` + ${api.DEMO_ROOMS.length} originaux + ${P.length} images produit`);
 
+/* MISSION STABILISATION : toute barre de commandes posée sur la scène doit être
+   exclue du glisser du viewport, sinon le pointerdown capture le pointeur et
+   ses boutons ne reçoivent jamais le clic (« Ajuster le sol » mort au clic). */
+{
+  const m = html.match(/const GESTES_EXCLUS = '([^']+)'/);
+  const liste = m ? m[1] : '';
+  const manquantes = ['#card', '#cardB', '#noscene', '#floorTools', '#zoombar', '#tools'].filter((s) => !liste.split(/,\s*/).includes(s));
+  ok('les barres posées sur la scène sont exclues du glisser', !manquantes.length, manquantes.join(',') || 'toutes');
+}
+
 console.log(bad ? `\n${bad} ECHEC(S)` : '\nAUCUN ECHEC');
 process.exit(bad ? 1 : 0);
+

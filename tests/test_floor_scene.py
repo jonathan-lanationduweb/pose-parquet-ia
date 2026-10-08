@@ -202,3 +202,39 @@ def test_l_exposition_des_scenes_photo_est_moderee() -> None:
     assert s.scene.light.exposure is not None
     assert s.scene.light.exposure < 0.55
     assert s.scene.light.contact_shadow > 0
+
+
+# --- Décision combinée d'auto-rendu (MISSION STABILISATION) ---------------
+
+
+def test_la_decision_est_expliquee_et_auto_quand_tout_passe() -> None:
+    s = build_experimental_scene(_sol_trapeze(), W, H, min_confidence=0.5)
+    d = s.provenance["decision"]
+    assert s.status == STATUS_AUTO
+    assert d["status"] == STATUS_AUTO and d["reasons"] == []
+    assert not any(d["checks"].values())
+
+
+def test_un_sol_qui_monte_jusqu_en_haut_n_est_pas_auto_rendu() -> None:
+    """Un « sol » qui touche le haut de l'image est un mur pris pour du sol."""
+    m = _sol_trapeze()
+    m[0:40, 200:440] = True
+    s = build_experimental_scene(m, W, H, min_confidence=0.0)
+    assert s.status == STATUS_ADJUST
+    assert "floor_touches_top" in s.provenance["decision"]["reasons"]
+    assert s.scene is not None, "la scène reste proposée à la correction"
+
+
+def test_un_sol_eclate_n_est_pas_auto_rendu() -> None:
+    m = np.zeros((H, W), dtype=bool)
+    for k in range(5):
+        m[300:470, 20 + k * 125 : 120 + k * 125] = True
+    s = build_experimental_scene(m, W, H, min_confidence=0.0)
+    assert s.status != STATUS_AUTO
+    if s.scene is not None:
+        assert "fragmented_floor" in s.provenance["decision"]["reasons"]
+
+
+def test_la_confiance_basse_reste_une_raison_nommee() -> None:
+    s = build_experimental_scene(_sol_trapeze(), W, H, min_confidence=0.99)
+    assert s.provenance["decision"]["reasons"][0] == "low_confidence"

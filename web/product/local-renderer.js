@@ -46,7 +46,7 @@
 import { analyzeScene, loadSceneIndex } from '../scene/analyzer.js';
 import { loadImage } from '../scene/image-loader.js';
 import { createSceneRenderer } from '../scene/renderer.js';
-import { normalizeScene } from '../scene/schema.js';
+import { normalizeScene, validerScene, createBlankScene } from '../scene/schema.js';
 import {
   createMaterial, enCache, warmMaterial, quandCartesPretes, materialMapsAsync,
 } from '../scene/material.js';
@@ -209,10 +209,34 @@ export async function createLocalRenderer({ base = '', prefer = 'auto' } = {}) {
      */
     openScene(raw, imageUrl, id = 'photo') {
       return enFile(async () => {
+        /* Une scène invalide ne touche pas le moteur : la scène précédente
+           reste en place, et l'appelant reçoit une erreur qui la nomme. */
+        const problemes = validerScene(raw);
+        if (problemes.length) {
+          const e = new Error(`Scène refusée : ${problemes.join(', ')}`);
+          e.problemes = problemes;
+          throw e;
+        }
         const scene = normalizeScene(raw);
         const tPhoto = performance.now();
         const prete = await loadImage(imageUrl);
         marquer('B.photo', tPhoto);
+        chrono('D.setScene', () => renderer.setScene(scene, prete));
+        sceneId = id;
+        return true;
+      });
+    },
+
+    /**
+     * Scène MANUELLE : la photo, un plan de sol par défaut, une zone à tracer
+     * au pinceau. Le filet de sécurité quand l'analyse n'a rien proposé —
+     * aucun sol trouvé, scène refusée, service muet. La perspective par
+     * défaut est une hypothèse, et le parquet posé dessus le dira.
+     */
+    openManualScene(imageUrl, width, height, id = 'photo') {
+      return enFile(async () => {
+        const scene = createBlankScene({ width, height, label: 'Ma pièce (sol tracé à la main)' });
+        const prete = await loadImage(imageUrl);
         chrono('D.setScene', () => renderer.setScene(scene, prete));
         sceneId = id;
         return true;

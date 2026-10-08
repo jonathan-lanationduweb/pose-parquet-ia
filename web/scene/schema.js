@@ -339,6 +339,48 @@ export function normalizeScene(raw) {
   };
 }
 
+/**
+ * Contrôle d'une scène AVANT de la donner au moteur — MISSION STABILISATION.
+ *
+ * `normalizeScene` remplace silencieusement ce qui manque par des défauts : il
+ * est fait pour accepter. Ce contrôle est fait pour REFUSER une scène que le
+ * moteur rendrait fausse — un NaN, un plan dégénéré, une zone vide — avant
+ * qu'elle ne devienne un parquet sur la photo de quelqu'un.
+ *
+ * @returns {string[]} les problèmes trouvés, vide si la scène est rendable
+ */
+export function validerScene(raw) {
+  const pb = [];
+  const fini = (v) => typeof v === 'number' && Number.isFinite(v);
+  const point = (p) => p && fini(p.x) && fini(p.y);
+  if (!raw || typeof raw !== 'object') return ['scene_absente'];
+  const zones = Array.isArray(raw.floorZones) ? raw.floorZones : [];
+  if (!zones.length) pb.push('aucune_zone');
+  const planes = raw.planes || {};
+  zones.forEach((z, i) => {
+    const plan = (z.planeRef && planes[z.planeRef]) || z.plane;
+    const quad = plan && plan.quad;
+    if (!Array.isArray(quad) || quad.length !== 4 || !quad.every(point)) { pb.push(`zone${i}_plan_invalide`); return; }
+    const m = plan.meters || {};
+    if (!(fini(m.width) && m.width > 0 && fini(m.depth) && m.depth > 0)) pb.push(`zone${i}_dimensions`);
+    // Aire signée du quadrilatère : nulle = plan dégénéré, homographie impossible.
+    let aire = 0;
+    for (let k = 0; k < 4; k += 1) {
+      const a = quad[k]; const b = quad[(k + 1) % 4];
+      aire += a.x * b.y - b.x * a.y;
+    }
+    if (!(Math.abs(aire / 2) > 1e-4)) pb.push(`zone${i}_plan_degenere`);
+    const poly = z.mask && z.mask.polygon;
+    if (!Array.isArray(poly) || poly.length < 3 || !poly.every(point)) pb.push(`zone${i}_contour_invalide`);
+    else if (poly.some((p) => p.x < -0.05 || p.x > 1.05 || p.y < -0.05 || p.y > 1.05)) pb.push(`zone${i}_hors_image`);
+    const trous = (z.mask && z.mask.holes) || [];
+    if (!trous.every((t) => Array.isArray(t) && t.every(point))) pb.push(`zone${i}_trous_invalides`);
+  });
+  const h = raw.camera && raw.camera.horizon;
+  if (h !== null && h !== undefined && !fini(h)) pb.push('horizon_invalide');
+  return pb;
+}
+
 /** Quadrilatère de départ pour une photo dont on ne sait rien. */
 export const DEFAULT_QUAD = [
   { x: 0.18, y: 0.62 },

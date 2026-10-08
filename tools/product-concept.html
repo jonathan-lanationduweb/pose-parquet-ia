@@ -1607,6 +1607,7 @@
 
   const adapter = (() => {
     let studio = null;
+    let refusScene = null;
     let mode = 'static';
     let capabilities = { ...CAPABILITIES_NONE };
     let ready = null;
@@ -2014,12 +2015,33 @@
         if (mode !== 'live' || !studio || typeof studio.openScene !== 'function') {
           return Promise.resolve(false);
         }
+        /* Une scène refusée par le moteur ne casse rien : on rend `false`, la
+           scène précédente du moteur est oubliée (elle ne correspond plus à la
+           photo affichée), et l'appelant passe en correction manuelle. */
         return enFile(async () => {
-          await studio.openScene(raw, url, 'uploaded');
+          try {
+            await studio.openScene(raw, url, 'uploaded');
+          } catch (e) {
+            engineScene = null;
+            refusScene = (e && e.problemes) ? e.problemes.join(', ') : String(e && e.message);
+            return false;
+          }
+          refusScene = null;
           engineScene = 'uploaded';
           return true;
         });
       },
+      openManualPhotoScene(url, w, h) {
+        if (mode !== 'live' || !studio || typeof studio.openManualScene !== 'function') {
+          return Promise.resolve(false);
+        }
+        return enFile(async () => {
+          try { await studio.openManualScene(url, w, h, 'uploaded'); } catch { engineScene = null; return false; }
+          engineScene = 'uploaded';
+          return true;
+        });
+      },
+      get refusScene() { return refusScene; },
 
       /* Le pinceau de correction du sol : des passe-plats gardes, comme le
          reste du contrat. Un moteur qui ne les a pas rend faux, et
@@ -2322,8 +2344,14 @@
   const pointers = new Map();
   let pinch = null;
 
+  const GESTES_EXCLUS = '#zoombar, #nav, #tools, #card, #cardB, #noscene, #floorTools, #status, .veil';
   function onDown(e) {
-    if (e.target.closest('#zoombar, #nav, #tools, #card, #cardB, #status, .veil')) return;
+    /* Toute barre de commandes posée SUR la scène est exclue du glisser. La
+       barre « photo sans parquet » et les outils du pinceau manquaient : le
+       pointerdown capturait le pointeur pour la scène, et leurs boutons ne
+       recevaient jamais le clic — « Ajuster le sol », « Réessayer », « Terminé »
+       étaient morts. MISSION STABILISATION. */
+    if (e.target.closest(GESTES_EXCLUS)) return;
     e.preventDefault();
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if ($('stage').setPointerCapture) { try { $('stage').setPointerCapture(e.pointerId); } catch { /* ignore */ } }
@@ -2372,7 +2400,7 @@
   }
 
   function onDouble(e) {
-    if (e.target.closest('#zoombar, #nav, #tools, #card, #cardB, .veil')) return;
+    if (e.target.closest(GESTES_EXCLUS)) return;
     const b = stageBox();
     zoomAt(e.shiftKey ? 1 / 1.8 : 1.8, e.clientX - b.left, e.clientY - b.top, true);
   }
@@ -2895,8 +2923,13 @@
          l'annoncer laisserait croire qu'elle marche mal. */
       const a = state.roomAnalysis;
       const enCours = a.status === 'uploading' || a.status === 'analyzing';
-      const texte = a.texte || 'Analyse de la pièce bientôt disponible';
-      const ok = a.status === 'complete' || a.status === 'experimental_scene';
+      /* Une fois le parquet posé après correction, la capsule ne dit plus
+         « approximativement » : elle dit ce qui est à l'écran. */
+      const ps = state.photoScene;
+      const corrige = ps && ps.posee && ps.status !== 'auto_render';
+      const texte = corrige ? (ps.manuelle ? 'Sol tracé à la main' : 'Sol ajusté')
+        : (a.texte || 'Analyse de la pièce bientôt disponible');
+      const ok = corrige || a.status === 'complete' || a.status === 'experimental_scene';
       const glyphe = ok
         ? '<path d="M20 6L9 17l-5-5" />'
         : '<path d="M12 8v5" /><path d="M12 16.4v.2" />';
@@ -3019,10 +3052,61 @@
     if (analysisClient) return analysisClient;
     const outils = window.__roomAnalysis;
     if (!outils) return null;
+    /* `?atimeout=` (DEV seulement) : le délai de garde de l'analyse, pour
+       que la batterie de fiabilité puisse provoquer un dépassement sans
+       attendre deux minutes. */
+    const delai = DEV ? Number(new URLSearchParams(location.search).get('atimeout')) : 0;
     analysisClient = outils.createRoomAnalysisClient({
       base: outils.apiBase({ search: location.search, origin: location.origin, dev: DEV }),
+      ...(delai > 0 ? { timeoutMs: delai } : {}),
     });
     return analysisClient;
+  }
+
+  /* Journal de DÉVELOPPEMENT — transitions, jamais de contenu : ni image, ni
+     base64, ni pixels, ni chemin de fichier. Lisible par la batterie de
+     fiabilité dans `window.__journal`. */
+  const journalDev = [];
+  function journal(evenement, champs = {}) {
+    if (!DEV) return;
+    const entree = { t: Math.round(performance.now()), evenement, generation: state.intent, etat: etatProduit(), ...champs };
+    journalDev.push(entree);
+    if (journalDev.length > 300) journalDev.shift();
+    console.info('[visualiseur]', JSON.stringify(entree));
+  }
+  window.__journal = journalDev;
+
+  /**
+   * L'état PRODUIT, une seule vérité dérivée — MISSION STABILISATION.
+   *
+   * Les champs de `state` sont nombreux parce qu'ils décrivent des choses
+   * différentes (l'analyse, la scène, le moteur, le geste en cours) ; cet état
+   * les résume en UN mot que l'interface et les tests lisent. Il est calculé,
+   * jamais stocké : il ne peut donc pas contredire les champs dont il dérive.
+   */
+  function etatProduit() {
+    if (!state.source) return 'IDLE';
+    /* Une capture préfabriquée n'est pas un rendu LIVE : tant que le moteur
+       peut répondre, c'est une attente ; s'il ne le peut pas, c'est le repli
+       statique, nommé comme tel. */
+    if (state.source === 'demo') {
+      if (state.applied.source === 'live') return 'RENDER_READY';
+      return state.applied.source === 'static' && adapter.mode !== 'live' ? 'RENDER_STATIC' : 'RENDER_PENDING';
+    }
+    if (!state.uploaded) return 'PHOTO_SELECTED';
+    if (floorEdit && floorEdit.actif) return 'MANUAL_EDIT';
+    const a = state.roomAnalysis;
+    const ps = state.photoScene;
+    if (ps && ps.posee) return state.applied.source === 'live' ? 'RENDER_READY' : 'RENDER_PENDING';
+    if (a.status === 'preparing') return 'ANALYSIS_WAITING';
+    if (a.status === 'uploading' || a.status === 'analyzing') return 'ANALYZING';
+    if (ps && (ps.status === 'needs_manual_adjustment' || ps.status === 'invalid' || ps.status === 'no_floor')) return 'NEEDS_MANUAL_ADJUSTMENT';
+    if (a.status === 'unavailable' || a.status === 'timeout') return 'ANALYSIS_UNAVAILABLE';
+    if (a.status === 'error' || a.status === 'rejected') return 'ANALYSIS_ERROR';
+    if (ps && ps.status === 'auto_render') return 'RENDER_PENDING';
+    /* Analyse terminée sans scène (mode expérimental éteint) : la photo reste,
+       la correction manuelle est offerte. */
+    return 'NEEDS_MANUAL_ADJUSTMENT';
   }
 
   /** Écrit l'état d'analyse et rafraîchit ce qui en dépend, sans plus. */
@@ -3047,26 +3131,47 @@
       return;
     }
     const t0 = performance.now();
+    state.photoScene = null;
     poserAnalyse({
       status: 'uploading', generation: jeton, texte: 'Analyse de la pièce…',
       analysis: null, raison: null, httpStatus: null,
       displayLocalMs, networkMs: null, totalMs: null,
     });
+    journal('analyse:debut');
+
+    /* Le modèle se charge-t-il encore ? Une question bon marché au service,
+       une fois : si oui, on le DIT (« Préparation de l'analyse… ») au lieu de
+       laisser croire que l'analyse est lente. La requête part quand même ; le
+       service l'attend de son côté. */
+    const sante = await client.health();
+    if (jeton !== state.intent || state.source !== 'uploaded') return;
+    if (sante && sante.experimentalFloor === 'loading') {
+      poserAnalyse({ status: 'preparing', texte: 'Préparation de l’analyse…' });
+      journal('analyse:preparation');
+    }
 
     const r = await client.analyzeRoom(file);
     /* Deux gardes, comme pour le rendu : le jeton d'import ET l'état de la
        source. Un retour d'analyse ne doit rien dire d'une pièce d'exemple. */
-    if (jeton !== state.intent || state.source !== 'uploaded') return;
+    if (jeton !== state.intent || state.source !== 'uploaded') { journal('analyse:perimee', { reponse: r.generation }); return; }
     if (r.raison === window.__roomAnalysis.RAISONS.ANNULEE) return;
 
     const totalMs = Math.round(performance.now() - t0);
     if (!r.ok) {
+      /* Quatre échecs, quatre phrases : ils ne se corrigent pas pareil. */
+      const parRaison = {
+        network: ['unavailable', 'Service d’analyse injoignable. Réessayez, ou tracez le sol vous-même.'],
+        timeout: ['timeout', 'L’analyse a pris trop de temps. Réessayez, ou tracez le sol vous-même.'],
+        server: ['error', 'L’analyse a échoué. Réessayez, ou tracez le sol vous-même.'],
+        contract: ['error', 'Réponse d’analyse inattendue. Tracez le sol vous-même.'],
+        rejected: ['rejected', r.message || 'Cette photo n’a pas pu être analysée.'],
+      };
+      const [status, texte] = parRaison[r.raison] || ['error', r.message || 'L’analyse a échoué.'];
       poserAnalyse({
-        status: (r.raison === 'network' || r.raison === 'timeout') ? 'unavailable' : 'error',
-        texte: r.message || 'Analyse indisponible pour le moment',
-        raison: r.raison, httpStatus: r.status || null,
+        status, texte, raison: r.raison, httpStatus: r.status || null,
         networkMs: r.networkMs || null, totalMs,
       });
+      journal('analyse:echec', { raison: r.raison, http: r.status || null, ms: totalMs });
       return;
     }
     const resume = window.__roomAnalysis.resumerAnalyse(r.analysis);
@@ -3078,7 +3183,13 @@
        retient — et on ne la pose que si son statut l'autorise. */
     const xp = window.__roomAnalysis.sceneExperimentale
       ? window.__roomAnalysis.sceneExperimentale(r.analysis) : null;
+    journal('analyse:fin', { statut: resume.etat, scene: xp ? xp.status : null, confiance: xp ? xp.confidence : null, ms: totalMs });
     if (xp && xp.scene) await poserScenePhoto(xp, jeton, r.analysis);
+    else if (xp) {
+      /* Aucun sol : la photo reste, et la correction manuelle est offerte. */
+      state.photoScene = { raw: null, status: 'no_floor', confidence: null, perspective: xp.perspective, posee: false, firstRenderMs: null };
+      paintChrome();
+    }
   }
 
   /* =====================================================================
@@ -3110,16 +3221,52 @@
     if (!ps || !ps.raw || !state.uploaded) return false;
     const t0 = performance.now();
     const ok = await adapter.openPhotoScene(ps.raw, state.uploaded.url);
-    if (!ok || jeton !== state.intent || state.source !== 'uploaded') return false;
+    if (jeton !== state.intent || state.source !== 'uploaded') return false;
+    if (!ok) {
+      /* Le moteur a refusé la scène (données invalides) : RIEN ne se pose, et
+         la photo passe en correction manuelle avec un message qui le dit. */
+      ps.status = 'invalid';
+      ps.posee = false;
+      state.applied = { key: null, source: null };
+      journal('scene:refusee', { raison: adapter.refusScene });
+      paintChrome();
+      return false;
+    }
     ps.posee = true;
+    journal('scene:posee', { statut: ps.status });
     /* Les captures retenues decrivent d'autres etats : on repart de zero. */
     adapter.forget();
     state.applied = { key: null, source: null };
     state.appliedB = { key: null, source: null };
     await applyFloor();
     if (ps.firstRenderMs === null) ps.firstRenderMs = Math.round(performance.now() - t0);
+    journal('rendu:premier', { source: state.applied.source, ms: ps.firstRenderMs });
     paintChrome();
     return true;
+  }
+
+  /** Scène manuelle : un plan par défaut, la zone à tracer au pinceau. */
+  async function ouvrirSceneManuelle(jeton) {
+    if (!state.uploaded) return false;
+    const ok = await adapter.openManualPhotoScene(state.uploaded.url, state.uploaded.w, state.uploaded.h);
+    if (!ok || jeton !== state.intent || state.source !== 'uploaded') return false;
+    const avant = state.photoScene;
+    state.photoScene = {
+      raw: null, manuelle: true, status: 'manual', confidence: null,
+      perspective: avant ? avant.perspective : {}, posee: true, firstRenderMs: null,
+    };
+    adapter.forget();
+    state.applied = { key: null, source: null };
+    state.appliedB = { key: null, source: null };
+    journal('scene:manuelle');
+    return true;
+  }
+
+  /** Relance l'analyse de la photo affichée, sans la réimporter. */
+  function relancerAnalyse() {
+    if (!state.uploaded || !state.uploaded.file) return;
+    state.intent += 1;
+    analyserPiece(state.uploaded.file, state.intent, null);
   }
 
   /**
@@ -3132,20 +3279,39 @@
     if (!visible) return;
     const ps = state.photoScene;
     const a = state.roomAnalysis;
-    const enCours = a.status === 'uploading' || a.status === 'analyzing';
+    const etat = etatProduit();
+    const tracer = '<button type="button" data-open="floor" class="primary">Tracer le sol</button>';
+    const reessayer = '<button type="button" data-open="retry">Réessayer</button>';
     let titre = 'Photo importée';
-    let texte = "La détection automatique du sol n'est pas encore disponible. Le parquet s'appliquera lorsque l'analyse de la pièce sera complète.";
+    let texte = 'Le parquet se posera dès que le sol sera connu.';
     let actions = '<button type="button" data-open="cat">Voir le catalogue</button>';
-    if (enCours) {
-      texte = 'Analyse de la pièce… Le sol sera détecté dans quelques secondes.';
+    if (etat === 'ANALYSIS_WAITING') {
+      titre = 'Préparation de l’analyse…';
+      texte = 'Le moteur d’analyse se charge. Votre photo reste disponible : déplacez-vous, zoomez, choisissez un parquet.';
+    } else if (etat === 'ANALYZING') {
+      titre = 'Analyse de la pièce…';
+      texte = 'Le sol sera détecté dans quelques secondes.';
     } else if (ps && ps.raw && ps.status === 'needs_manual_adjustment') {
       titre = 'Sol détecté approximativement';
-      texte = 'La zone du sol est incertaine sur cette photo. Ajustez-la en deux gestes, ou posez le parquet tel quel.';
+      texte = 'La zone du sol est incertaine sur cette photo. Ajustez-la au pinceau, ou posez le parquet tel quel.';
       actions = '<button type="button" data-open="floor" class="primary">Ajuster le sol</button>'
         + '<button type="button" data-open="poser">Poser quand même</button>';
+    } else if (ps && ps.status === 'invalid') {
+      titre = 'Sol à tracer';
+      texte = 'La zone proposée par l’analyse n’est pas exploitable. Tracez le sol au pinceau.';
+      actions = tracer;
     } else if (ps && ps.status === 'no_floor') {
       titre = 'Sol non détecté';
-      texte = "Aucun sol n'a pu être identifié sur cette photo. Cadrez le sol au premier plan, ou essayez une autre photo.";
+      texte = 'Aucun sol n’a été identifié sur cette photo. Tracez-le au pinceau, ou essayez une autre photo.';
+      actions = tracer;
+    } else if (etat === 'ANALYSIS_UNAVAILABLE' || etat === 'ANALYSIS_ERROR') {
+      titre = a.status === 'rejected' ? 'Photo non analysée' : 'Analyse indisponible';
+      texte = a.texte || 'L’analyse a échoué.';
+      actions = (a.status === 'rejected' ? '' : reessayer) + tracer;
+    } else if (a.status === 'partial' || a.status === 'complete') {
+      titre = 'Sol à tracer';
+      texte = 'La détection automatique du sol n’est pas active. Tracez le sol au pinceau pour poser le parquet.';
+      actions = tracer;
     }
     /* Les textes passent par des noeuds de texte, les actions (constantes)
        par du balisage : meme discipline que la capsule d'etat. */
@@ -3177,7 +3343,7 @@
     const probe = new Image();
     probe.onload = () => {
       if (state.intent !== intent) { URL.revokeObjectURL(url); return; }
-      state.uploaded = { url, name: file.name, w: probe.naturalWidth, h: probe.naturalHeight };
+      state.uploaded = { url, name: file.name, w: probe.naturalWidth, h: probe.naturalHeight, file };
       state.source = 'uploaded';
       /* Les captures retenues appartiennent aux scenes de demonstration :
          elles n'ont plus rien a dire d'une photo importee. */
@@ -3195,6 +3361,7 @@
          disponibles dans le meme geste. Ce qu'on ne sait pas faire est dit
          par la capsule d'etat, pas par une modale. */
       enter(true);
+      journal('photo:affichee', { ms: displayLocalMs });
       /* La photo est affichee. L'analyse part MAINTENANT, en arriere-plan :
          rien n'attend Python, et Python n'attend rien. */
       analyserPiece(file, intent, displayLocalMs);
@@ -3698,7 +3865,11 @@
     if (!wasPicking) closeAll();
   };
 
-  ['card', 'cardB'].forEach((id) => {
+  /* La barre « photo sans parquet » partage ce gestionnaire. Elle n'en avait
+     AUCUN : « Ajuster le sol » et « Poser quand même » y étaient visibles et
+     morts au clic — le filet de sécurité du Mode Photo, inaccessible.
+     MISSION STABILISATION. */
+  ['card', 'cardB', 'noscene'].forEach((id) => {
     $(id).onclick = (e) => {
       const fav = e.target.closest('[data-fav]');
       if (fav) { toggleFav(fav.dataset.fav); return; }
@@ -3707,6 +3878,7 @@
         if (open.dataset.open === 'cat') openCat();
         else if (open.dataset.open === 'floor') floorEditStart();
         else if (open.dataset.open === 'poser') appliquerScenePhoto(state.intent);
+        else if (open.dataset.open === 'retry') relancerAnalyse();
         else if (open.dataset.open === 'cus') openCus();
         else if (open.dataset.open === 'cmpB') pickB();
         else startCompare();
@@ -3889,14 +4061,20 @@
 
   function floorEditStart() {
     const ps = state.photoScene;
-    if (!ps || !ps.raw || !state.uploaded) return;
+    if (!state.uploaded) return;
     if (!adapter.pinceau.disponible()) { toast('Correction indisponible sur ce moteur'); return; }
     closeAll();
+    const jeton = state.intent;
     const lancer = async () => {
-      if (!ps.posee) {
-        const ok = await appliquerScenePhoto(state.intent);
-        if (!ok) { toast("Impossible d'ouvrir la scène"); return; }
-      }
+      /* Trois départs possibles : la scène est déjà posée ; une scène est
+         proposée (on la pose) ; il n'y a rien d'exploitable (on part d'une
+         scène manuelle). Le troisième est le filet de sécurité : TOUTE photo
+         affichée peut recevoir un parquet. */
+      let ok = Boolean(ps && ps.posee);
+      if (!ok && ps && ps.raw && ps.status !== 'invalid') ok = await appliquerScenePhoto(jeton);
+      if (!ok) ok = await ouvrirSceneManuelle(jeton);
+      if (!ok || jeton !== state.intent) { if (jeton === state.intent) toast("Impossible d'ouvrir la scène"); return; }
+      journal('correction:debut');
       floorEdit.actif = true;
       document.body.classList.add('floor-editing');
       $('vpEdit').classList.remove('hidden');
@@ -3913,6 +4091,7 @@
 
   function floorEditStop(appliquer = true) {
     if (!floorEdit.actif) return;
+    journal('correction:fin', { appliquer });
     floorEdit.actif = false;
     floorEdit.trait = false;
     document.body.classList.remove('floor-editing');
@@ -4065,6 +4244,7 @@
     findMatchingProduct, findVariant: findMatchingProduct, presentPatterns, presentTones, presentWidths, startCompare,
     adapter, paintLayer, applyFloor, applyCompareB, appliedKey, paintChrome,
     photoSansScene, poserScenePhoto, appliquerScenePhoto, floorEditStart, floorEditStop, floorEdit,
+    etatProduit, relancerAnalyse, ouvrirSceneManuelle,
     getRenderStateKey: (profile, deg) => adapter.getRenderStateKey(profile, deg),
     ORIENTATIONS, ORIENT_PRESETS, normDeg, paintDial, setOrientation,
     ENGINE_URL, CAPABILITIES_NONE,

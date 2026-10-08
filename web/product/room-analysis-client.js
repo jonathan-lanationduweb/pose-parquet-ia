@@ -188,7 +188,12 @@ export function createRoomAnalysisClient({ base, timeoutMs = 120000 } = {}) {
       const r = await fetch(`${base}/health`, { method: 'GET' });
       if (!r.ok) return { ok: false, status: r.status };
       const corps = await r.json();
-      return { ok: corps && corps.status === 'ok', status: r.status, service: corps && corps.service };
+      return {
+        ok: corps && corps.status === 'ok', status: r.status, service: corps && corps.service,
+        /* `loading` | `ready` | `error` | `idle`, ou absent quand le service
+           tourne sans le mode expérimental. */
+        experimentalFloor: corps && corps.experimentalFloor ? corps.experimentalFloor : null,
+      };
     } catch {
       return { ok: false, status: 0 };
     }

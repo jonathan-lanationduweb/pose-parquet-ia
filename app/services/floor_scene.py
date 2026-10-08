@@ -631,7 +631,126 @@ def scene_confidence(persp: PerspectiveEstimate, mask: np.ndarray) -> float:
 
 
 # ---------------------------------------------------------------------------
-# 4. Assemblage
+# 4. Décision d'auto-rendu — MISSION STABILISATION
+# ---------------------------------------------------------------------------
+
+#: Problèmes qui interdisent l'auto-rendu, quelle que soit la confiance. Chacun
+#: décrit une scène que le moteur rendrait FAUSSE — ou ne rendrait pas du tout.
+BLOCKING_CHECKS = (
+    "non_finite",
+    "degenerate_plane",
+    "horizon_below_floor",
+    "horizon_out_of_frame",
+    "non_positive_meters",
+    "degenerate_zone",
+    "zone_outside_image",
+    "geometry_implausible",
+    "plank_microscopic",
+    "floor_touches_top",
+    "fragmented_floor",
+    "refiner_rewrote_mask",
+)
+
+#: Largeur projetée minimale d'une lame de 92 mm AU PREMIER PLAN, en pixels de
+#: l'image analysée. Sous ce seuil, le motif est illisible là même où il devrait
+#: être le plus grand : la projection est incohérente, pas seulement l'échelle.
+MIN_NEAR_PLANK_PX = 6.0
+
+
+def _finite(*valeurs: float) -> bool:
+    return all(math.isfinite(v) for v in valeurs)
+
+
+def validate_scene(
+    scene: SceneData,
+    persp: PerspectiveEstimate,
+    raw_mask: np.ndarray,
+    refined_mask: np.ndarray,
+) -> dict[str, bool]:
+    """Contrôles d'une scène AVANT tout rendu automatique.
+
+    Rend `{code: échoué}` pour chaque contrôle. Tous sont généraux : ils lisent
+    la scène, le masque et la perspective — jamais le nom d'une photo.
+    """
+    checks: dict[str, bool] = {}
+    plan = scene.planes["sol"]
+    coords = [v for p in plan.quad for v in (p.x, p.y)]
+    zone_pts = [(p.x, p.y) for z in scene.floor_zones for p in z.mask.polygon]
+    trous = [(p.x, p.y) for z in scene.floor_zones for t in z.mask.holes for p in t]
+    checks["non_finite"] = not _finite(
+        *coords,
+        persp.horizon,
+        plan.meters.width,
+        plan.meters.depth,
+        *[v for xy in zone_pts + trous for v in xy],
+    )
+    if checks["non_finite"]:
+        return checks
+
+    # Homographie : quadrilatère convexe, d'aire non nulle, coins dans l'ordre
+    # fond-gauche, fond-droite, proche-droite, proche-gauche.
+    quad = np.array([[p.x, p.y] for p in plan.quad], dtype=np.float32)
+    aire = float(cv2.contourArea(quad))
+    carre = np.array([[0, 0], [1, 0], [1, 1], [0, 1]], dtype=np.float32)
+    det = float(np.linalg.det(cv2.getPerspectiveTransform(carre, quad)))
+    checks["degenerate_plane"] = (
+        aire < 1e-3
+        or not bool(cv2.isContourConvex(quad.reshape(-1, 1, 2)))
+        or abs(det) < 1e-9
+        or not (quad[0, 1] < quad[3, 1] and quad[1, 1] < quad[2, 1])
+    )
+    checks["horizon_below_floor"] = not persp.horizon < float(min(quad[0, 1], quad[1, 1]))
+    checks["horizon_out_of_frame"] = not (0.05 <= persp.horizon <= 0.85)
+    checks["non_positive_meters"] = plan.meters.width <= 0 or plan.meters.depth <= 0
+
+    degenerees = 0
+    for z in scene.floor_zones:
+        poly = np.array([[p.x, p.y] for p in z.mask.polygon], dtype=np.float32)
+        if len(poly) < 3 or float(cv2.contourArea(poly)) < 0.005:
+            degenerees += 1
+    checks["degenerate_zone"] = degenerees == len(scene.floor_zones)
+    checks["zone_outside_image"] = any(
+        not (-0.01 <= x <= 1.01 and -0.01 <= y <= 1.01) for x, y in zone_pts
+    )
+
+    pl = persp.plausibility or {}
+    checks["geometry_implausible"] = pl.get("ok") is False
+    pw = pl.get("projectedPlankWidthPx") or {}
+    checks["plank_microscopic"] = float(pw.get("near", MIN_NEAR_PLANK_PX)) < MIN_NEAR_PLANK_PX
+
+    # Frontière : un « sol » qui atteint le haut de l'image est un mur ou un
+    # plafond pris pour du sol ; un sol en plus de trois grands morceaux est un
+    # masque éclaté ; un raffinage qui change plus d'un quart de la surface a
+    # réécrit la prédiction au lieu de la nettoyer.
+    hauteur = refined_mask.shape[0]
+    checks["floor_touches_top"] = bool(refined_mask[: max(1, int(0.04 * hauteur))].any())
+    nb, _, stats, _ = cv2.connectedComponentsWithStats(
+        refined_mask.astype(np.uint8), connectivity=8
+    )
+    grandes = sum(1 for i in range(1, nb) if stats[i, cv2.CC_STAT_AREA] >= refined_mask.size * 0.01)
+    checks["fragmented_floor"] = grandes > 3
+    brut = max(1, int(raw_mask.sum()))
+    change = int(np.logical_xor(raw_mask.astype(bool), refined_mask).sum())
+    checks["refiner_rewrote_mask"] = change / brut > 0.25
+    return checks
+
+
+def decide(
+    confidence: float, min_confidence: float, checks: dict[str, bool]
+) -> tuple[str, list[str]]:
+    """`auto_render` seulement si la confiance ET tous les contrôles passent.
+
+    Rend le statut et les raisons, lisibles dans `sceneProvenance.decision` :
+    une scène proposée à la correction doit pouvoir dire pourquoi.
+    """
+    raisons = [code for code in BLOCKING_CHECKS if checks.get(code)]
+    if confidence < min_confidence:
+        raisons.insert(0, "low_confidence")
+    return (STATUS_AUTO if not raisons else STATUS_ADJUST), raisons
+
+
+# ---------------------------------------------------------------------------
+# 5. Assemblage
 # ---------------------------------------------------------------------------
 
 
@@ -806,5 +925,19 @@ def build_experimental_scene(
         "camera": persp.camera,
         "notes": persp.notes,
     }
-    status = STATUS_AUTO if confiance >= min_confidence else STATUS_ADJUST
+    checks = validate_scene(scene, persp, mask.astype(bool), raffine)
+    status, raisons = decide(confiance, min_confidence, checks)
+    provenance["decision"] = {
+        "status": status,
+        "reasons": raisons,
+        "confidence": round(confiance, 3),
+        "minConfidence": min_confidence,
+        "checks": checks,
+    }
+    if checks.get("non_finite"):
+        # Une scène qui porte un NaN ne doit même pas voyager : le front la
+        # refuserait, et la proposer à la correction serait mentir.
+        return ExperimentalScene(None, STATUS_NONE, None, perspective, rug, provenance)
+    if status == STATUS_ADJUST and "low_confidence" not in (scene.warnings or []):
+        scene.warnings = [*(scene.warnings or []), "needs_manual_adjustment"]
     return ExperimentalScene(scene, status, round(confiance, 3), perspective, rug, provenance)
