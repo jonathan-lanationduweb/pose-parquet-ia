@@ -265,7 +265,10 @@ export function createCanvasRenderer() {
             const major = Math.max(ex, ey);
             const minor = Math.max(0.35, Math.min(ex, ey));
             const taps = px > 1 ? 1 : clamp(Math.round(major / minor), 1, 4);
-            const level = clamp(Math.round(Math.log2(Math.max(taps > 1 ? minor : major, 1))), 0, maxLevel);
+            // Avec au plus quatre échantillons, chacun doit couvrir sa part du
+            // grand axe : au-delà d'un rapport 4, le niveau de mipmap monte
+            // d'autant (le GPU, lui, a 16 échantillons). LOT RENDER.FALLBACK.1.
+            const level = clamp(Math.round(Math.log2(Math.max(taps > 1 ? Math.max(minor, major / taps) : major, 1))), 0, maxLevel);
             const mip = maps.albedo[level];
             const ratio = mip.size / TILE;
 
@@ -286,8 +289,12 @@ export function createCanvasRenderer() {
               const mdx = majorIsX ? dudx * cos - dvdx * sin : dudy * cos - dvdy * sin;
               const mdy = majorIsX ? dudx * sin + dvdx * cos : dudy * sin + dvdy * cos;
               const norm = Math.hypot(mdx, mdy) || 1;
-              const stepU = ((mdx / norm) * major * perMeter) / taps;
-              const stepV = ((mdy / norm) * major * perMeter) / taps;
+              // `major` est DÉJÀ en pixels de tuile (ex, ey ont été multipliés
+              // par perMeter) : le multiplier une seconde fois écartait les
+              // échantillons ≈ 267 fois trop loin, sur d'autres lames — le
+              // damier flou du bâton rompu en perspective rasante.
+              const stepU = ((mdx / norm) * major) / taps;
+              const stepV = ((mdy / norm) * major) / taps;
               const half = (taps - 1) / 2;
               for (let t = 0; t < taps; t += 1) {
                 const off = t - half;

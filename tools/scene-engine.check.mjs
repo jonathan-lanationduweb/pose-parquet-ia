@@ -195,5 +195,52 @@ ok('couches lumière nulles sur le sol ordinaire', lumSol < 0.02, lumSol.toFixed
 ok('couches lumière nulles sur les joints', lumJoints < 0.02, lumJoints.toFixed(4));
 ok('les joints ne deviennent pas des ombres', moyenne(cartes.shadow, joints) < 0.02, moyenne(cartes.shadow, joints).toFixed(4));
 
+/* ------------------------------------------------------------ moteur Canvas
+   LOT RENDER.FALLBACK.1. En perspective rasante, un pixel couvre une bande
+   allongée de sol : le moteur Canvas y répartit jusqu'à quatre échantillons
+   le long de la bande. L'écart entre ces échantillons était multiplié deux
+   fois par la conversion mètres → pixels de tuile (≈ 267 fois trop loin) :
+   ils tombaient sur d'autres lames et se mélangeaient — le damier flou vu sur
+   le bâton rompu du séjour. Ce test rend une texture rayée (période 16 px de
+   tuile) sur un plan très anisotrope, et compare au signal attendu. */
+{
+  const { createCanvasRenderer } = await import('../web/scene/renderer-canvas.js');
+  const { etendreMips, TILE, TILE_METERS } = await import('../web/scene/texture.js');
+  const N = TILE;
+  const rayures = (x) => 100 + 60 * Math.sin((2 * Math.PI * x) / 16);
+  const albedo0 = new Uint8ClampedArray(N * N * 4);
+  for (let y = 0; y < N; y += 1) for (let x = 0; x < N; x += 1) {
+    const i = (y * N + x) * 4; const v = rayures(x);
+    albedo0[i] = v; albedo0[i + 1] = v; albedo0[i + 2] = v; albedo0[i + 3] = 255;
+  }
+  const relief0 = new Uint8ClampedArray(N * N * 4);
+  for (let i = 0; i < relief0.length; i += 4) { relief0[i] = 128; relief0[i + 1] = 128; relief0[i + 2] = 0; relief0[i + 3] = 255; }
+  const maps = { albedo: etendreMips([{ size: N, data: albedo0 }], 5), relief: etendreMips([{ size: N, data: relief0 }], 5), surface: { relief: 0, clearcoat: 0 } };
+  const S = 64;
+  const perMeter = TILE / TILE_METERS;
+  const largeurM = (3 * S) / perMeter; // 3 px de tuile par pixel d'image en u, presque rien en v : 4 échantillons
+  const zone = { id: 'z', surfaceId: 'sol', plane: { quad: [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }], meters: { width: largeurM, depth: 0.05 }, origin: { u: 0, v: 0 }, rotationDeg: 0 } };
+  const scene = { floorZones: [zone], light: { strength: 0, ambient: 0, tint: 0, gamma: 1, micro: 0, saturation: 1, shadowFloor: 0, repeatVar: 0, exposure: 0, contactShadow: 0, highlight: 0, midLight: 0, lightMax: 1.4 } };
+  const plein = new Uint8ClampedArray(S * S).fill(255);
+  const masks = { labels: new Uint8Array(S * S).fill(1), coverage: plein, occlusion: null, box: () => ({ x0: 0, y0: 0, x1: S, y1: S }) };
+  const shading = { width: 8, height: 8, rgba: new Float32Array(8 * 8 * 4).fill(1), reference: 128, lightTint: [1, 1, 1],
+    sample: (x, y, out) => { out[0] = 1; out[1] = 1; out[2] = 1; out[3] = 1; return out; } };
+  const source = { width: S, height: S, data: new Uint8ClampedArray(S * S * 4).fill(128) };
+  const target = { width: S, height: S, data: new Uint8ClampedArray(S * S * 4) };
+  const materiau = { id: 't', boardWidth: 0.09, boardLength: 0.6, texture: {} };
+  const surfaces = new Map([['sol', { material: materiau, maps, config: { pattern: 'point-de-hongrie', angle: 0, width: 0.092 } }]]);
+  createCanvasRenderer().paint({ source, target, scene, masks, shading, gloss: null, shadow: null, light: null, mid: null, surfaces, step: 1 });
+  // Corrélation entre le rendu et les rayures attendues au centre de chaque pixel.
+  let sa = 0, sb = 0, saa = 0, sbb = 0, sab = 0, n = 0, nan = 0;
+  for (let y = 8; y < S - 8; y += 1) for (let x = 0; x < S; x += 1) {
+    const a = target.data[(y * S + x) * 4];
+    if (!Number.isFinite(a)) nan += 1;
+    const b = rayures(((x + 0.5) / S) * largeurM * perMeter);
+    sa += a; sb += b; saa += a * a; sbb += b * b; sab += a * b; n += 1;
+  }
+  const r = (sab / n - (sa / n) * (sb / n)) / Math.sqrt((saa / n - (sa / n) ** 2) * (sbb / n - (sb / n) ** 2));
+  ok('Canvas, plan rasant : les échantillons anisotropes restent dans l\'empreinte du pixel', r > 0.8 && nan === 0, `corrélation ${r.toFixed(3)}`);
+}
+
 console.log(echecs ? `\n${echecs} ECHEC(S)` : '\nAUCUN ECHEC');
 process.exit(echecs ? 1 : 0);
