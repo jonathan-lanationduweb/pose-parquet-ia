@@ -61,6 +61,15 @@ const GLOSS_THRESHOLD = 0.06;
  *  s'écartent de 5 à 15 % de leur moyenne locale, une ombre de meuble de 25 à
  *  60 %. */
 const SHADOW_THRESHOLD = 0.18;
+/** Résidu de LUMIÈRE (LOT PHOTO.3), normalisé sur 0,4.
+ *
+ *  Mesuré sur la chambre et le séjour : la carte basse fréquence absorbe déjà
+ *  l'essentiel d'une tache de soleil (1,44 × la médiane du sol, contre 1,60
+ *  dans la photo) ; ce qui manque, c'est l'excès LOCAL, de 0,10 à 0,37. À 0,18
+ *  il ne restait presque rien ; à 0,06, des stries d'anciennes lames
+ *  revenaient. 0,10 garde le reflet de fenêtre et la baie, et l'ouverture
+ *  morphologique retire ce qui est plus fin qu'une lame. */
+const LIGHT_THRESHOLD = 0.10;
 
 /**
  * Flou par boîte séparable, appliqué trois fois : très proche d'un gaussien.
@@ -367,6 +376,7 @@ export function buildResidualMaps(source, coverage, shading) {
   const src = source.data;
   const gloss = new Float32Array(width * height);
   const shadow = new Float32Array(width * height);
+  const light = new Float32Array(width * height);
   const sol = new Uint8Array(width * height);
   const out = new Float32Array(4);
   for (let y = 0; y < height; y += 1) {
@@ -383,6 +393,7 @@ export function buildResidualMaps(source, coverage, shading) {
       const local = (0.2126 * out[0] + 0.7152 * out[1] + 0.0722 * out[2]) * shading.reference;
       const ecart = (luma - local) / Math.max(24, local);
       if (ecart > GLOSS_THRESHOLD) gloss[i] = Math.min(1, ecart - GLOSS_THRESHOLD);
+      if (ecart > LIGHT_THRESHOLD) light[i] = Math.min(1, (ecart - LIGHT_THRESHOLD) / 0.4);
       else if (-ecart > SHADOW_THRESHOLD) shadow[i] = Math.min(1, (-ecart - SHADOW_THRESHOLD) / 0.45);
     }
   }
@@ -397,14 +408,27 @@ export function buildResidualMaps(source, coverage, shading) {
   // Hors du sol, aucune ombre : la carte ne doit pas déborder sur un mur.
   for (let i = 0; i < shadowDoux.length; i += 1) if (!sol[i]) shadowDoux[i] = 0;
 
+  /* Lumière haute fréquence — LOT PHOTO.3.
+     La carte basse fréquence (flou de 4,5 % de la largeur) étale une tache de
+     soleil ou un reflet de fenêtre jusqu'à ne plus laisser qu'un halo : la
+     revue a vu la baie de la chambre et le reflet du séjour disparaître. Ce
+     résidu les rend. Même recette que les ombres, pour la même raison :
+     ouverture morphologique (une veine claire ou un liseré de joint plus fin
+     que le noyau disparaît), puis flou court pour adoucir les bords. */
+  const rLum = Math.max(1, Math.round((fullW * 0.0025) / k));
+  const lumOuverte = filterChannel(filterChannel(light, width, height, rLum, 'min'), width, height, rLum, 'max');
+  const lightDoux = filterChannel(lumOuverte, width, height, Math.max(1, Math.round((fullW * 0.004) / k)), 'blur');
+  for (let i = 0; i < lightDoux.length; i += 1) if (!sol[i]) lightDoux[i] = 0;
+
   /* Le moteur Canvas lit les cartes au pixel de l'image : il reçoit une
      version agrandie, fabriquée seulement s'il la demande. */
   let pleine = null;
   const fullRes = () => {
     if (pleine) return pleine;
-    if (k === 1) { pleine = { gloss: glossFlou, shadow: shadowDoux }; return pleine; }
+    if (k === 1) { pleine = { gloss: glossFlou, shadow: shadowDoux, light: lightDoux }; return pleine; }
     const g = new Float32Array(fullW * fullH);
     const o = new Float32Array(fullW * fullH);
+    const l = new Float32Array(fullW * fullH);
     for (let y = 0; y < fullH; y += 1) {
       const ry = Math.min(height - 1, (y / k) | 0) * width;
       const row = y * fullW;
@@ -412,13 +436,14 @@ export function buildResidualMaps(source, coverage, shading) {
         const i = ry + Math.min(width - 1, (x / k) | 0);
         g[row + x] = glossFlou[i];
         o[row + x] = shadowDoux[i];
+        l[row + x] = lightDoux[i];
       }
     }
-    pleine = { gloss: g, shadow: o };
+    pleine = { gloss: g, shadow: o, light: l };
     return pleine;
   };
 
-  return { gloss: glossFlou, shadow: shadowDoux, width, height, fullRes };
+  return { gloss: glossFlou, shadow: shadowDoux, light: lightDoux, width, height, fullRes };
 }
 
 /**

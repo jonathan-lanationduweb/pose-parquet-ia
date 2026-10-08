@@ -26,7 +26,27 @@
  * disponible ; voir docs/renderer-canvas-vs-webgl.md.
  */
 import { zoneTransform, lightDirection, tileLight } from './geometry.js';
-import { TILE, TILE_METERS, patternProfile } from './texture.js';
+import { TILE, TILE_METERS, patternProfile, motifPeriode } from './texture.js';
+
+/* Même bruit continu que le shader (cf. `bruitSol` dans renderer-gl.js). */
+const fract = (v) => v - Math.floor(v);
+function hacheSol(x, y) {
+  const t = x * 0.7548776662 + y * 0.569840291;
+  return fract(t * t * 0.6180339887 + t);
+}
+function bruitSol(px, py) {
+  const ix = Math.floor(px);
+  const iy = Math.floor(py);
+  const fx = px - ix;
+  const fy = py - iy;
+  const sx = fx * fx * (3 - 2 * fx);
+  const sy = fy * fy * (3 - 2 * fy);
+  const a = hacheSol(ix, iy);
+  const b = hacheSol(ix + 1, iy);
+  const c = hacheSol(ix, iy + 1);
+  const d = hacheSol(ix + 1, iy + 1);
+  return (a + (b - a) * sx) + ((c + (d - c) * sx) - (a + (b - a) * sx)) * sy;
+}
 import { albedoMeanLuma, exposureScale } from './shading.js';
 
 const clamp = (v, min, max) => (v < min ? min : v > max ? max : v);
@@ -88,7 +108,7 @@ export function createCanvasRenderer() {
      * @param {Map} o.surfaces            surfaceId → { material, maps, config }
      * @param {number} [o.step]           1 = pleine résolution, 2 = allégé
      */
-    paint({ source, target, scene, masks, shading, gloss, shadow, surfaces, step = 1 }) {
+    paint({ source, target, scene, masks, shading, gloss, shadow, light: lumiere, surfaces, step = 1 }) {
       const width = source.width;
       const height = source.height;
       const src = source.data;
@@ -147,8 +167,10 @@ export function createCanvasRenderer() {
         const reliefGain = surf.relief * 0.9;
         // Memes doses que le shader : un quart de l'eclat pour une finition
         // mate, presque tout pour un verni.
-        const glossGain = gloss ? 0.25 + surf.clearcoat * 0.9 : 0;
+        const glossGain = gloss ? surf.clearcoat * 0.9 : 0;
         const shadowGain = shadow ? light.contactShadow : 0;
+        const highlightGain = lumiere ? light.highlight : 0;
+        const periode = motifPeriode(surface.material, config.pattern, config.width || null);
         const strength = light.strength;
         const ambient = light.ambient;
         const tint = light.tint;
@@ -203,7 +225,12 @@ export function createCanvasRenderer() {
             // Coordonnées dans le plan du sol, en mètres, motif compris.
             const fu = u * meters.width + origin.u;
             const fv = v * meters.depth + origin.v;
-            const ty = (fu * sin + fv * cos) * perMeter;
+            let ty = (fu * sin + fv * cos) * perMeter;
+            // Phase propre a chaque colonne de chevrons : cf. `uChevron`.
+            if (periode) {
+              const colonne = Math.floor((fu * cos - fv * sin) * perMeter / (periode.colonne * TILE));
+              ty += Math.floor(fract(colonne * 0.6180339887) * periode.rangs) * periode.pas * TILE;
+            }
             // Rupture de périodicité, rangée par rangée : même formule que le
             // shader, voir 'uJitter' dans renderer-gl.js. Le décalage est
             // calculé une fois pour le pixel, avant l'étalement anisotrope,
@@ -212,10 +239,8 @@ export function createCanvasRenderer() {
             const tx = txBrut + decalageRangee(ty);
             // Variation d'exposition par repetition de tuile : cf. uRepeatVar
             // dans renderer-gl.js, meme recurrence, memes constantes.
-            const celX = Math.floor(txBrut / TILE);
-            const celY = Math.floor(ty / TILE);
-            const hRep = ((celX * 0.6180339887 + celY * 0.3819660113) % 1 + 1) % 1;
-            const expoRep = 1 + repeatVar * (hRep - 0.5) * 2;
+            // Variation lente et CONTINUE, en metres de sol : cf. `bruitSol`.
+            const expoRep = 1 + repeatVar * (bruitSol(fu / 1.6, fv / 1.6) - 0.5) * 2;
 
             // Empreinte du pixel dans la tuile : deux axes, souvent très
             // inégaux en perspective rasante. Filtrer sur le plus grand rend
@@ -296,7 +321,8 @@ export function createCanvasRenderer() {
             const lift = ambient * (1 - aLum);
             const shade = clamp(raw < 1 ? lift + (1 - lift) * raw : raw, shadowFloor, 1.9);
             // Ombre de contact lue dans la photo : cf. `uShadowGain` dans le shader.
-            const ombre = shadowGain ? 1 - shadowGain * shadow[index0] : 1;
+            const ombre = (shadowGain ? 1 - shadowGain * shadow[index0] : 1)
+              * (highlightGain ? 1 + highlightGain * lumiere[index0] : 1);
             const gainR = shade * tintR * exposure * ombre;
             const gainG = shade * tintG * exposure * ombre;
             const gainB = shade * tintB * exposure * ombre;

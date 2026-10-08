@@ -138,12 +138,59 @@ const rgb = (c, shift = 0, warm = 0) =>
 /** Divise TILE en un nombre entier de pas proche de la valeur souhaitée. */
 const fit = (target) => TILE / Math.max(1, Math.round(TILE / target));
 
+/**
+ * Période du point de Hongrie dans la tuile, en fraction de tuile — LOT PHOTO.3.
+ *
+ * Le moteur s'en sert pour donner à chaque COLONNE de chevrons sa propre
+ * phase verticale (un multiple entier du pas, donc sans couper de lame ni
+ * décaler une coupe d'onglet). Sans cela, la même lame revenait tous les
+ * 4,80 m dans les deux directions : c'est la répétition que la revue voyait.
+ * Mêmes calculs que `drawChevron`, au même endroit, pour qu'ils ne divergent
+ * jamais. `null` pour les autres motifs.
+ */
+export function motifPeriode(material, pattern, widthOverride) {
+  if (pattern !== 'point-de-hongrie') return null;
+  const profile = patternProfile(material, pattern, widthOverride);
+  const w = fit((profile.width / TILE_METERS) * TILE);
+  const rad = (Math.min(75, Math.max(15, profile.angleDeg)) * Math.PI) / 180;
+  const colonne = fit(2 * (profile.length / TILE_METERS) * TILE * Math.sin(rad));
+  const step = fit(w / Math.sin(rad));
+  return { colonne: colonne / TILE, pas: step / TILE, rangs: Math.round(TILE / step) };
+}
+
 /** Somme des caractères : deux matériaux différents tirent des veinages différents. */
 const seedOf = (id) => {
   let n = 17;
   for (let i = 0; i < id.length; i += 1) n = (n * 31 + id.charCodeAt(i)) % 100003;
   return n;
 };
+
+const mod = (a, n) => ((a % n) + n) % n;
+
+/**
+ * Le tirage aléatoire PROPRE à une lame — LOT PHOTO.3.
+ *
+ * Avant, toutes les lames puisaient dans un même flux. Une lame qui touche un
+ * bord est dessinée deux fois (elle-même et sa copie de raccord, décalée d'une
+ * tuile) : chaque copie tirait donc d'AUTRES nombres, et la lame du bord haut
+ * n'était pas la même que sa copie au bord bas — autre teinte, autre veinage.
+ * Mesuré sur quatre tuiles : le raccord était la pire paire de rangées voisines
+ * de toute la tuile (rang 96 à 100 sur 100), et c'est la bande que la revue
+ * voyait au sol tous les 4,80 m.
+ *
+ * Ici la graine dépend de la position de la lame MODULO la période de la
+ * tuile : une lame et sa copie de raccord reçoivent exactement les mêmes
+ * nombres, donc exactement le même dessin. Déterministe : même matériau, même
+ * motif, même largeur → même tuile.
+ */
+function alea(base, ...cles) {
+  let h = 2166136261 ^ base;
+  for (const k of cles) {
+    h = Math.imul(h ^ (k + 0x9e3779b9), 16777619);
+    h ^= h >>> 13;
+  }
+  return seeded(((h >>> 0) % 2147483646) + 1);
+}
 
 /* ------------------------------------------------------------------ */
 /* Éléments de bois                                                    */
@@ -522,7 +569,7 @@ function wrapped(ctx, draw, box) {
 /* Motifs                                                              */
 /* ------------------------------------------------------------------ */
 
-function drawStraight(ctx, tex, profile, random) {
+function drawStraight(ctx, tex, profile, graine) {
   const h = fit((profile.width / TILE_METERS) * TILE);
   const w = fit(Math.min(TILE, (profile.length / TILE_METERS) * TILE));
   const rows = Math.round(TILE / h);
@@ -534,16 +581,29 @@ function drawStraight(ctx, tex, profile, random) {
     for (let c = -1; c <= cols; c += 1) {
       const x = c * w + offset;
       const y = r * h;
-      wrapped(ctx, () => board(ctx, x, y, w, h, tex, random), { x, y, w, h });
+      // La lame c = -1 est la lame c = cols - 1 décalée d'une tuile : même clé.
+      const cle = mod(c, cols);
+      wrapped(ctx, () => board(ctx, x, y, w, h, tex, alea(graine, 1, r, cle)), { x, y, w, h });
     }
   }
 }
 
-function drawHerringbone(ctx, tex, profile, random) {
-  const w = fit((profile.width / TILE_METERS) * TILE);
-  // Longueur réelle de l'élément, arrondie à un multiple de la largeur : c'est
-  // la condition pour que le motif se referme sur lui-même.
-  const l = w * Math.max(2, Math.round(profile.length / profile.width));
+function drawHerringbone(ctx, tex, profile, graine) {
+  /* Réseau périodique sur la tuile — LOT PHOTO.3.
+
+     Le réseau est dessiné tourné de 45°. Vu dans la tuile, ses deux pas valent
+     w·√2 en largeur et l·√2 en hauteur. Avec w = TILE / n, aucun des deux ne
+     divisait la tuile : le motif ne se refermait pas, et le bord droit ne
+     raccordait pas au bord gauche. On choisit donc w pour que w·√2 divise la
+     tuile, et n multiple de k = l / w pour que l·√2 la divise aussi. La
+     largeur réelle bouge de quelques pour cent au plus. */
+  const k = Math.max(2, Math.round(profile.length / profile.width));
+  const cible = (profile.width / TILE_METERS) * TILE;
+  const n = Math.max(k, Math.round(TILE / (cible * Math.SQRT2) / k) * k);
+  const w = TILE / (n * Math.SQRT2);
+  const l = w * k;
+  const nb = n; // pas horizontaux par tuile (indice j)
+  const na = n / k; // pas verticaux par tuile (indice i)
   const steps = Math.ceil((TILE * 1.6) / w) + 2;
   /**
    * Marge de couverture, calculée sur la géométrie et non au doigt mouillé.
@@ -570,8 +630,11 @@ function drawHerringbone(ctx, tex, profile, random) {
       const ox = TILE / 2 + i * l + j * w;
       const oy = TILE / 2 + i * l - j * w;
       if (ox < -marge || ox > TILE + marge || oy < -marge || oy > TILE + marge) continue;
-      board(ctx, ox, oy, l, w, tex, random);
-      board(ctx, ox + l, oy, w, l, tex, random);
+      // Décaler d'une tuile revient à ajouter na à i ou nb à j : même clé.
+      const ci = mod(i, na);
+      const cj = mod(j, nb);
+      board(ctx, ox, oy, l, w, tex, alea(graine, 2, ci, cj, 0));
+      board(ctx, ox + l, oy, w, l, tex, alea(graine, 2, ci, cj, 1));
     }
   }
   ctx.restore();
@@ -592,15 +655,22 @@ function drawHerringbone(ctx, tex, profile, random) {
  * On arrondit ensuite le pas à un diviseur entier de la tuile, sans quoi le
  * motif ne se refermerait pas sur lui-même.
  */
-function drawChevron(ctx, tex, profile, random) {
+function drawChevron(ctx, tex, profile, graine) {
   const w = fit((profile.width / TILE_METERS) * TILE);
   const rad = (Math.min(75, Math.max(15, profile.angleDeg)) * Math.PI) / 180;
-  const length = (profile.length / TILE_METERS) * TILE;
-  const armX = length * Math.sin(rad);
+  /* La largeur d'une colonne de chevrons (2·armX) doit diviser la tuile, sans
+     quoi le bord droit ne raccorde pas au bord gauche — et c'était le cas : la
+     colonne valait 2·L·sin θ, sans arrondi. On garde l'angle et on ajuste la
+     longueur de lame de quelques pour cent. LOT PHOTO.3. */
+  const colonne = fit(2 * (profile.length / TILE_METERS) * TILE * Math.sin(rad));
+  const length = colonne / (2 * Math.sin(rad));
+  const armX = colonne / 2;
   const armY = length * Math.cos(rad);
   // Décalage vertical entre deux lames d'une même arête, ajusté pour que la
   // tuile se referme.
   const step = fit(w / Math.sin(rad));
+  const nCols = Math.round(TILE / colonne);
+  const nRows = Math.round(TILE / step);
   const cols = Math.ceil(TILE / (armX * 2)) + 2;
   const rows = Math.ceil((TILE + armY) / step) + 2;
 
@@ -629,7 +699,7 @@ function drawChevron(ctx, tex, profile, random) {
    * `drawChevron` ne sert qu'au point de Hongrie : aucune pose droite ni aucun
    * bâton rompu déjà validé ne passe par ici.
    */
-  const plank = (x0, y0, dir) => {
+  const plank = (x0, y0, dir, random) => {
     ctx.save();
     // Contour du parallélogramme : il sert de découpe, puis de joint.
     ctx.beginPath();
@@ -671,11 +741,14 @@ function drawChevron(ctx, tex, profile, random) {
     for (let r = -2; r <= rows; r += 1) {
       const x0 = c * armX * 2;
       const y0 = r * step - armY;
+      // Clé modulo la période : la copie de raccord est la même lame.
+      const kc = mod(c, nCols);
+      const kr = mod(r, nRows);
       wrapped(
         ctx,
         () => {
-          plank(x0, y0, 1);
-          plank(x0 + armX * 2, y0, -1);
+          plank(x0, y0, 1, alea(graine, 3, kc, kr, 0));
+          plank(x0 + armX * 2, y0, -1, alea(graine, 3, kc, kr, 1));
         },
         { x: x0 - armX, y: y0, w: armX * 3, h: armY + step }
       );
@@ -762,7 +835,7 @@ export function buildTexture(material, { pattern = 'lames', width, size = TILE }
      moyenne, ombres, contraste relatif, saturation, micro-contraste — sont
      reportees dans le rapport du LOT PERF.2. */
   const ctx = canvas.getContext('2d');
-  const random = seeded(seedOf(material.id) + Math.round(profile.width * 1000));
+  const graine = seedOf(material.id) + Math.round(profile.width * 1000);
 
   // Tout est dessiné dans le repère de la tuile pleine : une taille réduite
   // sert aux aperçus (16 fois moins de pixels, même dessin).
@@ -770,9 +843,9 @@ export function buildTexture(material, { pattern = 'lames', width, size = TILE }
   ctx.fillStyle = rgb(tex.grain, -14);
   ctx.fillRect(0, 0, TILE, TILE);
 
-  if (pattern === 'point-de-hongrie') drawChevron(ctx, tex, profile, random);
-  else if (pattern === 'baton-rompu') drawHerringbone(ctx, tex, profile, random);
-  else drawStraight(ctx, tex, profile, random);
+  if (pattern === 'point-de-hongrie') drawChevron(ctx, tex, profile, graine);
+  else if (pattern === 'baton-rompu') drawHerringbone(ctx, tex, profile, graine);
+  else drawStraight(ctx, tex, profile, graine);
 
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   filmGrain(ctx, size, size, 6);

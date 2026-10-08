@@ -313,6 +313,16 @@ export function normalizeScene(raw) {
        * un nouveau parquet plus clair renvoie plus de lumiere dans l'ombre.
        */
       contactShadow: num(light.contactShadow, 0.6),
+
+      /**
+       * `highlight` — dose de la lumière haute fréquence relue dans la photo
+       * (taches de soleil, reflets de fenêtre). LOT PHOTO.3. Le gain local
+       * devient `1 + highlight · résidu` : à 1,2, un reflet franc de la photo
+       * éclaircit le parquet de 60 à 90 %, ce qui retrouve la STRUCTURE
+       * lumineuse sans recopier la valeur — le genou des hautes lumières fait
+       * le reste.
+       */
+      highlight: num(light.highlight, 1.2),
     },
 
     warnings: Array.isArray(raw.warnings) ? raw.warnings.slice() : [],

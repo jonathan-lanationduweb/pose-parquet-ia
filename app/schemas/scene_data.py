@@ -206,6 +206,9 @@ class Light(_Model):
     contact: float = 0.35
     #: Dose des ombres de contact relues dans la photo (LOT PHOTO.2).
     contact_shadow: float = 0.6
+    #: Dose de la lumière haute fréquence relue dans la photo — soleil,
+    #: reflets de fenêtre (LOT PHOTO.3).
+    highlight: float = 1.2
     #: Ancrage de l'exposition sur la clarté de l'ancien sol. `None` : le
     #: défaut du front (0,55), réglé sur les pièces calibrées.
     exposure: float | None = None

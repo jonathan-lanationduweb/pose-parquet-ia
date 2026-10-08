@@ -199,7 +199,8 @@ export function createSceneRenderer({ prefer = 'auto' } = {}) {
       surfaces.forEach((entry) => { if (entry.maps.completer) entry.maps.completer(); });
       const ok = cpu.paint({
         source, target: buffer, scene, masks, shading,
-        gloss: residual && residual.fullRes().gloss, shadow: residual && residual.fullRes().shadow, surfaces, step,
+        gloss: residual && residual.fullRes().gloss, shadow: residual && residual.fullRes().shadow,
+        light: residual && residual.fullRes().light, surfaces, step,
       });
       if (!ok) return false;
       ctx.putImageData(buffer, 0, 0);
@@ -230,6 +231,7 @@ export function createSceneRenderer({ prefer = 'auto' } = {}) {
         shading,
         gloss: residual && residual.fullRes().gloss,
         shadow: residual && residual.fullRes().shadow,
+        light: residual && residual.fullRes().light,
         surfaces,
         step,
       });

@@ -46,8 +46,10 @@
    * @param {HTMLElement} options.root      où insérer le tiroir (le body)
    * @param {Record<string,HTMLElement>} options.panes  mode → panneau existant
    * @param {() => void} [options.onClose]  appelé après chaque fermeture
+   * @param {(mode:string) => void} [options.onOpen]  appelé après chaque ouverture
+   * @param {Record<string,string>} [options.tailles]  mode → hauteur d'ouverture
    */
-  function createDrawer({ root, panes, onClose }) {
+  function createDrawer({ root, panes, onClose, onOpen, tailles }) {
     const scrim = global.document.createElement('div');
     scrim.className = 'dw-scrim hidden';
 
@@ -109,7 +111,12 @@
       Object.values(panes).forEach((p) => p && p.classList.add('hidden'));
       pane.classList.remove('hidden');
       shell.dataset.mode = next;
-      if (!shell.dataset.size) shell.dataset.size = 'medium';
+      /* La hauteur d'ouverture dépend du mode — LOT PHOTO.3. Personnaliser
+         s'ouvre plus bas que le catalogue : on y règle le sens de pose en
+         REGARDANT le sol, et un tiroir moyen le cachait entièrement à 390 px
+         (0 % de parquet visible, mesuré). La poignée reste libre ensuite. */
+      if (tailles && tailles[next]) shell.dataset.size = tailles[next];
+      else if (!shell.dataset.size) shell.dataset.size = 'medium';
       shell.classList.remove('hidden');
       scrim.classList.remove('hidden');
       mode = next;
@@ -127,6 +134,7 @@
 
       const premier = pane.querySelector(FOCUSABLE);
       if (premier) premier.focus({ preventScroll: true });
+      if (onOpen) onOpen(next);
     }
 
     scrim.addEventListener('click', close);
@@ -136,7 +144,7 @@
        haut deploie, vers le bas replie puis ferme. La hauteur est une classe
        de donnee, et c'est le CSS qui en fait des `dvh`. */
     const TAILLES = ['collapsed', 'medium', 'expanded'];
-    const poser = (taille) => { shell.dataset.size = taille; };
+    const poser = (taille) => { shell.dataset.size = taille; if (onOpen && mode) onOpen(mode); };
     let glisse = null;
     grip.addEventListener('pointerdown', (e) => {
       glisse = { y: e.clientY, bouge: false };

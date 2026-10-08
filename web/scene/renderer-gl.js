@@ -27,7 +27,7 @@
  */
 import { zoneTransform, tileLight } from './geometry.js';
 import { albedoMeanLuma, exposureScale } from './shading.js';
-import { TILE_METERS, patternProfile } from './texture.js';
+import { TILE_METERS, patternProfile, motifPeriode } from './texture.js';
 
 const VERTEX = `#version 300 es
 in vec2 aUnit;
@@ -47,7 +47,7 @@ uniform sampler2D uMask;      // R = zone, G = couverture, B = occlusion
 uniform sampler2D uAlbedo;    // tuile de bois, mipmaps + anisotrope
 uniform sampler2D uReliefMap; // R,G = pente ; B = rugosité locale
 uniform sampler2D uShading;   // RGB = gain de luminance (identique), A = contact
-uniform sampler2D uGloss;     // R = résidu clair (reflets), G = résidu sombre (ombres de contact)
+uniform sampler2D uGloss;     // R = reflets (spéculaire), G = ombres de contact, B = lumière (soleil, reflets)
 
 uniform vec2  uViewport;
 uniform mat3  uInverse;     // pixels image → carré unité
@@ -73,6 +73,27 @@ uniform float uShadowFloor; // plancher du gain dans les ombres
 uniform float uRepeatVar;   // variation d'exposition par repetition de tuile
 uniform vec3  uLightTint;   // dominante GLOBALE de la lumiere, luminance 1
 uniform float uShadowGain;  // dose des ombres de contact lues dans la photo
+uniform float uHighlight;   // dose de la lumiere haute frequence (soleil, reflets)
+uniform vec3  uChevron;     // colonne (u), pas (v), rangs par tuile ; x = 0 hors point de Hongrie
+
+// Bruit de valeur continu, en metres de sol — LOT PHOTO.3. Remplace une
+// exposition CONSTANTE par tuile, qui posait une marche de luminance a chaque
+// raccord (la bande horizontale de la revue). Meme hachage que le moteur
+// Canvas : pas de sin(), dont la precision differe entre float32 et float64.
+float hacheSol(vec2 c) {
+  float t = c.x * 0.7548776662 + c.y * 0.5698402910;
+  return fract(t * t * 0.6180339887 + t);
+}
+float bruitSol(vec2 p) {
+  vec2 i = floor(p);
+  vec2 f = fract(p);
+  vec2 s = f * f * (3.0 - 2.0 * f);
+  float a = hacheSol(i);
+  float b = hacheSol(i + vec2(1.0, 0.0));
+  float c = hacheSol(i + vec2(0.0, 1.0));
+  float d = hacheSol(i + vec2(1.0, 1.0));
+  return mix(mix(a, b, s.x), mix(c, d, s.x), s.y);
+}
 
 void main() {
   // gl_FragCoord a son origine en bas ; l'image, en haut.
@@ -117,6 +138,15 @@ void main() {
   // Inapplicable aux chevrons, dont les lames traversent les rangées : le
   // moteur y met 'uJitter' à zéro.
   vec2 uvLu = uv;
+  // Point de Hongrie : chaque colonne de chevrons recoit sa propre phase
+  // verticale, un multiple entier du pas. La geometrie ne bouge pas (une
+  // colonne ne partage aucune lame avec sa voisine, et les coupes d'onglet
+  // restent alignees) ; ce qui change, c'est QUELLE lame tombe a cet endroit.
+  // La colonne est indexee sans borne : la sequence doree ne revient pas.
+  if (uChevron.x > 0.0) {
+    float colonne = floor(uv.x / uChevron.x);
+    uvLu.y += floor(fract(colonne * 0.6180339887) * uChevron.z) * uChevron.y;
+  }
   if (uJitter > 0.0) {
     float rangee = floor(uv.y * uRowsPerTile);
     // Recurrence doree plutot que fract(sin(x)) : la seconde depend de la
@@ -153,9 +183,8 @@ void main() {
   // uJitter — pas de sin(), dont la precision differe entre float32 et le
   // float64 du moteur Canvas. Lu sur 'uv' (avant decalage de rangee) pour
   // que toute la tuile recoive la meme valeur.
-  vec2 cel = floor(uv);
-  float hRep = fract(cel.x * 0.6180339887 + cel.y * 0.3819660113);
-  albedo *= 1.0 + uRepeatVar * (hRep - 0.5) * 2.0;
+  // Variation lente d'exposition, continue, sur des cellules de 1,6 m de sol.
+  albedo *= 1.0 + uRepeatVar * (bruitSol(floorM / 1.6) - 0.5) * 2.0;
 
   float aLum = dot(albedo, vec3(0.2126, 0.7152, 0.0722));
 
@@ -189,8 +218,11 @@ void main() {
 
   // Ombres de contact lues dans la photo (residu sombre large, joints exclus) :
   // la chaise, le radiateur et le bas du mur reprennent leur ombre.
-  vec2 residu = texture(uGloss, texel).rg;
+  vec3 residu = texture(uGloss, texel).rgb;
   gain *= 1.0 - uShadowGain * residu.g;
+  // Lumiere haute frequence : soleil et reflets de fenetre, que le flou de la
+  // carte basse frequence etalait en halo. En LUMINANCE, comme le reste.
+  gain *= 1.0 + uHighlight * residu.b;
 
   vec2 slope = (relief.rg - 0.5) * 2.0;
   float bump = clamp(1.0 + dot(slope, uLight) * uReliefGain * near, 0.55, 1.6);
@@ -340,7 +372,7 @@ export function createGlRenderer() {
     'uRowsPerTile', 'uJitter',
     'uLabel', 'uLight', 'uStrength', 'uAmbient', 'uTint', 'uReliefGain', 'uGlossGain',
     'uGamma', 'uExposure', 'uMicro', 'uAlbedoMean', 'uSaturation', 'uShadowFloor', 'uRepeatVar',
-    'uLightTint', 'uShadowGain',
+    'uLightTint', 'uShadowGain', 'uHighlight', 'uChevron',
     'uMask', 'uAlbedo', 'uReliefMap', 'uShading', 'uGloss',
   ]);
   const uBlit = uniforms(blit, ['uTex']);
@@ -393,7 +425,7 @@ export function createGlRenderer() {
   let maskBytes = null;
   let residualBytes = null;
   let currentMaterial = null;
-  const noResidual = new Uint8Array([0, 0]);
+  const noResidual = new Uint8Array([0, 0, 0]);
 
   shared = {
     backend: 'webgl2',
@@ -406,7 +438,7 @@ export function createGlRenderer() {
       canvas.height = height;
       size = { width, height };
       maskBytes = new Uint8Array(width * height * 4);
-      residualBytes = new Uint8Array(width * height * 2);
+      residualBytes = new Uint8Array(width * height * 3);
       currentMaterial = null;
     },
 
@@ -433,23 +465,24 @@ export function createGlRenderer() {
       upload(tex.shading, gl.RGBA16F, gl.RGBA, gl.HALF_FLOAT, shading.width, shading.height, toHalf(shading.rgba));
     },
 
-    /** Reflets (R) et ombres de contact (G), dans une seule texture. */
+    /** Reflets (R), ombres de contact (G) et lumiere (B), dans une seule texture. */
     setResidual(residual) {
       if (!residual) {
-        upload(tex.gloss, gl.RG8, gl.RG, gl.UNSIGNED_BYTE, 1, 1, noResidual);
+        upload(tex.gloss, gl.RGB8, gl.RGB, gl.UNSIGNED_BYTE, 1, 1, noResidual);
         return;
       }
-      const { gloss, shadow } = residual;
+      const { gloss, shadow, light } = residual;
       const w = residual.width || size.width;
       const h = residual.height || size.height;
-      const octets = residualBytes && residualBytes.length >= w * h * 2 ? residualBytes : new Uint8Array(w * h * 2);
-      for (let i = 0, p = 0; i < gloss.length; i += 1, p += 2) {
+      const octets = residualBytes && residualBytes.length >= w * h * 3 ? residualBytes : new Uint8Array(w * h * 3);
+      for (let i = 0, p = 0; i < gloss.length; i += 1, p += 3) {
         octets[p] = Math.min(255, Math.round(gloss[i] * 255));
         octets[p + 1] = shadow ? Math.min(255, Math.round(shadow[i] * 255)) : 0;
+        octets[p + 2] = light ? Math.min(255, Math.round(light[i] * 255)) : 0;
       }
       // La carte peut etre plus petite que la photo : le shader la lit en
       // coordonnees normalisees, et le filtrage lineaire l'agrandit.
-      upload(tex.gloss, gl.RG8, gl.RG, gl.UNSIGNED_BYTE, w, h, octets);
+      upload(tex.gloss, gl.RGB8, gl.RGB, gl.UNSIGNED_BYTE, w, h, octets);
     },
 
     /** Cartes du matériau. Les mipmaps sont fabriquées par le GPU. */
@@ -496,6 +529,7 @@ export function createGlRenderer() {
       gl.uniform1f(u.uShadowFloor, scene.light.shadowFloor);
       gl.uniform1f(u.uRepeatVar, scene.light.repeatVar);
       gl.uniform1f(u.uShadowGain, scene.light.contactShadow);
+      gl.uniform1f(u.uHighlight, scene.light.highlight);
       const teinte = (shading && shading.lightTint) || [1, 1, 1];
       gl.uniform3f(u.uLightTint, teinte[0], teinte[1], teinte[2]);
 
@@ -532,6 +566,8 @@ export function createGlRenderer() {
         const droit = config.pattern === 'lames';
         gl.uniform1f(u.uRowsPerTile, droit ? Math.max(1, Math.round(TILE_METERS / profil.width)) : 1);
         gl.uniform1f(u.uJitter, droit ? 1 : 0);
+        const periode = motifPeriode(surface.material, config.pattern, config.width || null);
+        gl.uniform3f(u.uChevron, periode ? periode.colonne : 0, periode ? periode.pas : 0, periode ? periode.rangs : 0);
         gl.uniform1f(u.uLabel, index + 1);
         gl.uniform2f(u.uLight, light.u, light.v);
         // Les deux valeurs qui dependent de la MATIERE, donc de la zone : la
@@ -544,10 +580,10 @@ export function createGlRenderer() {
           shading ? exposureScale(shading, moyenneTuile, scene.light.exposure) : 1
         );
         gl.uniform1f(u.uReliefGain, surf.relief * 0.9);
-        // Les reflets de la piece touchent toutes les finitions : un quart de
-        // l'eclat pour une finition mate, presque tout pour un verni. Avant,
-        // un sol mat perdait entierement la lumiere des fenetres.
-        gl.uniform1f(u.uGlossGain, 0.25 + surf.clearcoat * 0.9);
+        // Le spéculaire ne sert plus qu'aux finitions brillantes : la lumiere
+        // des fenetres passe desormais par la couche haute frequence (B), pour
+        // toutes les finitions. Garder la part fixe de 0,25 la doublerait.
+        gl.uniform1f(u.uGlossGain, surf.clearcoat * 0.9);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       });
 

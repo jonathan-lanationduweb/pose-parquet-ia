@@ -924,11 +924,11 @@
   </div>
   <div class="body"><div class="main">
     <p class="honest" id="cusIntro"></p>
-    <div class="sect"><h3>Motif de pose</h3><div class="pats" id="patterns"></div>
+    <div class="sect" id="sectPattern"><h3>Motif de pose</h3><div class="pats" id="patterns"></div>
       <p class="note" id="patternNote"></p></div>
-    <div class="sect"><h3>Largeur des lames</h3><div class="chips" id="widths"></div>
+    <div class="sect" id="sectWidth"><h3>Largeur des lames</h3><div class="chips" id="widths"></div>
       <p class="note" id="widthNote"></p></div>
-    <div class="sect"><h3>Teinte</h3><div class="chips" id="tones"></div>
+    <div class="sect" id="sectTone"><h3>Teinte</h3><div class="chips" id="tones"></div>
       <p class="note" id="toneNote"></p></div>
     <div class="sect" id="sectOrient"><h3>Sens de pose</h3>
       <div class="orient" id="orient"></div>
@@ -1402,7 +1402,7 @@
     filters: { pattern: null, tone: null, widthMm: null, mood: null },
     category: 'Séjour',
     analysis: 'success',
-    ba: false, split: 0.5,
+    ba: false, split: 0.5, insetBas: 0,
     /* Les favoris survivent au rechargement. On ne stocke QUE des
        identifiants de reference : ni fiche commerciale, ni prix, ni photo.
        Une valeur illisible — absente, tronquee, ecrite par une version
@@ -2187,16 +2187,23 @@
      fait donc rien — et ne saute surtout pas a 100 %. */
   const zoomFloor = () => Math.min(ZOOM_MIN, state.vp.z);
 
-  /** Borne la translation : l'image couvre toujours le cadre, ou se centre. */
+  /** Borne la translation : l'image couvre toujours le cadre, ou se centre.
+   *
+   * `state.insetBas` (LOT PHOTO.3) : la hauteur du tiroir ouvert, en pixels
+   * du cadre. Tant qu'il est ouvert, la photo peut REMONTER d'autant : le bas
+   * de la pièce — c'est-à-dire le sol — passe au-dessus du tiroir au lieu de
+   * disparaître dessous. Sous le tiroir il n'y a plus que le fond du cadre,
+   * que personne ne voit. */
   function clamp(v) {
     const b = stageBox();
     const { w, h } = sceneSize();
     const s = fitScale() * v.z;
     const dw = w * s;
     const dh = h * s;
+    const hauteur = b.height - Math.max(0, state.insetBas || 0);
     const out = { z: v.z, x: v.x, y: v.y };
     out.x = dw <= b.width ? (b.width - dw) / 2 : Math.min(0, Math.max(b.width - dw, v.x));
-    out.y = dh <= b.height ? (b.height - dh) / 2 : Math.min(0, Math.max(b.height - dh, v.y));
+    out.y = dh <= hauteur ? (hauteur - dh) / 2 : Math.min(0, Math.max(hauteur - dh, v.y));
     return out;
   }
 
@@ -3576,8 +3583,36 @@
   const drawer = PPDrawer.createDrawer({
     root: document.body,
     panes: { rooms: $('roomSheet'), catalog: $('catSheet'), customize: $('cusSheet') },
-    onClose: () => { annulerChoixB(); },
+    /* Personnaliser s'ouvre en hauteur « compacte » : on règle le sens de pose
+       en regardant le sol. Les autres modes gardent la hauteur moyenne. */
+    tailles: { customize: 'compact', catalog: 'medium', rooms: 'medium', favorites: 'medium' },
+    onOpen: () => { setTimeout(regleReserveTiroir, 0); },
+    onClose: () => { annulerChoixB(); regleReserveTiroir(); },
   });
+
+  /* La photo remonte au-dessus du tiroir ouvert — LOT PHOTO.3.
+
+     Mesuré à 390 × 844 : Personnaliser ouvert, 0 % du parquet restait visible.
+     Le sol est en bas de la photo, le tiroir aussi. Plutôt que d'enfermer la
+     pièce dans la moitié haute, on la fait monter de la hauteur du tiroir ;
+     à la fermeture, la réserve tombe et `clamp` la ramène d'elle-même. */
+  function regleReserveTiroir() {
+    if (!state.source) { state.insetBas = 0; return; }
+    const b = stageBox();
+    let reserve = 0;
+    if (drawer.isOpen) {
+      /* La hauteur FINALE du tiroir, pas sa position : il glisse depuis le bas
+         et, à l'instant de l'ouverture, `getBoundingClientRect` le trouve
+         encore sous l'écran — la réserve valait 0 et la photo ne montait pas.
+         `offsetHeight` ignore la transformation de l'animation. */
+      const haut = window.innerHeight - drawer.element.offsetHeight;
+      reserve = Math.max(0, Math.round(b.bottom - haut));
+    }
+    if (reserve === state.insetBas) return;
+    const ecart = reserve - (state.insetBas || 0);
+    state.insetBas = reserve;
+    setVp({ z: state.vp.z, x: state.vp.x, y: state.vp.y - ecart }, true);
+  }
 
   /* Fermer le catalogue sans choisir B annule le choix de B. Sinon le prochain
      clic sur « Choisir un parquet » posait une comparaison au lieu de changer
@@ -3803,6 +3838,14 @@
 
   let toastTimer = null;
   function toast(message) {
+    /* Au-dessus de la barre basse VISIBLE — fiche produit, outils du pinceau,
+       tiroir. Mesuré : « Comparaison fermée » s'affichait sur les boutons du
+       pinceau, qui avaient remplacé la fiche. LOT PHOTO.3. */
+    const barres = ['card', 'cardB', 'floorTools', 'noscene']
+      .map((id) => $(id)).filter((el) => el && !el.classList.contains('hidden') && el.offsetParent);
+    if (drawer && drawer.isOpen) barres.push(drawer.element);
+    const haut = barres.reduce((m, el) => Math.min(m, el.getBoundingClientRect().top), window.innerHeight);
+    $('toast').style.bottom = `${Math.max(22, Math.round(window.innerHeight - haut + 12))}px`;
     $('toast').textContent = message;
     $('toast').classList.add('on');
     if (toastTimer) clearTimeout(toastTimer);
