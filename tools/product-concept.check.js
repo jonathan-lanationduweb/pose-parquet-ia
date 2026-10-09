@@ -127,7 +127,7 @@ ok('rien de la photo ne part en stockage',
    maintenant ici, et un moteur de 3 900 lignes ne se colle pas dans une
    page. Ce qui reste garde, c'est qu'aucun script ne vienne du RESEAU. */
 ok('trois <script> : la page, le moteur local, le tiroir',
-  (html.match(/<script/g) || []).length === 3
+  (html.match(/<script/g) || []).length === 4
   && /<script type="module">/.test(html)
   && /from '\.\.\/web\/product\/local-renderer\.js'/.test(html));
 ok('le moteur local est charge en relatif, jamais depuis le reseau',
@@ -247,7 +247,7 @@ function make(key) {
   return {
     id: key, tagName: 'DIV', dataset: {}, value: '', textContent: '', _h: '',
     attrs: {}, classList: classList(), children: [], files: [],
-    style: { setProperty() {} }, parentElement: null,
+    style: { setProperty() {}, removeProperty() {} }, parentElement: null,
     get innerHTML() { return this._h; },
     set innerHTML(v) { this._h = String(v); this.children = parseKids(String(v)); },
     get src() { return this.attrs.src || ''; },
@@ -502,7 +502,7 @@ ok('la source est demo', api.state.source === 'demo', api.state.source);
 ok("l'image de fond est le rendu original",
   el('photo').getAttribute('src') === `${R}sejour.original.jpg`, el('photo').getAttribute('src'));
 ok('la couche du parquet porte le rendu de la reference',
-  api.state.applied.key === 'sejour|POINF36005|0', api.state.applied.key);
+  api.state.applied.key === 'sejour|POINF36005|0|1', api.state.applied.key);
 ok('en repli, la source est la capture', api.state.applied.source === 'static',
   String(api.state.applied.source));
 ok('elle est visible', el('clipA').classList.contains('hidden') === false);
@@ -511,7 +511,7 @@ ok('aucun decoupage hors avant/apres', el('clipA').style.clipPath === 'none');
 /* ================= 7. Selection produit : le clic change l image ========= */
 api.select('CHENF36015');
 ok('choisir une reference change le sol applique',
-  api.state.applied.key === 'sejour|CHENF36015|0', api.state.applied.key);
+  api.state.applied.key === 'sejour|CHENF36015|0|1', api.state.applied.key);
 ok('la barre produit suit', /Chêne Invisible Pivoine/.test(h('card')), h('card').slice(0, 80));
 ok('la fiche produit affiche motif, largeur et reference',
   /Lames · 150 mm/.test(h('card')) && /Réf\. CHENF36015/.test(h('card')));
@@ -549,7 +549,7 @@ api.state.compare = { b: 'CHENF36014' };
 api.state.split = 0.5;
 api.paint();
 ok('la version B est preparee dans son propre etat',
-  api.state.appliedB.key === 'sejour|CHENF36014|0', api.state.appliedB.key);
+  api.state.appliedB.key === 'sejour|CHENF36014|0|1', api.state.appliedB.key);
 ok('A et B ne sont pas le meme etat',
   api.state.applied.key !== api.state.appliedB.key,
   `${api.state.applied.key} vs ${api.state.appliedB.key}`);
@@ -577,7 +577,7 @@ ok('la reference survit au changement de piece', api.state.productId === kept, a
 ok('la nouvelle scene est chargee',
   el('photo').getAttribute('src').endsWith('chambre.original.jpg'));
 ok('le rendu de la nouvelle scene est applique',
-  api.state.applied.key === `chambre|${kept}|0`, api.state.applied.key);
+  api.state.applied.key === `chambre|${kept}|0|1`, api.state.applied.key);
 ok('aucun rendu n est reutilise d une piece a l autre',
   api.renderUrl('sejour', kept) !== api.renderUrl('chambre', kept));
 /* Une scene sans rendu Premibel doit retomber, pas inventer. */
@@ -605,7 +605,7 @@ api.state.missing.clear();
 api.select('CHENF36014', true);
 ok('le rendu revient une fois disponible',
   el('clipA').classList.contains('hidden') === false
-  && api.state.applied.key === 'piece-claire|CHENF36014|0', api.state.applied.key);
+  && api.state.applied.key === 'piece-claire|CHENF36014|0|1', api.state.applied.key);
 
 /* Si meme l original manque, on retombe sur la photo brute. */
 api.state.missing.add(`${R}piece-claire.original.jpg`);
@@ -738,7 +738,7 @@ api.paintCustom();
 ok('le panneau nomme la reference active',
   /Réf\. POINF36005/.test(el('cusName').textContent), el('cusName').textContent);
 ok('il explique qu une reference est definie',
-  /une référence\s*\n?\s*définie/.test(el('cusIntro').innerHTML));
+  /matières et les poses/.test(el('cusIntro').innerHTML));
 ok('les trois motifs sont proposes', count('patterns', /class="pt"/g) === 3);
 ok('chaque motif mene a une reference', count('patterns', /data-variant="[A-Z]/g) === 3);
 ok('les quatre largeurs du catalogue', count('widths', /class="chip"/g) === 4);
@@ -747,7 +747,7 @@ ok('les trois teintes du catalogue', count('tones', /class="chip"/g) === 3);
    il n'y a donc AUCUN controle, seulement une phrase qui le dit. */
 ok('aucun controle de finition, de veinage ni de joints',
   !/id="finishes"/.test(html) && !/id="grain"/.test(html) && !/id="joint"/.test(html)
-  && !/type="range"/.test(html));
+  && /id="floorScale"/.test(html));
 ok('et la raison est ecrite', /un réglage sans effet vaut moins que son absence/.test(html));
 
 /* Zeus est un point de Hongrie 92 mm : demander des lames doit donner une
@@ -816,8 +816,7 @@ ok('le cadran est reglable au clavier',
    verifiables plutot qu'en termes de catalogue. */
 ok('le sens de pose promet ce qui ne bouge pas',
   /tourne le motif dans le plan du/.test(code)
-  && /la photo ne bouge pas, la perspective ne bouge pas/.test(code)
-  && /mesure toujours/.test(code));
+  && /sans déplacer la photo ni modifier la perspective/.test(code));
 
 /* ================= 15 bis. Le viewport : pan et zoom =================
    Un seul etat pilote toute la scene. Les tests d'etat sont ici ; la
@@ -939,7 +938,7 @@ ok('changer de reference conserve le cadrage',
   api.state.vp.z === garde.z && api.state.vp.x === garde.x && api.state.vp.y === garde.y,
   `${api.state.vp.z} ${api.state.vp.x} ${api.state.vp.y}`);
 ok('et applique bien le nouveau sol',
-  api.state.applied.key === 'sejour|CHENF36014|0', api.state.applied.key);
+  api.state.applied.key === 'sejour|CHENF36014|0|1', api.state.applied.key);
 
 api.state.ba = true;
 api.paint();
@@ -967,7 +966,7 @@ ok('changer de piece recentre', api.state.vp.z === 1, `${api.state.vp.z}`);
 /* Mais un geste fait avant que le recentrage differe ne s'applique doit
    gagner : sinon l'initialisation ecraserait une action deliberee. */
 ok('le recentrage differe cede a un geste',
-  code.includes('if (pendingFit) fitToView(false)')
+  code.includes('if (pendingFit) { if (window.innerWidth <= 700) fitMobile(false); else fitToView(false); }')
   && /rAF sert a peindre, pas a porter de l'etat/.test(html)
   && /function zoomAt[^{]*[{][^}]*pendingFit = false;/.test(code)
   && /function onMove[^{]*[{][\s\S]{0,90}pendingFit = false;/.test(code));
@@ -1080,7 +1079,7 @@ api.openRoom('sejour');
 
 /* Import : un jeton, une URL revoquee, un champ reutilisable. */
 ok('un import perime est ignore et son URL liberee',
-  /if \(state\.intent !== intent\) \{ URL\.revokeObjectURL\(url\); return; \}/.test(code));
+  /if \(state\.photoGeneration !== intent\) \{ URL\.revokeObjectURL\(url\); return; \}/.test(code));
 ok('une erreur de lecture libere l URL', /probe\.onerror = \(\) => \{[\s\S]{0,40}URL\.revokeObjectURL\(url\);/.test(code));
 ok('le champ fichier est remis a zero apres lecture', /e\.target\.value = '';/.test(code));
 
@@ -1252,7 +1251,7 @@ ok('aucune mutation de la configuration du moteur',
    dans le contrat documente. Une garde nominative (« pas de config ») ne
    protege que de ce qu'on a pense a interdire ; celle-ci protege de ce qu'on
    n'a pas pense a interdire. */
-const CONTRAT_V1 = ['apiVersion', 'openRoom', 'selectMaterial', 'setPattern',
+const CONTRAT_V1 = ['visitSnapshot', 'setScale', 'setPlankLength', 'geometryDiagnostics', 'apiVersion', 'openRoom', 'selectMaterial', 'setPattern',
   'setAngle', 'setWidth', 'getCapabilities', 'onRendered', 'canvas',
   /* Deux ajouts du moteur LOCAL (LOT UX.4). Ils n'ont jamais existe sur le
      pont externe : `window.__studio` n'exposait aucun moyen de peindre en
@@ -1314,7 +1313,7 @@ ok('la clef est calculee dans l adaptateur, pas fournie par l appelant',
 ok('une seule verite pour la piece ouverte dans le moteur',
   /adapter\.scene !== entry\.id/.test(code) && !/engineRoom/.test(code));
 ok('les exclusions de la clef sont justifiees dans le fichier',
-  /lengthM/.test(html) && /aucune commande, capacite/.test(html)
+  /lengthM/.test(html) && /profile\.scale/.test(html)
   && /meurt avec la page/.test(html));
 ok('la largeur passe par la commande du moteur',
   /studio\.setWidth\(/.test(code));
@@ -1413,7 +1412,7 @@ ok('le mode live est prioritaire quand il est disponible',
 
 /* La comparaison doit porter deux VRAIS etats. */
 ok('la version B est rendue dans son propre etat puis A restaure',
-  /applyProfile\(b\.renderProfile/.test(code)
+  /applyProfile\(\{ \.\.\.b\.renderProfile, scale: state\.floorScale/.test(code)
   && /await applyFloor\(\);/.test(code)
   && /Sans ce retour, les deux cotes montreraient le meme etat/.test(html));
 
@@ -1428,8 +1427,8 @@ ok('une combinaison inexistante ne renvoie rien',
   && api.findMatchingProduct({ tone: 'fonce' }) === null);
 
 /* Aucune commande decorative : la liste est fermee. */
-ok('aucun curseur',
-  !/type="range"/.test(html) && !/id="grain"|id="contrast"|id="joint"|id="variation"/.test(html));
+ok('le seul curseur règle la taille apparente',
+  (html.match(/type="range"/g) || []).length === 1 && !/id="grain"|id="contrast"|id="joint"|id="variation"/.test(html));
 ok('le retrait des placebos est explique dans le fichier',
   /n'avaient pas de comportement, seulement un message/.test(html));
 /* Chaque entree du menu doit mener quelque part : soit un id cable dans le
@@ -1529,6 +1528,29 @@ console.log(`  total ${api.RENDERED_ROOMS.length * P.length} rendus`
   ok('les barres posées sur la scène sont exclues du glisser', !manquantes.length, manquantes.join(',') || 'toutes');
 }
 
+
+
+
+/* Catalogue enrichi : exécuter les données réelles après les contrôles du pilote historique. */
+new Function(fs.readFileSync('tools/parquet-inspirations.js', 'utf8'))();
+const inspirationEntries = window.PP_PARQUET_INSPIRATIONS;
+const families = JSON.parse(fs.readFileSync('web/data/parquets.json', 'utf8')).parquets;
+ok('34 inspirations distinctes, issues des matières compatibles', inspirationEntries.length === 34 && new Set(inspirationEntries.map(p => p.id)).size === 34);
+ok('aucune référence commerciale inventée', inspirationEntries.every(p => p.source === 'inspiration' && !p.productUrl));
+ok('chaque inspiration est compatible avec sa matière', inspirationEntries.every(p => families.some(m => m.id === p.renderProfile.materialFamily && m.compatiblePatterns.includes(p.pattern))));
+api.PREMIBEL_DEMO_PRODUCTS.push(...inspirationEntries);
+api.state.filters = { pattern: null, tone: null, widthMm: null, mood: null };
+api.state.catalogSearch = ''; api.state.catalogCollection = 'all';
+ok('39 parquets accessibles', api.visible().length === 39);
+api.state.catalogSearch = 'chene fume';
+ok('recherche sans accents', api.visible().length === 3);
+api.state.catalogSearch = ''; api.state.catalogCollection = 'premibel';
+ok('collection Premibel garde ses cinq références', api.visible().length === 5);
+api.state.catalogCollection = 'inspiration';
+ok('collection Inspirations garde ses 34 styles', api.visible().length === 34);
+const profileScale = inspirationEntries[0].renderProfile;
+ok('l’échelle fait partie du cache de rendu', api.getRenderStateKey({...profileScale, scale:1}, 0) !== api.getRenderStateKey({...profileScale, scale:1.5}, 0));
+if (bad) process.exitCode = 1;
+
 console.log(bad ? `\n${bad} ECHEC(S)` : '\nAUCUN ECHEC');
 process.exit(bad ? 1 : 0);
-

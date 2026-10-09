@@ -274,7 +274,7 @@ export function materialMapsAsync(material, config = {}) {
   w.postMessage({
     id,
     material: JSON.parse(JSON.stringify(material)),
-    config: { pattern: config.pattern || material.defaultPattern, width: config.width || null },
+    config: { pattern: config.pattern || material.defaultPattern, width: config.width || null, plankLength: config.plankLength || null },
   });
   return promesse;
 }
@@ -345,6 +345,7 @@ export function materialMaps(material, config = {}) {
   const tile = chrono('texture.tuile', () => buildTexture(material, {
     pattern: config.pattern || material.defaultPattern,
     width: config.width || null,
+    plankLength: config.plankLength || null,
   }));
   // Niveau 0 seulement : les réductions ne servent qu'au moteur logiciel, et
   // `completer()` les fabrique le jour où il les demande. Voir etendreMips().

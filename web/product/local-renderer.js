@@ -46,6 +46,7 @@
 import { analyzeScene, loadSceneIndex } from '../scene/analyzer.js';
 import { loadImage } from '../scene/image-loader.js';
 import { createSceneRenderer } from '../scene/renderer.js';
+import { reviewGeometry } from '../scene/geometry-review.js';
 import { normalizeScene, validerScene, createBlankScene } from '../scene/schema.js';
 import {
   createMaterial, enCache, warmMaterial, quandCartesPretes, materialMapsAsync,
@@ -93,7 +94,7 @@ export async function createLocalRenderer({ base = '', prefer = 'auto' } = {}) {
   ]);
 
   /** Le seul état de configuration. Pas d'état d'iframe, pas d'état de Studio. */
-  let config = { material: null, pattern: 'lames', width: null, angle: 0, scale: 1 };
+  let config = { material: null, pattern: 'lames', width: null, plankLength: null, angle: 0, scale: 1 };
   let sceneId = null;
   const abonnes = new Set();
   const canvas = document.createElement('canvas');
@@ -166,6 +167,8 @@ export async function createLocalRenderer({ base = '', prefer = 'auto' } = {}) {
     get scene() { return sceneId; },
     get backend() { return renderer.backend; },
     get ready() { return renderer.ready; },
+    visitSnapshot() { return renderer.ready ? { scene: structuredClone(renderer.scene), masks: renderer.masks, size: renderer.size, canvas } : null; },
+    geometryDiagnostics() { return reviewGeometry(renderer.scene, renderer.masks, renderer.size, config); },
     /** Les pièces calibrées disponibles localement. */
     get scenes() { return (index.scenes || []).map((s) => s.id); },
     /** Diagnostic seulement, hors contrat. */
@@ -341,6 +344,21 @@ export async function createLocalRenderer({ base = '', prefer = 'auto' } = {}) {
       return true;
     },
 
+    setScale(value) {
+      if (!(Number.isFinite(value) && value >= 0.5 && value <= 2)) return false;
+      config = { ...config, scale: value };
+      demandeRendu();
+      return true;
+    },
+
+    /** Longueur commerciale, indépendante de la largeur et du matériau. */
+    setPlankLength(metres) {
+      if (metres !== null && !(Number.isFinite(metres) && metres >= 0.1 && metres <= 4)) return false;
+      config = { ...config, plankLength: metres };
+      demandeRendu();
+      return true;
+    },
+
     /**
      * Ce qui est réellement pilotable. `finish`, `grain` et `joints` restent
      * faux : ils sont cuits dans la famille de texture, aucun réglage ne les
@@ -391,11 +409,12 @@ export async function createLocalRenderer({ base = '', prefer = 'auto' } = {}) {
      * 1 534 à 3 357 ms de tuile, en série. Les deux ne dépendent pas l'un de
      * l'autre : une tuile de bois ne sait rien de la pièce où elle sera posée.
      */
-    prechauffer(materialId, pattern, width, { urgent = false } = {}) {
+    prechauffer(materialId, pattern, width, { urgent = false, plankLength = null } = {}) {
       const material = materialId ? materials.get(materialId) : config.material;
       if (!material) return false;
       const conf = {
         pattern: pattern || config.pattern,
+        plankLength,
         width: width === undefined ? config.width : width,
       };
       if (enCache(material, conf)) return true;

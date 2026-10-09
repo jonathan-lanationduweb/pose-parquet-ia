@@ -270,6 +270,10 @@ void main() {
   // en LUMINANCE, bornees ensemble : le bois doit rester visible dessous.
   gain *= min(uLightMax, (1.0 + uHighlight * residu.b) * (1.0 + uMidLight * residu.a));
 
+  vec3 lightOver = max(gain - 1.0, vec3(0.0));
+  float lightHeadroom = clamp(0.86 / max(uAlbedoMean, 0.05) - 1.0, 0.08, 0.55);
+  gain = min(gain, vec3(1.0)) + lightHeadroom * lightOver / (vec3(lightHeadroom) + lightOver);
+
   vec2 slope = (relief.rg - 0.5) * 2.0;
   float bump = clamp(1.0 + dot(slope, uLight) * uReliefGain * near, 0.55, 1.6);
 
@@ -292,7 +296,7 @@ void main() {
   // valeurs au-delà de 0,86 sont comprimées au lieu d'être coupées, et le
   // veinage reste lisible en pleine lumière.
   vec3 over = max(color - 0.86, vec3(0.0));
-  color = color - over + over / (1.0 + over * 4.0);
+  color = color - over + 0.14 * over / (vec3(0.14) + over);
 
   // Saturation rendue en fin de chaine. Multiplier un albedo par un gain
   // desature mecaniquement : les trois canaux s'approchent du plafond a des
@@ -611,11 +615,11 @@ export function createGlRenderer() {
         // Rupture de périodicité : réservée à la pose droite, dont les rangées
         // de lames sont indépendantes. Un chevron traverse les rangées, un
         // décalage les briserait.
-        const profil = patternProfile(surface.material, config.pattern, config.width || null);
+        const profil = patternProfile(surface.material, config.pattern, config.width || null, config.plankLength || null);
         const droit = config.pattern === 'lames';
         gl.uniform1f(u.uRowsPerTile, droit ? Math.max(1, Math.round(TILE_METERS / profil.width)) : 1);
         gl.uniform1f(u.uJitter, droit ? 1 : 0);
-        const periode = motifPeriode(surface.material, config.pattern, config.width || null);
+        const periode = motifPeriode(surface.material, config.pattern, config.width || null, config.plankLength || null);
         const chevron = periode && periode.type !== 'baton' ? periode : null;
         gl.uniform3f(u.uChevron, chevron ? chevron.colonne : 0, chevron ? chevron.pas : 0, chevron ? chevron.rangs : 0);
         const baton = periode && periode.type === 'baton' ? periode : null;

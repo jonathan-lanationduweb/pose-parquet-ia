@@ -80,6 +80,9 @@
     let mode = null;
     let rendu = null; // l'élément qui avait le focus avant l'ouverture
 
+    const desktop = () => typeof global.matchMedia === 'function'
+      && global.matchMedia('(min-width: 1024px)').matches;
+
     function visible() {
       return !shell.classList.contains('hidden');
     }
@@ -90,6 +93,8 @@
       scrim.classList.add('hidden');
       shell.removeAttribute('data-mode');
       shell.removeAttribute('data-size');
+      root.classList.remove('panel-open');
+      root.style.removeProperty('--panel-reserve');
       Object.values(panes).forEach((p) => p && p.classList.add('hidden'));
       mode = null;
       /* Rendre le focus là où il était. Sans cela, fermer au clavier renvoie
@@ -120,6 +125,8 @@
       shell.classList.remove('hidden');
       scrim.classList.remove('hidden');
       mode = next;
+      root.classList.add('panel-open');
+      shell.setAttribute('aria-modal', desktop() ? 'false' : 'true');
 
       /* Le titre du panneau nomme le dialogue. Une étiquette générique
          (« Panneau ») ne dirait pas à un lecteur d'écran ce qui vient de
@@ -176,7 +183,7 @@
         close();
         return;
       }
-      if (e.key !== 'Tab') return;
+      if (e.key !== 'Tab' || desktop()) return;
       const cibles = [...shell.querySelectorAll(FOCUSABLE)].filter(
         (n) => n.offsetParent !== null || n === global.document.activeElement
       );
@@ -190,6 +197,12 @@
         e.preventDefault();
         debut.focus();
       }
+    });
+
+    global.addEventListener('resize', () => {
+      if (!visible()) return;
+      shell.setAttribute('aria-modal', desktop() ? 'false' : 'true');
+      if (onOpen) onOpen(mode);
     });
 
     return {

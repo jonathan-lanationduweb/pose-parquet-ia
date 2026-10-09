@@ -45,6 +45,28 @@ existe déjà, il est éprouvé, et il n'a rien à apprendre de ce service.
 
 ---
 
+## Lancer le visualiseur complet en local
+
+Depuis la racine du projet, avec les dépendances installées dans `.venv` :
+
+```powershell
+.\.venv\Scripts\python.exe -m scripts.product_dev
+```
+
+Ouvrir **http://127.0.0.1:8000/tools/product-concept.html**. Cette commande active
+le service, les fichiers du visualiseur et le préchauffage asynchrone du modèle.
+La photo reste visible pendant la préparation et l'analyse démarre automatiquement
+quand le modèle est prêt. Un échec laisse accessibles **Réessayer** et **Tracer le sol**.
+Le candidat par défaut est OneFormer ; il nécessite ses dépendances et ses poids
+locaux (voir `docs/FLOOR-SEGMENTATION-EXPLORATORY.md`). `--candidate opencv` permet
+une exploration sans modèle lourd, avec correction manuelle lorsque nécessaire.
+`--port 8143` change le port. Le preset n'affecte que ce processus : les valeurs
+normales de production restent désactivées. Les photos privées ne sont jamais servies.
+
+Le rendu des références commerciales reste une approximation procédurale.
+Pour inspecter la projection, ajouter `?dev=1`, ouvrir une pièce puis **Axes du sol** :
+contour, directions et largeur projetée des lames au fond, au milieu et devant.
+
 ## Démarrer (Windows)
 
 Python **3.12 ou plus** est requis.

@@ -578,7 +578,7 @@
   @keyframes run { from { transform: translateX(-100%); } to { transform: translateX(260%); } }
 
   #menu {
-    position: absolute; top: 48px; right: 18px; z-index: 40; width: 254px; padding: 7px;
+    position: fixed; top: 60px; right: 18px; z-index: 100; width: min(254px, calc(100vw - 24px)); padding: 7px;
     background: var(--surface); border-radius: var(--r-md); box-shadow: var(--sh-3);
   }
   #menu .mi {
@@ -688,7 +688,7 @@
             </svg>
           </span>
           <b>Importer ma photo</b>
-          <span>Votre pièce, telle qu'elle est. Rien ne quitte votre ordinateur.</span>
+          <span>Votre photo est analysée par le service, puis le parquet se calcule dans votre navigateur.</span>
         </button>
 
         <button class="door" id="doorRooms" type="button">
@@ -898,14 +898,22 @@
     </button>
   </div>
   <div class="body">
+    <div class="main">
+      <div class="catalog-discovery">
+        <label for="catSearch">Rechercher un parquet</label>
+        <input id="catSearch" type="search" placeholder="Chêne fumé, naturel, bâton rompu…" />
+        <label for="catCollection">Collection</label>
+        <select id="catCollection"><option value="all">Tous les parquets</option><option value="inspiration">Inspirations</option><option value="premibel">Références Premibel</option></select>
+        <p>12 matières · 34 inspirations · 5 références produit. Les inspirations permettent d’explorer un style.</p>
+      </div>
+      <details class="catalog-filters"><summary>Filtres et inspirations</summary>
     <div class="side">
       <div class="grp"><h3>Motif</h3><div class="chips" id="fPattern"></div></div>
       <div class="grp"><h3>Teinte</h3><div class="chips" id="fTone"></div></div>
       <div class="grp"><h3>Largeur</h3><div class="chips" id="fWidth"></div></div>
       <button class="clearf" id="clearFilters" type="button">Réinitialiser les filtres</button>
     </div>
-    <div class="main">
-      <div class="moods" id="moods"></div>
+      <div class="moods" id="moods"></div></details>
       <div class="prods" id="prods"></div>
     </div>
   </div>
@@ -930,6 +938,10 @@
       <p class="note" id="widthNote"></p></div>
     <div class="sect" id="sectTone"><h3>Teinte</h3><div class="chips" id="tones"></div>
       <p class="note" id="toneNote"></p></div>
+    <div class="sect" id="sectScale"><h3>Échelle du parquet <output id="floorScaleValue">100 %</output></h3>
+      <label for="floorScale">Taille apparente des lames</label>
+      <input id="floorScale" type="range" min="50" max="200" step="5" value="100" />
+      <p class="note">Sur votre photo, les dimensions de la pièce sont estimées. Ajustez la taille apparente si les lames semblent trop fines ou trop grandes.</p></div>
     <div class="sect" id="sectOrient"><h3>Sens de pose</h3>
       <div class="orient" id="orient"></div>
       <!-- Le cadran. Il montre des lames, et on le tourne : c'est le geste
@@ -984,6 +996,12 @@
   import { createLocalRenderer } from '../web/product/local-renderer.js';
   import { createRoomAnalysisClient, apiBase, resumerAnalyse, sceneExperimentale, RAISONS }
     from '../web/product/room-analysis-client.js';
+  import { installMaterialPreviews } from '../web/product/material-previews.js';
+  window.addEventListener('load', () => installMaterialPreviews(() => window.__concept));
+  import { installVisit } from '../web/product/visit-mode.js';
+  window.addEventListener('load', () => installVisit(() => window.__concept));
+  import { installGeometryReview } from '../web/product/geometry-review.js';
+  window.addEventListener('load', () => installGeometryReview(() => window.__concept));
   window.__localEngineFactory = createLocalRenderer;
   window.__roomAnalysis = { createRoomAnalysisClient, apiBase, resumerAnalyse, sceneExperimentale, RAISONS };
   window.dispatchEvent(new Event('local-engine-ready'));
@@ -1002,6 +1020,7 @@
 <div id="toast" role="status" aria-live="polite"></div>
 
 <script src="visualizer-drawer.js"></script>
+<script src="parquet-inspirations.js"></script>
 <script>
 (() => {
   'use strict';
@@ -1307,6 +1326,8 @@
     },
   ];
 
+  PREMIBEL_DEMO_PRODUCTS.push(...(window.PP_PARQUET_INSPIRATIONS || []));
+
   /* Inspirations : une SÉLECTION ÉDITORIALE, écrite à la main. Aucune IA ne
      les a recommandées, et l'interface le dit. */
   const MOODS = [
@@ -1314,6 +1335,14 @@
     { id: 'graphique', label: 'Graphique', refs: ['POINF36005', 'BTRPF39009'] },
     { id: 'large', label: 'Larges lames', refs: ['CHENF39031'] },
   ];
+
+  MOODS.forEach((mood) => {
+    const candidates = (window.PP_PARQUET_INSPIRATIONS || []).filter((p) =>
+      mood.id === 'clair' ? p.tone === 'clair'
+        : mood.id === 'graphique' ? p.pattern !== 'lames'
+          : p.pattern === 'lames' && p.widthMm >= 190);
+    mood.refs.push(...candidates.map((p) => p.ref));
+  });
 
   /* =====================================================================
      DEMO_RENDERINGS — l'unique source d'image de la pièce
@@ -1328,7 +1357,7 @@
   DEMO_ROOMS.forEach((room) => {
     const set = { original: RENDERS + room.id + '.original.jpg' };
     if (RENDERED_ROOMS.includes(room.id)) {
-      PREMIBEL_DEMO_PRODUCTS.forEach((p) => {
+      PREMIBEL_DEMO_PRODUCTS.filter((p) => p.source === 'premibel').forEach((p) => {
         set[p.id] = RENDERS + room.id + '.' + p.id + '.jpg';
       });
     }
@@ -1374,6 +1403,8 @@
   const state = {
     /* `demo` | `uploaded` — état d'interface, pas SceneData. */
     source: null,
+    // Photo/analysis lifecycle is independent from product and orientation.
+    photoGeneration: 0,
     /**
      * L'analyse Python. Un état À PART, et c'est délibéré : le renderer, le
      * produit et la pièce ont chacun le leur, et les mêler ferait qu'une
@@ -1437,6 +1468,9 @@
        numero est perime : il ne s'affiche pas, il ne se retient pas. */
     intent: 0,
     orientationDeg: 0,
+    floorScale: 1,
+    catalogSearch: '',
+    catalogCollection: 'all',
     /* Un seul etat de viewport pour toute la scene.
          z : facteur de zoom, 1 = la photo REMPLIT le cadre (donc « 100 % »)
              — sous 1, on voit des bandes : ce n'est possible que par la
@@ -1472,7 +1506,7 @@
       tone: change.tone || cur.tone,
       widthMm: change.widthMm || cur.widthMm,
     };
-    const score = (p) => (p.pattern === want.pattern ? 4 : 0)
+    const score = (p) => (p.renderProfile.materialFamily === cur.renderProfile.materialFamily ? 8 : 0) + (p.pattern === want.pattern ? 4 : 0)
       + (p.tone === want.tone ? 2 : 0) + (p.widthMm === want.widthMm ? 1 : 0);
     /* Le critère demandé n'est pas négociable ; le reste départage. */
     const keys = Object.keys(change);
@@ -1681,6 +1715,7 @@
      *   materialFamily  la famille de texture
      *   pattern         lames | point-de-hongrie | baton-rompu
      *   width           en metres, ou `auto` quand on laisse le motif decider
+     *   lengthM         la longueur commerciale des lames
      *   angle           le sens de pose
      *
      * Ce qui n'y figure PAS, et pourquoi :
@@ -1688,10 +1723,6 @@
      *   la reference produit   metadonnee. Deux references de meme profil
      *                          donnent le meme rendu : ce serait deux entrees
      *                          pour une seule image.
-     *   `lengthM`              le profil le porte, l'adaptateur ne l'envoie
-     *                          pas — aucun pixel n'en depend. A ajouter ici
-     *                          le jour ou une commande l'accepte.
-     *   `scale`                aucune commande, capacite `false`.
      *   l'empreinte du bundle  le cache vit en memoire et meurt avec la page :
      *                          un autre bundle implique un autre chargement,
      *                          donc un cache vide. Rien a mettre dans la clef.
@@ -1700,7 +1731,8 @@
       const width = Number.isFinite(profile.widthM) ? profile.widthM.toFixed(4) : 'auto';
       return [`api${ENGINE_API_VERSION}`, engineScene || 'aucune',
         profile.materialFamily, profile.pattern, width,
-        Number(orientationDeg) || 0].join('|');
+        Number.isFinite(profile.lengthM) ? profile.lengthM.toFixed(4) : 'auto',
+        Number(orientationDeg) || 0, profile.scale || 1].join('|');
     }
 
     function cacheGet(key) {
@@ -1970,7 +2002,7 @@
         if (mode !== 'live' || !studio || typeof studio.prechauffer !== 'function') return false;
         if (!profile) return false;
         const largeur = Number.isFinite(profile.widthM) ? profile.widthM : null;
-        return studio.prechauffer(profile.materialFamily, profile.pattern, largeur, { urgent: true });
+        return studio.prechauffer(profile.materialFamily, profile.pattern, largeur, { urgent: true, plankLength: profile.lengthM || null });
       },
 
       /**
@@ -2108,6 +2140,11 @@
             return null;
           }
         }
+        if (typeof studio.setPlankLength === 'function' && studio.setPlankLength(profile.lengthM || null) !== true) {
+          refus = `longueur refusée par le moteur : ${profile.lengthM}`;
+          return null;
+        }
+        if (typeof studio.setScale === 'function' && studio.setScale(profile.scale || 1) !== true) return null;
         refus = null;
 
         /* L'abonnement est pris AVANT les commandes qui declenchent un
@@ -2123,6 +2160,9 @@
         return cachePut(key, studio.canvas) || studio.canvas;
       },
 
+      get supportsScale() { return Boolean(studio && typeof studio.setScale === 'function'); },
+      visitSnapshot() { return studio && typeof studio.visitSnapshot === 'function' ? studio.visitSnapshot() : null; },
+      geometryDiagnostics() { return studio && typeof studio.geometryDiagnostics === 'function' ? studio.geometryDiagnostics() : null; },
       get canvas() { return studio && studio.canvas; },
     };
   })();
@@ -2304,6 +2344,13 @@
     setVp({ z: 1, x: (b.width - w * sc) / 2, y: (b.height - h * sc) / 2 }, animate);
   }
 
+  /** Sur téléphone, remplir le cadre en privilégiant le bas de la pièce. */
+  function fitMobile(animate) {
+    pendingFit = false;
+    const b = stageBox(), { w, h } = sceneSize(), sc = fitScale();
+    setVp({ z: 1, x: (b.width - w * sc) / 2, y: b.height - h * sc }, animate);
+  }
+
   /** Toute la photo : des bandes, mais rien de coupe. Sur demande seulement. */
   function fitAll(animate) {
     pendingFit = false;
@@ -2319,7 +2366,7 @@
     /* Un timer, pas requestAnimationFrame : un onglet en arriere-plan ne
        peint pas, donc ses rAF ne se declenchent pas — et l'ajustement ne se
        ferait jamais. Le rAF sert a peindre, pas a porter de l'etat. */
-    setTimeout(() => { if (pendingFit) fitToView(false); }, 0);
+    setTimeout(() => { if (pendingFit) { if (window.innerWidth <= 700) fitMobile(false); else fitToView(false); } }, 0);
   }
 
   /** Zoome en gardant le point (px, py) du cadre sous le curseur. */
@@ -2344,7 +2391,7 @@
   const pointers = new Map();
   let pinch = null;
 
-  const GESTES_EXCLUS = '#zoombar, #nav, #tools, #card, #cardB, #noscene, #floorTools, #status, .veil';
+  const GESTES_EXCLUS = '#zoombar, #nav, #tools, #card, #cardB, #noscene, #floorTools, #status, .veil, .visit-layer';
   function onDown(e) {
     /* Toute barre de commandes posée SUR la scène est exclue du glisser. La
        barre « photo sans parquet » et les outils du pinceau manquaient : le
@@ -2479,6 +2526,14 @@
      Mesure : un cadre passe de 1100 a 1920 px avec un zoom a 250 % laissait
      11 px de vide, parce que rien n'avait reborne le viewport. */
   const reborner = () => { if (state.source) setVp(state.vp, false); };
+  // Safari distingue la hauteur de mise en page de la zone réellement visible.
+  function suivreHauteurVisible() {
+    const hauteur = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+    if (hauteur > 0) document.documentElement.style.setProperty('--app-height', `${hauteur}px`);
+  }
+  suivreHauteurVisible();
+  window.addEventListener('resize', suivreHauteurVisible);
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', suivreHauteurVisible);
   window.addEventListener('resize', reborner);
   if (typeof ResizeObserver === 'function') new ResizeObserver(reborner).observe($('stage'));
 
@@ -2528,7 +2583,7 @@
      La capture n'est donc plus le mecanisme principal : elle est l'amorce et
      le filet. Quand le moteur repond, c'est lui qu'on voit.
      ===================================================================== */
-  const appliedKey = () => `${room().id}|${state.productId}|${state.orientationDeg}`;
+  const appliedKey = () => `${room().id}|${state.productId}|${state.orientationDeg}|${state.floorScale}`;
 
   /** Charge une capture et la dessine. Renvoie `true` si elle a servi. */
   function drawStatic(layer, roomId, key) {
@@ -2610,7 +2665,7 @@
          l'adaptateur qui la connait, et la clef du cache s'en sert. En tenir
          un second compte ici, c'est se donner deux verites a desynchroniser. */
       if (adapter.scene !== entry.id) await adapter.openRoom(entry.id);
-      const canvas = await adapter.applyProfile(product().renderProfile, state.orientationDeg);
+      const canvas = await adapter.applyProfile({ ...product().renderProfile, scale: state.floorScale }, state.orientationDeg);
       /* Deux gardes : la clef (c'est bien ce sol, dans cette piece) ET le
          jeton (aucune autre intention n'est passee entre-temps). La clef
          seule laisserait un aller-retour A -> B -> A afficher un rendu de A
@@ -2643,7 +2698,7 @@
       return;
     }
     const entry = room();
-    const key = `${entry.id}|${state.compare.b}|${state.orientationDeg}`;
+    const key = `${entry.id}|${state.compare.b}|${state.orientationDeg}|${state.floorScale}`;
     if (state.appliedB.key === key) return;
     if (drawStatic('cmpB', entry.id, state.compare.b)) {
       state.appliedB = { key, source: 'static' };
@@ -2656,7 +2711,7 @@
     const intent = state.intent;
     const b = product(state.compare.b);
     if (adapter.scene !== entry.id) await adapter.openRoom(entry.id);
-    const canvasB = await adapter.applyProfile(b.renderProfile, state.orientationDeg);
+    const canvasB = await adapter.applyProfile({ ...b.renderProfile, scale: state.floorScale }, state.orientationDeg);
     /* Perime si la comparaison a change ou s'est fermee pendant le rendu. */
     const encore = state.compare && state.compare.b === b.id && room().id === entry.id
       && state.intent === intent;
@@ -2711,6 +2766,7 @@
     /* Sans rendu, la carte produit et les outils mentiraient : aucun parquet
        n'est posé, il n'y a donc rien à comparer ni à montrer « après ». Le
        viewport, lui, reste manipulable : on peut explorer sa photo. */
+    document.body.classList.toggle('floor-rendered', hasRender);
     $('card').classList.toggle('hidden', !hasRender);
     $('tools').classList.toggle('hidden', !hasRender);
     /* Une photo importee sans scene n'a pas de parquet, donc pas de barre
@@ -2812,7 +2868,8 @@
      de sol. Le sol vient du rendu de notre moteur, et de lui seul. */
   /* La carte du catalogue montre la MATIERE (`catalogThumbnail`), jamais la
      photo d'ambiance : on doit reconnaitre le bois avant de lire le nom. */
-  const imgMissing = (p) => state.missingImg.has(p.catalogThumbnail);
+  const imgMissing = (p) => !p.catalogThumbnail || state.missingImg.has(p.catalogThumbnail);
+  const previewAttrs = (p) => p.source === 'inspiration' ? `data-material-preview="${p.id}"` : '';
   const swatchStyle = (p) => (imgMissing(p) ? '' : `background-image:url('${p.catalogThumbnail}')`);
   const swatchClass = (p) => (imgMissing(p) ? ' noimg' : '');
 
@@ -2825,7 +2882,7 @@
         state.missingImg.add(p.catalogThumbnail);
         if (state.source) { paintCard(); paintCatalogue(); }
       };
-      im.src = p.catalogThumbnail;
+      if (p.catalogThumbnail) im.src = p.catalogThumbnail;
     });
   }
 
@@ -2835,13 +2892,13 @@
      discrète, puis le lien vers la vraie fiche Premibel. */
   function cardHtml(entry, side) {
     const on = state.favourites.has(entry.id);
-    return `<span class="sw${swatchClass(entry)}" style="${swatchStyle(entry)}"></span>
+    return `<span class="sw${swatchClass(entry)}" style="${swatchStyle(entry)}" ${previewAttrs(entry)}></span>
       <b>${entry.name}</b>
       <span class="dim">${side === 'A' ? resumeConfig() : `${PATTERNS[entry.pattern]} · ${entry.widthMm} mm`}</span>
-      <span class="ref">Réf. ${entry.ref}</span>
+      <span class="ref">${entry.source === 'inspiration' ? 'Inspiration' : `Réf. ${entry.ref}`}</span>
       ${side === 'A' && state.applying ? '<span class="busy"><i></i>Application…</span>' : ''}
-      <a class="sheet" href="${entry.productUrl}" target="_blank"
-         rel="noopener noreferrer" data-sheet="${entry.ref}">VOIR LA FICHE PREMIBEL</a>
+      ${entry.productUrl ? `<a class="sheet" href="${entry.productUrl}" target="_blank"
+         rel="noopener noreferrer" data-sheet="${entry.ref}">VOIR LA FICHE PREMIBEL</a>` : ''}
       <span class="row">
         ${side === 'A' ? '<button type="button" data-open="cat">Choisir un parquet</button>' : ''}
         <button type="button" data-open="cus">Personnaliser</button>
@@ -2926,7 +2983,7 @@
       /* Une fois le parquet posé après correction, la capsule ne dit plus
          « approximativement » : elle dit ce qui est à l'écran. */
       const ps = state.photoScene;
-      const corrige = ps && ps.posee && ps.status !== 'auto_render';
+      const corrige = ps && ps.posee && (ps.manuelle || ps.userAdjusted);
       const texte = corrige ? (ps.manuelle ? 'Sol tracé à la main' : 'Sol ajusté')
         : (a.texte || 'Analyse de la pièce bientôt disponible');
       const ok = corrige || a.status === 'complete' || a.status === 'experimental_scene';
@@ -3143,17 +3200,33 @@
        une fois : si oui, on le DIT (« Préparation de l'analyse… ») au lieu de
        laisser croire que l'analyse est lente. La requête part quand même ; le
        service l'attend de son côté. */
-    const sante = await client.health();
-    if (jeton !== state.intent || state.source !== 'uploaded') return;
-    if (sante && sante.experimentalFloor === 'loading') {
-      poserAnalyse({ status: 'preparing', texte: 'Préparation de l’analyse…' });
-      journal('analyse:preparation');
+    let sante = await client.health();
+    if (jeton !== state.photoGeneration || state.source !== 'uploaded') return;
+    const attenteDepuis = performance.now();
+    while (sante.ok && sante.experimentalFloor === 'loading') {
+      poserAnalyse({ status: 'preparing', texte: 'Préparation de l’analyse…', backendState: 'MODEL_LOADING' });
+      if (performance.now() - attenteDepuis > 180000) {
+        poserAnalyse({ status: 'timeout', texte: 'La préparation prend trop de temps. Réessayez ou ajustez le sol.' });
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      if (jeton !== state.photoGeneration || state.source !== 'uploaded') return;
+      sante = await client.health();
+      if (jeton !== state.photoGeneration || state.source !== 'uploaded') return;
     }
+    if (!sante.ok || sante.experimentalFloor === 'error') {
+      poserAnalyse({ status: sante.ok ? 'error' : 'unavailable',
+        backendState: sante.ok ? 'MODEL_ERROR' : 'BACKEND_OFFLINE',
+        texte: sante.ok ? 'L’analyse automatique n’a pas pu se préparer. Réessayez ou ajustez le sol.'
+          : 'Analyse automatique indisponible. Réessayez ou ajustez le sol.' });
+      return;
+    }
+    poserAnalyse({ status: 'analyzing', texte: 'Analyse de la pièce…', backendState: 'MODEL_READY' });
 
     const r = await client.analyzeRoom(file);
     /* Deux gardes, comme pour le rendu : le jeton d'import ET l'état de la
        source. Un retour d'analyse ne doit rien dire d'une pièce d'exemple. */
-    if (jeton !== state.intent || state.source !== 'uploaded') { journal('analyse:perimee', { reponse: r.generation }); return; }
+    if (jeton !== state.photoGeneration || state.source !== 'uploaded') { journal('analyse:perimee', { reponse: r.generation }); return; }
     if (r.raison === window.__roomAnalysis.RAISONS.ANNULEE) return;
 
     const totalMs = Math.round(performance.now() - t0);
@@ -3201,7 +3274,7 @@
      le changement de parquet instantane.
      ===================================================================== */
   async function poserScenePhoto(xp, jeton, analysis) {
-    if (jeton !== state.intent || state.source !== 'uploaded' || !state.uploaded) return;
+    if (jeton !== state.photoGeneration || state.source !== 'uploaded' || !state.uploaded) return;
     const timings = (analysis && analysis.timings) || {};
     state.photoScene = {
       raw: xp.scene, status: xp.status, confidence: xp.confidence,
@@ -3221,7 +3294,7 @@
     if (!ps || !ps.raw || !state.uploaded) return false;
     const t0 = performance.now();
     const ok = await adapter.openPhotoScene(ps.raw, state.uploaded.url);
-    if (jeton !== state.intent || state.source !== 'uploaded') return false;
+    if (jeton !== state.photoGeneration || state.source !== 'uploaded') return false;
     if (!ok) {
       /* Le moteur a refusé la scène (données invalides) : RIEN ne se pose, et
          la photo passe en correction manuelle avec un message qui le dit. */
@@ -3249,7 +3322,7 @@
   async function ouvrirSceneManuelle(jeton) {
     if (!state.uploaded) return false;
     const ok = await adapter.openManualPhotoScene(state.uploaded.url, state.uploaded.w, state.uploaded.h);
-    if (!ok || jeton !== state.intent || state.source !== 'uploaded') return false;
+    if (!ok || jeton !== state.photoGeneration || state.source !== 'uploaded') return false;
     const avant = state.photoScene;
     state.photoScene = {
       raw: null, manuelle: true, status: 'manual', confidence: null,
@@ -3266,7 +3339,8 @@
   function relancerAnalyse() {
     if (!state.uploaded || !state.uploaded.file) return;
     state.intent += 1;
-    analyserPiece(state.uploaded.file, state.intent, null);
+    state.photoGeneration += 1;
+    analyserPiece(state.uploaded.file, state.photoGeneration, null);
   }
 
   /**
@@ -3293,7 +3367,7 @@
       texte = 'Le sol sera détecté dans quelques secondes.';
     } else if (ps && ps.raw && ps.status === 'needs_manual_adjustment') {
       titre = 'Sol détecté approximativement';
-      texte = 'La zone du sol est incertaine sur cette photo. Ajustez-la au pinceau, ou posez le parquet tel quel.';
+      texte = 'Le contour ou la perspective du sol est incertain. Vérifiez la zone, puis le sens et la taille des lames dans Personnaliser.';
       actions = '<button type="button" data-open="floor" class="primary">Ajuster le sol</button>'
         + '<button type="button" data-open="poser">Poser quand même</button>';
     } else if (ps && ps.status === 'invalid') {
@@ -3339,10 +3413,10 @@
        seconde et remettre la premiere photo. Le jeton la fait ignorer, et
        son URL est liberee au lieu de fuir. */
     state.intent += 1;
-    const intent = state.intent;
+    const intent = state.photoGeneration;
     const probe = new Image();
     probe.onload = () => {
-      if (state.intent !== intent) { URL.revokeObjectURL(url); return; }
+      if (state.photoGeneration !== intent) { URL.revokeObjectURL(url); return; }
       state.uploaded = { url, name: file.name, w: probe.naturalWidth, h: probe.naturalHeight, file };
       state.source = 'uploaded';
       /* Les captures retenues appartiennent aux scenes de demonstration :
@@ -3368,12 +3442,14 @@
     };
     probe.onerror = () => {
       URL.revokeObjectURL(url);
-      if (state.intent === intent) toast("Cette image n'a pas pu être lue");
+      if (state.photoGeneration === intent) toast("Cette image n'a pas pu être lue");
     };
     probe.src = url;
   }
 
   function releaseUpload() {
+    state.photoGeneration += 1;
+    state.floorScale = 1;
     if (state.uploaded && state.uploaded.url) URL.revokeObjectURL(state.uploaded.url);
     state.uploaded = null;
     state.photoScene = null;
@@ -3393,8 +3469,11 @@
   function visible() {
     const f = state.filters;
     const mood = f.mood && MOODS.find((m) => m.id === f.mood);
+    const query = state.catalogSearch.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
     return PREMIBEL_DEMO_PRODUCTS.filter((p) =>
-      (!f.pattern || p.pattern === f.pattern)
+      (state.catalogCollection === 'all' || p.source === state.catalogCollection)
+      && (!query || `${p.name} ${PATTERNS[p.pattern]} ${TONES[p.tone]} ${p.ref}`.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().includes(query))
+      && (!f.pattern || p.pattern === f.pattern)
       && (!f.tone || p.tone === f.tone)
       && (!f.widthMm || p.widthMm === f.widthMm)
       && (!mood || mood.refs.includes(p.ref)));
@@ -3424,11 +3503,11 @@
     $('prods').innerHTML = list.length ? list.map((p) => {
       const on = state.favourites.has(p.id);
       return `<button class="pd" type="button" data-id="${p.id}" aria-pressed="${p.id === state.productId}">
-        <span class="tex${swatchClass(p)}" style="${swatchStyle(p)}"></span>
+        <span class="tex${swatchClass(p)}" style="${swatchStyle(p)}" ${previewAttrs(p)}></span>
         <span class="hh" data-fav="${p.id}" role="button" aria-pressed="${on}"
               aria-label="Favori">${heart(on, 13)}</span>
         <span class="nm">${p.name}</span>
-        <span class="ref">${PATTERNS[p.pattern]} · ${p.widthMm} mm — Réf. ${p.ref}</span>
+        <span class="ref">${PATTERNS[p.pattern]} · ${p.widthMm} mm — ${p.source === 'inspiration' ? 'Inspiration' : `Réf. ${p.ref}`}</span>
       </button>`;
     }).join('') : '<p class="empty">Aucune référence du catalogue ne correspond à ces filtres.</p>';
   }
@@ -3444,20 +3523,19 @@
      ===================================================================== */
   function paintCustom() {
     const entry = product();
-    $('cusName').textContent = `${entry.name} · Réf. ${entry.ref}`;
-    $('cusIntro').innerHTML = `<strong>${entry.fullTitle}</strong> est une référence
-      définie : ${PATTERNS[entry.pattern].toLowerCase()}, ${entry.widthMm} mm,
-      finition ${FINISHES[entry.finish].toLowerCase()}. La changer en ferait un
-      produit qui n'existe pas. Ici, modifier un critère cherche donc une
-      <em>autre référence</em> du catalogue — le sens de pose excepté, qui est
-      un réglage du rendu.`;
+    $('cusName').textContent = `${entry.name}${entry.source === 'inspiration' ? ' · Inspiration' : ` · Réf. ${entry.ref}`}`;
+    $('sectScale').classList.toggle('hidden', state.source !== 'uploaded' || !adapter.supportsScale);
+    $('floorScale').value = String(Math.round(state.floorScale * 100));
+    $('floorScaleValue').textContent = `${Math.round(state.floorScale * 100)} %`;
+    $('cusIntro').innerHTML = 'Explorez les matières et les poses. '
+      + 'Motif et largeur changent la référence ; le sens de pose règle son orientation dans votre pièce.';
 
     /* Chaque pastille de motif mène à la référence qui le porte. */
     $('patterns').innerHTML = presentPatterns().map((k) => {
       const t = findMatchingProduct({ pattern: k });
       return `<button class="pt" type="button" data-variant="${t ? t.id : ''}"
         aria-pressed="${k === entry.pattern}">
-        <span class="dg${t ? swatchClass(t) : ' noimg'}" style="${t ? swatchStyle(t) : ''}"></span>
+        <span class="dg${t ? swatchClass(t) : ' noimg'}" style="${t ? swatchStyle(t) : ''}" ${t ? previewAttrs(t) : ''}></span>
         <span class="cap">${PATTERNS[k]}</span></button>`;
     }).join('');
     $('patternNote').textContent = 'Changer de motif change de référence.';
@@ -3478,8 +3556,7 @@
       return `<button class="chip" type="button" data-variant="${t ? t.id : ''}"
         aria-pressed="${k === entry.tone}">${TONES[k]}</button>`;
     }).join('');
-    $('toneNote').textContent = 'La teinte reprend la famille de rendu que nous avons '
-      + 'associée au produit : Premibel ne catégorise pas la teinte de ces références.';
+    $('toneNote').textContent = 'La couleur est indicative : vérifiez-la sur un échantillon du parquet.';
 
     /* Le sens de pose n'apparait QUE si le moteur sait le rendre. */
     const caps = adapter.getCapabilities();
@@ -3496,12 +3573,11 @@
         }).join('');
       paintDial(state.orientationDeg);
       $('orientNote').textContent = 'Le sens de pose tourne le motif dans le plan du '
-        + 'sol : la photo ne bouge pas, la perspective ne bouge pas, et une lame de '
-        + `${entry.widthMm} mm mesure toujours ${entry.widthMm} mm.`;
+        + 'sol, sans déplacer la photo ni modifier la perspective.';
     }
 
     /* Et ce qui n'est pas reglable est dit, sans bouton pour faire semblant. */
-    $('bakedNote').textContent = `Aspect relevé sur la fiche : ${entry.aspect}, `
+    $('bakedNote').textContent = `${entry.source === 'inspiration' ? 'Aspect de l’inspiration' : 'Aspect relevé sur la fiche'} : ${entry.aspect}, `
       + `finition ${FINISHES[entry.finish].toLowerCase()}. Le moteur ne les règle pas : `
       + 'ils appartiennent à la famille de texture. Il n\'y a donc pas de curseur '
       + 'ici — un réglage sans effet vaut moins que son absence.';
@@ -3763,22 +3839,24 @@
      Le sol est en bas de la photo, le tiroir aussi. Plutôt que d'enfermer la
      pièce dans la moitié haute, on la fait monter de la hauteur du tiroir ;
      à la fermeture, la réserve tombe et `clamp` la ramène d'elle-même. */
+  let panelView = null;
   function regleReserveTiroir() {
-    if (!state.source) { state.insetBas = 0; return; }
-    const b = stageBox();
-    let reserve = 0;
+    const mobile = window.innerWidth < 1024;
+    const reserve = drawer.isOpen && mobile ? drawer.element.offsetHeight : 0;
+    document.body.style.setProperty('--panel-reserve', `${reserve}px`);
+    state.insetBas = 0;
+    if (!state.source) return;
+    // Show the complete floor in the remaining preview, rather than moving
+    // a full-height image behind the sheet. All layers share the same view.
+    const sceneKey = state.source === 'uploaded' && state.uploaded ? state.uploaded.url : state.roomId;
     if (drawer.isOpen) {
-      /* La hauteur FINALE du tiroir, pas sa position : il glisse depuis le bas
-         et, à l'instant de l'ouverture, `getBoundingClientRect` le trouve
-         encore sous l'écran — la réserve valait 0 et la photo ne montait pas.
-         `offsetHeight` ignore la transformation de l'animation. */
-      const haut = window.innerHeight - drawer.element.offsetHeight;
-      reserve = Math.max(0, Math.round(b.bottom - haut));
+      if (!panelView) panelView = { sceneKey, vp: { ...state.vp } };
+      fitAll(false);
+    } else {
+      if (panelView && panelView.sceneKey === sceneKey) Object.assign(state.vp, panelView.vp);
+      panelView = null;
+      reborner();
     }
-    if (reserve === state.insetBas) return;
-    const ecart = reserve - (state.insetBas || 0);
-    state.insetBas = reserve;
-    setVp({ z: state.vp.z, x: state.vp.x, y: state.vp.y - ecart }, true);
   }
 
   /* Fermer le catalogue sans choisir B annule le choix de B. Sinon le prochain
@@ -3850,6 +3928,8 @@
   });
   $('clearFilters').onclick = () => {
     state.filters = { pattern: null, tone: null, widthMm: null, mood: null };
+    state.catalogSearch = ''; state.catalogCollection = 'all';
+    $('catSearch').value = ''; $('catCollection').value = 'all';
     paintCatalogue();
   };
   $('prods').onclick = (e) => {
@@ -3877,7 +3957,7 @@
       if (open) {
         if (open.dataset.open === 'cat') openCat();
         else if (open.dataset.open === 'floor') floorEditStart();
-        else if (open.dataset.open === 'poser') appliquerScenePhoto(state.intent);
+        else if (open.dataset.open === 'poser') appliquerScenePhoto(state.photoGeneration);
         else if (open.dataset.open === 'retry') relancerAnalyse();
         else if (open.dataset.open === 'cus') openCus();
         else if (open.dataset.open === 'cmpB') pickB();
@@ -3944,6 +4024,10 @@
     $('catCount').textContent = '(choisissez la version B)';
     toast('Choisissez la seconde référence');
   }
+  $('catSearch').addEventListener('input', () => { state.catalogSearch = $('catSearch').value; paintCatalogue(); });
+  $('catCollection').addEventListener('change', () => { state.catalogCollection = $('catCollection').value; paintCatalogue(); });
+  $('floorScale').addEventListener('input', () => { $('floorScaleValue').textContent = `${$('floorScale').value} %`; });
+  $('floorScale').addEventListener('change', () => { state.floorScale = Number($('floorScale').value) / 100; state.intent += 1; paint(); });
   $('cmpBtn').onclick = startCompare;
 
   let dragging = false;
@@ -3986,8 +4070,16 @@
      docs/product-visualizer-ux.md ; il reviendra avec son implementation. */
   $('fsBtn').onclick = () => setImmersive(!state.immersive);
 
+  function placerMenu() {
+    const rect = $('hMenu').getBoundingClientRect();
+    $('menu').style.right = `${Math.max(12, window.innerWidth - rect.right)}px`;
+    $('menu').style.left = 'auto';
+    $('menu').style.top = `${rect.bottom + 8}px`;
+  }
+  window.addEventListener('resize', () => { if (!$('menu').classList.contains('hidden')) placerMenu(); });
   $('hMenu').onclick = () => {
     const closed = $('menu').classList.toggle('hidden');
+    if (!closed) placerMenu();
     $('hMenu').setAttribute('aria-expanded', String(!closed));
   };
   document.addEventListener('pointerdown', (e) => {
@@ -4015,7 +4107,7 @@
        pinceau, qui avaient remplacé la fiche. LOT PHOTO.3. */
     const barres = ['card', 'cardB', 'floorTools', 'noscene']
       .map((id) => $(id)).filter((el) => el && !el.classList.contains('hidden') && el.offsetParent);
-    if (drawer && drawer.isOpen) barres.push(drawer.element);
+    if (drawer && drawer.isOpen && window.innerWidth < 1024) barres.push(drawer.element);
     const haut = barres.reduce((m, el) => Math.min(m, el.getBoundingClientRect().top), window.innerHeight);
     $('toast').style.bottom = `${Math.max(22, Math.round(window.innerHeight - haut + 12))}px`;
     $('toast').textContent = message;
@@ -4064,7 +4156,10 @@
     if (!state.uploaded) return;
     if (!adapter.pinceau.disponible()) { toast('Correction indisponible sur ce moteur'); return; }
     closeAll();
-    const jeton = state.intent;
+    // Manual correction supersedes a pending automatic analysis.
+    state.photoGeneration += 1;
+    if (analysisClient) analysisClient.cancel();
+    const jeton = state.photoGeneration;
     const lancer = async () => {
       /* Trois départs possibles : la scène est déjà posée ; une scène est
          proposée (on la pose) ; il n'y a rien d'exploitable (on part d'une
@@ -4073,7 +4168,7 @@
       let ok = Boolean(ps && ps.posee);
       if (!ok && ps && ps.raw && ps.status !== 'invalid') ok = await appliquerScenePhoto(jeton);
       if (!ok) ok = await ouvrirSceneManuelle(jeton);
-      if (!ok || jeton !== state.intent) { if (jeton === state.intent) toast("Impossible d'ouvrir la scène"); return; }
+      if (!ok || jeton !== state.photoGeneration) { if (jeton === state.photoGeneration) toast("Impossible d'ouvrir la scène"); return; }
       journal('correction:debut');
       floorEdit.actif = true;
       document.body.classList.add('floor-editing');
@@ -4099,6 +4194,7 @@
     $('floorTools').classList.add('hidden');
     /* Le cadrage n'a pas change en entrant : il ne change pas en sortant. */
     if (appliquer) {
+      if (state.photoScene) state.photoScene.userAdjusted = true;
       /* La correction a change le masque : les captures retenues sont
          fausses, et le rendu doit etre refait avec le nouveau sol. */
       adapter.forget();
@@ -4253,6 +4349,7 @@
     setVp, fitToView, zoomAt, setImmersive, onWheel, onDown, onMove, onUp, onDouble,
     paint, paintCard, paintCatalogue, paintCustom, paintRoomSheet, paintQuick,
     openRoom, loadUpload, releaseUpload, select, stepProduct, toggleFav,
+    drawer, regleReserveTiroir,
     toggleFilter, visible, setDemo, closeAll, openRooms, openCat, openCus,
   };
 })();

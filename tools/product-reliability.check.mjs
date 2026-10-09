@@ -423,15 +423,19 @@ for (const [code, attendu, motif] of [[500, 'error', /échoué/], [422, 'rejecte
 /* ============================================================ 9. préparation du modèle */
 {
   const p = await nouvellePage();
-  await p.route('**/health', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'ok', service: 'pose-parquet-ai', experimentalFloor: 'loading' }) }));
+  let healthCalls = 0;
+  await p.route('**/health', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'ok', service: 'pose-parquet-ai', experimentalFloor: ++healthCalls < 3 ? 'loading' : 'ready' }) }));
   await simulerAnalyse(p, async () => { await pause(2500); return sceneSimulee(); });
   await ouvrir(p);
   await importer(p, DEMO_PHOTO);
   await pause(800);
   const pendant = await lecture(p);
   ok('modèle en préparation : « Préparation de l’analyse… », photo visible', pendant.etat === 'ANALYSIS_WAITING' && /Préparation/.test(pendant.texteBarre || ''), `${pendant.etat} ${pendant.texteBarre}`);
+  ok('aucune photo envoyée pendant le chargement', p.__analyses === 0);
+  await p.evaluate(() => { const c = window.__concept; c.select('CHENF39031', true); c.setOrientation(37, false); });
   const fin = await attendreEtatFinal(p);
   ok('… puis rendu une fois prêt', fin === 'RENDER_READY', fin);
+  ok('choisir et tourner pendant la préparation conserve l’analyse', await p.evaluate(() => window.__concept.state.applied.key.includes('CHENF39031') && window.__concept.state.orientationDeg === 37));
   await p.context().close();
 }
 
@@ -507,9 +511,9 @@ for (const [l, h] of [[320, 640], [360, 780], [375, 812], [390, 844], [430, 932]
     const st = document.getElementById('stage').getBoundingClientRect();
     const dw = document.querySelector('.dw').getBoundingClientRect();
     const photo = document.getElementById('after').getBoundingClientRect();
-    const hautVisible = Math.max(st.top, photo.top); const basVisible = Math.min(dw.top, photo.bottom);
+    const hautVisible = Math.max(st.top, photo.top); const basVisible = Math.min(innerWidth >= 1024 ? st.bottom : dw.top, photo.bottom);
     out.sceneVisiblePersonnaliser = Math.max(0, basVisible - hautVisible) / st.height;
-    out.solVisiblePersonnaliser = photo.bottom > dw.top ? 'sous le tiroir' : 'au-dessus du tiroir';
+    out.solVisiblePersonnaliser = innerWidth >= 1024 ? 'à côté du panneau' : (photo.bottom > dw.top ? 'sous le tiroir' : 'au-dessus du tiroir');
     out.debordePersonnaliser = deborde();
     out.tiroirFermable = Boolean(document.querySelector('.dw:not(.hidden) .close'));
     c.closeAll(); await new Promise((x) => setTimeout(x, 500));
@@ -552,7 +556,7 @@ for (const nom of PHOTOS_REELLES) {
   const v = await lecture(p);
   let manuel = 'non requis';
   let finale = fin;
-  if (fin === 'NEEDS_MANUAL_ADJUSTMENT') {
+  if (fin === 'NEEDS_MANUAL_ADJUSTMENT' || fin === 'ANALYSIS_ERROR' || fin === 'ANALYSIS_UNAVAILABLE') {
     ok(`${nom} : aucun rendu automatique tant qu'à ajuster`, !v.coucheVisible && !v.applied.source, v.applied.source);
     if (CAPTURES && nom === 'couloir') await p.screenshot({ path: path.join(OUT, 'manual-adjustment-desktop.jpg'), type: 'jpeg', quality: 88 });
     const m = await correctionManuelle(p);
@@ -564,7 +568,7 @@ for (const nom of PHOTOS_REELLES) {
   }
   const prod = finale === 'RENDER_READY' ? await parcoursProduit(p) : null;
   const resultat = fin === 'RENDER_READY' && prod ? 'AUTO_RENDER_SUCCESS'
-    : fin === 'NEEDS_MANUAL_ADJUSTMENT' && manuel === 'PASS' && prod ? 'NEEDS_MANUAL_ADJUSTMENT'
+    : manuel === 'PASS' && prod ? 'NEEDS_MANUAL_ADJUSTMENT'
       : fin === 'ANALYSIS_ERROR' || fin === 'ANALYSIS_UNAVAILABLE' ? 'ANALYSIS_FAILED_GRACEFULLY' : `BROKEN(${fin})`;
   ok(`${nom} : état produit valide`, !resultat.startsWith('BROKEN') && p.__erreurs.length === 0, `${resultat} · ${ms} ms${p.__erreurs.length ? ' · ' + p.__erreurs.join(' | ') : ''}`);
   if (prod) ok(`${nom} : fonctions produit sans réanalyse`, prod.lames && prod.pdh && prod.baton && prod.rotation && prod.avantApres && prod.comparaison && prod.analysesPendantProduit === 0, JSON.stringify(prod));

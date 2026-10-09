@@ -15,8 +15,9 @@
      l'ombre, et éliminent le grain et les joints. C'est ce qui interdit
      d'optimiser la lumière sur la seule photo de la chambre.
 */
-import { lameBaton, apparenceBaton, motifPeriode, hacheLame } from '../web/scene/texture.js';
+import { patternProfile, lameBaton, apparenceBaton, motifPeriode, hacheLame } from '../web/scene/texture.js';
 import { buildShadingMap, buildResidualMaps } from '../web/scene/shading.js';
+import { softenGain, knee } from '../web/scene/renderer-canvas.js';
 import { readFileSync } from 'node:fs';
 
 let echecs = 0;
@@ -28,6 +29,10 @@ const ok = (nom, cond, detail) => {
 /* ------------------------------------------------------------ bâton rompu */
 const parquets = JSON.parse(readFileSync('web/data/parquets.json', 'utf8')).parquets;
 const materiau = parquets.find((m) => m.id === 'chene-naturel');
+ok('longueur commerciale prioritaire sur la famille', patternProfile(materiau, 'point-de-hongrie', 0.092, 0.52).length === 0.52);
+const shortPeriod = motifPeriode(materiau, 'point-de-hongrie', 0.092, 0.52);
+const longPeriod = motifPeriode(materiau, 'point-de-hongrie', 0.092, 0.9);
+ok('la longueur change réellement le réseau de chevrons', shortPeriod.colonne !== longPeriod.colonne);
 const g = motifPeriode(materiau, 'baton-rompu', 0.09);
 ok('le motif bâton rompu expose son réseau', g && g.type === 'baton' && g.na > 0 && g.nb > 0,
   g && `w=${g.w.toFixed(4)} l=${g.l.toFixed(4)} na=${g.na} nb=${g.nb}`);
@@ -241,6 +246,14 @@ ok('les joints ne deviennent pas des ombres', moyenne(cartes.shadow, joints) < 0
   const r = (sab / n - (sa / n) * (sb / n)) / Math.sqrt((saa / n - (sa / n) ** 2) * (sbb / n - (sb / n) ** 2));
   ok('Canvas, plan rasant : les échantillons anisotropes restent dans l\'empreinte du pixel', r > 0.8 && nan === 0, `corrélation ${r.toFixed(3)}`);
 }
+
+const paleDark = knee(215 * softenGain(4));
+const paleLight = knee(245 * softenGain(4));
+ok('un parquet clair au soleil garde du détail sans pixels blancs', paleLight < 255 && paleLight - paleDark > 2, `${paleDark.toFixed(1)}…${paleLight.toFixed(1)}`);
+ok('les ombres gardent leur gain', softenGain(0.5) === 0.5 && knee(128) === 128);
+const paleMeanGain = softenGain(4, 0.85);
+ok('un bois très pâle préserve le contraste des fibres au soleil', knee(235 * paleMeanGain) - knee(205 * paleMeanGain) > 12);
+ok('la compression lumineuse respecte la clarté du matériau', softenGain(4, 0.85) < softenGain(4, 0.4));
 
 console.log(echecs ? `\n${echecs} ECHEC(S)` : '\nAUCUN ECHEC');
 process.exit(echecs ? 1 : 0);

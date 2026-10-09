@@ -32,7 +32,7 @@ self.onmessage = (event) => {
     if (kind === 'apercu') {
       // Aperçu d'un motif pour le panneau : même dessin, tuile réduite, et un
       // ImageBitmap transféré — pas de lecture de pixels, pas de copie.
-      const petite = buildTexture(material, { pattern: config.pattern, size: config.size || 320 });
+      const petite = buildTexture(material, { pattern: config.pattern, width: config.width, plankLength: config.plankLength, size: config.size || 320 });
       const bitmap = petite.transferToImageBitmap();
       self.postMessage({ id, bitmap }, [bitmap]);
       return;
@@ -41,6 +41,7 @@ self.onmessage = (event) => {
     const tile = buildTexture(material, {
       pattern: config.pattern || material.defaultPattern,
       width: config.width || null,
+      plankLength: config.plankLength || null,
     });
     const t1 = performance.now();
     const [albedo] = buildMips(tile, 1);

@@ -53,11 +53,15 @@ const clamp = (v, min, max) => (v < min ? min : v > max ? max : v);
 const clampByte = (v) => (v < 0 ? 0 : v > 255 ? 255 : v);
 
 /** Compression des hautes lumières, identique à celle du shader WebGL. */
+export function softenGain(v, mean = 0.5) {
+  const headroom = Math.min(0.55, Math.max(0.08, 0.86 / Math.max(mean, 0.05) - 1));
+  return v <= 1 ? v : 1 + headroom * (v - 1) / (headroom + v - 1);
+}
 const KNEE = 0.86 * 255;
-function knee(v) {
+export function knee(v) {
   if (v <= KNEE) return v < 0 ? 0 : v;
   const over = (v - KNEE) / 255;
-  return Math.min(255, KNEE + (over / (1 + over * 4)) * 255);
+  return Math.min(255, KNEE + (0.14 * over / (0.14 + over)) * 255);
 }
 
 /** Échantillon bilinéaire répétable dans une carte carrée. */
@@ -154,7 +158,7 @@ export function createCanvasRenderer() {
 
         // Rupture de périodicité : réservée à la pose droite, dont les rangées
         // de lames sont indépendantes. Un chevron traverse les rangées.
-        const profil = patternProfile(surface.material, config.pattern, config.width || null);
+        const profil = patternProfile(surface.material, config.pattern, config.width || null, config.plankLength || null);
         const rangees = config.pattern === 'lames' ? Math.max(1, Math.round(TILE_METERS / profil.width)) : 0;
         const hauteurRangee = rangees ? TILE / rangees : 0;
         const decalageRangee = rangees
@@ -171,7 +175,7 @@ export function createCanvasRenderer() {
         const shadowGain = shadow ? light.contactShadow : 0;
         const highlightGain = lumiere ? light.highlight : 0;
         const midGain = mid ? light.midLight : 0;
-        const motif = motifPeriode(surface.material, config.pattern, config.width || null);
+        const motif = motifPeriode(surface.material, config.pattern, config.width || null, config.plankLength || null);
         const periode = motif && motif.type !== 'baton' ? motif : null;
         const baton = motif && motif.type === 'baton' ? motif : null;
         const strength = light.strength;
@@ -344,9 +348,9 @@ export function createCanvasRenderer() {
             const ombre = (shadowGain ? 1 - shadowGain * shadow[index0] : 1)
               * Math.min(light.lightMax, (highlightGain ? 1 + highlightGain * lumiere[index0] : 1)
                 * (midGain ? 1 + midGain * mid[index0] : 1));
-            const gainR = shade * tintR * exposure * ombre;
-            const gainG = shade * tintG * exposure * ombre;
-            const gainB = shade * tintB * exposure * ombre;
+            const gainR = softenGain(shade * tintR * exposure * ombre, albedoMean / 255);
+            const gainG = softenGain(shade * tintG * exposure * ombre, albedoMean / 255);
+            const gainB = softenGain(shade * tintB * exposure * ombre, albedoMean / 255);
 
             // Relief : le gradient de la tuile fait office de normale. Les
             // joints et les chanfreins prennent la lumière, ce qui suffit à

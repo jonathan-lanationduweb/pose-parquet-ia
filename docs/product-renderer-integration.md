@@ -641,3 +641,32 @@ borné à 8 :
 
 La borne tient et l'éviction libère : pas de croissance sur quinze états, donc
 pas de fuite grossière.
+
+## Diagnostic optionnel de géométrie (revue produit)
+
+Le moteur local expose `geometryDiagnostics()` en lecture : taille image, plan courant,
+axes de fuite et largeur projetée de la lame sélectionnée au fond, au milieu et devant.
+Cette extension est facultative pour un moteur externe ; son absence ne bloque aucun rendu.
+Les mesures utilisent la même homographie et les mêmes masques que le renderer.
+Le bouton **Axes du sol** apparaît uniquement avec `?dev=1`. Il ne modifie ni la
+calibration ni les pixels du rendu. Une mesure d'échelle est un contrôle, pas une validation
+visuelle automatique. La largeur d'un chevron est la largeur de lame équivalente,
+indépendante de la forme du motif ; la grille montre les axes du plan.
+
+La commande facultative `setPlankLength(metres|null)` pilote désormais la longueur
+commerciale. Elle entre dans la clé du cache de rendu, dans les messages du worker
+et dans le calcul des réseaux de chevrons/bâton rompu des deux moteurs. Sans elle,
+le moteur externe conserve les dimensions de sa famille ; le moteur local l'honore.
+
+## Catalogue et taille apparente sur photo
+
+Le catalogue ajoute 34 inspirations issues des 12 matières et de leurs poses compatibles dans `web/data/parquets.json`, sans références commerciales inventées. Les vignettes sont calculées à la demande dans un worker avec les dimensions du profil réellement rendu.
+
+`setScale(value)` est une extension locale facultative (0,5 à 2). Elle ajuste les deux dimensions apparentes de la texture sur une photo dont les mètres sont estimés. Elle conserve le masque et la projection. Le coefficient entre dans les caches A/B et reste commun aux deux produits comparés. Une nouvelle pièce remet le coefficient à 1.
+
+
+## Prototype Mode Visite
+
+L’extension locale facultative `visitSnapshot()` retourne la scène normalisée, les masques, les dimensions et le canevas du rendu courant. Le module `web/product/visit-mode.js` construit un maillage 2.5D et utilise une caméra perspective WebGL réelle. Le parquet du rendu reste attaché aux sommets du plan de sol. La profondeur du sol vient d’une hypothèse sténopé avec horizon et hauteur de caméra ; les objets sont attachés à un contact de sol supposé, et le fond est distant. Aucun modèle de profondeur monoculaire n’est intégré : ce prototype n’est pas une reconstruction IA du mobilier.
+
+Déplacement supposé : ±6 cm latéralement, 0 à 12 cm vers l’avant, ±3 degrés de rotation. Ce ne sont pas des mètres mesurés. Les triangles traversant une discontinuité de profondeur sont retirés plutôt qu’étirés. Les zones inconnues ne sont pas inventées et peuvent laisser des coupures visibles. Le retour libère les ressources GPU ; les commandes de sélection de parquet reprennent dans le visualiseur photo. La visite libre vidéo/multivues reste à développer.

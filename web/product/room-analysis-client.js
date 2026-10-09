@@ -95,6 +95,8 @@ const MESSAGES = {
 export function createRoomAnalysisClient({ base, timeoutMs = 120000 } = {}) {
   let generation = 0;
   let enCours = null;
+  // Résultats uniquement, en mémoire de cette page ; aucun octet photo conservé.
+  const recent = new Map();
 
   /** Annule l'analyse en cours, s'il y en a une. */
   function cancel() {
@@ -130,6 +132,18 @@ export function createRoomAnalysisClient({ base, timeoutMs = 120000 } = {}) {
     corps.append('image', file, file.name || 'photo.jpg');
 
     try {
+      let digest = null;
+      if (typeof file.arrayBuffer === 'function' && globalThis.crypto?.subtle) {
+        try {
+          const hash = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
+          digest = Array.from(new Uint8Array(hash), b => b.toString(16).padStart(2, '0')).join('');
+        } catch { /* Le cache est facultatif ; l’analyse reste disponible. */ }
+      }
+      if (controleur.signal.aborted || mien !== generation) return { ok: false, generation: mien, perime: true, raison: RAISONS.ANNULEE };
+      if (digest && recent.has(digest)) {
+        const analysis = recent.get(digest); recent.delete(digest); recent.set(digest, analysis);
+        return { ok: true, generation: mien, perime: false, networkMs: Math.round(performance.now() - t0), cached: true, analysis: structuredClone(analysis) };
+      }
       const reponse = await fetch(`${base}/v1/analyze-room`, {
         method: 'POST',
         body: corps,
@@ -161,6 +175,10 @@ export function createRoomAnalysisClient({ base, timeoutMs = 120000 } = {}) {
           message: 'Réponse d’analyse inattendue.',
         };
       }
+      if (digest && !perime) {
+        recent.set(digest, structuredClone(analysis));
+        if (recent.size > 4) recent.delete(recent.keys().next().value);
+      }
       return { ok: true, generation: mien, perime, networkMs, analysis };
     } catch (e) {
       const networkMs = Math.round(performance.now() - t0);
@@ -184,8 +202,10 @@ export function createRoomAnalysisClient({ base, timeoutMs = 120000 } = {}) {
    * qu'on interroge chaque seconde coûte plus que ce qu'il apprend.
    */
   async function health() {
+    const controleur = new AbortController();
+    const minuteur = setTimeout(() => controleur.abort(), 5000);
     try {
-      const r = await fetch(`${base}/health`, { method: 'GET' });
+      const r = await fetch(`${base}/health`, { method: 'GET', signal: controleur.signal, cache: 'no-store' });
       if (!r.ok) return { ok: false, status: r.status };
       const corps = await r.json();
       return {
@@ -196,6 +216,8 @@ export function createRoomAnalysisClient({ base, timeoutMs = 120000 } = {}) {
       };
     } catch {
       return { ok: false, status: 0 };
+    } finally {
+      clearTimeout(minuteur);
     }
   }
 

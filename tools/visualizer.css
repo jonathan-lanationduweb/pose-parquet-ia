@@ -909,3 +909,190 @@ body.floor-editing #devnote { display: none !important; }
      passer sous le zoom. */
   .vtag { top: 122px; }
 }
+
+/* Product rework: live preview beside desktop panels, above mobile sheets. */
+:root { --panel-w: clamp(360px, 28vw, 420px); }
+body.panel-open .dw-scrim { display: none; }
+.entry-in { width: min(1120px, 100%); }
+.entry-in h2 { font-size: clamp(30px, 3.3vw, 48px); line-height: 1.12; }
+.entry-in .sub { font-size: 16px; line-height: 1.5; margin: 16px 0 32px; }
+.doors { gap: 20px; }
+.door { padding: 28px 30px; border: 1px solid var(--line); }
+.door b { font-size: 19px; }
+.door span { font-size: 14px; line-height: 1.5; }
+.quick { margin-top: 36px; }
+.quick h3 { font-size: 14px; }
+.quick-row { gap: 18px; }
+.rcard .nm { font-size: 15px; }
+.rcard .cat { font-size: 13px; }
+.brand > div > p:not(.wordmark) { font-size: 11px; }
+.dw-pane .head { flex-wrap: wrap; gap: 4px 10px; }
+.dw-pane .head .n { font-size: 12px; line-height: 1.4; }
+.dw-pane .head .close { margin-left: auto; }
+.dw-pane .head h2 { font-size: 18px; }
+.dw-pane .honest { font-size: 13px; line-height: 1.55; }
+.dw-pane .sect h3 { font-size: 14px; }
+.dw-pane .chip { min-height: 36px; font-size: 13px; }
+.dw-pane .ref { font-size: 12px; line-height: 1.4; }
+@media (min-width: 1024px) {
+  body.panel-open #main { margin-right: var(--panel-w); }
+  .dw, .dw[data-size] {
+    left: auto; right: 0; top: 54px; bottom: 0; transform: none;
+    width: var(--panel-w); max-height: none; height: auto;
+    border-radius: 0; border-left: 1px solid var(--line);
+    box-shadow: -8px 0 32px rgba(24,22,18,.08); animation: none;
+  }
+  .dw-grip { display: none; }
+  .dw-pane .head { padding: 16px 18px; }
+  .dw-pane .head .n { order: 4; flex-basis: 100%; }
+  .dw-pane .head .grow { display: none; }
+  .dw-pane .body { flex-direction: column; }
+  .dw-pane .body > .side {
+    flex: none; width: auto !important; padding: 14px 18px;
+    border-right: 0; border-bottom: 1px solid var(--line);
+  }
+  .dw-pane .body > .main { padding: 18px; overflow: visible; }
+  .dw-pane .side .grp { margin-bottom: 12px; }
+  .dw-pane .chips, .dw-pane .cats { display: flex; flex-wrap: wrap; gap: 6px; }
+  .dw-pane .side .cat { width: auto; padding: 8px 12px; }
+  .dw-pane .prods, .dw-pane .grid3 { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px; }
+  .dw-pane .prods .pd .tex { aspect-ratio: 1.25; }
+  .dw-pane .moods .row { flex-wrap: wrap; }
+  #cusSheet .pats { max-width: none; }
+  #cusSheet .pats .pt .dg { aspect-ratio: 1; }
+  #cusSheet .dial { width: 96px; height: 96px; }
+  #cusSheet .or { min-height: 44px; }
+  #card, #cardB { gap: 10px; padding: 10px 14px; border-radius: 20px; }
+  #card .ref, #cardB .ref { display: none; }
+  #card b, #cardB b { font-size: 14px; }
+  #card .row button, #cardB .row button { font-size: 13px; min-height: 40px; }
+  body.panel-open #card .row button[data-open="cmpA"] { display: none; }
+  body.panel-open #card { max-width: calc(100% - 24px); }
+}
+@media (max-width: 1023px) {
+  body.panel-open #main { margin-bottom: var(--panel-reserve, 0px); }
+  .dw, .dw[data-size] { width: 100%; max-height: 55dvh; }
+  .dw[data-mode="customize"][data-size] { max-height: 42dvh; }
+  .dw[data-mode="customize"][data-size="expanded"] { max-height: 55dvh; }
+  body.panel-open #card, body.panel-open #cardB, body.panel-open #status,
+  body.panel-open #noscene, body.panel-open #zoombar { display: none !important; }
+  body.panel-open #tools { top: 8px; }
+  body.panel-open .dw-pane .body { flex-direction: column; }
+  body.panel-open .dw-pane .body > .side { width: auto !important; flex: none; border-right: 0; }
+}
+@media (max-width: 700px) {
+  #entry { padding: 28px 18px; place-items: start center; }
+  .entry-in .sub { font-size: 14px; margin-bottom: 24px; }
+  .doors { gap: 12px; }
+  .door { padding: 18px; }
+  .door b { font-size: 16px; }
+  .door span { font-size: 13px; }
+  .quick-row { gap: 10px; }
+  .rcard .nm { font-size: 13px; }
+  #card, #cardB { bottom: 8px; left: 8px; right: 8px; }
+  #card .row, #cardB .row { flex-wrap: nowrap; }
+  #card .row button, #cardB .row button { padding: 0 8px; min-width: 0; }
+  #noscene { bottom: 8px; left: 8px; right: 8px; font-size: 13px; }
+  #noscene .row { display: flex; flex-wrap: wrap; gap: 6px; }
+  #noscene .row button { width: auto; flex: 1; padding: 0 10px; }
+}
+@media (max-height: 600px) and (max-width: 1023px) {
+  .dw[data-mode="customize"][data-size] { max-height: 50dvh; }
+}
+
+/* Keep the name readable when the preview is narrowed by a desktop panel. */
+@media (min-width: 1024px) {
+  body.panel-open #card, body.panel-open #cardB {
+    width: min(740px, calc(100% - 32px)); grid-template-columns: 48px minmax(130px, 1fr) auto;
+  }
+  body.panel-open #card .dim, body.panel-open #cardB .dim { white-space: normal; font-size: 12px; }
+  body.panel-open #card .row, body.panel-open #cardB .row { gap: 3px; }
+  body.panel-open #card .row button, body.panel-open #cardB .row button { padding: 0 10px; }
+  #cusSheet .main { display: flex; flex-direction: column; }
+  #cusSheet .main > * { order: 6; }
+  #cusSheet #sectOrient { order: 1; }
+  #cusSheet #sectPattern { order: 2; }
+  #cusSheet #sectWidth { order: 3; }
+  #cusSheet #sectTone { order: 4; }
+  #cusSheet .honest { order: 5; }
+}
+@media (min-width: 1024px) and (max-width: 1199px) {
+  body.panel-open #card .row button[data-open="cat"] { display: none; }
+}
+@media (max-width: 700px) {
+  .dw-pane .head { position: relative; padding-right: 68px; }
+  .dw-pane .head .close { position: absolute; right: 16px; top: 10px; }
+  .dw-pane .head .n { max-width: 100%; }
+}
+
+@media (max-width: 1023px) {
+  .dw[data-size="collapsed"], .dw[data-mode="customize"][data-size="collapsed"] { max-height: 24dvh; }
+}
+
+/* Catalogue enrichi et calibration de la taille sur une photo personnelle. */
+.catalog-discovery { display:grid; gap:7px; margin:0 0 18px; }
+.catalog-discovery label { font-size:12px; color:var(--ink-3); }
+.catalog-discovery input, .catalog-discovery select { width:100%; min-height:42px; border:1px solid var(--line); border-radius:9px; background:#fff; color:var(--ink); padding:10px; font:inherit; }
+.catalog-discovery p { font-size:12px; line-height:1.5; color:var(--ink-3); margin:3px 0; }
+#sectScale { order:-1; }
+#floorScale { width:100%; accent-color:#34322e; margin:12px 0; }
+#floorScaleValue { float:right; font-size:13px; font-weight:400; }
+[data-material-preview] { background-size:cover !important; background-position:center !important; }
+
+.catalog-discovery { margin-bottom:8px; }
+.catalog-discovery label { position:absolute; width:1px; height:1px; padding:0; overflow:hidden; clip-path:inset(50%); }
+.catalog-discovery p { margin:0; font-size:11px; }
+.catalog-filters { margin:6px 0 14px; }
+.catalog-filters summary { cursor:pointer; padding:9px 0; font-size:13px; color:var(--ink-3); }
+.dw-pane .catalog-filters > .side { width:auto !important; border:0; padding:8px 0; }
+.dw-pane .catalog-filters .grp { margin-bottom:10px; }
+.dw-pane .catalog-filters .chips { display:flex; flex-wrap:wrap; gap:5px; }
+
+#cusSheet .sect#sectScale { order:-3; }
+
+/* La barre du navigateur mobile ne doit jamais cacher les actions produit. */
+html { height: 100%; }
+body { height: 100vh; height: var(--app-height, 100dvh); min-height: 0; }
+@media (max-width: 700px) {
+  body.floor-rendered:not(.panel-open):not(.floor-editing) #stage {
+    margin-bottom: calc(var(--dock-h) + 20px + env(safe-area-inset-bottom, 0px));
+  }
+  #card, #cardB {
+    position: fixed;
+    bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+    max-height: calc(100dvh - 70px);
+    overflow-y: auto;
+  }
+  #card .row, #cardB .row { display: flex; flex-wrap: wrap; }
+  #card .row button, #cardB .row button { flex: 1 1 auto; min-height: 44px; }
+  #card .row button[data-open="cat"], #cardB .row button[data-open="cat"] { flex: 1 0 45%; }
+  #card .row .fav, #cardB .row .fav { flex: 0 0 40px; }
+}
+
+/* Commandes compactes : deux actions principales, nom et favori au-dessus. */
+@media (max-width:700px) {
+  #card, #cardB {
+    grid-template-columns: 32px minmax(0,1fr) 40px;
+    grid-template-areas: 'sw nom row' 'actions actions actions';
+    padding: 8px 10px; gap: 6px 8px;
+    border-radius: 16px;
+  }
+  #card .sw, #cardB .sw { width:32px; height:32px; }
+  #card b, #cardB b { align-self:center; font-size:12px; }
+  #card .dim, #cardB .dim { display:none; }
+  #card .row, #cardB .row { grid-area:actions; margin:0; padding:0; border:0; gap:6px; }
+  #card .row .fav, #cardB .row .fav { position:absolute; right:10px; top:4px; width:40px; }
+  #card .row button[data-open="cat"], #cardB .row button[data-open="cat"] { flex:1; }
+  #card .row button[data-open="cus"], #cardB .row button[data-open="cus"] { flex:1; }
+  #card .row button[data-open="floor"] { flex:0 0 44px; padding:0 10px; }
+  #card .row button[data-open="floor"] .lbl { display:none; }
+}
+.visit-layer { position:absolute; inset:0; z-index:25; background:#25241f; display:flex; flex-direction:column; }
+.visit-layer canvas { flex:1; min-height:0; width:100%; touch-action:none; }
+.visit-controls { background:#fff; color:#34322e; padding:12px; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+.visit-controls p { flex-basis:100%; font-size:12px; margin:0; }
+.visit-controls button { min-height:44px; padding:8px 14px; border:1px solid #ddd; border-radius:12px; }
+.visit-controls label { font-size:12px; display:flex; gap:6px; align-items:center; }
+.visit-controls input { width:90px; }
+body.visiting #card,body.visiting #tools,body.visiting #zoombar,body.visiting #status { display:none !important; }
+body.visiting #stage { margin-bottom:0 !important; }

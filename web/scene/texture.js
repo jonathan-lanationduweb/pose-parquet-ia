@@ -58,7 +58,7 @@ export const DEFAULT_PROFILES = {
   'baton-rompu': { width: 0.09, length: 0.45 },
 };
 
-export function patternProfile(material, pattern, widthOverride) {
+export function patternProfile(material, pattern, widthOverride, lengthOverride) {
   const declared = (material.patternProfiles && material.patternProfiles[pattern]) || {};
   const fallback = DEFAULT_PROFILES[pattern] || DEFAULT_PROFILES.lames;
   const width =
@@ -66,7 +66,7 @@ export function patternProfile(material, pattern, widthOverride) {
     declared.width ||
     (pattern === 'lames' ? material.boardWidth : Math.min(material.boardWidth, fallback.width));
   const length =
-    declared.length ||
+    lengthOverride || declared.length ||
     (pattern === 'lames' ? material.boardLength || width * 9 : fallback.length || width * 5);
   return {
     width,
@@ -148,13 +148,13 @@ const fit = (target) => TILE / Math.max(1, Math.round(TILE / target));
  * Mêmes calculs que `drawChevron`, au même endroit, pour qu'ils ne divergent
  * jamais. `null` pour les autres motifs.
  */
-export function motifPeriode(material, pattern, widthOverride) {
+export function motifPeriode(material, pattern, widthOverride, lengthOverride) {
   if (pattern === 'baton-rompu') {
-    const g = reseauBaton(patternProfile(material, pattern, widthOverride));
+    const g = reseauBaton(patternProfile(material, pattern, widthOverride, lengthOverride));
     return { type: 'baton', w: g.w / TILE, l: g.l / TILE, na: g.na, nb: g.nb };
   }
   if (pattern !== 'point-de-hongrie') return null;
-  const profile = patternProfile(material, pattern, widthOverride);
+  const profile = patternProfile(material, pattern, widthOverride, lengthOverride);
   const w = fit((profile.width / TILE_METERS) * TILE);
   const rad = (Math.min(75, Math.max(15, profile.angleDeg)) * Math.PI) / 180;
   const colonne = fit(2 * (profile.length / TILE_METERS) * TILE * Math.sin(rad));
@@ -811,15 +811,14 @@ function drawChevron(ctx, tex, profile, graine) {
     ctx.restore();
 
     /**
-     * Joint appuyé, par-dessus celui de `board()`.
+     * Joint discret, par-dessus celui de `board()`.
      *
-     * Le joint d'une lame droite fait 0,7 px de large, et un trait de moins
-     * d'un pixel disparaît dès que la tuile est réduite : le chevron s'effaçait
-     * alors en un champ uni parcouru de quelques traits. On repasse donc le
-     * contour avec une largeur plancher, qui survit à la moyenne des mipmaps.
+     * Le plancher précédent de 1,1 px et 5 % de la largeur dessinait des
+     * joints de plusieurs millimètres. Le contour reste subpixel ; les
+     * mipmaps et la variation entre lames donnent sa lecture à distance.
      */
     ctx.strokeStyle = `rgba(38,26,16,${(tex.joint * 0.6).toFixed(3)})`;
-    ctx.lineWidth = Math.max(1.1, w * 0.05);
+    ctx.lineWidth = Math.max(0.35, w * 0.012);
     ctx.stroke();
     ctx.restore();
   };
@@ -892,9 +891,9 @@ function filmGrain(ctx, w, h, amount) {
  * @param {number} [o.width]    largeur de lame en m (défaut : celle du matériau)
  * @returns {HTMLCanvasElement}
  */
-export function buildTexture(material, { pattern = 'lames', width, size = TILE } = {}) {
+export function buildTexture(material, { pattern = 'lames', width, plankLength, size = TILE } = {}) {
   const tex = material.texture;
-  const profile = patternProfile(material, pattern, width);
+  const profile = patternProfile(material, pattern, width, plankLength);
   const canvas = creerCanvas(size, size);
   /* Pas de `willReadFrequently` ici, et c'est mesure.
      ---------------------------------------------------------------

@@ -78,156 +78,48 @@
       "mask": {
         "polygon": [
           {
-            "x": 0.0381,
-            "y": 0.7001
+            "x": 0.04188,
+            "y": 0.70009
           },
           {
-            "x": 0.0633,
-            "y": 0.6812
+            "x": 0.14875,
+            "y": 0.6701
           },
           {
-            "x": 0.0759,
-            "y": 0.6699
+            "x": 0.2775,
+            "y": 0.63918
           },
           {
-            "x": 0.1061,
-            "y": 0.6759
+            "x": 0.35687,
+            "y": 0.63261
           },
           {
-            "x": 0.1469,
-            "y": 0.6675
+            "x": 0.36875,
+            "y": 0.63918
           },
           {
-            "x": 0.1812,
-            "y": 0.6729
+            "x": 0.50062,
+            "y": 0.69353
           },
           {
-            "x": 0.2127,
-            "y": 0.6658
+            "x": 0.6725,
+            "y": 0.77226
           },
           {
-            "x": 0.2221,
-            "y": 0.665
+            "x": 0.84188,
+            "y": 0.84255
           },
           {
-            "x": 0.2565,
-            "y": 0.6718
+            "x": 0.84125,
+            "y": 1.0
           },
           {
-            "x": 0.2848,
-            "y": 0.6731
-          },
-          {
-            "x": 0.3192,
-            "y": 0.6782
-          },
-          {
-            "x": 0.3913,
-            "y": 0.6798
-          },
-          {
-            "x": 0.4226,
-            "y": 0.6778
-          },
-          {
-            "x": 0.4351,
-            "y": 0.6807
-          },
-          {
-            "x": 0.4537,
-            "y": 0.6878
-          },
-          {
-            "x": 0.463,
-            "y": 0.6894
-          },
-          {
-            "x": 0.4756,
-            "y": 0.6881
-          },
-          {
-            "x": 0.4945,
-            "y": 0.6832
-          },
-          {
-            "x": 0.5101,
-            "y": 0.6837
-          },
-          {
-            "x": 0.5504,
-            "y": 0.6978
-          },
-          {
-            "x": 0.5588,
-            "y": 0.6997
-          },
-          {
-            "x": 0.5757,
-            "y": 0.7083
-          },
-          {
-            "x": 0.6543,
-            "y": 0.7401
-          },
-          {
-            "x": 0.6631,
-            "y": 0.7449
-          },
-          {
-            "x": 0.6842,
-            "y": 0.7656
-          },
-          {
-            "x": 0.6924,
-            "y": 0.7723
-          },
-          {
-            "x": 0.7376,
-            "y": 0.7906
-          },
-          {
-            "x": 0.8228,
-            "y": 0.8287
-          },
-          {
-            "x": 0.8409,
-            "y": 0.8341
-          },
-          {
-            "x": 0.8422,
-            "y": 0.8577
-          },
-          {
-            "x": 0.841,
-            "y": 1
-          },
-          {
-            "x": 0.0411,
-            "y": 1
-          },
-          {
-            "x": 0.039,
-            "y": 0.9986
-          },
-          {
-            "x": 0.0405,
-            "y": 0.9766
-          },
-          {
-            "x": 0.0411,
-            "y": 0.7844
-          },
-          {
-            "x": 0.0407,
-            "y": 0.7563
-          },
-          {
-            "x": 0.0382,
-            "y": 0.7047
+            "x": 0.04125,
+            "y": 1.0
           }
         ],
         "holes": [],
-        "note": "Contour affine sur l image, independamment du quadrilatere de perspective : les 4 points du plan servent a la projection, ils n imposent pas la frontiere du sol. Methode : densification au pas de 5 px, recalage de chaque point le long de sa normale sur le maximum de gradient (recherche +/-14 px, ponderee vers l origine), filtre median puis moyenne glissante le long du contour — la moyenne supprime le feston du suivi de bord sans effacer la correction —, enfin simplification a 0,9 px. Les cotes du cadre de l image sont figes : ce ne sont pas des frontieres reelles. Qualite de placement, mesuree par le gradient median de l image le long du contour : 23,2 -> 102,3 (x4,41). Un contour pose sur du sol nu tombe au niveau du bruit (18 sur la chambre avant reprise) ; pose sur les plinthes, seuils et huisseries il monte a 200."
+        "note": "Contour repris au pied des plinthes sur la photo originale, sans suivi des motifs du revêtement. Le contour précédent oscillait sur le mur gauche. La projection du plan reste indépendante du masque. À revoir visuellement avec les captures de régression."
       }
     }
   ],
@@ -272,20 +164,88 @@
       "kind": "furniture",
       "polygon": [
         {
-          "x": 0.361,
-          "y": 0.569
+          "x": 0.36562,
+          "y": 0.57451
         },
         {
-          "x": 0.502,
-          "y": 0.585
+          "x": 0.435,
+          "y": 0.56888
         },
         {
-          "x": 0.502,
-          "y": 0.699
+          "x": 0.50062,
+          "y": 0.5895
         },
         {
-          "x": 0.361,
-          "y": 0.668
+          "x": 0.50062,
+          "y": 0.69072
+        },
+        {
+          "x": 0.49562,
+          "y": 0.69447
+        },
+        {
+          "x": 0.49562,
+          "y": 0.70197
+        },
+        {
+          "x": 0.4925,
+          "y": 0.70572
+        },
+        {
+          "x": 0.49062,
+          "y": 0.69541
+        },
+        {
+          "x": 0.46563,
+          "y": 0.69447
+        },
+        {
+          "x": 0.465,
+          "y": 0.70759
+        },
+        {
+          "x": 0.4625,
+          "y": 0.70759
+        },
+        {
+          "x": 0.46063,
+          "y": 0.69447
+        },
+        {
+          "x": 0.41375,
+          "y": 0.67854
+        },
+        {
+          "x": 0.41375,
+          "y": 0.69072
+        },
+        {
+          "x": 0.41125,
+          "y": 0.69072
+        },
+        {
+          "x": 0.41063,
+          "y": 0.6776
+        },
+        {
+          "x": 0.37375,
+          "y": 0.66354
+        },
+        {
+          "x": 0.37375,
+          "y": 0.6701
+        },
+        {
+          "x": 0.37062,
+          "y": 0.6701
+        },
+        {
+          "x": 0.37,
+          "y": 0.66261
+        },
+        {
+          "x": 0.36562,
+          "y": 0.65604
         }
       ],
       "contact": [

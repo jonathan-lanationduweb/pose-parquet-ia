@@ -21,9 +21,9 @@
       "zones": 1,
       "highlight": "Meuble et radiateur devant le sol",
       "geometryStatus": "validated",
-      "visualStatus": "failed",
-      "visualReason": "mask-over-wall",
-      "visualNote": "Le masque monte sur le mur de gauche entre x 0,05 et 0,28, avec un bord en dents de scie visible au rendu ; les occulteurs du radiateur et du meuble bas sont des boîtes englobantes. Vérifié en superposant la couverture réelle du masque sur la photo."
+      "visualStatus": "experimental",
+      "visualReason": "mask-reworked-awaiting-review",
+      "visualNote": "Plinthes et silhouette du meuble reprises. Captures WebGL/Canvas sous review/product-rework ; validation humaine à faire."
     },
     {
       "id": "chambre",
