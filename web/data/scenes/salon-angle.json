@@ -1,0 +1,83 @@
+{
+  "schema": "pose-parquet/scene@1",
+  "id": "salon-angle",
+  "label": "Salon d’angle",
+  "source": "precalibrated",
+  "note": "Pièce vide dont le sujet est un ANGLE : un mur avance au milieu du cadre, ce qui donne deux frontières horizontales à deux profondeurs différentes au lieu d'une seule. Sol entièrement dégagé, aucun meuble, donc aucun occulteur. QUATRE FRONTIÈRES relevées à la chute de luminance (mur blanc sur plinthe et sol de noyer, chute 123 à 151 partout) : le mur du fond, HORIZONTAL sur vingt-sept colonnes de x 0,055 à 0,445 (y 0,6504 à 0,6532, soit 3 px de dérive sur 620 px — l'horizontale est mesurée, pas supposée) ; la face du mur qui avance, horizontale elle aussi sur vingt-cinq colonnes de 0,535 à 0,895 (y 0,7891 constant) ; le mur de gauche (trois colonnes, résidu max 0,38 px) ; le mur de droite près de la fenêtre (six colonnes, résidu max 0,31 px, moyen 0,18). POINT PRINCIPAL : deux frontières horizontales prouvent l'absence de roulis et placent la fuite de la largeur à l'infini ; la fuite de la profondeur, croisement des murs gauche et droit, tombe alors sur l'abscisse du point principal — (0,5352 ; 0,4887), soit 56 px à DROITE du centre cette fois. Le recadrage de Pexels décale le point principal dans un sens ou dans l'autre selon la photo, et c'est pourquoi on le mesure au lieu de le supposer. RECTANGLE : quadrilatère porté par les deux murs latéraux et deux horizontales ; mesuré 6,42 sur 2,10 m, concordance 0,01 et 0,00 pour cent. ÉCHELLE : hauteur d'œil 1,04 m, déduite de la porte du fond prise à 2,05 m par la fraction de sa hauteur sous l'horizon (0,509). La largeur de 6,42 m vaut 6,17 hauteurs d'œil quelle que soit la focale : c'est une grande pièce, ce que la photographie confirme. La focale, elle, est CHOISIE à 950 px — une pièce rectangulaire vue de face n'en contraint aucune — et vérifiée au rendu sur le pas des lames. Vraisemblance, pas preuve. PLINTHE EN BOIS, comme à la chambre parisienne : la chute relevée est son SOMMET, puisqu'elle se distingue du mur blanc et non du sol de même essence. Le contour est donc décalé de 13 px vers le sol. LA PORTE DU FOND est exclue : le sol qu'on aperçoit derrière appartient à la pièce voisine, et le changer donnerait deux parquets neufs séparés par un chambranle.",
+  "image": {
+    "file": "room-salon-angle.jpg",
+    "width": 1600,
+    "height": 1067,
+    "alt": "Grande pièce vide formant un angle, sol en lames de noyer et plinthes bois",
+    "credit": "Gustavo Galeano Maz / Pexels"
+  },
+  "camera": {
+    "horizon": 0.4887,
+    "vanishingPoints": [
+      { "x": 0.5352, "y": 0.4887, "weight": 1, "role": "profondeur-murs-gauche-droite" }
+    ],
+    "heightM": 1.04,
+    "focalPx": 950,
+    "principalPoint": { "x": 0.5352, "y": 0.4887 },
+    "principalNote": "Mesuré par la fuite de largeur à l'infini. Focale choisie, voir la note."
+  },
+  "surfaces": [
+    { "id": "sol", "label": "Sol du salon", "continuous": true }
+  ],
+  "planes": {
+    "sol": {
+      "quad": [
+        { "x": 0.0572, "y": 0.6528 },
+        { "x": 0.7333, "y": 0.6528 },
+        { "x": 0.8506, "y": 0.75 },
+        { "x": -0.2258, "y": 0.75 }
+      ],
+      "meters": { "width": 6.42, "depth": 2.1 },
+      "origin": { "u": 0, "v": 0 },
+      "rotationDeg": 0,
+      "note": "Deux côtés sur les murs latéraux, deux horizontaux. Le sommet proche-gauche sort du cadre (x -0,226) : le mur de gauche quitte l'image bien avant le bas, et le plan se définit au-delà du visible — c'est le masque qui borne le sol, pas le quadrilatère. u suit le mur du fond, v la profondeur."
+    }
+  },
+  "floorZones": [
+    {
+      "id": "salon",
+      "label": "Salon",
+      "surfaceId": "sol",
+      "planeRef": "sol",
+      "order": 0,
+      "mask": {
+        "polygon": [
+          { "x": 0, "y": 0.6848 },
+          { "x": 0.045, "y": 0.6711 },
+          { "x": 0.1, "y": 0.6626 },
+          { "x": 0.2, "y": 0.6626 },
+          { "x": 0.3, "y": 0.6626 },
+          { "x": 0.4, "y": 0.6645 },
+          { "x": 0.45, "y": 0.6654 },
+          { "x": 0.528, "y": 0.6663 },
+          { "x": 0.528, "y": 0.8013 },
+          { "x": 0.6, "y": 0.8013 },
+          { "x": 0.75, "y": 0.8013 },
+          { "x": 0.895, "y": 0.8013 },
+          { "x": 0.925, "y": 0.8238 },
+          { "x": 0.955, "y": 0.8491 },
+          { "x": 0.985, "y": 0.8735 },
+          { "x": 1, "y": 0.8859 },
+          { "x": 1, "y": 1 },
+          { "x": 0, "y": 1 }
+        ],
+        "holes": [],
+        "note": "Le contour a une MARCHE, et c'est la forme de la pièce : de x 0,528 le mur avance vers nous, sa face passant de y 0,666 à 0,801. Le segment vertical à x 0,528 est le retour de ce mur, vu de champ. La porte du fond, entre x 0,455 et 0,528, est fermée par la ligne du mur du fond prolongée : le sol de la pièce voisine reste le sien. Tous les points sont décalés de 13 px vers le sol pour laisser la plinthe en bois intacte."
+      }
+    }
+  ],
+  "occluders": [],
+  "light": {
+    "kind": "photo-luma",
+    "strength": 1,
+    "blurRadius": 0.03,
+    "tint": 0.45,
+    "ambient": 0.25,
+    "contact": 0.45
+  }
+}

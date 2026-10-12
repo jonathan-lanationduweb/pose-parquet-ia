@@ -1,6 +1,6 @@
 {
   "schema": "pose-parquet/scene-index@1",
-  "note": "Index LOCAL du visualiseur de pose-parquet-ai. Copie depuis pose-parquet.com (commit 8380ceb) puis RESTREINT aux cinq pieces que le visualiseur propose : les dix autres scenes du front n existent pas ici, ni en JSON ni en photo, et les laisser dans l index promettrait des pieces introuvables. Seule adaptation faite a ce fichier ; les cinq entrees conservees sont inchangees. Pièces d'exemple du Visualiseur Parquet. Chaque scène est calibrée à la main : zones de sol, plans de perspective, trous et occlusions. Aucune analyse d'image n'intervient. L'outil de calibrage est dans _calibrage/ — calibrage.html au clic, calibrer.html en script. DEUX statuts décident de ce qui est proposé aux visiteurs, et il faut les deux : `geometryStatus` (perspective, échelle et contour prouvés) ET `visualStatus` (rendu regardé et jugé présentable). Une scène peut être juste et laide — trois l'étaient. Le défaut, en cas d'oubli, est `experimental` de part et d'autre : une scène qu'on n'a pas regardée ne se publie pas. `visualStatus: failed` se distingue de `experimental` : regardée et rejetée, avec `visualReason` et `visualNote` à l'appui. Une scène difficile se garde : elle montre où le moteur plie. Un dernier champ, `showInRoomLibrary`, décide si une scène validée figure AUSSI dans « Changer de pièce » : une pièce calibrée pour une carte d'inspiration est essayable par son lien sans devoir allonger la liste principale. Son défaut est vrai.",
+  "note": "Independent local scene assets; reference geometry retained as source data only. New additions require human review in this renderer.",
   "scenes": [
     {
       "id": "sejour",
@@ -57,6 +57,78 @@
       "geometryStatus": "validated",
       "visualStatus": "validated",
       "showInRoomLibrary": true
+    },
+    {
+      "id": "chambre-parisienne",
+      "label": "Chambre parisienne",
+      "file": "room-chambre-parisienne.jpg",
+      "thumb": "room-chambre-parisienne-640.jpg",
+      "zones": 1,
+      "highlight": "Sol entièrement dégagé, chevrons en place",
+      "geometryStatus": "experimental",
+      "visualStatus": "experimental",
+      "showInRoomLibrary": true,
+      "visualNote": "Existing calibrated reference asset; independent AI renderer review pending."
+    },
+    {
+      "id": "cuisine-ouverte",
+      "label": "Cuisine ouverte sur le séjour",
+      "file": "room-cuisine-ouverte.jpg",
+      "thumb": "room-cuisine-ouverte-640.jpg",
+      "zones": 1,
+      "highlight": "Grand sol dégagé, plinthes blanches sur lames foncées",
+      "geometryStatus": "experimental",
+      "visualStatus": "experimental",
+      "showInRoomLibrary": true,
+      "visualNote": "Existing calibrated reference asset; independent AI renderer review pending."
+    },
+    {
+      "id": "salon-angle",
+      "label": "Salon d’angle",
+      "file": "room-salon-angle.jpg",
+      "thumb": "room-salon-angle-640.jpg",
+      "zones": 1,
+      "highlight": "Un mur qui avance : deux frontières horizontales",
+      "geometryStatus": "experimental",
+      "visualStatus": "experimental",
+      "showInRoomLibrary": true,
+      "visualNote": "Existing calibrated reference asset; independent AI renderer review pending."
+    },
+    {
+      "id": "couloir-enfilade",
+      "label": "Couloir en enfilade",
+      "file": "room-couloir-bleu.jpg",
+      "thumb": "room-couloir-bleu-640.jpg",
+      "zones": 1,
+      "highlight": "Moulures pour la fuite, teinte pour le contour",
+      "geometryStatus": "experimental",
+      "visualStatus": "experimental",
+      "showInRoomLibrary": false,
+      "visualNote": "Existing calibrated reference asset; independent AI renderer review pending."
+    },
+    {
+      "id": "entree-cadree",
+      "label": "Entrée cadrée",
+      "file": "room-entree-cadree.jpg",
+      "thumb": "room-entree-cadree-640.jpg",
+      "zones": 1,
+      "highlight": "Pièce vide, deux plinthes suivies, aucun occulteur",
+      "geometryStatus": "experimental",
+      "visualStatus": "experimental",
+      "showInRoomLibrary": true,
+      "visualNote": "Existing calibrated reference asset; independent AI renderer review pending."
+    },
+    {
+      "id": "chambre-claire",
+      "label": "Chambre claire",
+      "file": "room-chambre-claire.jpg",
+      "thumb": "room-chambre-claire-640.jpg",
+      "zones": 1,
+      "highlight": "Vue d’angle : focale mesurée par orthogonalité",
+      "geometryStatus": "experimental",
+      "visualStatus": "experimental",
+      "showInRoomLibrary": true,
+      "visualNote": "Existing calibrated reference asset; independent AI renderer review pending."
     }
   ]
 }

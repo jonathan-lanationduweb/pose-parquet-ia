@@ -36,9 +36,9 @@ provenance qui disent d'où elle vient et ce qu'elle vaut.
 
 ## Ce que ce module ne fait pas
 
-Il ne choisit pas de modèle. Il ne détecte pas les meubles : les objets sont
-protégés **seulement** là où le modèle de sol les a laissés hors du masque, et
-le LOT D reste à faire. Il ne valide pas les tapis : la classe `rug` d'ADE20K
+Il ne choisit pas de modèle. Il utilise les classes meubles du même modèle
+comme protection additive ; leur justesse demeure expérimentale. Les ouvertures
+du masque sont conservées. Il ne valide pas les tapis : la classe `rug` d'ADE20K
 est utilisée comme signal, marqué non validé, parce que le corpus officiel n'en
 contient aucun.
 """
@@ -46,6 +46,7 @@ contient aucun.
 from __future__ import annotations
 
 import math
+import time
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -606,6 +607,47 @@ def rug_occluders(labels: np.ndarray | None, *, min_ratio: float = 0.002) -> lis
     return occ
 
 
+# Indices de la configuration ADE20K du modèle local ; aucune nouvelle inférence.
+SEMANTIC_OCCLUDERS = {
+    7: "Lit", 10: "Meuble", 15: "Table", 19: "Chaise", 23: "Canapé",
+    30: "Fauteuil", 64: "Table basse", 75: "Chaise de bureau", 146: "Radiateur",
+}
+
+
+def furniture_occluders(labels: np.ndarray | None) -> list[Occluder]:
+    """Protection sémantique additive, avec ouvertures entre les pieds."""
+    if labels is None:
+        return []
+    height, width = labels.shape[:2]
+    result: list[Occluder] = []
+    for label_id, name in SEMANTIC_OCCLUDERS.items():
+        mask = (labels == label_id).astype(np.uint8)
+        contours, hierarchy = cv2.findContours(mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
+        if hierarchy is None:
+            continue
+        for i, contour in enumerate(contours):
+            if hierarchy[0][i][3] != -1 or cv2.contourArea(contour) < mask.size * 0.00025:
+                continue
+            epsilon = max(0.5, min(width, height) * 0.0008)
+            polygon = _normaliser(cv2.approxPolyDP(contour, epsilon, True), width, height)
+            if len(polygon) < 3:
+                continue
+            holes: list[list[Point]] = []
+            child = int(hierarchy[0][i][2])
+            while child != -1:
+                hole = _normaliser(
+                    cv2.approxPolyDP(contours[child], epsilon, True), width, height
+                )
+                if len(hole) >= 3:
+                    holes.append(hole)
+                child = int(hierarchy[0][child][0])
+            result.append(Occluder(
+                id=f"object-{label_id}-{i}", label=f"{name} (expérimental)", kind="furniture",
+                polygon=polygon, holes=holes, casts_shadow=False, feather=0.0008,
+            ))
+    return result
+
+
 def scene_confidence(persp: PerspectiveEstimate, mask: np.ndarray) -> float:
     """Une confiance qui descend quand quelque chose cloche, jamais l'inverse."""
     c = persp.confidence
@@ -813,7 +855,12 @@ def build_experimental_scene(
         "areaRatio": 0.0,
     }
 
+    stage_start = time.perf_counter()
+    measured: dict[str, float] = {}
+    provenance["timingsMs"] = measured
     raffine = refine_mask(mask)
+    measured["FloorMaskRefiner"] = round((time.perf_counter() - stage_start) * 1000, 3)
+    stage_start = time.perf_counter()
     if raffine.mean() < MIN_COVERAGE:
         return ExperimentalScene(None, STATUS_NONE, None, {"method": None}, rug, provenance)
 
@@ -822,6 +869,8 @@ def build_experimental_scene(
         image_rgb=image_rgb,
         exif_focal_px=focal_from_exif_35mm(exif_focal_35mm, width, height),
     )
+    measured["camera_geometry"] = round((time.perf_counter() - stage_start) * 1000, 3)
+    stage_start = time.perf_counter()
     if persp is None:
         return ExperimentalScene(None, STATUS_NONE, None, {"method": None}, rug, provenance)
 
@@ -829,12 +878,19 @@ def build_experimental_scene(
     if not zones:
         return ExperimentalScene(None, STATUS_NONE, None, {"method": persp.method}, rug, provenance)
 
+    measured["mask_zones"] = round((time.perf_counter() - stage_start) * 1000, 3)
+    stage_start = time.perf_counter()
     confiance = scene_confidence(persp, raffine)
-    occluders = rug_occluders(labels)
+    rug_masks = rug_occluders(labels)
+    furniture_masks = furniture_occluders(labels)
+    occluders = rug_masks + furniture_masks
+    provenance["occluders"] = {"rugs": len(rug_masks), "furniture": len(furniture_masks)}
     if labels is not None:
         part = float((labels == ADE20K_RUG).mean())
-        rug.update({"present": bool(occluders), "areaRatio": round(part, 4)})
+        rug.update({"present": bool(rug_masks), "areaRatio": round(part, 4)})
 
+    measured["occlusion"] = round((time.perf_counter() - stage_start) * 1000, 3)
+    stage_start = time.perf_counter()
     plan = Plane(
         quad=[Point(x=x, y=y) for x, y in persp.quad],
         meters=Meters(width=persp.meters[0], depth=persp.meters[1]),
@@ -925,8 +981,11 @@ def build_experimental_scene(
         "camera": persp.camera,
         "notes": persp.notes,
     }
+    measured["SceneData"] = round((time.perf_counter() - stage_start) * 1000, 3)
+    stage_start = time.perf_counter()
     checks = validate_scene(scene, persp, mask.astype(bool), raffine)
     status, raisons = decide(confiance, min_confidence, checks)
+    measured["scene_validation"] = round((time.perf_counter() - stage_start) * 1000, 3)
     provenance["decision"] = {
         "status": status,
         "reasons": raisons,

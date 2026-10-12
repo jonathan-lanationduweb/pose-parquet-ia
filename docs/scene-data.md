@@ -193,3 +193,14 @@ Une seule étape disparaît du parcours : placer les points à la main.
 * `pose-parquet.com/docs/future-ai-api-contract.md` — la réponse attendue
 * `pose-parquet.com/docs/future-python-architecture.md` — le pipeline visé
 * `pose-parquet.com/docs/photo-lens-distortion.md` — la distorsion
+
+
+## Extension additive des occultations — revue produit
+
+`pose-parquet/scene@1` conserve son contrat. Un occulteur peut maintenant porter
+`holes: Point[][]`, facultatif et vide par défaut. Python le valide comme liste
+de points, le normaliseur local le conserve et le masque utilise la règle
+`evenodd` pour préserver les ouvertures (par exemple entre les pieds d’une table).
+Les scènes antérieures restent inchangées. Les classes meubles du modèle ADE20K
+actuel sont utilisées sans nouvelle inférence ; elles restent expérimentales,
+sans extension ou remplissage automatique du floor mask et sans ombre inventée.

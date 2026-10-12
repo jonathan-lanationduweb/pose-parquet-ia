@@ -152,6 +152,8 @@ class Occluder(_Model):
     label: str = "Objet"
     kind: str = "furniture"
     polygon: list[Point] = Field(min_length=3)
+    #: Extension additive : ouvertures dans un meuble, jamais remplies.
+    holes: list[list[Point]] = Field(default_factory=list)
     #: Ligne de contact avec le sol, utile pour poser une ombre de contact.
     contact: list[Point] | None = None
     #: 0 = collé à la caméra, 1 = au fond. Sert au tri quand les objets se

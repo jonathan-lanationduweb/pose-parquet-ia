@@ -19,6 +19,7 @@ export async function installMaterialPreviews(getConcept) {
   const apply = (id, url) => document.querySelectorAll(`[data-material-preview="${id}"]`).forEach(node => {
     node.style.backgroundImage = `url("${url}")`;
     node.classList.remove('noimg');
+    node.dataset.materialPreviewReady = 'true';
   });
   const next = () => {
     if (active || !queue.length) return;
@@ -39,12 +40,15 @@ export async function installMaterialPreviews(getConcept) {
     queued.delete(data.id); active = null; next();
   };
   worker.onerror = () => { worker.terminate(); queue.length = 0; };
+  const enqueue = id => {
+    if (!queued.has(id) && products.has(id)) { queued.add(id); queue.push(id); }
+  };
   const observer = new IntersectionObserver(entries => {
     for (const entry of entries) {
       if (!entry.isIntersecting) continue;
       const id = entry.target.dataset.materialPreview;
       if (cache.has(id)) apply(id, cache.get(id));
-      else if (!queued.has(id) && products.has(id)) { queued.add(id); queue.push(id); }
+      else enqueue(id);
       observer.unobserve(entry.target);
     }
     next();
@@ -54,12 +58,18 @@ export async function installMaterialPreviews(getConcept) {
     scheduled = false;
     document.querySelectorAll('[data-material-preview]').forEach(node => {
       const id = node.dataset.materialPreview;
-      if (cache.has(id)) { if (!node.style.backgroundImage.includes(cache.get(id))) apply(id, cache.get(id)); }
-      else if (!observed.has(node)) { observed.add(node); observer.observe(node); }
+      if (cache.has(id)) { if (!node.dataset.materialPreviewReady) apply(id, cache.get(id)); }
+      else {
+        const r = node.getBoundingClientRect();
+        if (r.width && r.height && r.bottom >= -100 && r.top <= innerHeight + 100 && r.right >= 0 && r.left <= innerWidth) enqueue(id);
+        else if (!observed.has(node)) { observed.add(node); observer.observe(node); }
+      }
     });
+    next();
   };
   new MutationObserver(() => {
-    if (!scheduled) { scheduled = true; requestAnimationFrame(scan); }
+    if (!scheduled) { scheduled = true; setTimeout(scan, 0); }
   }).observe(document.body, { childList: true, subtree: true });
+  document.addEventListener('scroll', () => { if (!scheduled) { scheduled = true; setTimeout(scan, 32); } }, true);
   scan();
 }

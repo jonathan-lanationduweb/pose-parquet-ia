@@ -670,3 +670,18 @@ Le catalogue ajoute 34 inspirations issues des 12 matières et de leurs poses co
 L’extension locale facultative `visitSnapshot()` retourne la scène normalisée, les masques, les dimensions et le canevas du rendu courant. Le module `web/product/visit-mode.js` construit un maillage 2.5D et utilise une caméra perspective WebGL réelle. Le parquet du rendu reste attaché aux sommets du plan de sol. La profondeur du sol vient d’une hypothèse sténopé avec horizon et hauteur de caméra ; les objets sont attachés à un contact de sol supposé, et le fond est distant. Aucun modèle de profondeur monoculaire n’est intégré : ce prototype n’est pas une reconstruction IA du mobilier.
 
 Déplacement supposé : ±6 cm latéralement, 0 à 12 cm vers l’avant, ±3 degrés de rotation. Ce ne sont pas des mètres mesurés. Les triangles traversant une discontinuité de profondeur sont retirés plutôt qu’étirés. Les zones inconnues ne sont pas inventées et peuvent laisser des coupures visibles. Le retour libère les ressources GPU ; les commandes de sélection de parquet reprennent dans le visualiseur photo. La visite libre vidéo/multivues reste à développer.
+
+
+## Revue produit du 12 octobre 2026
+
+Le catalogue commercial est dans `tools/product-catalog.js`, les photos de session
+et l’export dans `web/product/product-home.js`. L’entrée reste unique. Sur desktop,
+le catalogue est épinglé à gauche et Personnaliser utilise le panneau droit ; sur
+mobile, ces panneaux restent des sheets. Le prototype Visite est limité au mode
+`?dev=1` pendant cette revue.
+
+Le cache garde désormais le canevas du profil effectivement affiché. Les
+`geometryDiagnostics(profile, angle)` locales sont calculées sur ce même profil,
+y compris la largeur et le coefficient de taille. L’export utilise directement
+la couche A du visualiseur, sans interface, afin qu’un retour à un produit en
+cache ne télécharge pas le dernier produit calculé par le moteur.

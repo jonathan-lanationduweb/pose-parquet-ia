@@ -49,7 +49,7 @@
    * @param {(mode:string) => void} [options.onOpen]  appelé après chaque ouverture
    * @param {Record<string,string>} [options.tailles]  mode → hauteur d'ouverture
    */
-  function createDrawer({ root, panes, onClose, onOpen, tailles }) {
+  function createDrawer({ root, panes, onClose, onOpen, tailles, isRoomActive }) {
     const scrim = global.document.createElement('div');
     scrim.className = 'dw-scrim hidden';
 
@@ -77,11 +77,31 @@
     root.appendChild(scrim);
     root.appendChild(shell);
 
+    const sidebar = global.document.createElement('aside');
+    sidebar.id = 'catalogSidebar'; sidebar.className = 'catalog-sidebar hidden';
+    sidebar.setAttribute('aria-label', 'Catalogue de parquets');
+    root.appendChild(sidebar);
+    let pinned = false;
     let mode = null;
     let rendu = null; // l'élément qui avait le focus avant l'ouverture
 
     const desktop = () => typeof global.matchMedia === 'function'
       && global.matchMedia('(min-width: 1024px)').matches;
+
+    function syncLayout() {
+      const next = desktop() && Boolean(isRoomActive && isRoomActive());
+      const catalog = panes.catalog;
+      if (!catalog) return;
+      if (next !== pinned) {
+        if (mode === 'catalog' || mode === 'favorites') close();
+        pinned = next;
+        (pinned ? sidebar : shell).appendChild(catalog);
+      }
+      sidebar.classList.toggle('hidden', !pinned);
+      root.classList.toggle('catalog-pinned', pinned);
+      if (pinned) catalog.classList.remove('hidden');
+      else if (!visible() || (mode !== 'catalog' && mode !== 'favorites')) catalog.classList.add('hidden');
+    }
 
     function visible() {
       return !shell.classList.contains('hidden');
@@ -95,7 +115,7 @@
       shell.removeAttribute('data-size');
       root.classList.remove('panel-open');
       root.style.removeProperty('--panel-reserve');
-      Object.values(panes).forEach((p) => p && p.classList.add('hidden'));
+      Object.values(panes).forEach((p) => { if (p && !(pinned && p === panes.catalog)) p.classList.add('hidden'); });
       mode = null;
       /* Rendre le focus là où il était. Sans cela, fermer au clavier renvoie
          en haut du document et il faut retraverser la page pour revenir au
@@ -109,11 +129,13 @@
      * @param {'rooms'|'catalog'|'customize'|'favorites'} next
      */
     function open(next) {
+      syncLayout();
+      if (pinned && (next === 'catalog' || next === 'favorites')) { panes.catalog.querySelector('input')?.focus(); return; }
       const pane = panes[next] || panes[next === 'favorites' ? 'catalog' : next];
       if (!pane) return;
       if (!visible()) rendu = global.document.activeElement;
 
-      Object.values(panes).forEach((p) => p && p.classList.add('hidden'));
+      Object.values(panes).forEach((p) => { if (p && !(pinned && p === panes.catalog)) p.classList.add('hidden'); });
       pane.classList.remove('hidden');
       shell.dataset.mode = next;
       /* La hauteur d'ouverture dépend du mode — LOT PHOTO.3. Personnaliser
@@ -200,6 +222,7 @@
     });
 
     global.addEventListener('resize', () => {
+      syncLayout();
       if (!visible()) return;
       shell.setAttribute('aria-modal', desktop() ? 'false' : 'true');
       if (onOpen) onOpen(mode);
@@ -208,6 +231,8 @@
     return {
       open,
       close,
+      syncLayout,
+      get catalogPinned() { return pinned; },
       get mode() { return mode; },
       get isOpen() { return visible(); },
       element: shell,

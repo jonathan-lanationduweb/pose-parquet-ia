@@ -127,7 +127,7 @@ ok('rien de la photo ne part en stockage',
    maintenant ici, et un moteur de 3 900 lignes ne se colle pas dans une
    page. Ce qui reste garde, c'est qu'aucun script ne vienne du RESEAU. */
 ok('trois <script> : la page, le moteur local, le tiroir',
-  (html.match(/<script/g) || []).length === 4
+  (html.match(/<script/g) || []).length === 6
   && /<script type="module">/.test(html)
   && /from '\.\.\/web\/product\/local-renderer\.js'/.test(html));
 ok('le moteur local est charge en relatif, jamais depuis le reseau',
@@ -186,9 +186,7 @@ ok('aucun bouton « Appliquer »', !/>Appliquer</.test(html) && !/<button[^>]*>[
 ok('la photo est une image, les rendus des canevas',
   /<img id="photo"/.test(html) && /<canvas id="cmpB">/.test(html)
   && /<canvas id="after">/.test(html) && /<canvas id="afterPrev">/.test(html));
-ok('le moteur est charge hors ecran, sans etre affiche',
-  /<iframe id="engine"/.test(html) && /#engine \{[\s\S]*?left: -20000px/.test(html)
-  && /aria-hidden="true"/.test(html));
+ok('aucune iframe de moteur externe', !/<iframe\b/i.test(html) && /const ENGINE_URL = null/.test(html));
 ok('la version A est au-dessus de la version B',
   /#vpB \{ z-index: 1; \}/.test(html) && /#clipA \{[^}]*z-index: 2/.test(html));
 ok('le decoupage du separateur est hors de la transformation',
@@ -365,6 +363,7 @@ try {
      pas herite de `document`. Le tiroir, lui, s'attend a la regle du
      navigateur ou `window.document` existe. */
   global.window.document = global.document;
+  new Function(fs.readFileSync('tools/product-catalog.js', 'utf8'))();
   new Function(script)();
   ok("le prototype s'execute sans exception", true);
 } catch (error) {
@@ -388,7 +387,7 @@ const R = 'local-demo-assets/renderings/';
 const REFS = ['POINF36005', 'BTRPF39009', 'CHENF39031', 'CHENF36014', 'CHENF36015'];
 
 /* ================= 5. Le mini-catalogue Premibel ================= */
-ok('cinq scenes', api.DEMO_ROOMS.length === 5, `${api.DEMO_ROOMS.length}`);
+ok('onze scènes réellement disponibles', api.DEMO_ROOMS.length === 11, `${api.DEMO_ROOMS.length}`);
 const P = api.PREMIBEL_DEMO_PRODUCTS;
 ok('cinq produits Premibel', P.length === 5, `${P.length}`);
 ok('les cinq references attendues',
@@ -473,7 +472,7 @@ ok('un rendu par reference dans les scenes couvertes',
   api.RENDERED_ROOMS.every((id) => REFS.every((ref) => api.DEMO_RENDERINGS[id][ref])));
 ok('les rendus vivent hors de Git',
   Object.values(api.DEMO_RENDERINGS).every((set) =>
-    Object.values(set).every((u) => u.startsWith(R))));
+    Object.entries(set).every(([key,u]) => key === "original" || u.startsWith(R))));
 ok('seuls les trois motifs du moteur du front',
   P.every((p) => ['lames', 'point-de-hongrie', 'baton-rompu'].includes(p.pattern))
   && Object.keys(api.PATTERNS).length === 3);
@@ -1470,9 +1469,9 @@ ok('aucun pinceau de retouche de masque', !/id="brush"/.test(html) && !/brAdd|br
 
 /* ================= 18. Selecteur de piece ================= */
 api.openRooms();
-ok('les categories sont listees', count('roomCats', /data-cat=/g) === 4,
+ok('les categories sont listees', count('roomCats', /data-cat=/g) === 6,
   `${count('roomCats', /data-cat=/g)}`);
-ok('le compte des pieces est affiche', /5 pièces/.test(el('roomCount').textContent),
+ok('le compte des pieces est affiche', /11 pièces/.test(el('roomCount').textContent),
   el('roomCount').textContent);
 ok('la grille montre les scenes', count('roomGrid', /<img/g) >= 1);
 ok('la piece courante est cochee', /class="tick"/.test(h('roomGrid')));

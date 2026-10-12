@@ -136,6 +136,7 @@ async function attendreEtatFinal(p, delaiMs = 240000) {
 
 async function importer(p, fichier) {
   await p.setInputFiles('#file', fichier);
+  await p.waitForFunction(name => window.__concept.state.source === 'uploaded' && window.__concept.state.uploaded?.name === name, path.basename(fichier), { timeout: 15000 });
 }
 
 /** Ce que voit l'utilisateur : rendu live, couche visible, barre produit. */
@@ -169,7 +170,7 @@ async function parcoursProduit(p) {
     let rot = true;
     for (const deg of [37, 90, 315, 0]) {
       c.setOrientation(deg, false);
-      rot = rot && await att(() => c.state.applied.source === 'live' && c.state.applied.key.endsWith(`|${deg}`));
+      rot = rot && await att(() => c.state.applied.source === 'live' && c.state.applied.key === c.appliedKey() && c.state.orientationDeg === deg);
     }
     out.rotation = rot;
     document.getElementById('baBtn').click();
@@ -246,7 +247,7 @@ function sceneSimulee({ confiance = 0.8, statut = 'auto_render', quad = null } =
           mask: { polygon: [{ x: 0.05, y: 0.6 }, { x: 0.95, y: 0.6 }, { x: 0.99, y: 0.99 }, { x: 0.01, y: 0.99 }], holes: [] } }],
         occluders: [], light: { kind: 'photo-luma', strength: 1, blurRadius: 0.045 }, warnings: ['experimental_scene'],
       },
-      sceneStatus: statut, sceneConfidence: confiance, perspective: { horizon: 0.42, marqueur: confiance }, rug: {}, sceneProvenance: {},
+      sceneStatus: statut, sceneConfidence: confiance, perspective: { horizon: 0.42, marqueur: confiance }, rug: {}, sceneProvenance: {decision:{checks:{non_finite:false,degenerate_plane:false,geometry_implausible:false,non_positive_meters:false}}},
     } },
   };
 }
@@ -342,22 +343,30 @@ const ligne = (cas, champs) => { matrice.push({ cas, ...champs }); };
     return sceneSimulee({ confiance: [0, 0.71, 0.72, 0.73][moi] });
   });
   await ouvrir(p);
-  await importer(p, DEMO_PHOTO);
+  const debut = async (numero) => {
+    const limite = Date.now() + 10000;
+    while (n < numero && Date.now() < limite) await pause(20);
+    if (n < numero) throw new Error(`Analyse ${numero} non commencée`);
+  };
+  await importer(p, DEMO_PHOTO); await debut(1);
   await pause(150);
-  await importer(p, DEMO_PHOTO);
+  await importer(p, path.join(ROOT, 'web/assets/images/room-chambre.jpg')); await debut(2);
   await pause(150);
-  await importer(p, DEMO_PHOTO);
+  await importer(p, path.join(ROOT, 'web/assets/images/room-piece-claire.jpg'));
   const fin = await attendreEtatFinal(p);
   await pause(3000); // laisser arriver les réponses de A et B
   const conf = await p.evaluate(() => window.__concept.state.photoScene && window.__concept.state.photoScene.confidence);
   ok('A puis B puis C : seul C est appliqué', fin === 'RENDER_READY' && conf === 0.73, `${fin} confiance=${conf}`);
   const blobs = await p.evaluate(() => window.__blobsVivants());
-  ok('imports successifs : anciennes URL de photo révoquées', blobs <= 1, `${blobs} vivantes`);
+  const retained = await p.evaluate(() => window.__sessionRooms.count);
+  ok('imports successifs : URL limitées aux photos de la session', blobs <= retained + 1, `${blobs} vivantes, ${retained} photos retenues`);
   const avant = await p.evaluate(() => ({ w: window.__workers, e: window.__ecouteurs }));
   for (let k = 0; k < 3; k += 1) { await importer(p, DEMO_PHOTO); await attendreEtatFinal(p); }
   const apres = await p.evaluate(() => ({ w: window.__workers, e: window.__ecouteurs, blobs: window.__blobsVivants() }));
-  ok('trois imports de plus : aucun worker ni écouteur global ajouté, une seule URL vivante',
-    apres.w === avant.w && apres.e === avant.e && apres.blobs <= 1, `workers ${avant.w}→${apres.w} · écouteurs ${avant.e}→${apres.e} · URL ${apres.blobs}`);
+  ok('trois imports de plus : aucun worker ni écouteur global ajouté, URL limitées à la session',
+    apres.w === avant.w && apres.e === avant.e && apres.blobs <= retained + 4, `workers ${avant.w}→${apres.w} · écouteurs ${avant.e}→${apres.e} · URL ${apres.blobs}`);
+  await p.evaluate(() => window.__sessionRooms.clear());
+  ok('vider la session révoque toutes les URL photo', await p.evaluate(() => window.__blobsVivants()) === 0);
   ok('réponse périmée : 0 erreur console', p.__erreurs.length === 0, p.__erreurs.join(' | '));
   await p.context().close();
 }
@@ -523,7 +532,7 @@ for (const [l, h] of [[320, 640], [360, 780], [375, 812], [390, 844], [430, 932]
   const okMobile = etatManuel === 'NEEDS_MANUAL_ADJUSTMENT' && m.fin === 'RENDER_READY' && !r.debordeRepos && !r.debordePersonnaliser
     && r.recouvertsRepos.length === 0 && r.tiroirFermable && (l > 700 || r.sceneVisiblePersonnaliser >= 0.3);
   ok(`${l} × ${h} : manuel → tracé → rendu, Personnaliser, aucun débordement ni contrôle recouvert`, okMobile,
-    `scène visible en Personnaliser ${(100 * r.sceneVisiblePersonnaliser).toFixed(0)} % · recouverts ${r.recouvertsRepos.join(',') || 0}`);
+    JSON.stringify({ etatManuel, manuel: m.fin, ...r }));
   if (CAPTURES && l === 390) {
     await p.screenshot({ path: path.join(OUT, 'manual-corrected-mobile.jpg'), type: 'jpeg', quality: 88 });
   }
@@ -535,7 +544,7 @@ const reelles = existsSync(PRIVE) ? readdirSync(PRIVE) : [];
 for (const nom of PHOTOS_REELLES) {
   const fichier = path.join(PRIVE, `${nom}.jpg`);
   if (!reelles.includes(`${nom}.jpg`) || !experimental || process.env.PPAI_REELLES === '0') {
-    ligne(nom, { analyse: 'NON EXÉCUTÉE', sol: '—', geometrie: '—', decision: '—', rendu: '—', manuel: '—', produit: '—', rotation: '—', comparaison: '—', resultat: experimental ? 'photo absente' : 'mode expérimental éteint' });
+    ligne(nom, { analyse: 'NON EXÉCUTÉE', sol: '—', geometrie: '—', decision: '—', rendu: '—', manuel: '—', produit: '—', rotation: '—', comparaison: '—', resultat: process.env.PPAI_REELLES === '0' ? 'passe simulée uniquement' : experimental ? 'photo absente' : 'mode expérimental éteint' });
     continue;
   }
   const p = await nouvellePage();

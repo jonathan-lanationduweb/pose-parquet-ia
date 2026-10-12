@@ -168,7 +168,12 @@ export async function createLocalRenderer({ base = '', prefer = 'auto' } = {}) {
     get backend() { return renderer.backend; },
     get ready() { return renderer.ready; },
     visitSnapshot() { return renderer.ready ? { scene: structuredClone(renderer.scene), masks: renderer.masks, size: renderer.size, canvas } : null; },
-    geometryDiagnostics() { return reviewGeometry(renderer.scene, renderer.masks, renderer.size, config); },
+    geometryDiagnostics(profile = null, angle = null) {
+      const current = profile ? { ...config, material: materials.get(profile.materialFamily) || config.material,
+        pattern: profile.pattern, width: profile.widthM, plankLength: profile.lengthM,
+        scale: profile.scale || 1, angle: angle || 0 } : config;
+      return reviewGeometry(renderer.scene, renderer.masks, renderer.size, current);
+    },
     /** Les pièces calibrées disponibles localement. */
     get scenes() { return (index.scenes || []).map((s) => s.id); },
     /** Diagnostic seulement, hors contrat. */

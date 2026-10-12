@@ -91,3 +91,6 @@ controle-*.jpg
 
 # Kit de revue visuelle : images de travail, regenerables, jamais versionnees
 review/
+
+# Premibel thumbnails from the authorized local export; redistribution not established.
+web/assets/products/premibel/

@@ -63,7 +63,7 @@ function createVisitRenderer(canvas, snapshot) {
   };
 }
 export function installVisit(getConcept) {
-  const c=getConcept();if(!c)return;
+  const c=getConcept();if(!c||!c.DEV)return;
   const toggle=document.createElement('button');toggle.type='button';toggle.textContent='Visite';toggle.setAttribute('aria-label','Mode Visite expérimental');document.getElementById('tools').appendChild(toggle);
   let layer=null,renderer=null,observer=null;
   const close=()=>{observer?.disconnect();observer=null;renderer?.dispose();renderer=null;layer?.remove();layer=null;document.body.classList.remove('visiting');toggle.focus();};

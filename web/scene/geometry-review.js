@@ -6,9 +6,11 @@ export function reviewGeometry(scene, masks, size, config) {
   if (!scene || !masks || !size) return null;
   const { width, height } = size;
   const theta = (Number(config.angle) || 0) * Math.PI / 180;
-  const plankM = Number(config.width) || 0.15;
+  const nominalPlankM = Number(config.width) || 0.15;
+  const scale = Number(config.scale) || 1;
+  const plankM = nominalPlankM * scale;
   return {
-    scene: scene.id, width, height, plankM,
+    scene: scene.id, width, height, plankM, nominalPlankM, scale,
     zones: scene.floorZones.map((zone, index) => {
       const t = zoneTransform(zone, width, height);
       const box = masks.box(zone.id);

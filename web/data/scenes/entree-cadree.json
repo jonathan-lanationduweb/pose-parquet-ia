@@ -1,0 +1,115 @@
+{
+  "schema": "pose-parquet/scene@1",
+  "id": "entree-cadree",
+  "label": "Entrée cadrée",
+  "source": "precalibrated",
+  "note": "Entrée rectangulaire vue dans son axe, entierement vide : aucun meuble, aucun occulteur, et c'est la raison premiere du choix de cette photo. Les trois echecs precedents de cette carte tenaient tous a du mobilier — un meuble a claire-voie sur un tiers du sol, un fauteuil a quatre pieds fins, une console a pieds — jamais a la geometrie. FUITE : les deux plinthes bois sur murs blancs sont suivies au gradient de luminance sur 97 et 129 points (residus moyens 1,10 et 0,48 px ; pentes -0,5556 et +0,7225) et se croisent en (0,4825 ; 0,4530). POINT PRINCIPAL : le bord arriere du sol — la ligne bois/carrelage — est suivi sur 128 points a 0,96 px de residu moyen et rend une pente de -0,002. Il est horizontal, donc la fuite de la largeur est a l'infini, donc le point principal a l'abscisse de la fuite d'axe : 772 px, 28 px a gauche du centre du cadre. Les trois scenes precedentes avaient donne 58 px a gauche, 56 a droite et 90 a gauche : un recadrage Pexels deplace le point principal, il faut le mesurer. LIGNE DU SOL, pas ligne de plinthe : ce qu'on suit au gradient est le HAUT de la plinthe, pas son pied. Le pied a ete releve a trois colonnes en lisant le profil de luminance — mur clair, plinthe, biseau eclaire, ombre du pied, sol — soit y 0,8322 a x 0,06, y 0,7423 a x 0,16 et y 0,6382 a x 0,28. Rapportes au point principal, ces trois points donnent le meme rapport (x-cx)/(y-cy) : -1,6712, -1,6720 et -1,6397. Les deux premiers concordent a 0,05 pour cent, le troisieme a 1,9 (sa marche etait la plus faible des trois). C'est cette concordance qui prouve le releve, pas la concordance du quadrilatere, qui vaut 0 par construction puisque le quadrilatere est bati sur ces rapports. CONTROLE INDEPENDANT : les rapports predisent les deux coins arriere du sol a x 0,2891 et 0,6297 ; le balayage colonne par colonne les observe a 0,284 et 0,633. Trois et cinq millemes d'ecart, soit cinq et huit pixels. ECHELLE : hauteur d'oeil 1,40 m et focale 700 px, toutes deux CHOISIES — une piece vue dans son axe ne contraint ni l'une ni l'autre. La largeur vaut 2,944 hauteurs d'oeil quelle que soit la focale : a toute hauteur plausible, cette piece mesure entre 3,8 et 4,6 m de large. Retenue a 4,12 m, avec un sol visible qui court de 1,68 a 5,24 m.",
+  "image": {
+    "file": "room-entree-cadree.jpg",
+    "width": 1600,
+    "height": 1067,
+    "alt": "Entrée vide aux murs blancs et plinthes bois, parquet miel, portes en enfilade au fond",
+    "credit": "Gustavo Galeano Maz / Pexels"
+  },
+  "camera": {
+    "horizon": 0.453,
+    "vanishingPoints": [
+      {
+        "x": 0.4825,
+        "y": 0.453,
+        "weight": 1,
+        "role": "axe-de-la-piece-deux-plinthes"
+      }
+    ],
+    "heightM": 1.4,
+    "focalPx": 700,
+    "principalPoint": {
+      "x": 0.4825,
+      "y": 0.453
+    },
+    "principalNote": "Mesure : bord arriere horizontal a 0,002 de pente sur 128 points, donc fuite de largeur a l'infini et abscisse imposee. Focale et hauteur d'oeil choisies, voir la note."
+  },
+  "surfaces": [
+    {
+      "id": "sol",
+      "label": "Sol de l'entrée",
+      "continuous": true
+    }
+  ],
+  "planes": {
+    "sol": {
+      "quad": [
+        {
+          "x": 0.287,
+          "y": 0.6284
+        },
+        {
+          "x": 0.6313,
+          "y": 0.6284
+        },
+        {
+          "x": 0.8346,
+          "y": 0.868
+        },
+        {
+          "x": 0.0199,
+          "y": 0.868
+        }
+      ],
+      "meters": {
+        "width": 4.12,
+        "depth": 3.03
+      },
+      "origin": {
+        "u": 0,
+        "v": 0
+      },
+      "rotationDeg": 90,
+      "note": "Les deux cotes longs sont portes par la fuite d'axe, les deux courts sont horizontaux : le quadrilatere est l'image d'un rectangle par construction. Le bord proche est pose a y 0,868 et non au bas du cadre, parce qu'au bas du cadre le coin gauche du rectangle sort de l'image ; le plan sert a poser l'homographie, le contour dit seul ce qui est peint. rotationDeg 90 met les lames dans la profondeur, sens de pose des lames en place."
+    }
+  },
+  "floorZones": [
+    {
+      "id": "entree",
+      "label": "Entrée",
+      "surfaceId": "sol",
+      "planeRef": "sol",
+      "order": 0,
+      "mask": {
+        "polygon": [
+          {
+            "x": 0,
+            "y": 1
+          },
+          {
+            "x": 0,
+            "y": 0.8858
+          },
+          {
+            "x": 0.2882,
+            "y": 0.6303
+          },
+          {
+            "x": 0.6301,
+            "y": 0.6303
+          },
+          {
+            "x": 0.9454,
+            "y": 1
+          }
+        ],
+        "holes": [],
+        "note": "Cinq sommets, et tous calcules : les deux cotes suivent les droites de pied de plinthe definies par la fuite et les points de pied mesures, le bord arriere est la ligne bois/carrelage relevee horizontale. Le contour est decale de deux pixels DANS le sol pour ne pas mordre la plinthe. Il touche le bord gauche du cadre a y 0,8858 et le bas du cadre a x 0,9454 : sous ces points, le sol occupe les deux coins bas de l'image. Rien au-dela du bord arriere n'est peint : le hall du fond est carrele, pas parquete."
+      }
+    }
+  ],
+  "occluders": [],
+  "light": {
+    "kind": "photo-luma",
+    "strength": 1,
+    "blurRadius": 0.026,
+    "tint": 0.5,
+    "ambient": 0.3,
+    "contact": 0.5
+  }
+}

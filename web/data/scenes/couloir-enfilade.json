@@ -1,0 +1,111 @@
+{
+  "schema": "pose-parquet/scene@1",
+  "id": "couloir-enfilade",
+  "label": "Couloir en enfilade",
+  "source": "precalibrated",
+  "note": "Couloir aux murs bleu nuit à moulures, chevrons dans l'axe, sol entièrement dégagé — aucun meuble, aucun occulteur. C'est la scène qui a coûté le plus de détours, et la leçon vaut d'être écrite : les deux premières « frontières » relevées ici étaient des MOULURES de lambris, pas la jonction du sol. Le dépistage les donnait pour deux directions à moins d'un pixel, ce qu'elles sont ; elles ne décrivaient simplement pas ce qu'on croyait. C'est exactement l'erreur que `trace()` existe pour attraper, et qu'on n'avait pas utilisée. DEUX USAGES SÉPARÉS, et c'est la méthode du bureau vide : les moulures servent à la FUITE, la teinte sert au CONTOUR. Les moulures courent le long des murs, donc parallèlement à l'axe du couloir : suivies au gradient sur 97 et 93 points (résidu moyen 1,83 et 0,30 px ; la droite de droite est la plus propre du dépôt), elles se croisent en (0,4876 ; 0,4796). Vu à l'écran, ce point tombe au point de fuite du couloir. Le contour, lui, se relève à la TEINTE — murs bleus contre chêne, passage r-b négatif à positif — parce qu'en luminance le lambris sombre et le sol clair ne se séparent nulle part proprement. POINT PRINCIPAL : le bord arrière du sol est horizontal (54 points, résidu max 2,46 px, pente -0,013), donc la fuite de la largeur est à l'infini et le point principal a l'abscisse de la fuite d'axe : 780 px, 20 px à gauche du centre. RECTANGLE : le quadrilatère part des deux coins arrière — intersections des jonctions latérales avec le bord du fond — et suit la fuite jusqu'à une horizontale à y 0,95. Mesuré 1,29 sur 2,36 m, concordance 0,08 pour cent en largeur et 1,49 en profondeur. Ce 1,49 est le plus fort du dépôt : les deux jonctions latérales sont très raides (les côtés du couloir montent de trois pixels en y pour un en x) et leurs résidus s'en ressentent — 4,54 px de moyenne à gauche, 1,08 à droite. Le seuil de reprise documenté est 3 pour cent ; on est dessous, et la largeur, elle, est franche. ÉCHELLE : hauteur d'œil 1,25 m et focale 657 px, toutes deux CHOISIES — un couloir vu dans son axe ne contraint ni l'une ni l'autre — et retenues parce qu'elles rendent un couloir de 1,29 m de large dont le sol visible court de 1,6 à 4,0 m. La largeur vaut 1,03 hauteur d'œil quelle que soit la focale, ce qui borne l'erreur : à toute hauteur d'œil plausible, ce couloir mesure entre 1,1 et 1,6 m. SURFACE VISIBLE : le sol ne fait que 7 pour cent du cadre, parce qu'un couloir est étroit et que ses murs mangent l'image. C'est peu, et c'est honnête — c'est le sol de ce couloir-là.",
+  "image": {
+    "file": "room-couloir-bleu.jpg",
+    "width": 1600,
+    "height": 1067,
+    "alt": "Couloir aux murs bleu nuit à moulures, parquet en chevrons dans l axe",
+    "credit": "Max Vakhtbovych / Pexels"
+  },
+  "camera": {
+    "horizon": 0.4796,
+    "vanishingPoints": [
+      {
+        "x": 0.4876,
+        "y": 0.4796,
+        "weight": 1,
+        "role": "axe-du-couloir-deux-moulures"
+      }
+    ],
+    "heightM": 1.25,
+    "focalPx": 657,
+    "principalPoint": {
+      "x": 0.4876,
+      "y": 0.4796
+    },
+    "principalNote": "Mesuré : bord arrière horizontal, donc fuite de largeur à l'infini. Focale et hauteur d'œil choisies, voir la note."
+  },
+  "surfaces": [
+    {
+      "id": "sol",
+      "label": "Sol du couloir",
+      "continuous": true
+    }
+  ],
+  "planes": {
+    "sol": {
+      "quad": [
+        {
+          "x": 0.4187,
+          "y": 0.6733
+        },
+        {
+          "x": 0.5574,
+          "y": 0.672
+        },
+        {
+          "x": 0.6581,
+          "y": 0.95
+        },
+        {
+          "x": 0.3202,
+          "y": 0.95
+        }
+      ],
+      "meters": {
+        "width": 1.35,
+        "depth": 2.35
+      },
+      "origin": {
+        "u": 0,
+        "v": 0
+      },
+      "rotationDeg": 90,
+      "note": "Les deux cotes longs sont portes par la fuite des moulures, les deux courts sont horizontaux : le quadrilatere est l'image d'un rectangle par construction. Les coins arriere ne sont pas places a l'oeil — ce sont les intersections des deux droites de jonction ajustees avec la droite du bord arriere. Mesure 1,35 sur 2,35 m, concordance 0,02 pour cent en largeur et 1,14 en profondeur. rotationDeg 90 met les lames dans la profondeur, direction de la colonne vertebrale du chevron en place."
+    }
+  },
+  "floorZones": [
+    {
+      "id": "couloir",
+      "label": "Couloir",
+      "surfaceId": "sol",
+      "planeRef": "sol",
+      "order": 0,
+      "mask": {
+        "polygon": [
+          {
+            "x": 0.3429,
+            "y": 1
+          },
+          {
+            "x": 0.4193,
+            "y": 0.6742
+          },
+          {
+            "x": 0.5568,
+            "y": 0.6729
+          },
+          {
+            "x": 0.6705,
+            "y": 1
+          }
+        ],
+        "holes": [],
+        "note": "Le contour n'est PAS la suite des colonnes brutes, et c'est une correction : au premier rendu, deux colonnes aberrantes vers x 0,41 creusaient le masque de 23 px juste avant le coin arriere gauche, et un lisere du parquet d'origine restait visible. Le contour suit maintenant les TROIS DROITES ajustees — jonction gauche (17 points, residu moyen 3,77 px), jonction droite (24 points, 1,33 px), bord arriere (29 points, 0,30 px, pente -0,006) — decalees d'un pixel dans le sol. Trois murs droits donnent trois droites : les faire passer par un ajustement supprime a la fois les aberrations et les facettes du pas d'echantillonnage. Les colonnes ecartees comme aberrantes le sont pour cause identifiee : x 0,410 a 0,418 a gauche (un reflet chaud du lambris), x 0,564 a 0,572 a droite (le chambranle en bois de la porte du fond). Le contour ne rejoint pas les bords lateraux du cadre : a x 0,33 et 0,68 il n'y a plus de sol, seulement du lambris."
+      }
+    }
+  ],
+  "occluders": [],
+  "light": {
+    "kind": "photo-luma",
+    "strength": 1,
+    "blurRadius": 0.026,
+    "tint": 0.5,
+    "ambient": 0.28,
+    "contact": 0.5
+  }
+}

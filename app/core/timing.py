@@ -17,6 +17,8 @@ from time import perf_counter
 #: Voir docs/architecture.md et docs/roadmap.md.
 STAGES: tuple[str, ...] = (
     "load_image",
+    "decode",
+    "luma",
     "quality_analysis",
     "lens_analysis",
     "segmentation",

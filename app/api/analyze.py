@@ -11,10 +11,12 @@ La photo n'est ni écrite sur le disque ni conservée : elle est lue en mémoire
 analysée, et les octets sont oubliés à la fin de la requête.
 """
 
+from time import perf_counter
 from typing import Annotated
 
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
 from starlette.concurrency import run_in_threadpool
+from starlette.responses import Response
 
 from app.core.config import ALLOWED_MIME_TYPES, get_settings
 from app.core.errors import ImageRejected, too_large
@@ -59,7 +61,7 @@ async def _read_capped(upload: UploadFile, limit: int) -> bytes:
 async def analyze_room(
     request: Request,
     image: Annotated[UploadFile, File(description="Photo de la pièce : JPEG, PNG ou WebP")],
-) -> AnalysisResult:
+) -> Response:
     """Analyse une photo et renvoie ses mesures techniques."""
     settings = get_settings()
     request_id = getattr(request.state, "request_id", None)
@@ -85,4 +87,11 @@ async def analyze_room(
         ) from None
 
     log.info("photo analysée", extra={"request_id": request_id, **analysis.log_fields})
-    return analysis.result
+    serialization_start = perf_counter()
+    payload = analysis.result.model_dump_json(by_alias=True)
+    serialization_ms = (perf_counter() - serialization_start) * 1000
+    return Response(
+        content=payload,
+        media_type="application/json",
+        headers={"Server-Timing": f"serialization;dur={serialization_ms:.3f}"},
+    )

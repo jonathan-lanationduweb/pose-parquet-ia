@@ -24,7 +24,7 @@ export function installGeometryReview(getConcept) {
       ctx.strokeStyle = color; ctx.lineWidth = Math.max(2, d.width / 600); ctx.setLineDash(dash);
       ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
     };
-    const text = [`${d.scene} · lame ${(d.plankM*1000).toFixed(0)} mm`];
+    const text = [`${d.scene} · lame ${((d.nominalPlankM || d.plankM)*1000).toFixed(0)} mm · échelle ${d.scale || 1}`];
     for (const z of d.zones) {
       if (!z.valid) { text.push(`${z.id}: pas de sol mesurable`); continue; }
       for (let i=0;i<z.contour.length;i++) line(z.contour[i],z.contour[(i+1)%z.contour.length],'#ff8e87');

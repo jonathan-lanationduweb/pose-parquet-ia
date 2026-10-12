@@ -22,6 +22,7 @@ from app.services.floor_scene import (
     STATUS_NONE,
     build_experimental_scene,
     estimate_perspective,
+    furniture_occluders,
     mask_zones,
     refine_mask,
     rug_occluders,
@@ -238,3 +239,21 @@ def test_un_sol_eclate_n_est_pas_auto_rendu() -> None:
 def test_la_confiance_basse_reste_une_raison_nommee() -> None:
     s = build_experimental_scene(_sol_trapeze(), W, H, min_confidence=0.99)
     assert s.provenance["decision"]["reasons"][0] == "low_confidence"
+
+
+def test_furniture_occluder_keeps_open_floor_between_legs():
+    labels = np.zeros((H, W), dtype=np.int32)
+    labels[240:420, 100:420] = 15
+    labels[280:380, 140:380] = 3
+    objects = furniture_occluders(labels)
+    assert len(objects) == 1
+    assert objects[0].kind == "furniture"
+    assert len(objects[0].holes) == 1
+    assert not objects[0].casts_shadow
+    assert furniture_occluders(None) == []
+
+
+def test_floor_and_walls_do_not_become_occluders():
+    labels = np.full((H, W), 3, dtype=np.int32)
+    labels[:H // 2] = 0
+    assert furniture_occluders(labels) == []

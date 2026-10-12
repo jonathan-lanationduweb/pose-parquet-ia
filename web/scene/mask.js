@@ -168,7 +168,8 @@ export function createSceneMasks(scene, width, height) {
         if (blur > 0.4) ctx.filter = `blur(${blur.toFixed(2)}px)`;
         ctx.beginPath();
         trace(ctx, occluder.polygon, width, height);
-        ctx.fill();
+        (occluder.holes || []).forEach(hole => trace(ctx, hole, width, height));
+        ctx.fill('evenodd');
         ctx.restore();
       });
       const data = ctx.getImageData(0, 0, width, height).data;

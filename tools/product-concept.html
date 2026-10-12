@@ -688,7 +688,7 @@
             </svg>
           </span>
           <b>Importer ma photo</b>
-          <span>Votre photo est analysée par le service, puis le parquet se calcule dans votre navigateur.</span>
+          <span>Glissez votre photo ici ou choisissez une image. JPEG, PNG ou WebP.</span>
         </button>
 
         <button class="door" id="doorRooms" type="button">
@@ -704,8 +704,10 @@
         </button>
       </div>
 
+      <div class="session-rooms"><h3>Mes pièces <span>Cette session uniquement</span></h3><div id="sessionRooms"></div></div>
       <div class="quick">
-        <h3>Ou essayez directement</h3>
+        <h3>Pièces de démonstration</h3>
+        <div id="homeCategories" class="home-categories" aria-label="Catégories de pièces"></div>
         <div class="quick-row" id="quickRooms"></div>
       </div>
     </div>
@@ -904,7 +906,7 @@
         <input id="catSearch" type="search" placeholder="Chêne fumé, naturel, bâton rompu…" />
         <label for="catCollection">Collection</label>
         <select id="catCollection"><option value="all">Tous les parquets</option><option value="inspiration">Inspirations</option><option value="premibel">Références Premibel</option></select>
-        <p>12 matières · 34 inspirations · 5 références produit. Les inspirations permettent d’explorer un style.</p>
+        <p id="catalogSummary">Références Premibel et inspirations. Matières indicatives.</p>
       </div>
       <details class="catalog-filters"><summary>Filtres et inspirations</summary>
     <div class="side">
@@ -998,6 +1000,8 @@
     from '../web/product/room-analysis-client.js';
   import { installMaterialPreviews } from '../web/product/material-previews.js';
   window.addEventListener('load', () => installMaterialPreviews(() => window.__concept));
+  import { installProductHome } from '../web/product/product-home.js';
+  window.addEventListener('load', () => installProductHome(() => window.__concept));
   import { installVisit } from '../web/product/visit-mode.js';
   window.addEventListener('load', () => installVisit(() => window.__concept));
   import { installGeometryReview } from '../web/product/geometry-review.js';
@@ -1014,13 +1018,12 @@
      Le vrai Visualiseur, hors ecran. On ne l'affiche pas : on lui parle par
      son propre point d'accroche `window.__studio`, et on recopie son canevas
      dans nos couches. Aucune ligne du front n'est modifiee. -->
-<iframe id="engine" title="moteur de rendu (hors interface)" aria-hidden="true"
-        tabindex="-1"></iframe>
-
 <div id="toast" role="status" aria-live="polite"></div>
 
 <script src="visualizer-drawer.js"></script>
 <script src="parquet-inspirations.js"></script>
+<script src="product-catalog.js"></script>
+<script src="premibel-catalog-data.js"></script>
 <script>
 (() => {
   'use strict';
@@ -1040,14 +1043,20 @@
      n'a pas à savoir où est le sol. Elle affiche une image déjà rendue.
      ===================================================================== */
   const DEMO_ROOMS = [
-    { id: 'sejour', label: 'Séjour et salle à manger', category: 'Séjour' },
-    { id: 'chambre', label: 'Chambre ouverte au jardin', category: 'Chambre' },
-    { id: 'piece-claire', label: 'Grande pièce claire', category: 'Grande pièce' },
-    { id: 'piece-arcades', label: 'Pièce aux arcades', category: 'Grande pièce' },
-    { id: 'bureau-vide', label: 'Bureau, vue d’angle', category: 'Bureau' },
+    { id: 'sejour', label: 'Séjour et salle à manger', category: 'Séjour', file: 'room-sejour.jpg' },
+    { id: 'chambre', label: 'Chambre ouverte au jardin', category: 'Chambre', file: 'room-chambre.jpg' },
+    { id: 'piece-claire', label: 'Grande pièce claire', category: 'Grande pièce', file: 'room-piece-claire.jpg' },
+    { id: 'piece-arcades', label: 'Pièce aux arcades', category: 'Grande pièce', file: 'room-piece-arcades.jpg' },
+    { id: 'bureau-vide', label: 'Bureau, vue d’angle', category: 'Bureau', file: 'room-bureau-vide.jpg' },
+    { id: 'chambre-parisienne', label: "Chambre parisienne", category: 'Chambre', file: 'room-chambre-parisienne.jpg' },
+    { id: 'cuisine-ouverte', label: "Cuisine ouverte sur le séjour", category: 'Cuisine', file: 'room-cuisine-ouverte.jpg' },
+    { id: 'salon-angle', label: "Salon d’angle", category: 'Séjour', file: 'room-salon-angle.jpg' },
+    { id: 'couloir-enfilade', label: "Couloir en enfilade", category: 'Entrée', file: 'room-couloir-bleu.jpg' },
+    { id: 'entree-cadree', label: "Entrée cadrée", category: 'Entrée', file: 'room-entree-cadree.jpg' },
+    { id: 'chambre-claire', label: "Chambre claire", category: 'Chambre', file: 'room-chambre-claire.jpg' },
   ];
 
-  const CATEGORIES = ['Séjour', 'Chambre', 'Grande pièce', 'Bureau'];
+  const CATEGORIES = ['Séjour', 'Chambre', 'Grande pièce', 'Bureau', 'Entrée', 'Cuisine'];
 
   /* Les trois motifs que le moteur du front connaît (`KNOWN_PATTERNS`) — et
      ce sont exactement les trois motifs de nos cinq produits Premibel. */
@@ -1116,216 +1125,11 @@
   const PREMIBEL = 'local-demo-assets/premibel/';
   const RENDERS = 'local-demo-assets/renderings/';
 
-  const PREMIBEL_DEMO_PRODUCTS = [
-    {
-      id: 'POINF36005', ref: 'POINF36005', source: 'premibel',
-      name: 'Point de Hongrie Zeus Naturel',
-      fullTitle: 'POINT DE HONGRIE ZEUS NATUREL 92X12X520',
-      productUrl: 'https://www.premibel.fr/parquet-flottant-chene-verni/POINF36005/',
-      imageSourceUrl: 'https://www.premibel.fr/wp-content/uploads/2026/07/POINF36005.jpg',
-      heroImage: PREMIBEL + 'POINF36005.jpg',
-      catalogThumbnail: PREMIBEL + 'thumb.POINF36005.jpg',
-      catalogThumbnailSource: 'premibel_photo_crop',
-      checkedAt: '2026-09-08',
-      species: 'Chêne', pattern: 'point-de-hongrie', widthMm: 92, lengthMm: 520,
-      thicknessMm: 12, finish: 'verni', aspect: 'Brossé', premibelFamily: 'FLCHEN08',
-      tone: 'clair',
-      /* Ce que l'adaptateur envoie au renderer. Uniquement des proprietes
-         que le moteur honore vraiment : materiau, motif, largeur, angle. */
-      renderProfile: {
-        materialFamily: 'chene-miel',  // LOT PHOTO.2 : couleur de la vignette, mesuree
-        pattern: 'point-de-hongrie',
-        widthM: 0.092,
-        lengthM: 0.52,
-        orientationDeg: 0,
-      },
-      /* L'exactitude, attribut par attribut — un seul mot pour tout le
-         produit cachait que la geometrie est juste et la matiere non. */
-      renderAccuracy: {
-        pattern: 'exact',
-        width: 'exact',
-        orientation: 'exact',
-        tone: 'approximate',
-        grain: 'approximate',
-        finish: 'approximate',
-      },
-      rendererMapping: {
-        status: 'approximate', familyId: 'chene-sable', pattern: 'point-de-hongrie',
-        widthM: 0.092, familySource: 'pilote du front (products.premibel-pilot.json)',
-        exact: ['pattern', 'widthMm', 'angle'],
-        approximate: ['tone', 'grain', 'finish'],
-        unavailable: ['albedo', 'normal', 'roughness'],
-      },
-      visualAccuracy: 'approximate',
-    },
-    {
-      id: 'BTRPF39009', ref: 'BTRPF39009', source: 'premibel',
-      name: 'Bâton rompu Notting Hill Invisible',
-      fullTitle: 'Baton rompu notting hill invisible 90X15X600mm',
-      productUrl: 'https://www.premibel.fr/parquet-flottant-chene-verni/BTRPF39009/',
-      imageSourceUrl: 'https://www.premibel.fr/wp-content/uploads/2026/04/BTRPF39009.png',
-      heroImage: PREMIBEL + 'BTRPF39009.png',
-      catalogThumbnail: PREMIBEL + 'thumb.BTRPF39009.jpg',
-      catalogThumbnailSource: 'premibel_photo_crop',
-      checkedAt: '2026-09-08',
-      species: 'Chêne', pattern: 'baton-rompu', widthMm: 90, lengthMm: 600,
-      thicknessMm: 15, finish: 'verni', aspect: 'Brossé', premibelFamily: 'FLCHEN08',
-      tone: 'clair',
-      substituteFor: 'BTRPF39008 « Piccadilly », introuvable au 8 septembre 2026',
-      /* Ce que l'adaptateur envoie au renderer. Uniquement des proprietes
-         que le moteur honore vraiment : materiau, motif, largeur, angle. */
-      renderProfile: {
-        materialFamily: 'chene-naturel',  // LOT PHOTO.2 : couleur de la vignette, mesuree
-        pattern: 'baton-rompu',
-        widthM: 0.09,
-        lengthM: 0.6,
-        orientationDeg: 0,
-      },
-      /* L'exactitude, attribut par attribut — un seul mot pour tout le
-         produit cachait que la geometrie est juste et la matiere non. */
-      renderAccuracy: {
-        pattern: 'exact',
-        width: 'exact',
-        orientation: 'exact',
-        tone: 'approximate',
-        grain: 'approximate',
-        finish: 'approximate',
-      },
-      rendererMapping: {
-        status: 'approximate', familyId: 'chene-craie', pattern: 'baton-rompu',
-        widthM: 0.09, familySource: 'pilote du front (products.premibel-pilot.json)',
-        exact: ['pattern', 'widthMm', 'angle'],
-        approximate: ['tone', 'grain', 'finish'],
-        unavailable: ['albedo', 'normal', 'roughness'],
-      },
-      visualAccuracy: 'approximate',
-    },
-    {
-      id: 'CHENF39031', ref: 'CHENF39031', source: 'premibel',
-      name: 'Chêne naturel Houston',
-      fullTitle: 'Chêne naturel houston 190X15X400mm',
-      productUrl: 'https://www.premibel.fr/parquet-flottant-chene-verni/CHENF39031/',
-      imageSourceUrl: 'https://www.premibel.fr/wp-content/uploads/2025/11/CHENF39031.jpg',
-      heroImage: PREMIBEL + 'CHENF39031.jpg',
-      catalogThumbnail: PREMIBEL + 'thumb.CHENF39031.jpg',
-      catalogThumbnailSource: 'renderer_crop',
-      checkedAt: '2026-09-08',
-      species: 'Chêne', pattern: 'lames', widthMm: 190, lengthMm: 1900,
-      lengthNote: 'tableau : 1900 mm · titre de la fiche : 400 mm — non arbitré',
-      thicknessMm: 15, finish: 'verni', aspect: 'Brossé, Satiné', premibelFamily: 'FLCHEN08',
-      tone: 'naturel',
-      /* Ce que l'adaptateur envoie au renderer. Uniquement des proprietes
-         que le moteur honore vraiment : materiau, motif, largeur, angle. */
-      renderProfile: {
-        materialFamily: 'chene-naturel',
-        pattern: 'lames',
-        widthM: 0.19,
-        lengthM: 1.9,
-        orientationDeg: 0,
-      },
-      /* L'exactitude, attribut par attribut — un seul mot pour tout le
-         produit cachait que la geometrie est juste et la matiere non. */
-      renderAccuracy: {
-        pattern: 'exact',
-        width: 'exact',
-        orientation: 'exact',
-        tone: 'approximate',
-        grain: 'approximate',
-        finish: 'approximate',
-      },
-      rendererMapping: {
-        status: 'approximate', familyId: 'chene-naturel', pattern: 'lames',
-        widthM: 0.19, familySource: 'le nôtre, absent du pilote du front, non validé',
-        exact: ['pattern', 'widthMm', 'angle'],
-        approximate: ['tone', 'grain', 'finish'],
-        unavailable: ['albedo', 'normal', 'roughness'],
-      },
-      visualAccuracy: 'approximate',
-    },
-    {
-      id: 'CHENF36014', ref: 'CHENF36014', source: 'premibel',
-      name: 'Chêne Colza',
-      fullTitle: 'CHENE COLZA 150X15',
-      productUrl: 'https://www.premibel.fr/parquet-flottant-chene-verni/CHENF36014/',
-      imageSourceUrl: 'https://www.premibel.fr/wp-content/uploads/2026/07/CHENF36014.jpg',
-      heroImage: PREMIBEL + 'CHENF36014.jpg',
-      catalogThumbnail: PREMIBEL + 'thumb.CHENF36014.jpg',
-      catalogThumbnailSource: 'premibel_photo_crop',
-      checkedAt: '2026-09-08',
-      species: 'Chêne', pattern: 'lames', widthMm: 150, lengthMm: 1900,
-      thicknessMm: 15, finish: 'verni', aspect: 'Brossé, Mat', premibelFamily: 'FLCHEN08',
-      tone: 'clair',
-      /* Ce que l'adaptateur envoie au renderer. Uniquement des proprietes
-         que le moteur honore vraiment : materiau, motif, largeur, angle. */
-      renderProfile: {
-        materialFamily: 'chene-caramel',  // LOT PHOTO.2 : couleur de la vignette, mesuree
-        pattern: 'lames',
-        widthM: 0.15,
-        lengthM: 1.9,
-        orientationDeg: 0,
-      },
-      /* L'exactitude, attribut par attribut — un seul mot pour tout le
-         produit cachait que la geometrie est juste et la matiere non. */
-      renderAccuracy: {
-        pattern: 'exact',
-        width: 'exact',
-        orientation: 'exact',
-        tone: 'approximate',
-        grain: 'approximate',
-        finish: 'approximate',
-      },
-      rendererMapping: {
-        status: 'approximate', familyId: 'chene-sable', pattern: 'lames',
-        widthM: 0.15, familySource: 'pilote du front (products.premibel-pilot.json)',
-        exact: ['pattern', 'widthMm', 'angle'],
-        approximate: ['tone', 'grain', 'finish'],
-        unavailable: ['albedo', 'normal', 'roughness'],
-      },
-      visualAccuracy: 'approximate',
-    },
-    {
-      id: 'CHENF36015', ref: 'CHENF36015', source: 'premibel',
-      name: 'Chêne Invisible Pivoine',
-      fullTitle: 'CHENE INVISIBLE PIVOINE 150X15',
-      productUrl: 'https://www.premibel.fr/parquet-flottant-chene-verni/CHENF36015/',
-      imageSourceUrl: 'https://www.premibel.fr/wp-content/uploads/2026/07/CHENF36015.jpg',
-      heroImage: PREMIBEL + 'CHENF36015.jpg',
-      catalogThumbnail: PREMIBEL + 'thumb.CHENF36015.jpg',
-      catalogThumbnailSource: 'premibel_photo_crop',
-      checkedAt: '2026-09-08',
-      species: 'Chêne', pattern: 'lames', widthMm: 150, lengthMm: 1900,
-      thicknessMm: 15, finish: 'verni', aspect: 'Brossé, Mat', premibelFamily: 'FLCHEN08',
-      tone: 'chaud',
-      /* Ce que l'adaptateur envoie au renderer. Uniquement des proprietes
-         que le moteur honore vraiment : materiau, motif, largeur, angle. */
-      renderProfile: {
-        materialFamily: 'chene-naturel',  // LOT PHOTO.2 : couleur de la vignette, mesuree
-        pattern: 'lames',
-        widthM: 0.15,
-        lengthM: 1.9,
-        orientationDeg: 0,
-      },
-      /* L'exactitude, attribut par attribut — un seul mot pour tout le
-         produit cachait que la geometrie est juste et la matiere non. */
-      renderAccuracy: {
-        pattern: 'exact',
-        width: 'exact',
-        orientation: 'exact',
-        tone: 'approximate',
-        grain: 'approximate',
-        finish: 'approximate',
-      },
-      rendererMapping: {
-        status: 'approximate', familyId: 'chene-rustique', pattern: 'lames',
-        widthM: 0.15, familySource: 'pilote du front (products.premibel-pilot.json)',
-        exact: ['pattern', 'widthMm', 'angle'],
-        approximate: ['tone', 'grain', 'finish'],
-        unavailable: ['albedo', 'normal', 'roughness'],
-      },
-      visualAccuracy: 'approximate',
-    },
-  ];
+  const PREMIBEL_DEMO_PRODUCTS = [...(window.PP_PREMIBEL_PRODUCTS || [])];
 
+  const commercialIds = new Set(PREMIBEL_DEMO_PRODUCTS.map(p => p.id));
+  PREMIBEL_DEMO_PRODUCTS.push(...(window.PP_PREMIBEL_CATALOG || []).filter(p => !commercialIds.has(p.id)));
+  PREMIBEL_DEMO_PRODUCTS.forEach(p => { if (p.renderable === undefined) { p.renderable=true; p.materialFidelity='representative'; } });
   PREMIBEL_DEMO_PRODUCTS.push(...(window.PP_PARQUET_INSPIRATIONS || []));
 
   /* Inspirations : une SÉLECTION ÉDITORIALE, écrite à la main. Aucune IA ne
@@ -1355,9 +1159,10 @@
   const RENDERED_ROOMS = ['sejour', 'chambre', 'piece-claire'];
   const DEMO_RENDERINGS = {};
   DEMO_ROOMS.forEach((room) => {
-    const set = { original: RENDERS + room.id + '.original.jpg' };
+    const set = { original: ['sejour','chambre','piece-claire','piece-arcades','bureau-vide'].includes(room.id)
+      ? RENDERS + room.id + '.original.jpg' : '../web/assets/images/' + room.file };
     if (RENDERED_ROOMS.includes(room.id)) {
-      PREMIBEL_DEMO_PRODUCTS.filter((p) => p.source === 'premibel').forEach((p) => {
+      (window.PP_PREMIBEL_PRODUCTS || []).forEach((p) => {
         set[p.id] = RENDERS + room.id + '.' + p.id + '.jpg';
       });
     }
@@ -1488,7 +1293,7 @@
     .filter((k) => PREMIBEL_DEMO_PRODUCTS.some((p) => p.pattern === k));
   const presentTones = () => Object.keys(TONES)
     .filter((k) => PREMIBEL_DEMO_PRODUCTS.some((p) => p.tone === k));
-  const presentWidths = () => [...new Set(PREMIBEL_DEMO_PRODUCTS.map((p) => p.widthMm))]
+  const presentWidths = () => [...new Set(PREMIBEL_DEMO_PRODUCTS.map((p) => p.widthMm).filter(mm => mm > 0))]
     .sort((a, b) => a - b);
 
   /* =====================================================================
@@ -1511,7 +1316,7 @@
     /* Le critère demandé n'est pas négociable ; le reste départage. */
     const keys = Object.keys(change);
     const eligible = PREMIBEL_DEMO_PRODUCTS
-      .filter((p) => keys.every((k) => p[k] === change[k]));
+      .filter((p) => p.renderable !== false && keys.every((k) => p[k] === change[k]));
     if (!eligible.length) return null;
     return eligible.slice().sort((a, b) => score(b) - score(a))[0];
   }
@@ -1612,8 +1417,8 @@
     try { return new URLSearchParams(window.location.search).get('engine'); }
     catch { return null; }
   })();
-  const EXTERNAL_DEFAULT = '../../pose-parquet.com/outils/studio.html?perf=1';
-  const ENGINE_URL = ENGINE_PARAM === 'external' ? EXTERNAL_DEFAULT : ENGINE_PARAM;
+  // L'ancien moteur externe n'est plus utilisable dans ce produit.
+  const ENGINE_URL = null; // Renderer local uniquement.
   /** Vrai quand on demande explicitement l'ancien moteur externe. */
   const WANT_EXTERNAL = Boolean(ENGINE_URL);
 
@@ -1647,6 +1452,7 @@
     let ready = null;
     let lastMs = null;
     let lastHit = null;      /* la derniere application venait-elle du cache ? */
+    let activeFrame = null, activeProfile = null, activeAngle = 0;
     let lastKey = null;      /* la clef d'etat de la derniere application */
     let refus = null;        /* une commande refusee par le moteur, en clair */
     let engineScene = null;  /* la piece ouverte DANS le moteur */
@@ -1983,7 +1789,7 @@
       },
 
       /** Vide les captures retenues : a l'import d'une photo, par exemple. */
-      forget() { renderCache.clear(); },
+      forget() { renderCache.clear(); activeFrame = null; activeProfile = null; },
 
       /**
        * Lance la fabrication de la tuile du produit SELECTIONNE, tout de
@@ -2116,10 +1922,12 @@
         const t0 = performance.now();
         const key = getRenderStateKey(profile, orientationDeg);
         lastKey = key;
+        activeProfile = { ...profile }; activeAngle = orientationDeg || 0;
         const deja = cacheGet(key);
         if (deja) {
           lastHit = true;
           lastMs = Math.round(performance.now() - t0);
+          activeFrame = deja;
           return deja;
         }
         lastHit = false;
@@ -2157,13 +1965,14 @@
         lastMs = Math.round(performance.now() - t0);
         /* On ne retient que ce que le moteur a fini de peindre. */
         if (abouti !== 'fin') return studio.canvas;
-        return cachePut(key, studio.canvas) || studio.canvas;
+        activeFrame = cachePut(key, studio.canvas) || studio.canvas;
+        return activeFrame;
       },
 
       get supportsScale() { return Boolean(studio && typeof studio.setScale === 'function'); },
-      visitSnapshot() { return studio && typeof studio.visitSnapshot === 'function' ? studio.visitSnapshot() : null; },
-      geometryDiagnostics() { return studio && typeof studio.geometryDiagnostics === 'function' ? studio.geometryDiagnostics() : null; },
-      get canvas() { return studio && studio.canvas; },
+      visitSnapshot() { const snapshot = studio && typeof studio.visitSnapshot === 'function' ? studio.visitSnapshot() : null; return snapshot ? { ...snapshot, canvas: activeFrame || snapshot.canvas } : null; },
+      geometryDiagnostics() { return studio && typeof studio.geometryDiagnostics === 'function' ? studio.geometryDiagnostics(activeProfile, activeAngle) : null; },
+      get canvas() { return activeFrame || (studio && studio.canvas); },
     };
   })();
 
@@ -2766,6 +2575,8 @@
     /* Sans rendu, la carte produit et les outils mentiraient : aucun parquet
        n'est posé, il n'y a donc rien à comparer ni à montrer « après ». Le
        viewport, lui, reste manipulable : on peut explorer sa photo. */
+    drawer.syncLayout?.();
+    document.body.dataset.productState = etatProduit();
     document.body.classList.toggle('floor-rendered', hasRender);
     $('card').classList.toggle('hidden', !hasRender);
     $('tools').classList.toggle('hidden', !hasRender);
@@ -2876,7 +2687,7 @@
   /* Sonde les vignettes une fois : sans elles, on montre un cadre au lieu
      d'un carré vide. */
   function probeImages() {
-    PREMIBEL_DEMO_PRODUCTS.forEach((p) => {
+    (window.PP_PREMIBEL_PRODUCTS || []).forEach((p) => {
       const im = new Image();
       im.onerror = () => {
         state.missingImg.add(p.catalogThumbnail);
@@ -2902,6 +2713,7 @@
       <span class="row">
         ${side === 'A' ? '<button type="button" data-open="cat">Choisir un parquet</button>' : ''}
         <button type="button" data-open="cus">Personnaliser</button>
+        ${side === 'A' && state.compare ? '<button type="button" data-open="cmpB">Parquet B</button>' : ''}
         ${side === 'A' && state.photoScene && state.photoScene.posee
           ? `<button type="button" data-open="floor" aria-label="Ajuster la zone du sol"><svg width="15" height="15"
               viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
@@ -3084,6 +2896,7 @@
     $('entry').classList.add('hidden');
     $('stage').classList.remove('hidden');
     $('hSwap').classList.remove('hidden');
+    paintCatalogue();
     paint();
     /* Nouvelle scene : on recentre. Nouveau produit dans la MEME scene : on
        ne touche a rien, l'utilisateur reste ou il regardait. */
@@ -3312,6 +3125,7 @@
     state.applied = { key: null, source: null };
     state.appliedB = { key: null, source: null };
     await applyFloor();
+    if (!REDUCED) $('after').animate?.([{opacity:0},{opacity:1}], {duration:180,easing:'ease-out'});
     if (ps.firstRenderMs === null) ps.firstRenderMs = Math.round(performance.now() - t0);
     journal('rendu:premier', { source: state.applied.source, ms: ps.firstRenderMs });
     paintChrome();
@@ -3364,12 +3178,14 @@
       texte = 'Le moteur d’analyse se charge. Votre photo reste disponible : déplacez-vous, zoomez, choisissez un parquet.';
     } else if (etat === 'ANALYZING') {
       titre = 'Analyse de la pièce…';
-      texte = 'Le sol sera détecté dans quelques secondes.';
+      texte = 'Votre photo reste visible pendant la détection du sol.';
     } else if (ps && ps.raw && ps.status === 'needs_manual_adjustment') {
       titre = 'Sol détecté approximativement';
       texte = 'Le contour ou la perspective du sol est incertain. Vérifiez la zone, puis le sens et la taille des lames dans Personnaliser.';
+      const checks = ps.provenance?.decision?.checks || {};
+      const safe = Object.keys(checks).length > 0 && !Object.values(checks).some(Boolean);
       actions = '<button type="button" data-open="floor" class="primary">Ajuster le sol</button>'
-        + '<button type="button" data-open="poser">Poser quand même</button>';
+        + (safe ? '<button type="button" data-open="poser">Poser quand même</button>' : '');
     } else if (ps && ps.status === 'invalid') {
       titre = 'Sol à tracer';
       texte = 'La zone proposée par l’analyse n’est pas exploitable. Tracez le sol au pinceau.';
@@ -3418,6 +3234,7 @@
     probe.onload = () => {
       if (state.photoGeneration !== intent) { URL.revokeObjectURL(url); return; }
       state.uploaded = { url, name: file.name, w: probe.naturalWidth, h: probe.naturalHeight, file };
+      window.__sessionRooms?.remember(file, url);
       state.source = 'uploaded';
       /* Les captures retenues appartiennent aux scenes de demonstration :
          elles n'ont plus rien a dire d'une photo importee. */
@@ -3450,7 +3267,7 @@
   function releaseUpload() {
     state.photoGeneration += 1;
     state.floorScale = 1;
-    if (state.uploaded && state.uploaded.url) URL.revokeObjectURL(state.uploaded.url);
+    if (state.uploaded && state.uploaded.url && !window.__sessionRooms?.owns(state.uploaded.url)) URL.revokeObjectURL(state.uploaded.url);
     state.uploaded = null;
     state.photoScene = null;
     floorEditStop(false);
@@ -3476,6 +3293,10 @@
       && (!f.pattern || p.pattern === f.pattern)
       && (!f.tone || p.tone === f.tone)
       && (!f.widthMm || p.widthMm === f.widthMm)
+      && (!f.finish || p.finish === f.finish)
+      && (!f.collection || p.collection === f.collection)
+      && (!f.species || p.species === f.species)
+      && (!f.type || p.type === f.type)
       && (!mood || mood.refs.includes(p.ref)));
   }
 
@@ -3503,11 +3324,12 @@
     $('prods').innerHTML = list.length ? list.map((p) => {
       const on = state.favourites.has(p.id);
       return `<button class="pd" type="button" data-id="${p.id}" aria-pressed="${p.id === state.productId}">
-        <span class="tex${swatchClass(p)}" style="${swatchStyle(p)}" ${previewAttrs(p)}></span>
+        <span class="tex${swatchClass(p)}" style="${p.thumbnail ? '' : swatchStyle(p)}" ${previewAttrs(p)}>${p.thumbnail ? `<img src="${p.thumbnail}" alt="" loading="lazy" decoding="async">` : ''}</span>
         <span class="hh" data-fav="${p.id}" role="button" aria-pressed="${on}"
               aria-label="Favori">${heart(on, 13)}</span>
         <span class="nm">${p.name}</span>
-        <span class="ref">${PATTERNS[p.pattern]} · ${p.widthMm} mm — ${p.source === 'inspiration' ? 'Inspiration' : `Réf. ${p.ref}`}</span>
+        <span class="ref">${PATTERNS[p.pattern] || 'Motif non renseigné'} · ${p.widthMm ? p.widthMm + ' mm' : 'Largeur non renseignée'} — ${p.source === 'inspiration' ? 'Inspiration' : `Réf. ${p.ref}`}</span>
+        <span class="catalog-fidelity">${p.renderable === false ? 'Aperçu bientôt disponible' : p.source === 'inspiration' ? 'Inspiration' : 'Matière indicative'}</span>
       </button>`;
     }).join('') : '<p class="empty">Aucune référence du catalogue ne correspond à ces filtres.</p>';
   }
@@ -3577,10 +3399,8 @@
     }
 
     /* Et ce qui n'est pas reglable est dit, sans bouton pour faire semblant. */
-    $('bakedNote').textContent = `${entry.source === 'inspiration' ? 'Aspect de l’inspiration' : 'Aspect relevé sur la fiche'} : ${entry.aspect}, `
-      + `finition ${FINISHES[entry.finish].toLowerCase()}. Le moteur ne les règle pas : `
-      + 'ils appartiennent à la famille de texture. Il n\'y a donc pas de curseur '
-      + 'ici — un réglage sans effet vaut moins que son absence.';
+    /* Pour les options absentes : un réglage sans effet vaut moins que son absence. */
+    $('bakedNote').textContent = `Finition ${(FINISHES[entry.finish] || "non renseignée").toLowerCase()} · ${entry.aspect}. Vérifiez la teinte et le toucher sur un échantillon.`;
   }
 
   /* =====================================================================
@@ -3749,6 +3569,7 @@
   function select(id, silent) {
     const entry = product(id);
     if (!entry) return;
+    if (entry.renderable === false) { toast('Aperçu bientôt disponible pour cette référence.'); return; }
     if (state.picking) {
       /* Comparer une reference a elle-meme n'a aucun sens : les deux cotes
          seraient identiques et l'utilisateur croirait le separateur casse. */
@@ -3774,7 +3595,8 @@
   }
 
   function stepProduct(dir, side) {
-    const list = visible().length ? visible() : PREMIBEL_DEMO_PRODUCTS;
+    const available = visible().filter(p => p.renderable !== false);
+    const list = available.length ? available : PREMIBEL_DEMO_PRODUCTS.filter(p => p.renderable !== false);
     const current = side === 'B' && state.compare ? state.compare.b : state.productId;
     const i = list.findIndex((p) => p.id === current);
     const next = list[(i + dir + list.length) % list.length];
@@ -3825,6 +3647,7 @@
      carte produit. */
   const drawer = PPDrawer.createDrawer({
     root: document.body,
+    isRoomActive: () => Boolean(state.source),
     panes: { rooms: $('roomSheet'), catalog: $('catSheet'), customize: $('cusSheet') },
     /* Personnaliser s'ouvre en hauteur « compacte » : on règle le sens de pose
        en regardant le sol. Les autres modes gardent la hauteur moyenne. */
@@ -3851,7 +3674,7 @@
     const sceneKey = state.source === 'uploaded' && state.uploaded ? state.uploaded.url : state.roomId;
     if (drawer.isOpen) {
       if (!panelView) panelView = { sceneKey, vp: { ...state.vp } };
-      fitAll(false);
+      if (mobile) fitMobile(false); else fitAll(false);
     } else {
       if (panelView && panelView.sceneKey === sceneKey) Object.assign(state.vp, panelView.vp);
       panelView = null;
@@ -3942,7 +3765,7 @@
     /* Le choix de B ferme lui-meme le catalogue quand il aboutit ; s'il est
        refuse (meme reference), le catalogue reste ouvert pour en choisir une
        autre. Un choix de A ferme toujours. */
-    if (!wasPicking) closeAll();
+    if (!wasPicking && !drawer.catalogPinned) closeAll();
   };
 
   /* La barre « photo sans parquet » partage ce gestionnaire. Elle n'en avait
@@ -3957,7 +3780,12 @@
       if (open) {
         if (open.dataset.open === 'cat') openCat();
         else if (open.dataset.open === 'floor') floorEditStart();
-        else if (open.dataset.open === 'poser') appliquerScenePhoto(state.photoGeneration);
+        else if (open.dataset.open === 'poser') {
+          const checks = state.photoScene?.provenance?.decision?.checks;
+          const unsafe = !checks || !Object.keys(checks).length || Object.values(checks).some(Boolean);
+          if (!unsafe) appliquerScenePhoto(state.photoGeneration);
+          else floorEditStart();
+        }
         else if (open.dataset.open === 'retry') relancerAnalyse();
         else if (open.dataset.open === 'cus') openCus();
         else if (open.dataset.open === 'cmpB') pickB();
@@ -4336,7 +4164,7 @@
     state, DEV, DEMO_ROOMS, DEMO_RENDERINGS, CATEGORIES, RENDERED_ROOMS,
     PREMIBEL_DEMO_PRODUCTS, MOODS, PATTERNS, TONES, FINISHES,
     RENDERS, PREMIBEL, PHOTOS,
-    room, product, renderUrl, originalUrl, preload, probeImages,
+    enter, room, product, renderUrl, originalUrl, preload, probeImages,
     findMatchingProduct, findVariant: findMatchingProduct, presentPatterns, presentTones, presentWidths, startCompare,
     adapter, paintLayer, applyFloor, applyCompareB, appliedKey, paintChrome,
     photoSansScene, poserScenePhoto, appliquerScenePhoto, floorEditStart, floorEditStop, floorEdit,

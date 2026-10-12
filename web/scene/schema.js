@@ -100,6 +100,7 @@ function normalizeOccluder(raw, index) {
     label: raw.label || 'Objet',
     kind: raw.kind || 'furniture',
     polygon: clone(raw.polygon),
+    holes: (Array.isArray(raw.holes) ? raw.holes : []).filter(h => Array.isArray(h) && h.length >= 3).map(clone),
     contact: Array.isArray(raw.contact) ? clone(raw.contact) : null,
     depth: num(raw.depth, 0.5),
     castsShadow: raw.castsShadow !== false,

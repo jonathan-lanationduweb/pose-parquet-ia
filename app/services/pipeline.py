@@ -143,6 +143,8 @@ def _segmentation_experimentale(
         except Exception:
             log.exception("scene experimentale indisponible")
 
+        if scene_exp:
+            resultat.timings.update(scene_exp.provenance.get("timingsMs", {}))
         return ExperimentalOutputs(
             floor=ExperimentalFloor(
                 candidate=resultat.candidate,
@@ -179,8 +181,10 @@ def analyse_room(data: bytes) -> Analysis:
     timings = Timings()
 
     with timings.measure("load_image"):
-        image = load_image(data)
-        luma01 = luma(image.rgb)
+        with timings.measure("decode"):
+            image = load_image(data)
+        with timings.measure("luma"):
+            luma01 = luma(image.rgb)
 
     info = _image_info(image)
     warnings: list[Warn] = []

@@ -1,0 +1,219 @@
+{
+  "schema": "pose-parquet/scene@1",
+  "id": "cuisine-ouverte",
+  "label": "Cuisine ouverte sur le séjour",
+  "source": "precalibrated",
+  "note": "Le cas le plus favorable du dépôt : un grand sol entièrement dégagé, des murs blancs et des plinthes blanches sur des lames foncées. La marche de luminance mur/sol dépasse 60 partout et atteint 92 au fond — cinq fois celle du couloir clair qu'on a dû écarter. Aucun meuble ne se tient sur le sol visible : ni occulteur, ni trou de masque. TROIS FRONTIÈRES relevées à la chute de luminance : le mur de gauche sur cinq colonnes (résidu max 0,39 px, moyen 0,24), le mur du fond horizontal sur seize colonnes (y 0,630 à 0,634, chute 75 à 92), le mur de droite sur neuf colonnes (résidu max 1,16 px, moyen 0,47). Les deux murs latéraux se croisent en (0,4635 ; 0,4930) : c'est la fuite de la profondeur et l'horizon. POINT PRINCIPAL : le mur du fond étant horizontal dans l'image, la fuite de la largeur est à l'infini, ce qui impose au point principal l'abscisse de la fuite de profondeur — 0,4635, soit 58 px à gauche du centre de l'image. Comme pour la chambre parisienne, le recadrage 1600x1067 de Pexels déplace le point principal, et la mesure le dit. RECTANGLE : quadrilatère porté par les deux murs latéraux et deux horizontales, donc image d'un rectangle par construction ; mesuré 4,85 sur 2,82 m avec 0,02 et 0,00 pour cent de concordance entre côtés opposés. FOCALE ET ÉCHELLE, ce qui est su et ce qui est choisi : une pièce rectangulaire vue de face n'offre AUCUNE contrainte de focale — une fuite finie, une fuite à l'infini, et rien de perpendiculaire de plus. Contrairement à la chambre parisienne, ce sol n'a pas de chevron dont les deux familles donneraient la focale par orthogonalité. La focale est donc CHOISIE à 900 px, et la hauteur d'œil à 0,90 m, parce que ce couple rend une pièce de 4,85 m de large sur un sol visible de 2,6 à 5,5 m — des dimensions crédibles pour une cuisine ouverte. La largeur, elle, ne dépend PAS de la focale : elle vaut 5,4 hauteurs d'œil, quelle que soit la focale, ce qui borne l'erreur possible. Le contrôle est visuel : le pas des lames rendues doit valoir celui des lames en place, et il a été comparé au rendu. C'est une vraisemblance vérifiée à l'œil, pas une preuve, et l'écrire ainsi est la seule façon honnête de la publier. PLINTHE : blanche comme le mur, donc la chute de luminance relevée est déjà sa BASE et non son sommet. Le contour est décalé de 2 px dans le sol, comme au bureau vide, pour ne pas la délaver.",
+  "image": {
+    "file": "room-cuisine-ouverte.jpg",
+    "width": 1600,
+    "height": 1067,
+    "alt": "Cuisine ouverte sur un grand séjour vide, sol en lames foncées",
+    "credit": "Max Vakhtbovych / Pexels"
+  },
+  "camera": {
+    "horizon": 0.493,
+    "vanishingPoints": [
+      {
+        "x": 0.4635,
+        "y": 0.493,
+        "weight": 1,
+        "role": "profondeur-deux-murs"
+      }
+    ],
+    "heightM": 0.9,
+    "focalPx": 900,
+    "principalPoint": {
+      "x": 0.4635,
+      "y": 0.493
+    },
+    "principalNote": "Mesuré, pas supposé au centre : l'image est un recadrage. La focale, en revanche, est choisie — voir la note de la scène."
+  },
+  "surfaces": [
+    {
+      "id": "sol",
+      "label": "Sol de la pièce",
+      "continuous": true
+    }
+  ],
+  "planes": {
+    "sol": {
+      "quad": [
+        {
+          "x": 0.2077,
+          "y": 0.632
+        },
+        {
+          "x": 0.707,
+          "y": 0.632
+        },
+        {
+          "x": 0.9664,
+          "y": 0.78
+        },
+        {
+          "x": -0.0646,
+          "y": 0.78
+        }
+      ],
+      "meters": {
+        "width": 4.85,
+        "depth": 2.82
+      },
+      "origin": {
+        "u": 0,
+        "v": 0
+      },
+      "rotationDeg": 0,
+      "note": "Deux côtés portés par les murs latéraux, deux côtés horizontaux : la direction de la largeur a sa fuite à l'infini, l'horizontale EST donc sa direction. Le quadrilatère dépasse le cadre à gauche (x -0,065) parce que le mur de gauche sort de l'image avant le bas : le plan est défini au-delà du visible, ce que le masque borne. u suit le mur du fond, v la profondeur ; rotationDeg 0 met les lames dans la largeur, comme celles en place."
+    }
+  },
+  "floorZones": [
+    {
+      "id": "sejour",
+      "label": "Séjour et cuisine",
+      "surfaceId": "sol",
+      "planeRef": "sol",
+      "order": 0,
+      "mask": {
+        "polygon": [
+          {
+            "x": 0,
+            "y": 0.7465
+          },
+          {
+            "x": 0.02,
+            "y": 0.7357
+          },
+          {
+            "x": 0.04,
+            "y": 0.7254
+          },
+          {
+            "x": 0.06,
+            "y": 0.7142
+          },
+          {
+            "x": 0.08,
+            "y": 0.7029
+          },
+          {
+            "x": 0.1,
+            "y": 0.6926
+          },
+          {
+            "x": 0.115,
+            "y": 0.6889
+          },
+          {
+            "x": 0.175,
+            "y": 0.6889
+          },
+          {
+            "x": 0.19,
+            "y": 0.6823
+          },
+          {
+            "x": 0.22,
+            "y": 0.6636
+          },
+          {
+            "x": 0.25,
+            "y": 0.6439
+          },
+          {
+            "x": 0.28,
+            "y": 0.6345
+          },
+          {
+            "x": 0.3,
+            "y": 0.6326
+          },
+          {
+            "x": 0.33,
+            "y": 0.6345
+          },
+          {
+            "x": 0.38,
+            "y": 0.6355
+          },
+          {
+            "x": 0.4,
+            "y": 0.6345
+          },
+          {
+            "x": 0.7,
+            "y": 0.6355
+          },
+          {
+            "x": 0.72,
+            "y": 0.6411
+          },
+          {
+            "x": 0.76,
+            "y": 0.6636
+          },
+          {
+            "x": 0.8,
+            "y": 0.687
+          },
+          {
+            "x": 0.84,
+            "y": 0.7104
+          },
+          {
+            "x": 0.88,
+            "y": 0.7329
+          },
+          {
+            "x": 0.9,
+            "y": 0.7432
+          },
+          {
+            "x": 0.905,
+            "y": 0.746
+          },
+          {
+            "x": 0.925,
+            "y": 0.7592
+          },
+          {
+            "x": 0.945,
+            "y": 0.7685
+          },
+          {
+            "x": 0.96,
+            "y": 0.7779
+          },
+          {
+            "x": 0.98,
+            "y": 0.7892
+          },
+          {
+            "x": 1,
+            "y": 0.7967
+          },
+          {
+            "x": 1,
+            "y": 1
+          },
+          {
+            "x": 0,
+            "y": 1
+          }
+        ],
+        "holes": [],
+        "note": "Le contour suit quatre choses différentes, chacune relevée à la chute de luminance : le mur de gauche (x 0 à 0,10), le socle des meubles de cuisine face à nous (0,115 à 0,175, horizontal), la file de meubles qui fuit vers le fond (0,19 à 0,30, pente -0,473 — parallèle au mur de gauche dans la pièce, mais décalée de la profondeur d'un caisson, donc de pente différente dans l'image), le lave-vaisselle et la cuisinière (0,33 à 0,38), le mur du fond (0,40 à 0,70), le mur de droite (0,72 à 0,90). À droite de x 0,90 il continue sous un seuil gris qui mène à la pièce voisine : le seuil est au-dessus de la frontière, le sol foncé passe dessous et court jusqu'au bord droit du cadre. Un premier masque s'arrêtait à x 0,905 et laissait au rendu un coin de sol d'origine, bien visible — corrigé après l'avoir vu. Décalage de 2 px dans le sol pour préserver la plinthe blanche."
+      }
+    }
+  ],
+  "occluders": [],
+  "light": {
+    "kind": "photo-luma",
+    "strength": 1,
+    "blurRadius": 0.03,
+    "tint": 0.42,
+    "ambient": 0.24,
+    "contact": 0.45
+  }
+}

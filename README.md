@@ -394,5 +394,26 @@ quand le dépôt est présent localement, et s'ignore sinon
 prouve que le schéma n'a rien inventé.
 
 Rien n'est connecté : ni WordPress, ni le Visualiseur. Voir LOT IA 8.
-#   p o s e - p a r q u e t - i a  
+#   p o s e - p a r q u e t - i a 
  
+ 
+
+### Revue produit du 12 octobre 2026
+
+Le visualiseur conserve une seule entrée : `tools/product-concept.html`. Sur
+ordinateur, catalogue à gauche et réglages à droite restent visibles avec la
+pièce. Sur téléphone, les panneaux deviennent des bottom sheets. Mes pièces
+conserve les photos en mémoire pendant la session, avec suppression ; aucune
+photo n’est enregistrée durablement. Le JPEG exporté contient le rendu sans UI.
+
+Les cinq références Premibel restent des simulations de matière approximatives,
+complétées par 34 inspirations. Le manifeste `web/assets/products/manifest.json`
+indique les sources et les limites de redistribution des visuels commerciaux.
+Le transfert mobile par QR Code est seulement documenté dans
+`docs/mobile-photo-transfer.md`, sans faux bouton ni endpoint public local.
+
+La revue et ses captures sont générées sous `review/roomvo-level/` (ignoré par
+Git). `tools/roomvo-level.check.mjs`, `tools/roomvo-features.check.mjs` et
+`tools/roomvo-cold-start.check.mjs` complètent la batterie de fiabilité. Ces tests
+nécessitent le serveur Product Dev et playwright-core, via
+`PPAI_PLAYWRIGHT_CORE` si celui-ci est fourni par le runtime local.

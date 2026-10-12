@@ -37,9 +37,11 @@ travailleurs, ce qui n'est pas le sujet de cette passe.
 
 from __future__ import annotations
 
+import os
 import time
 from typing import Any
 
+import cv2
 import numpy as np
 
 from app.services.floor_segmentation import (
@@ -111,9 +113,16 @@ class OneFormerFloor:
             return (*_charges[self.checkpoint], 0.0)
         from transformers import OneFormerForUniversalSegmentation, OneFormerProcessor
 
+        _torch().set_num_threads(max(1, min(32, int(os.environ.get("PPAI_TORCH_THREADS", "4")))))
         t0 = time.perf_counter()
         processeur = _depuis_le_cache(OneFormerProcessor, self.checkpoint)
         modele = _depuis_le_cache(OneFormerForUniversalSegmentation, self.checkpoint)
+        device = os.environ.get("PPAI_INFERENCE_DEVICE", "cpu")
+        if device not in {"cpu", "cuda"}:
+            raise ValueError("PPAI_INFERENCE_DEVICE must be cpu or cuda")
+        if device == "cuda" and not _torch().cuda.is_available():
+            raise RuntimeError("CUDA requested but unavailable")
+        modele.to(device)
         modele.eval()
         ms = (time.perf_counter() - t0) * 1000
         _charges[self.checkpoint] = (processeur, modele)
@@ -124,22 +133,57 @@ class OneFormerFloor:
 
         torch = _torch()
         processeur, modele, load_ms = self._charger()
-        image = Image.fromarray(image_rgb)
-
         t0 = time.perf_counter()
-        entrees = processeur(images=image, task_inputs=["semantic"], return_tensors="pt")
-        with torch.no_grad():
+        original_shape = image_rgb.shape[:2]
+        side = max(320, min(1280, int(os.environ.get("PPAI_INFERENCE_LONG_SIDE", "640"))))
+        ratio = min(1.0, side / max(original_shape))
+        small = (
+            cv2.resize(
+                image_rgb,
+                (
+                    max(1, round(original_shape[1] * ratio)),
+                    max(1, round(original_shape[0] * ratio)),
+                ),
+                interpolation=cv2.INTER_AREA,
+            )
+            if ratio < 1
+            else image_rgb
+        )
+        # Swin feature pyramid requires dimensions divisible by 32, including warmup.
+        padded = cv2.copyMakeBorder(
+            small, 0, (-small.shape[0]) % 32, 0, (-small.shape[1]) % 32, cv2.BORDER_REPLICATE
+        )
+        image = Image.fromarray(padded)
+        resize_ms = (time.perf_counter() - t0) * 1000
+        t0 = time.perf_counter()
+        # The original stays in memory for rendering; only reduced pixels enter the model.
+        entrees = processeur(
+            images=image, task_inputs=["semantic"], return_tensors="pt", do_resize=False
+        )
+        entrees = {key: value.to(modele.device) for key, value in entrees.items()}
+        preprocess_ms = (time.perf_counter() - t0) * 1000
+        t0 = time.perf_counter()
+        with torch.inference_mode():
             sorties = modele(**entrees)
-        carte = processeur.post_process_semantic_segmentation(
-            sorties, target_sizes=[image_rgb.shape[:2]]
-        )[0]
         infer_ms = (time.perf_counter() - t0) * 1000
-
-        t1 = time.perf_counter()
-        labels = carte.cpu().numpy().astype(np.int32)
+        t0 = time.perf_counter()
+        # Never allocate a 150-class probability volume at original 4K resolution.
+        carte = processeur.post_process_semantic_segmentation(
+            sorties, target_sizes=[padded.shape[:2]]
+        )[0]
+        labels = carte.cpu().numpy().astype(np.int32)[: small.shape[0], : small.shape[1]]
+        if labels.shape != original_shape:
+            labels = cv2.resize(
+                labels, (original_shape[1], original_shape[0]), interpolation=cv2.INTER_NEAREST
+            )
+        postprocess_ms = (time.perf_counter() - t0) * 1000
+        t0 = time.perf_counter()
         masque = clean_mask(semantic_to_floor_visible(labels))
+        clean_ms = (time.perf_counter() - t0) * 1000
+        t0 = time.perf_counter()
         bord = mask_boundary(masque)
-        post_ms = (time.perf_counter() - t1) * 1000
+        boundary_ms = (time.perf_counter() - t0) * 1000
+        post_ms = postprocess_ms + clean_ms + boundary_ms
 
         return FloorSegmentationResult(
             candidate=self.name,
@@ -149,9 +193,14 @@ class OneFormerFloor:
             boundary=bord,
             timings={
                 "model_load": round(load_ms, 1),
+                "resize": round(resize_ms, 1),
+                "preprocess": round(preprocess_ms, 1),
+                "postprocess": round(postprocess_ms, 1),
+                "mask_clean": round(clean_ms, 1),
+                "boundary": round(boundary_ms, 1),
                 "inference": round(infer_ms, 1),
                 "post": round(post_ms, 1),
-                "total": round(load_ms + infer_ms + post_ms, 1),
+                "total": round(load_ms + resize_ms + preprocess_ms + infer_ms + post_ms, 1),
             },
             metadata={
                 "kind": "semantic",
@@ -159,7 +208,9 @@ class OneFormerFloor:
                 "checkpoint": self.checkpoint,
                 "classes": "ADE20K 150",
                 "adaptation": "floor(3) moins rug/carpet(28)",
-                "inference_resolution": f"{image_rgb.shape[1]}x{image_rgb.shape[0]}",
+                "inference_resolution": f"{small.shape[1]}x{small.shape[0]}",
+                "tensor_shape": list(entrees["pixel_values"].shape),
+                "original_resolution": list(original_shape),
                 "labels_present": sorted({int(v) for v in np.unique(labels)}),
             },
         )

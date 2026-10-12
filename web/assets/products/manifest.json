@@ -1,0 +1,76 @@
+{
+  "schema": "pose-parquet/product-assets@1",
+  "note": "No commercial image binaries included. Existing local review previews only.",
+  "products": [
+    {
+      "id": "POINF36005",
+      "reference": "POINF36005",
+      "name": "Point de Hongrie Zeus Naturel",
+      "thumbnail": "../../../tools/local-demo-assets/premibel/thumb.POINF36005.jpg",
+      "materialSource": "procedural:chene-miel",
+      "materialFidelity": "approximate",
+      "pattern": "point-de-hongrie",
+      "widthMm": 92,
+      "lengthMm": 520,
+      "finish": "verni",
+      "productUrl": "https://www.premibel.fr/parquet-flottant-chene-verni/POINF36005/",
+      "rightsStatus": "local-review-only; redistribution not established"
+    },
+    {
+      "id": "BTRPF39009",
+      "reference": "BTRPF39009",
+      "name": "Bâton rompu Notting Hill Invisible",
+      "thumbnail": "../../../tools/local-demo-assets/premibel/thumb.BTRPF39009.jpg",
+      "materialSource": "procedural:chene-naturel",
+      "materialFidelity": "approximate",
+      "pattern": "baton-rompu",
+      "widthMm": 90,
+      "lengthMm": 600,
+      "finish": "verni",
+      "productUrl": "https://www.premibel.fr/parquet-flottant-chene-verni/BTRPF39009/",
+      "rightsStatus": "local-review-only; redistribution not established"
+    },
+    {
+      "id": "CHENF39031",
+      "reference": "CHENF39031",
+      "name": "Chêne naturel Houston",
+      "thumbnail": "../../../tools/local-demo-assets/premibel/thumb.CHENF39031.jpg",
+      "materialSource": "procedural:chene-naturel",
+      "materialFidelity": "approximate",
+      "pattern": "lames",
+      "widthMm": 190,
+      "lengthMm": 1900,
+      "finish": "verni",
+      "productUrl": "https://www.premibel.fr/parquet-flottant-chene-verni/CHENF39031/",
+      "rightsStatus": "local-review-only; redistribution not established"
+    },
+    {
+      "id": "CHENF36014",
+      "reference": "CHENF36014",
+      "name": "Chêne Colza",
+      "thumbnail": "../../../tools/local-demo-assets/premibel/thumb.CHENF36014.jpg",
+      "materialSource": "procedural:chene-caramel",
+      "materialFidelity": "approximate",
+      "pattern": "lames",
+      "widthMm": 150,
+      "lengthMm": 1900,
+      "finish": "verni",
+      "productUrl": "https://www.premibel.fr/parquet-flottant-chene-verni/CHENF36014/",
+      "rightsStatus": "local-review-only; redistribution not established"
+    },
+    {
+      "id": "CHENF36015",
+      "reference": "CHENF36015",
+      "name": "Chêne Invisible Pivoine",
+      "thumbnail": "../../../tools/local-demo-assets/premibel/thumb.CHENF36015.jpg",
+      "materialSource": "procedural:chene-naturel",
+      "materialFidelity": "approximate",
+      "pattern": "lames",
+      "widthMm": 150,
+      "lengthMm": 1900,
+      "finish": "verni",
+      "productUrl": "https://www.premibel.fr/parquet-flottant-chene-verni/CHENF36015/",
+      "rightsStatus": "local-review-only; redistribution not established"
+    }
+  ]
+}

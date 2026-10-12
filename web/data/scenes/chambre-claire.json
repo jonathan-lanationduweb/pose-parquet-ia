@@ -1,0 +1,153 @@
+{
+  "schema": "pose-parquet/scene@1",
+  "id": "chambre-claire",
+  "label": "Chambre claire",
+  "source": "precalibrated",
+  "note": "Chambre vide vue d'angle, plinthes blanches sur noyer fonce : le meilleur contraste mur/sol du depot, avec des marches de 100 a 123 niveaux sur toute la longueur des deux murs. C'est la premiere scene dont la FOCALE est mesuree et non choisie, parce qu'une vue d'angle donne DEUX fuites finies. LES DEUX PLINTHES, relevees colonne par colonne au pas de cinq millemes : 87 points a gauche (residu max 0,85 px, moyen 0,29, pente -0,1953) et 63 a droite (0,63 et 0,26, pente +0,1371). Elles se croisent au coin de la piece, en (0,4716 ; 0,5890). Une plinthe blanche sur sol fonce n'a pas besoin de correction de hauteur : la marche clair-vers-sombre EST le pied de la plinthe, pas son sommet — c'est l'inverse de l'entree cadree, ou la plinthe est en bois comme le sol et ou il a fallu lire le profil pour trouver le pied. LES DEUX FUITES viennent des LINTEAUX de fenetre, paralleles a leur mur : linteau gauche 97 points a 0,33 px de residu moyen, linteau droit 73 points a 0,31. Croises avec leurs plinthes, ils donnent (0,8237 ; 0,4859) et (-0,0496 ; 0,4819). PREUVE : ces deux ordonnees sont obtenues par deux mesures totalement independantes, sur deux murs differents, et elles concordent a 4,2 pixels. L'horizon est retenu a leur moyenne, 0,4839. Les appuis de fenetre ont ete essayes aussi et ecartes : residus max 16,3 et 10,0 px, parce qu'un appui porte des reflets et des objets. Trois autres pistes ont echoue avant celle-la, et elles sont notees parce qu'elles se retenteront : le plafond a caisson (aretes blanc sur blanc, gradients de 10 a 40, aucun appariement fiable d'une colonne a l'autre), les jonctions mur/plafond (meme probleme), et la direction des lames par orientationLocale, qui rend des angles de 1,5 a 178,9 degres avec des coherences de 0,25 a 0,64 — ce noyer est trop veine, sa figure noie ses joints. FOCALE PAR ORTHOGONALITE : 676 px, champ 99,6 degres, produit scalaire -456503. Le produit est negatif, donc les deux fuites encadrent le centre, donc les deux directions relevees sont bien perpendiculaires : la focale n'est pas une racine de complaisance. ECHELLE : seule la hauteur d'oeil reste choisie, a 1,30 m, et elle donne un rectangle de 3,93 sur 4,46 m dont le sol visible court de 1,9 a 7,8 m. Une chambre principale de quatre metres sur quatre et demi, plafond a caisson et ventilateur : c'est une grande maison, et les nombres lui vont.",
+  "image": {
+    "file": "room-chambre-claire.jpg",
+    "width": 1600,
+    "height": 1067,
+    "alt": "Chambre vide aux murs blancs et plafond à caisson, sol en lames foncées, trois fenêtres",
+    "credit": "Curtis Adams / Pexels"
+  },
+  "camera": {
+    "horizon": 0.4839,
+    "vanishingPoints": [
+      {
+        "x": 0.8305,
+        "y": 0.4839,
+        "weight": 1,
+        "role": "mur-gauche-plinthe-et-linteau"
+      },
+      {
+        "x": -0.0399,
+        "y": 0.4839,
+        "weight": 1,
+        "role": "mur-droit-plinthe-et-linteau"
+      }
+    ],
+    "heightM": 1.3,
+    "focalPx": 676,
+    "principalPoint": {
+      "x": 0.5,
+      "y": 0.4839
+    },
+    "principalNote": "Focale MESUREE par orthogonalite des deux fuites (676 px, champ 99,6 degres). Le calcul suppose le point principal au centre en abscisse ; les deux fuites encadrant le centre, l'hypothese tient. Seule la hauteur d'oeil est choisie."
+  },
+  "surfaces": [
+    {
+      "id": "sol",
+      "label": "Sol de la chambre",
+      "continuous": true
+    }
+  ],
+  "planes": {
+    "sol": {
+      "quad": [
+        {
+          "x": 0.4716,
+          "y": 0.589
+        },
+        {
+          "x": 0.7,
+          "y": 0.636
+        },
+        {
+          "x": 0.4594,
+          "y": 0.9165
+        },
+        {
+          "x": 0.18,
+          "y": 0.6744
+        }
+      ],
+      "meters": {
+        "width": 3.93,
+        "depth": 4.46
+      },
+      "origin": {
+        "u": 0,
+        "v": 0
+      },
+      "rotationDeg": 90,
+      "note": "Quadrilatere construit par quadDepuisPiece : le coin de la piece, un point sur chaque plinthe, et le QUATRIEME COIN IMPOSE par la perspective — intersection de (point droit vers fuite gauche) et de (point gauche vers fuite droite). Il n'est pas place a l'oeil, et c'est ce qui garantit que le quadrilatere est l'image d'un rectangle. Concordance 0,00 pour cent en largeur, 0,06 en profondeur. Les deux points courants ont ete choisis a x 0,70 et 0,18 pour que le quatrieme coin retombe DANS le cadre, a y 0,9165 : n'importe quel couple donnerait le meme plan, mais un rectangle qui deborde a y 2,01 est desagreable a relire. rotationDeg 90 met les lames dans la direction du mur gauche, sens de pose des lames en place."
+    }
+  },
+  "floorZones": [
+    {
+      "id": "chambre",
+      "label": "Chambre",
+      "surfaceId": "sol",
+      "planeRef": "sol",
+      "order": 0,
+      "mask": {
+        "polygon": [
+          {
+            "x": 0,
+            "y": 1
+          },
+          {
+            "x": 0,
+            "y": 0.7291
+          },
+          {
+            "x": 0.4716,
+            "y": 0.5909
+          },
+          {
+            "x": 0.9268,
+            "y": 0.6845
+          },
+          {
+            "x": 0.9268,
+            "y": 0.8103
+          },
+          {
+            "x": 0.9863,
+            "y": 1
+          }
+        ],
+        "holes": [],
+        "note": "Six sommets. Les trois premiers cotes suivent les deux droites de plinthe, decalees de deux pixels dans le sol. Le sommet a x 0,9255 descend VERTICALEMENT de y 0,684 a 0,843 : ce segment ne correspond a aucune arete reelle, il traverse la region cachee par la porte ouverte, et il raccorde la plinthe du mur droit a celle de l'embrasure. Sans lui, le masque couperait droit et laisserait le petit triangle de sol au-dela de la porte — quatre milliemes de l'image — a son parquet d'origine. L'occulteur de la porte couvre exactement ce raccord, donc il ne se voit pas. La plinthe de l'embrasure a ete relevee separement, de x 0,936 a 0,978, avec des marches de 97 a 127 niveaux et une pente de +2,11 : elle n'est alignee sur aucun des deux axes de la piece, ce qui est normal pour un tableau de porte. REPRISE apres rendu : la droite de l embrasure avait ete prise sur ses seuls points releves, de x 0,936 a 0,978, et le masque commencait donc a y 0,843. Au rendu, un lisere du parquet d origine restait visible au pied droit de la porte, vers (0,929 ; 0,830). La droite a ete PROLONGEE vers l amont a sa pente mesuree de +2,11 px/px, ce qui la place a y 0,810 des x 0,9268 — soit derriere la porte, donc invisible, et le lisere a disparu. Lecon : une droite ajustee vaut au-dela de l intervalle ou on l a relevee, a condition de le dire."
+      }
+    }
+  ],
+  "occluders": [
+    {
+      "id": "porte-ouverte",
+      "label": "Porte ouverte",
+      "kind": "furniture",
+      "polygon": [
+        {
+          "x": 0.841,
+          "y": 0.55
+        },
+        {
+          "x": 0.931,
+          "y": 0.55
+        },
+        {
+          "x": 0.931,
+          "y": 0.8209
+        },
+        {
+          "x": 0.841,
+          "y": 0.8209
+        }
+      ],
+      "depth": 0.35,
+      "castsShadow": true,
+      "feather": 0.0012,
+      "note": "La porte est le SEUL objet pose sur ce sol, et c'est la raison premiere du choix de cette photo apres trois echecs dus au mobilier. Rectangle et non silhouette : ses deux bords verticaux sont verticaux dans l'image, et sa base est plate — relevee a neuf colonnes entre x 0,845 et 0,925, elle rend y 0,8190 a deux milliemes pres, avec des marches de 51 a 74 niveaux. Le sommet est pose a y 0,55, bien au-dessus de la ligne du sol : au-dela, le masque ne peint rien de toute facon."
+    }
+  ],
+  "light": {
+    "kind": "photo-luma",
+    "strength": 1,
+    "blurRadius": 0.026,
+    "tint": 0.5,
+    "ambient": 0.3,
+    "contact": 0.5
+  }
+}
