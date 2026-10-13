@@ -471,7 +471,11 @@ function lameAtlas(ctx, x, y, w, h, random) {
   const horizontal = w >= h;
   const longPx = horizontal ? w : h;
   const traversPx = horizontal ? h : w;
-  const row = rows[Math.min(rows.length - 1, Math.floor(random() * rows.length))];
+  // Sample by the amount of real wood, not by the number of cut fragments.
+  // Equal weights made tiny knot fragments recur as often as long clear planks.
+  const totalWood = rows.reduce((sum, candidate) => sum + candidate.w, 0);
+  let remaining = random() * totalWood;
+  const row = rows.find(candidate => (remaining -= candidate.w) < 0) || rows[rows.length - 1];
   const besoin = Math.max(4, (longPx / TILE) * TILE_METERS * 1000 * ppm);
   const inverseLong = random() < 0.5;
   const inverseTravers = random() < 0.5;

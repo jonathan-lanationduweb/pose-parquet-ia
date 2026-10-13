@@ -51,7 +51,7 @@ const rendre = (piece, id, representatif) => page.evaluate(async ([piece, id, re
       c.PREMIBEL_DEMO_PRODUCTS.push({ ...vrai, id: cible, kind: 'temoin', materialFidelity: 'representative', renderProfile: vrai.representativeProfile });
     }
   }
-  const rendu = () => new Promise((ok) => { const t = () => (c.etatApplication() !== 'applying' && !c.state.applying && !c.state.pendingApply) ? ok() : requestAnimationFrame(t); t(); });
+  const rendu = () => new Promise((ok) => { const t = () => (c.etatApplication() === 'rendered' && c.state.applied.source === 'live' && c.state.applied.key === c.appliedKey() && !c.state.applying && !c.state.pendingApply) ? ok() : requestAnimationFrame(t); t(); });
   const t0 = performance.now();
   c.select(cible, true);
   if (c.state.roomId !== piece || c.state.source !== 'demo') c.openRoom(piece);
@@ -62,12 +62,13 @@ const rendre = (piece, id, representatif) => page.evaluate(async ([piece, id, re
 
 const journal = [];
 for (const piece of PIECES) {
-  for (const id of exactes) {
+  for (const id of [...exactes, 'POINF39011']) {
     const r = await rendre(piece, id, false);
-    fs.writeFileSync(path.join(OUT, `${piece}-${id}-exact.jpg`), Buffer.from(r.img.split(',')[1], 'base64'));
-    journal.push({ piece, id, kind: 'exact', ms: r.ms, etat: r.etat });
-    console.log(piece, id, 'exact', r.etat, r.ms);
-    if (piece === 'piece-claire') {
+    const fidelity = exactes.includes(id) ? 'exact' : 'representative';
+    fs.writeFileSync(path.join(OUT, `${piece}-${id}-${fidelity}.jpg`), Buffer.from(r.img.split(',')[1], 'base64'));
+    journal.push({ piece, id, kind: fidelity, ms: r.ms, etat: r.etat });
+    console.log(piece, id, fidelity, r.etat, r.ms);
+    if (piece === 'piece-claire' && exactes.includes(id)) {
       const rep = await rendre(piece, id, true);
       if (!rep.absent) {
         fs.writeFileSync(path.join(OUT, `${piece}-${id}-representative.jpg`), Buffer.from(rep.img.split(',')[1], 'base64'));
@@ -80,3 +81,5 @@ for (const piece of PIECES) {
 fs.writeFileSync(path.join(OUT, 'renders.json'), JSON.stringify({ exactes, journal, erreurs }, null, 2));
 console.log('erreurs console', erreurs.length ? erreurs : 0);
 await browser.close();
+
+if (erreurs.length) process.exitCode = 1;

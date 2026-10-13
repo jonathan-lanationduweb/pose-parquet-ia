@@ -42,10 +42,11 @@ def memory_mb() -> float | None:
 
 out = Path("review/roomvo-v2")
 out.mkdir(parents=True, exist_ok=True)
-image = cv2.cvtColor(
-    cv2.imread(os.environ.get("PPAI_PROFILE_PHOTO", "datasets/private-real/salon.jpg")),
-    cv2.COLOR_BGR2RGB,
-)
+photo_path = os.environ.get("PPAI_PROFILE_PHOTO", "datasets/private-real/salon.jpg")
+photo = cv2.imread(photo_path)
+if photo is None:
+    raise ValueError(f"Image unreadable: {photo_path}")
+image = cv2.cvtColor(photo, cv2.COLOR_BGR2RGB)
 engine = OneFormerFloor()
 t0 = time.perf_counter()
 engine._charger()

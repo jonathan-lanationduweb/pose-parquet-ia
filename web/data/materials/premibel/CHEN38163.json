@@ -38,6 +38,7 @@
   "atlas": {
     "url": "assets/products/premibel/materials/CHEN38163.atlas.webp",
     "ppm": 0.6,
+    "version": "4ed44c6c09fdb22b",
     "rows": [
       {
         "x": 0,

@@ -99,7 +99,7 @@ def main() -> None:
         "counts": dict(sorted(compte.items())),
         "plankSamples": 0,
         "note": "E (plusieurs lames ou échantillons) : aucun — l'export ne fournit ni `sample` ni "
-        "`plankVariants` ni cartes de matière (0 sur 395).",
+        "`plankVariants` ni cartes de matière (0 référence fournie).",
     }
     (SORTIE / "inventory.json").write_text(
         json.dumps({"summary": resume, "products": lignes}, ensure_ascii=False, indent=2) + "\n",
@@ -123,7 +123,7 @@ def main() -> None:
     }
     for t in "ABCDEF":
         md.append(f"| {t} | {sens[t]} | {compte.get(t, 0)} |")
-    md += ["", resume["note"]]
+    md += ["", str(resume["note"])]
     (SORTIE / "inventory.md").write_text("\n".join(md) + "\n", encoding="utf-8")
     print(json.dumps(resume, ensure_ascii=False))
 

@@ -1275,3 +1275,33 @@ body[data-application="applying"] #photoScan::before { animation: photoScan 2.4s
 .catalog-discovery label.apercu-filtre { position: static; width: auto; height: auto; overflow: visible; clip-path: none;
   display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--ink-2, #4a453d); cursor: pointer; }
 .catalog-discovery label.apercu-filtre input { width: 16px; min-height: 0; height: 16px; padding: 0; margin: 0; accent-color: #2f2a22; }
+
+/* Compact, product-safe width choices. */
+#widths { display:flex; gap:8px; flex-wrap:wrap; }
+#widths .width-current { flex-basis:100%; font-size:13px; margin-bottom:6px; }
+#widths .width-choice { flex:1 1 84px; min-height:60px; border-radius:12px; display:flex; flex-direction:column; gap:4px; padding:10px 6px; }
+#widths .width-choice span { font-size:11px; font-weight:400; }
+
+/* Mobile navigation: products first, clear return, no production test menu. */
+#developerMenu[hidden] { display:none!important; }
+.catalog-about { margin:10px 0; font-size:12px; color:var(--ink-3); }
+.catalog-about summary { cursor:pointer; }
+.catalog-about p { margin:8px 0; }
+@media(max-width:1023px) {
+  .dw[data-mode="catalog"][data-size="medium"], .dw[data-mode="favorites"][data-size="medium"],
+  .dw[data-mode="rooms"][data-size="medium"] { max-height:78dvh; }
+  .dw[data-mode="catalog"][data-size="expanded"], .dw[data-mode="favorites"][data-size="expanded"],
+  .dw[data-mode="rooms"][data-size="expanded"] { max-height:86dvh; }
+  .dw .catalog-discovery { gap:8px; }
+  .dw .catalog-filters { margin:8px 0; }
+}
+@media(max-width:700px) {
+  .home-return { font-size:12px; width:auto; min-width:70px; padding:0 8px; }
+  .home-return::before { content:none; }
+}
+
+.catalog-collection { display:grid; gap:8px; margin:14px 0; }
+.catalog-collection label { font-size:12px; }
+.catalog-collection select { width:100%; min-height:44px; padding:8px; border:1px solid var(--line); border-radius:9px; background:var(--paper,#fff); color:var(--ink); }
+.catalog-collection .apercu-filtre { display:flex; align-items:center; gap:8px; min-height:44px; }
+.catalog-extra h3 { font-size:13px; }

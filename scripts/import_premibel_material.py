@@ -24,8 +24,8 @@ Pour chaque zone :
    0,6 px/mm (plus du double de la tuile du moteur, 0,27 px/mm).
 
 Validation : une matière n'est déclarée ``exact`` que si la photo est assez
-fine (≥ 0,3 px/mm dans le bois), si au moins trois morceaux de lames
-distincts en sortent, et s'ils totalisent au moins 0,6 m de bois. Sinon le
+fine (≥ 0,3 px/mm dans le bois), si au moins quatre morceaux de lames
+distincts en sortent, et s'ils totalisent au moins 1,5 m de bois et une longueur de lame. Sinon le
 produit garde sa matière représentative, et la raison est écrite.
 
 Sorties :
@@ -43,8 +43,10 @@ Rien n'est téléchargé : seules les images déjà présentes localement serven
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -70,7 +72,7 @@ MORCEAUX_MIN = 4
 #: 0,96 m de bois pour des lames de 1,21 m, le même nœud revenait partout).
 BOIS_MIN_M = 1.5
 #: Une « lame entière » annotée doit retrouver, redressée, l'aspect réel de
-#: la lame à ±25 % près ; sinon l'annotation (ou la perspective) est fausse.
+#: la lame à ±45 % près ; sinon l'annotation (ou la perspective) est fausse.
 TOLERANCE_ASPECT = 0.45
 #: Marge retirée de chaque côté d'une lame : le chanfrein et le joint ne
 #: doivent pas entrer dans la matière (le moteur dessine les siens).
@@ -148,7 +150,7 @@ def affiner_fuite(img: np.ndarray, quad_px: np.ndarray) -> tuple[np.ndarray, str
     droites qui rejoignent la fuite. Sans assez de segments, la zone reste
     telle qu'annotée, et c'est écrit.
     """
-    gris = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    gris = np.asarray(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY))
     masque = np.zeros(gris.shape, np.uint8)
     cv2.fillConvexPoly(masque, quad_px.astype(np.int32), 255)
     lsd = cv2.createLineSegmentDetector()
@@ -192,7 +194,8 @@ def affiner_fuite(img: np.ndarray, quad_px: np.ndarray) -> tuple[np.ndarray, str
         q[i_loin] = q[i_proche] + max(0.05, min(0.95, t)) * d
     # Garde-fou : une correction qui change l'aire de la zone de plus de 35 %
     # n'est pas une correction, c'est une autre zone. On garde l'annotation.
-    aire = lambda z: abs(cv2.contourArea(z.astype(np.float32)))  # noqa: E731
+    def aire(z: np.ndarray) -> float:
+        return abs(float(cv2.contourArea(z.astype(np.float32))))
     if not 0.65 < aire(q) / max(1e-6, aire(quad_px)) < 1.35:
         return quad_px, "annotee (fuite mesuree incoherente)"
     return q, f"mesuree:{len(lignes)} segments"
@@ -501,6 +504,7 @@ def definition(
         "atlas": {
             "url": f"assets/products/premibel/materials/{produit['id']}.atlas.webp",
             "ppm": PPM_ATLAS,
+            "version": hashlib.sha256(atl.tobytes()).hexdigest()[:16],
             "rows": rects,
         },
         "provenance": {
@@ -575,8 +579,9 @@ def planche(
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("ids", nargs="*")
+    parser.add_argument("--manifest", type=Path, default=SOURCES)
     args = parser.parse_args()
-    sources = json.loads(SOURCES.read_text(encoding="utf-8"))
+    sources = json.loads(args.manifest.read_text(encoding="utf-8"))
     familles = {f["id"]: f for f in json.loads(FAMILLES.read_text(encoding="utf-8"))["parquets"]}
     SORTIE_DEF.mkdir(parents=True, exist_ok=True)
     SORTIE_ATLAS.mkdir(parents=True, exist_ok=True)
@@ -587,6 +592,10 @@ def main() -> None:
         else {"materials": {}}
     )
     for produit in sources["products"]:
+        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,80}", str(produit.get("id", ""))):
+            raise ValueError(
+                "Invalid product reference: output paths must remain inside material directories"
+            )
         if args.ids and produit["id"] not in args.ids:
             continue
         # La note de revue humaine survit à une nouvelle extraction.

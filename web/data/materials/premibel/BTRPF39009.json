@@ -38,6 +38,7 @@
   "atlas": {
     "url": "assets/products/premibel/materials/BTRPF39009.atlas.webp",
     "ppm": 0.6,
+    "version": "2be3b88bb164b923",
     "rows": [
       {
         "x": 0,

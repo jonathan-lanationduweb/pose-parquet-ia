@@ -27,7 +27,7 @@ SOURCES = RACINE / "web/data/materials/premibel-sources.json"
 INDEX = RACINE / "web/data/materials/premibel/index.json"
 
 
-def police(taille: int) -> ImageFont.ImageFont:
+def police(taille: int) -> ImageFont.ImageFont | ImageFont.FreeTypeFont:
     for nom in ("segoeui.ttf", "arial.ttf"):
         try:
             return ImageFont.truetype(nom, taille)

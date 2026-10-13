@@ -756,7 +756,8 @@ ok('il explique qu une reference est definie',
   /matières et les poses/.test(el('cusIntro').innerHTML));
 ok('les trois motifs sont proposes', count('patterns', /class="pt"/g) === 3);
 ok('chaque motif mene a une reference', count('patterns', /data-variant="[A-Z]/g) === 3);
-ok('les quatre largeurs du catalogue', count('widths', /class="chip"/g) === 4);
+ok('au plus trois choix de largeur compatibles', count('widths', /data-variant=/g) <= 3 && count('widths', /data-variant=/g) > 0);
+ok('pas de longue liste répétée dans la note', !/catalogue sont/.test(el('widthNote').textContent));
 ok('les trois teintes du catalogue', count('tones', /class="chip"/g) === 3);
 /* La finition, le veinage et les joints ne sont pas reglables par le moteur :
    il n'y a donc AUCUN controle, seulement une phrase qui le dit. */

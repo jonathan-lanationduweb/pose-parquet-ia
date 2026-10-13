@@ -106,8 +106,16 @@ const cache = new Map();
 const MAX_CACHE = 12;
 /** Niveaux de la pyramide attendus par le moteur logiciel. */
 const NIVEAUX = 5;
+export const textureResolution = (config = {}) => {
+  let requested = config.textureSize;
+  if (!requested && typeof window !== 'undefined') {
+    const search = new URLSearchParams(window.location.search);
+    if (search.get('dev') === '1') requested = Number(search.get('textureSize'));
+  }
+  return [512,768,1024,1280].includes(Number(requested)) ? Number(requested) : 1024;
+};
 const key = (material, config) =>
-  `${material.id}|${config.pattern}|${config.width || 'auto'}|${config.plankLength || 'auto'}`;
+  `${material.id}|${config.pattern}|${config.width || 'auto'}|${config.plankLength || 'auto'}|${textureResolution(config)}|${material.atlas?.version || ''}`;
 
 /**
  * Relief dérivé de l'albedo.
@@ -140,7 +148,7 @@ function assemble(material, tile, albedo0, relief0) {
     relief,
     tile,
     meters: TILE_METERS,
-    size: TILE,
+    size: albedo0.size,
     surface: material.surface,
     /**
      * Complète la pyramide : à appeler avant tout échantillonnage de niveau > 0.
@@ -200,6 +208,7 @@ function obtenirWorker() {
     const attente = enCours.get(id);
     if (!attente) return;
     enCours.delete(id);
+    clearTimeout(attente.timer);
     if (erreur) {
       attente.reject(new Error(erreur));
       return;
@@ -214,12 +223,16 @@ function obtenirWorker() {
     // le tampon reçu, sans copie.
     const a0 = { size: albedo.size, data: new Uint8ClampedArray(albedo.data.buffer || albedo.data) };
     const r0 = { size: relief.size, data: new Uint8ClampedArray(relief.data.buffer || relief.data) };
-    releve('G.tuile.worker', performance.now() - attente.depart);
+    const received = performance.now();
+    releve('G.tuile.worker', received - attente.depart);
+    if (etapes) releve('G4.worker.queue-transfer', Math.max(0, received - attente.depart - etapes.total));
     /* Le detail vient du worker : il est le seul a pouvoir le mesurer. */
     if (etapes) {
       releve('G1.dessin.canvas2d', etapes.dessin);
       releve('G2.lecturePixels', etapes.lecturePixels);
       releve('G3.relief', etapes.relief);
+      releve('G0.asset.fetch', etapes.fetch || 0);
+      releve('G0.asset.decode', etapes.decode || 0);
     }
     const maps = retenir(attente.cle, assemble(attente.material, null, a0, r0));
     attente.resolve(maps);
@@ -228,7 +241,10 @@ function obtenirWorker() {
   worker.onerror = () => {
     // Le worker est hors d'usage : on rejette ce qui attend et on repasse en
     // synchrone pour la suite de la session.
-    enCours.forEach((att) => att.reject(new Error('worker de texture indisponible')));
+    enCours.forEach((att) => {
+      clearTimeout(att.timer);
+      att.reject(new Error('worker de texture indisponible'));
+    });
     enCours.clear();
     worker.terminate();
     worker = null;
@@ -256,25 +272,32 @@ export function enFabrication(material, config) {
  * Demande les cartes au worker. Résout avec l'objet `maps`, déjà en cache.
  * Deux demandes identiques ne lancent qu'un calcul.
  */
-export function materialMapsAsync(material, config = {}) {
+export function materialMapsAsync(material, config = {}, { priority = 'user' } = {}) {
   const cle = key(material, config);
   if (cache.has(cle)) return Promise.resolve(cache.get(cle));
   const deja = [...enCours.values()].find((a) => a.cle === cle);
-  if (deja) return deja.promesse;
+  if (deja) { if (priority === 'user') deja.priority='user'; return deja.promesse; }
+  // A requested product must not wait behind a cold idle tile already rasterizing.
+  if (priority === 'user' && worker && enCours.size
+      && [...enCours.values()].every(a => a.priority === 'background')) {
+    worker.terminate(); worker=null;
+    for (const pending of enCours.values()) { clearTimeout(pending.timer); pending.reject(new Error('idle texture interrupted')); }
+    enCours.clear();
+  }
   const w = obtenirWorker();
-  if (!w) return Promise.resolve(materialMaps(material, config));
+  if (!w) return Promise.resolve().then(() => materialMaps(material, config));
   let resolve; let reject;
   const promesse = new Promise((res, rej) => { resolve = res; reject = rej; });
   const id = (compteur += 1);
   /* L'etape la plus chere du premier rendu, et la seule qui ne soit pas sur
      le fil principal : sans ce repere, le rapport de performance montre un
      trou d'une a trois secondes que rien n'explique. */
-  enCours.set(id, { cle, material, resolve, reject, promesse, depart: performance.now() });
+  enCours.set(id, { cle, material, resolve, reject, promesse, priority, depart: performance.now() });
   /* Jamais d'attente sans fin : un worker qui ne répond plus (tué par le
      navigateur, bloqué) ne doit pas suspendre le rendu pour toujours. La
      réponse tardive, si elle vient, est ignorée (`enCours` ne la connaît
      plus) ; la demande suivante relance une fabrication. */
-  setTimeout(() => {
+  enCours.get(id).timer = setTimeout(() => {
     if (!enCours.has(id)) return;
     enCours.delete(id);
     reject(new Error('worker de texture : délai dépassé'));
@@ -283,7 +306,7 @@ export function materialMapsAsync(material, config = {}) {
   w.postMessage({
     id,
     material: JSON.parse(JSON.stringify(material)),
-    config: { pattern: config.pattern || material.defaultPattern, width: config.width || null, plankLength: config.plankLength || null },
+    config: { pattern: config.pattern || material.defaultPattern, width: config.width || null, plankLength: config.plankLength || null, size: textureResolution(config) },
   });
   return promesse;
 }
@@ -314,12 +337,15 @@ const MAX_APERCUS = 24;
  * et taille ; repli synchrone sans worker.
  */
 export function apercuAsync(material, pattern, size = 320) {
-  const cle = `apercu|${material.id}|${pattern}|${size}`;
+  const cle = `apercu|${material.id}|${pattern}|${size}|${material.atlas?.version || ""}`;
   if (apercus.has(cle)) return Promise.resolve(apercus.get(cle));
   const deja = [...enCours.values()].find((a) => a.cle === cle);
   if (deja) return deja.promesse;
   const wk = obtenirWorker();
-  if (!wk) return Promise.resolve(buildTexture(material, { pattern, size }));
+  if (!wk) {
+    if (material.atlas?.url) return Promise.reject(new Error('Exact preview requires its atlas worker'));
+    return Promise.resolve().then(() => buildTexture(material, { pattern, size }));
+  }
   if (apercus.size >= MAX_APERCUS) {
     const premier = apercus.keys().next().value;
     const vieux = apercus.get(premier);
@@ -329,7 +355,7 @@ export function apercuAsync(material, pattern, size = 320) {
   let resolve; let reject;
   const promesse = new Promise((res, rej) => { resolve = res; reject = rej; });
   const id = (compteur += 1);
-  enCours.set(id, { cle, material, resolve, reject, promesse });
+  enCours.set(id, { cle, material, resolve, reject, promesse, priority:'background' });
   wk.postMessage({ id, kind: 'apercu', material: JSON.parse(JSON.stringify(material)), config: { pattern, size } });
   return promesse;
 }
@@ -353,6 +379,8 @@ export function materialMaps(material, config = {}) {
     return null;
   }
 
+  if (material.atlas?.url) throw new Error('Exact material requires its atlas worker; procedural substitution refused');
+
   // `width` n'est transmis que si l'utilisateur l'a explicitement réglé : sans
   // quoi on court-circuiterait le choix de largeur propre au motif (une lame
   // droite de 18 cm, un chevron de 9 cm).
@@ -360,6 +388,7 @@ export function materialMaps(material, config = {}) {
     pattern: config.pattern || material.defaultPattern,
     width: config.width || null,
     plankLength: config.plankLength || null,
+    size: textureResolution(config),
   }));
   // Niveau 0 seulement : les réductions ne servent qu'au moteur logiciel, et
   // `completer()` les fabrique le jour où il les demande. Voir etendreMips().
@@ -393,7 +422,7 @@ export function enCache(material, config) {
  */
 export function warmMaterial(material, config) {
   if (cache.has(key(material, config))) return;
-  const run = () => { materialMapsAsync(material, config).catch(() => {}); };
+  const run = () => { materialMapsAsync(material, config, {priority:'background'}).catch(() => {}); };
   if (typeof window.requestIdleCallback === 'function') window.requestIdleCallback(run);
   else window.setTimeout(run, 400);
 }

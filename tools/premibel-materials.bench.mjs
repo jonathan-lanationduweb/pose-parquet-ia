@@ -4,7 +4,7 @@
       PPAI_PLAYWRIGHT_CORE=<playwright-core> node tools/premibel-materials.bench.mjs [runs]
 
   Pour chaque run, deux pages neuves (préchargement du catalogue coupé par
-  `?dev=1&prefetch=0`, pour que « froid » veuille dire froid) :
+  `?dev=1&prefetch=0&initialProduct=CHENF39031`, pour que « froid » veuille dire froid) :
 
     page A  pièce ouverte, puis chaque produit une première fois (FROID),
             puis chaque produit une seconde fois (EN CACHE : rendu déjà fait) ;
@@ -38,7 +38,7 @@ async function page() {
   const erreurs = [];
   p.on('pageerror', (e) => erreurs.push(String(e)));
   p.on('console', (m) => { if (m.type() === 'error') erreurs.push(m.text()); });
-  await p.goto(`${BASE}/tools/product-concept.html?dev=1&prefetch=0`);
+  await p.goto(`${BASE}/tools/product-concept.html?dev=1&prefetch=0&initialProduct=CHENF39031`);
   await p.waitForFunction(() => window.__concept && window.__concept.DEMO_ROOMS.length > 0
     && window.__concept.adapter.connecte, null, { timeout: 90000 });
   /* Ouvrir la pièce avec le produit par défaut, puis attendre le rendu. */
@@ -58,7 +58,7 @@ const mesurer = (p, id, avant) => p.evaluate(async ([id, avant]) => {
     await new Promise((ok) => { const t = () => (c.adapter.matierePrete(prod.renderProfile) ? ok() : setTimeout(t, 30)); t(); });
     await new Promise((r) => setTimeout(r, 100));
   }
-  const rendu = () => new Promise((ok) => { const t = () => (c.etatApplication() !== 'applying' && !c.state.applying && !c.state.pendingApply) ? ok() : requestAnimationFrame(t); t(); });
+  const rendu = () => new Promise((ok) => { const t = () => (c.etatApplication() === 'rendered' && c.state.applied.source === 'live' && c.state.applied.key === c.appliedKey() && !c.state.applying && !c.state.pendingApply) ? ok() : requestAnimationFrame(t); t(); });
   const t0 = performance.now(); c.select(id, true); await rendu();
   return { ms: Math.round(performance.now() - t0), etat: c.etatApplication(), fid: prod.materialFidelity };
 }, [id, avant]);

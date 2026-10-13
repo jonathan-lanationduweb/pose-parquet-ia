@@ -31,10 +31,13 @@ import { reliefFromAlbedo } from './relief.js';
 const atlas = new Map();
 function chargerAtlas(url) {
   if (!atlas.has(url)) {
-    atlas.set(url, fetch(url)
-      .then((r) => { if (!r.ok) throw new Error(`atlas ${r.status}`); return r.blob(); })
-      .then((b) => createImageBitmap(b))
-      .catch((e) => { atlas.delete(url); throw e; }));
+    atlas.set(url, (async () => {
+      const begin=performance.now(), response=await fetch(url);
+      if (!response.ok) throw new Error(`atlas ${response.status}`);
+      const blob=await response.blob(), fetched=performance.now();
+      const bitmap=await createImageBitmap(blob);
+      return {bitmap, fetchMs:fetched-begin, decodeMs:performance.now()-fetched};
+    })().catch(e=>{atlas.delete(url);throw e;}));
   }
   return atlas.get(url);
 }
@@ -46,7 +49,9 @@ self.onmessage = async (event) => {
        procédurale à sa place — ce serait mentir sur la fidélité. L'erreur
        remonte, et la page garde le produit en matière représentative. */
     const tA0 = performance.now();
-    const bitmap = material && material.atlas && material.atlas.url ? await chargerAtlas(material.atlas.url) : null;
+    const atlasWasCached = Boolean(material?.atlas?.url && atlas.has(material.atlas.url));
+    const loaded = material && material.atlas && material.atlas.url ? await chargerAtlas(material.atlas.url) : null;
+    const bitmap=loaded?.bitmap || null;
     const tAtlas = performance.now();
     if (kind === 'apercu') {
       // Aperçu d'un motif pour le panneau : même dessin, tuile réduite, et un
@@ -62,6 +67,7 @@ self.onmessage = async (event) => {
       width: config.width || null,
       plankLength: config.plankLength || null,
       atlas: bitmap,
+      size: config.size || 1280,
     });
     const t1 = performance.now();
     const [albedo] = buildMips(tile, 1);
@@ -74,6 +80,9 @@ self.onmessage = async (event) => {
         albedo,
         relief,
         etapes: {
+          fetch: atlasWasCached ? 0 : loaded?.fetchMs || 0,
+          decode: atlasWasCached ? 0 : loaded?.decodeMs || 0,
+          total: t3 - tA0,
           dessin: t1 - t0,
           lecturePixels: t2 - t1,
           relief: t3 - t2,

@@ -89,7 +89,9 @@ async function loadExactMaterials(base) {
     const resultats = await Promise.all(entrees.map(async ([produit, e]) => {
       try {
         const def = await (await fetch(`${base}${e.definition}`, { cache: 'no-cache' })).json();
-        const url = new URL(`${base}${def.atlas.url}`, globalThis.location ? globalThis.location.href : undefined).href;
+        const atlasUrl = new URL(`${base}${def.atlas.url}`, globalThis.location ? globalThis.location.href : undefined);
+        if (def.atlas.version) atlasUrl.searchParams.set("v", def.atlas.version);
+        const url = atlasUrl.href;
         const tete = await fetch(url, { method: 'HEAD', cache: 'no-cache' });
         if (!tete.ok) return null;
         return { produit, entree: e, material: createMaterial({ ...def, atlas: { ...def.atlas, url } }) };
@@ -206,7 +208,7 @@ export async function createLocalRenderer({ base = '', prefer = 'auto' } = {}) {
       const m = materials.get(prochain.materialFamily);
       const conf = { pattern: prochain.pattern, width: prochain.widthM || null, plankLength: prochain.lengthM || null };
       if (!m || enCache(m, conf)) { pomperMatieres(); return; }
-      materialMapsAsync(m, conf).catch(() => {}).finally(pomperMatieres);
+      materialMapsAsync(m, conf, {priority:'background'}).catch(() => {}).finally(pomperMatieres);
     });
   }
 

@@ -906,8 +906,8 @@
         <input id="catSearch" type="search" placeholder="Chêne fumé, naturel, bâton rompu…" />
         <label for="catCollection">Collection</label>
         <select id="catCollection"><option value="all">Tous les parquets</option><option value="inspiration">Inspirations</option><option value="premibel">Références Premibel</option></select>
-        <label class="apercu-filtre"><input type="checkbox" id="fApercu" /> Aperçu disponible</label>
-        <p id="catalogSummary">Références Premibel et inspirations. Matières indicatives.</p>
+        <label class="apercu-filtre"><input type="checkbox" id="fApercu" checked /> Aperçu disponible</label>
+        <details class="catalog-about"><summary>À propos des aperçus</summary><p id="catalogSummary">Références Premibel et inspirations. Matières indicatives.</p></details>
       </div>
       <details class="catalog-filters"><summary>Filtres et inspirations</summary>
     <div class="side">
@@ -983,11 +983,13 @@
 <div id="menu" class="hidden">
   <button class="mi" id="menuImport" type="button">Importer une photo</button>
   <button class="mi" id="menuRooms" type="button">Choisir une pièce</button>
+  <div id="developerMenu" hidden>
   <div class="sep"></div>
   <p class="cat">Scénarios de démonstration</p>
   <button class="mi" type="button" data-demo="success" aria-pressed="true">Analyse réussie</button>
   <button class="mi" type="button" data-demo="partial" aria-pressed="false">Analyse partielle</button>
   <button class="mi" type="button" data-demo="rejected" aria-pressed="false">Photo refusée</button>
+  </div>
 </div>
 
 <!-- Le moteur LOCAL. Charge en module, il pose son usine sur
@@ -1356,7 +1358,7 @@
     productId: 'POINF36005',
     /* Un vrai produit porte sa largeur et sa finition : elles ne sont plus
        des réglages. Seul le sens de pose en est un. */
-    filters: { pattern: null, tone: null, widthMm: null, mood: null },
+    filters: { pattern: null, tone: null, widthMm: null, mood: null, apercu: true },
     /* Catégorie ouverte dans les sélecteurs de pièce ; `null` = la liste
        des catégories. */
     roomCategory: null,
@@ -3257,7 +3259,7 @@
     closeAll();
     enter(true);
     setDemo('success', true);
-    toast(room().label);
+    if (DEV) toast(room().label);
   }
 
   function enter(refit) {
@@ -3671,6 +3673,7 @@
 
   function paintCatalogue() {
     const f = state.filters;
+    $('fApercu').checked = Boolean(f.apercu);
     $('fPattern').innerHTML = presentPatterns().map((k) =>
       `<button class="chip" type="button" data-f="pattern" data-v="${k}"
         aria-pressed="${f.pattern === k}">${PATTERNS[k]}</button>`).join('');
@@ -3692,7 +3695,7 @@
        cartes qui ne mènent à rien. Tri stable : l'ordre du catalogue tient
        à l'intérieur de chaque groupe. */
     const rang = (p) => (p.kind === 'inspiration' ? 2 : p.renderable === false ? 1 : 0);
-    const list = (favoris ? PREMIBEL_DEMO_PRODUCTS.filter((p) => state.favourites.has(p.id)) : visible())
+    const list = (favoris ? PREMIBEL_DEMO_PRODUCTS.filter((p) => state.favourites.has(p.id) && (!f.apercu || p.renderable !== false)) : visible())
       .map((p, i) => [p, i]).sort((a, b) => rang(a[0]) - rang(b[0]) || a[1] - b[1]).map(([p]) => p);
     if (favoris && !list.length) { state.catalogueView = 'all'; paintCatalogue(); return; }
     $('catCount').textContent = favoris ? `(${list.length} en favoris)` : comptesListe(list);
@@ -3791,16 +3794,27 @@
     }).join('');
     $('patternNote').textContent = 'Changer de motif change de référence.';
 
-    $('widths').innerHTML = presentWidths().map((mm) => {
-      const t = findMatchingProduct({ widthMm: mm });
-      return `<button class="chip" type="button" data-variant="${t ? t.id : ''}"
-        aria-pressed="${mm === entry.widthMm}">${mm} mm</button>`;
-    }).join('');
-    const others = presentWidths().filter((mm) => mm !== entry.widthMm);
-    $('widthNote').textContent = others.length
-      ? `${entry.name} n'existe qu'en ${entry.widthMm} mm ; les autres largeurs `
-        + `du catalogue sont ${others.join(', ')} mm.`
-      : '';
+    // Width choices are other renderable products of the SAME laying pattern.
+    // Accessories and square panels remain in the catalogue, not in plank controls.
+    const widthGroups = [
+      {label:'Étroites', hint:'Jusqu’à 120 mm', min:0, max:120},
+      {label:'Moyennes', hint:'121 à 180 mm', min:120, max:180},
+      {label:'Larges', hint:'Plus de 180 mm', min:180, max:Infinity},
+    ];
+    const compatible = PREMIBEL_DEMO_PRODUCTS.filter(p => p.renderable !== false
+      && p.renderProfile && p.pattern === entry.pattern && p.widthMm > 0);
+    $('widths').innerHTML = `<span class="width-current">Largeur du parquet choisi : <strong>${entry.widthMm} mm</strong></span>`
+      + widthGroups.map(group => {
+        const options = compatible.filter(p => p.widthMm > group.min && p.widthMm <= group.max);
+        if (!options.length) return '';
+        const chosen = entry.widthMm > group.min && entry.widthMm <= group.max;
+        const target = chosen ? entry : options.slice().sort((a,b) =>
+          Math.abs(a.widthMm-entry.widthMm)-Math.abs(b.widthMm-entry.widthMm)
+          || Number(b.tone===entry.tone)-Number(a.tone===entry.tone))[0];
+        return `<button class="chip width-choice" type="button" data-variant="${target.id}"
+          aria-pressed="${chosen}"><strong>${group.label}</strong><span>${group.hint}</span></button>`;
+      }).join('');
+    $('widthNote').textContent = 'Changer de largeur sélectionne un autre parquet du même motif.';
 
     $('tones').innerHTML = presentTones().map((k) => {
       const t = findMatchingProduct({ tone: k });
@@ -4024,7 +4038,7 @@
        ainsi 350 à 450 ms à s'afficher, pour 0 ms de moteur. */
     marquerSelection();
     paintCustom();
-    if (!silent) toast(`${entry.name} · ${PATTERNS[entry.pattern]}`);
+    if (!silent && DEV) toast(`${entry.name} · ${PATTERNS[entry.pattern]}`);
   }
 
   /**
@@ -4211,7 +4225,7 @@
     };
   });
   $('clearFilters').onclick = () => {
-    state.filters = { pattern: null, tone: null, widthMm: null, mood: null };
+    state.filters = { pattern: null, tone: null, widthMm: null, mood: null, apercu: true };
     state.catalogSearch = ''; state.catalogCollection = 'all';
     $('catSearch').value = ''; $('catCollection').value = 'all';
     paintCatalogue();
@@ -4427,8 +4441,10 @@
        ~0,7 s, contre 5 à 8 s pour le point de Hongrie procédural qui ouvrait
        la page — et ce calcul se disputait la machine avec l'éclairage de la
        première pièce (mesuré le 13 octobre 2026). */
-    const parDefaut = 'BTRPF39009';
-    if (!state.source && state.intent === 0 && exactes.some((m) => m.product === parDefaut)) state.productId = parDefaut;
+    const benchmarkInitial = DEV ? new URLSearchParams(window.location.search).get('initialProduct') : null;
+    const benchmarkProduct = benchmarkInitial && PREMIBEL_DEMO_PRODUCTS.find(p => p.id === benchmarkInitial && p.renderable !== false);
+    const parDefaut = benchmarkProduct ? benchmarkProduct.id : 'BTRPF39009';
+    if (!state.source && state.intent === 0 && (benchmarkProduct || exactes.some((m) => m.product === parDefaut))) state.productId = parDefaut;
     if (appliquerMatieresExactes(exactes)) {
       paintCatalogue();
       const resume = $('catalogSummary');

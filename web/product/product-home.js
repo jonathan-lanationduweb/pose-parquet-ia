@@ -24,7 +24,7 @@ export function installProductHome(getConcept) {
     clear(){if(c.state.source==='uploaded')home();for(const room of session.values())URL.revokeObjectURL(room.url);session.clear();renderSession();},
     get count(){return session.size;},home,
   };
-  const back=document.createElement('button');back.id='homeReturn';back.className='home-return';back.type='button';back.textContent='‹ Mes pièces';back.setAttribute('aria-label','Retour à mes pièces');back.onclick=home;document.querySelector('header').insertBefore(back,document.getElementById('hSwap'));
+  const back=document.createElement('button');back.id='homeReturn';back.className='home-return';back.type='button';back.textContent='‹ Pièces';back.setAttribute('aria-label','Retour à mes pièces');back.onclick=home;document.querySelector('header').insertBefore(back,document.getElementById('hSwap'));
   const download=document.createElement('button');download.type='button';download.textContent='↓';download.title='Télécharger le rendu';download.setAttribute('aria-label','Télécharger le rendu');
   download.onclick=()=>{if(c.state.applying)return;const canvas=document.getElementById('after');if(!canvas?.width||!c.state.applied.source)return;canvas.toBlob(blob=>{if(!blob)return;const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='mon-parquet.jpg';a.click();setTimeout(()=>URL.revokeObjectURL(url),5000);},'image/jpeg',.94);};
   const tools=document.getElementById('tools');
@@ -41,9 +41,15 @@ export function installProductHome(getConcept) {
   const sync=()=>{back.hidden=!c.state.source;};
   const observer=new MutationObserver(sync);observer.observe(document.getElementById('stage'),{attributes:true,attributeFilter:['class']});sync();
   document.getElementById('hSwap').onclick=home;
+  document.getElementById('menuRooms').onclick=home;
+  document.getElementById('developerMenu').hidden=!c.DEV;
+  const closeOptions=()=>toggle(false);
+  document.getElementById('hSwap').addEventListener('click',closeOptions);
+  back.addEventListener('click',closeOptions);
+  document.getElementById('menuRooms').addEventListener('click',closeOptions);
   document.getElementById('catalogSummary').textContent=c.resumeCatalogue();
-  const filters=document.createElement('details');filters.className='catalog-extra';
-  const summary=document.createElement('summary');summary.textContent='Plus de filtres';filters.appendChild(summary);
+  const filters=document.createElement('div');filters.className='catalog-extra';
+  const summary=document.createElement('h3');summary.textContent='Finition et collection';filters.appendChild(summary);
   for(const [key,label] of [['finish','Finition'],['collection','Collection'],['species','Essence'],['type','Type']]){
     const wrap=document.createElement('label');wrap.textContent=label;
     const select=document.createElement('select');select.setAttribute('aria-label',label);
@@ -52,6 +58,11 @@ export function installProductHome(getConcept) {
     for(const value of values){const option=document.createElement('option');option.value=value;option.textContent=value;select.appendChild(option);}
     select.onchange=()=>{c.state.filters[key]=select.value||null;c.paintCatalogue();};wrap.appendChild(select);filters.appendChild(wrap);
   }
-  document.getElementById('catSearch').parentElement.insertAdjacentElement('afterend',filters);
+  const advanced=document.querySelector('#catSheet .catalog-filters');
+  advanced.querySelector('summary').textContent='Filtres';
+  const collection=document.createElement('div');collection.className='catalog-collection';
+  collection.append(document.querySelector('label[for="catCollection"]'),document.getElementById('catCollection'),document.getElementById('fApercu').closest('label'));
+  advanced.querySelector('summary').insertAdjacentElement('afterend',collection);
+  advanced.append(filters,document.querySelector('.catalog-about'));
   renderSession();
 }

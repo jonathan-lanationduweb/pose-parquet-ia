@@ -88,6 +88,7 @@ def main() -> None:
                             "distribution rights not established"),
         }
         if renderable:
+            assert width is not None and length is not None
             row["renderProfile"] = {
                 "materialFamily": family,
                 "pattern": pattern,

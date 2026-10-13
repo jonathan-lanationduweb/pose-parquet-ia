@@ -1,3 +1,4 @@
+import { releve } from '../utils/perf.js';
 /**
  * Moteur de rendu — WebGL 2, sans bibliothèque.
  *
@@ -548,10 +549,12 @@ export function createGlRenderer() {
      */
     setMaterial(id, maps) {
       if (currentMaterial === id) return;
+      const uploadedAt=performance.now();
       let paire = gpuMatieres.get(id);
       if (paire) {
         gpuMatieres.delete(id);
-        gpuMatieres.set(id, paire); // le plus récent en dernier
+        gpuMatieres.set(id, paire);
+ // le plus récent en dernier
       } else {
         if (gpuMatieres.size >= GPU_MATIERES_MAX) {
           const [vieuxId, vieux] = gpuMatieres.entries().next().value;
@@ -567,6 +570,7 @@ export function createGlRenderer() {
         upload(paire.albedo, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, side, side, maps.albedo[0].data);
         upload(paire.relief, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, side, side, maps.relief[0].data);
         gpuMatieres.set(id, paire);
+        releve('GPU.material.upload',performance.now()-uploadedAt);
       }
       tex.albedo = paire.albedo;
       tex.relief = paire.relief;
@@ -636,7 +640,7 @@ export function createGlRenderer() {
         const angle = ((config.angle || 0) + zone.plane.rotationDeg) * (Math.PI / 180);
         const surf = surface.maps.surface;
         const light = tileLight(transform.jac, lightDir, angle);
-        this.setMaterial(`${surface.material.id}|${config.pattern}|${config.width || 'auto'}`, surface.maps);
+        this.setMaterial(`${surface.material.id}|${config.pattern}|${config.width || 'auto'}|${config.plankLength || 'auto'}|${surface.maps.albedo[0].size}|${surface.material.atlas?.version || ''}`, surface.maps);
 
         gl.uniformMatrix3fv(u.uQuad, false, transpose(rect));
         gl.uniformMatrix3fv(u.uInverse, false, transpose(transform.M));

@@ -302,8 +302,10 @@ const capture = async (page, nom) => { if (CAPTURES) await page.screenshot({ pat
     fiche.ouverte && fiche.lien && /Aperçu 3D bientôt disponible/.test(fiche.texte) && fiche.produit === avant, fiche);
   /* Filtre « Aperçu disponible ». */
   const filtre = await page.evaluate(() => {
-    const c = window.__concept; const tous = c.visible().length;
-    document.getElementById('fApercu').click();
+    const c = window.__concept; const input = document.getElementById('fApercu');
+    if (input.checked) input.click();
+    const tous = c.visible().length;
+    input.click();
     const filtres = c.visible();
     return { tous, apres: filtres.length, toutesRendables: filtres.every((p) => p.renderable !== false) };
   });
