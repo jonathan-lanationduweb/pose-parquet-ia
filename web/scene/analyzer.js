@@ -64,10 +64,22 @@ export async function loadSceneIndex(base = '') {
       // minutes par l'hébergeur suffit à faire disparaître une scène qu'on
       // vient d'ajouter — et un lien profond vers elle tombe dans le vide.
       // La réponse est de quelques kilo-octets et revient en 304.
-      fetch(`${base}data/scenes/index.json`, { cache: 'no-cache' }).then((response) => {
+      // Depuis le 12 octobre 2026 : `data/rooms.json`, la bibliothèque que
+      // lit aussi la galerie. Une seule liste de scènes ; l'ancien
+      // `scenes/index.json` en faisait une seconde, à tenir à la main.
+      fetch(`${base}data/rooms.json`, { cache: 'no-cache' }).then((response) => {
         if (!response.ok) throw new Error('Pièces d’exemple indisponibles');
         return response.json();
-      })
+      }).then((m) => ({
+        scenes: (m.scenes || []).map((s) => ({
+          id: s.id,
+          label: s.name,
+          file: s.image,
+          thumb: s.thumbnail,
+          geometryStatus: s.calibration && s.calibration.status === 'validated' ? 'validated' : 'experimental',
+          visualStatus: s.renderReady ? 'validated' : 'experimental',
+        })),
+      }))
     );
   }
   return cache.get('__index__');

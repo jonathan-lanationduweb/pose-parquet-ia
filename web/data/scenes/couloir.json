@@ -1,0 +1,194 @@
+{
+  "schema": "pose-parquet/scene@1",
+  "id": "couloir",
+  "label": "Couloir",
+  "status": "experimental",
+  "source": "precalibrated",
+  "note": "EXPÉRIMENTALE — conservée pour ce qu'elle apprend, pas proposée aux visiteurs.\n\nCORRECTION D'UN DIAGNOSTIC PRÉCÉDENT. Cette scène a d'abord été rejetée pour « distorsion en barillet ». C'était FAUX, et l'erreur mérite d'être écrite ici plutôt qu'effacée.\n\nLa mesure d'origine traquait le jambage de la porte du fond en suivant le minimum de luminance de ligne en ligne, et trouvait un arc de +3,1 / -4,0 / +4,0 px. Remesuré avec un suivi par gradient — qui suit la marche de clarté et non le pixel le plus sombre — le même jambage donne une flèche de 0,13 px pour un écart-type d'ajustement de 0,21 px sur 99 points, à résolution native. C'est une droite. Vu à la loupe, le premier traqueur dérivait sur le bois sombre de la porte au lieu de tenir l'arête : il mesurait sa propre dérive.\n\nLa seconde pièce à charge — deux arêtes horizontales du mur de droite fuyant vers (0,407 ; 0,501) quand celles du panneau de gauche fuient vers (0,504 ; 0,622) — reposait sur des points lus à l'œil sur une capture d'écran réduite. Elle ne pèse rien face à un ajustement à 0,21 px, et deux relevés de ce genre se sont depuis révélés faux de 20 à 80 px.\n\nLA VRAIE RAISON. Ce couloir est bois clair sur bois clair : la jonction mur/sol n'offre presque aucune marche de teinte ni de luminance. Le relevé automatique de pied de mur y échoue franchement — forces 1,7 à 15,6 sur huit colonnes, résidus de 46 et 61 px — et le suivi horizontal par gradient n'y accroche rien non plus (résidus 20 à 22 px). Sans frontière de sol mesurable des deux côtés, il n'y a pas de seconde direction, donc pas de quadrilatère prouvé.\n\nÉTAT ACTUEL. Le quadrilatère est construit sur deux pieds de murs relevés au premier plan (5 et 7 points du contour affiné, résidus max 1,9 et 3,1 px) et sur la fuite du panneau de gauche, mesurée sur une base de 640 px. Il est cohérent localement. Les mètres sont déclarés ; ils sont toutefois recoupés par une mesure réelle : le pas des joints du parquet existant vaut environ 21 px au premier plan, et le rendu en donne 17 à 20 — l'échelle est donc plausible.\n\nContour affiné : gradient médian 28,1 → 51,8 (×1,84), faible en valeur absolue pour la raison dite plus haut.\n\nÀ GARDER pour la fonction « importer ma pièce » : elle recevra beaucoup de photos dont les frontières de sol ne se laissent pas relever. Voir docs/photo-lens-distortion.md.",
+  "image": {
+    "file": "room-couloir.jpg",
+    "width": 1600,
+    "height": 1067,
+    "alt": "Couloir clair aux portes en bois, ouvert sur une pièce au fond",
+    "credit": "Max Vakhtbovych / Pexels"
+  },
+  "camera": {
+    "horizon": 0.6223,
+    "vanishingPoints": [
+      {
+        "x": 0.504,
+        "y": 0.6223,
+        "weight": 1,
+        "role": "axe-couloir"
+      },
+      {
+        "x": 40,
+        "y": 0.6223,
+        "weight": 0.2,
+        "role": "transversale-a-l-infini"
+      }
+    ],
+    "heightM": null,
+    "focalPx": null
+  },
+  "surfaces": [
+    {
+      "id": "couloir",
+      "label": "Parquet du couloir",
+      "continuous": true
+    }
+  ],
+  "planes": {
+    "couloir": {
+      "quad": [
+        {
+          "x": 0.2521,
+          "y": 0.88
+        },
+        {
+          "x": 0.6354,
+          "y": 0.88
+        },
+        {
+          "x": 0.7039,
+          "y": 1.0143
+        },
+        {
+          "x": 0.1302,
+          "y": 1.02
+        }
+      ],
+      "meters": {
+        "width": 2.6,
+        "depth": 3.2
+      },
+      "origin": {
+        "u": 0,
+        "v": 0
+      },
+      "rotationDeg": 0,
+      "note": "Rectangle de référence pris volontairement dans le premier plan (y de 0,880 à 1,020) : c'est la seule bande où les deux pieds de murs se laissent relever. Plus haut, la jonction mur/sol de ce couloir clair sur clair ne donne plus de gradient exploitable."
+    }
+  },
+  "floorZones": [
+    {
+      "id": "couloir",
+      "label": "Couloir",
+      "surfaceId": "couloir",
+      "planeRef": "couloir",
+      "order": 0,
+      "mask": {
+        "polygon": [
+          {
+            "x": 0.157,
+            "y": 1
+          },
+          {
+            "x": 0.1886,
+            "y": 0.9545
+          },
+          {
+            "x": 0.212,
+            "y": 0.9238
+          },
+          {
+            "x": 0.232,
+            "y": 0.902
+          },
+          {
+            "x": 0.2427,
+            "y": 0.8923
+          },
+          {
+            "x": 0.2533,
+            "y": 0.8791
+          },
+          {
+            "x": 0.2539,
+            "y": 0.76
+          },
+          {
+            "x": 0.2528,
+            "y": 0.7288
+          },
+          {
+            "x": 0.2717,
+            "y": 0.7196
+          },
+          {
+            "x": 0.3002,
+            "y": 0.7098
+          },
+          {
+            "x": 0.34,
+            "y": 0.7025
+          },
+          {
+            "x": 0.5729,
+            "y": 0.6998
+          },
+          {
+            "x": 0.5761,
+            "y": 0.6999
+          },
+          {
+            "x": 0.5765,
+            "y": 0.7092
+          },
+          {
+            "x": 0.5768,
+            "y": 0.737
+          },
+          {
+            "x": 0.5756,
+            "y": 0.7611
+          },
+          {
+            "x": 0.5836,
+            "y": 0.787
+          },
+          {
+            "x": 0.5884,
+            "y": 0.7987
+          },
+          {
+            "x": 0.5978,
+            "y": 0.8173
+          },
+          {
+            "x": 0.6131,
+            "y": 0.8427
+          },
+          {
+            "x": 0.6748,
+            "y": 0.9522
+          },
+          {
+            "x": 0.6864,
+            "y": 0.9685
+          },
+          {
+            "x": 0.69,
+            "y": 0.97
+          },
+          {
+            "x": 0.709,
+            "y": 1
+          }
+        ],
+        "holes": [],
+        "note": "Relevé à l'œil sur la loupe graduée, puis affiné sur les arêtes de l'image. Le pas vertical entre y = 0,879 et 0,729 est l'arête verticale du panneau coulissant, vue de champ : ce n'est pas une erreur de relevé."
+      }
+    }
+  ],
+  "occluders": [],
+  "light": {
+    "kind": "photo-luma",
+    "strength": 1,
+    "blurRadius": 0.032,
+    "tint": 0.4,
+    "ambient": 0.26,
+    "contact": 0.42
+  },
+  "reason": "low-contrast-boundaries"
+}

@@ -270,6 +270,15 @@ export function materialMapsAsync(material, config = {}) {
      le fil principal : sans ce repere, le rapport de performance montre un
      trou d'une a trois secondes que rien n'explique. */
   enCours.set(id, { cle, material, resolve, reject, promesse, depart: performance.now() });
+  /* Jamais d'attente sans fin : un worker qui ne répond plus (tué par le
+     navigateur, bloqué) ne doit pas suspendre le rendu pour toujours. La
+     réponse tardive, si elle vient, est ignorée (`enCours` ne la connaît
+     plus) ; la demande suivante relance une fabrication. */
+  setTimeout(() => {
+    if (!enCours.has(id)) return;
+    enCours.delete(id);
+    reject(new Error('worker de texture : délai dépassé'));
+  }, DELAI_TUILE_MS);
   // Le matériau part en copie structurée : données pures uniquement.
   w.postMessage({
     id,
@@ -282,6 +291,11 @@ export function materialMapsAsync(material, config = {}) {
 /* ------------------------------------------------------------------ */
 /* Aperçus de motif                                                    */
 /* ------------------------------------------------------------------ */
+
+/* Délai de garde d'une tuile au worker. Mesuré le 12 octobre 2026 : 8 à
+   15 s sur le PC de développement très chargé ; jamais plus de 3,3 s
+   au repos. 45 s laisse donc une large marge. */
+const DELAI_TUILE_MS = 45000;
 
 const apercus = new Map();
 const MAX_APERCUS = 24;

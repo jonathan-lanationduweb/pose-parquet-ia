@@ -1,0 +1,407 @@
+{
+  "schema": "pose-parquet/rooms@1",
+  "note": "Bibliothèque des pièces de démonstration : la seule liste des scènes, lue par la galerie ET par le moteur. Ajouter une pièce = déposer la photo (et sa vignette -640) dans web/assets/images/, ajouter une entrée ici, puis sa SceneData calibrée dans web/data/scenes/. Une scène n'est proposée que si renderReady vaut true, et renderReady n'est vrai que si sa calibration est validée : une photo sans géométrie relue ne reçoit jamais de parquet. Les comptes affichés « Chambre (3) » sont calculés depuis cette liste, jamais écrits.",
+  "categories": [
+    {
+      "id": "sejour",
+      "label": "Séjour"
+    },
+    {
+      "id": "chambre",
+      "label": "Chambre"
+    },
+    {
+      "id": "salle-a-manger",
+      "label": "Salle à manger"
+    },
+    {
+      "id": "bureau",
+      "label": "Bureau"
+    },
+    {
+      "id": "entree",
+      "label": "Entrée et couloir"
+    },
+    {
+      "id": "grande-piece",
+      "label": "Grande pièce"
+    },
+    {
+      "id": "cuisine",
+      "label": "Cuisine"
+    }
+  ],
+  "scenes": [
+    {
+      "id": "sejour",
+      "name": "Séjour et salle à manger",
+      "category": "sejour",
+      "alsoIn": [
+        "salle-a-manger"
+      ],
+      "image": "room-sejour.jpg",
+      "thumbnail": "room-sejour-640.jpg",
+      "sceneData": "scenes/sejour.json",
+      "style": "classique",
+      "lighting": "soleil direct",
+      "difficulty": "moyenne",
+      "highlight": "Deux pièces en enfilade, un seul parquet",
+      "source": {
+        "kind": "pexels",
+        "author": "Curtis Adams",
+        "url": "https://www.pexels.com/photo/3935327/"
+      },
+      "availableForGallery": true,
+      "calibration": {
+        "status": "validated",
+        "checkedAt": "2026-10-12",
+        "method": "revue géométrique du 12/10/2026 (tools/scene-review.capture.mjs) : fuites du plan sur celles des murs, sol sous l’horizon, lames croissantes vers l’avant, échelle proche plausible ; planche relue à l’œil"
+      },
+      "renderReady": true
+    },
+    {
+      "id": "salon-angle",
+      "name": "Salon d’angle",
+      "category": "sejour",
+      "image": "room-salon-angle.jpg",
+      "thumbnail": "room-salon-angle-640.jpg",
+      "sceneData": "scenes/salon-angle.json",
+      "style": "contemporain",
+      "lighting": "lumière douce",
+      "difficulty": "moyenne",
+      "highlight": "Un mur qui avance : deux frontières de sol",
+      "source": {
+        "kind": "pexels",
+        "author": "Gustavo Galeano Maz",
+        "url": "https://www.pexels.com/photo/9826455/"
+      },
+      "availableForGallery": true,
+      "calibration": {
+        "status": "validated",
+        "checkedAt": "2026-10-12",
+        "method": "revue géométrique du 12/10/2026 (tools/scene-review.capture.mjs) : fuites du plan sur celles des murs, sol sous l’horizon, lames croissantes vers l’avant, échelle proche plausible ; planche relue à l’œil"
+      },
+      "renderReady": true
+    },
+    {
+      "id": "salon",
+      "name": "Salon à moulures et lustre",
+      "category": "salle-a-manger",
+      "alsoIn": [
+        "sejour"
+      ],
+      "image": "room-salon.jpg",
+      "thumbnail": "room-salon-640.jpg",
+      "sceneData": "scenes/salon.json",
+      "style": "classique",
+      "lighting": "lumière douce",
+      "difficulty": "difficile",
+      "highlight": "Quatre sols vus à travers trois ouvertures",
+      "source": {
+        "kind": "pexels",
+        "author": "Curtis Adams",
+        "url": "https://www.pexels.com/photo/7027842/"
+      },
+      "availableForGallery": true,
+      "calibration": {
+        "status": "rejected",
+        "checkedAt": "2026-10-12",
+        "reason": "contrôles chiffrés en échec : fuites hors de l’horizon, largeur de lame projetée 2,6 à 10 px (échelle implausible) sur quatre zones"
+      },
+      "renderReady": false
+    },
+    {
+      "id": "chambre",
+      "name": "Chambre ouverte au jardin",
+      "category": "chambre",
+      "image": "room-chambre.jpg",
+      "thumbnail": "room-chambre-640.jpg",
+      "sceneData": "scenes/chambre.json",
+      "style": "contemporain",
+      "lighting": "soleil direct",
+      "difficulty": "moyenne",
+      "highlight": "Lumière franche, perspective profonde",
+      "source": {
+        "kind": "pexels",
+        "author": "Max Vakhtbovych",
+        "url": "https://www.pexels.com/photo/7587859/"
+      },
+      "availableForGallery": true,
+      "calibration": {
+        "status": "validated",
+        "checkedAt": "2026-10-12",
+        "method": "revue géométrique du 12/10/2026 (tools/scene-review.capture.mjs) : fuites du plan sur celles des murs, sol sous l’horizon, lames croissantes vers l’avant, échelle proche plausible ; planche relue à l’œil",
+        "notes": "chambre bleue : fuites du plan à moins de 3 % de largeur de celles des murs, horizon 0,4955, lame proche 27,5 px ; grille de ventilation gardée devant le parquet"
+      },
+      "renderReady": true
+    },
+    {
+      "id": "chambre-parisienne",
+      "name": "Chambre parisienne",
+      "category": "chambre",
+      "image": "room-chambre-parisienne.jpg",
+      "thumbnail": "room-chambre-parisienne-640.jpg",
+      "sceneData": "scenes/chambre-parisienne.json",
+      "style": "contemporain",
+      "lighting": "lumière du jour",
+      "difficulty": "facile",
+      "highlight": "Sol entièrement dégagé, vue dans l’axe",
+      "source": {
+        "kind": "pexels",
+        "author": "Max Vakhtbovych",
+        "url": "https://www.pexels.com/photo/7587872/"
+      },
+      "availableForGallery": true,
+      "calibration": {
+        "status": "validated",
+        "checkedAt": "2026-10-12",
+        "method": "revue géométrique du 12/10/2026 (tools/scene-review.capture.mjs) : fuites du plan sur celles des murs, sol sous l’horizon, lames croissantes vers l’avant, échelle proche plausible ; planche relue à l’œil"
+      },
+      "renderReady": true
+    },
+    {
+      "id": "chambre-claire",
+      "name": "Chambre claire",
+      "category": "chambre",
+      "image": "room-chambre-claire.jpg",
+      "thumbnail": "room-chambre-claire-640.jpg",
+      "sceneData": "scenes/chambre-claire.json",
+      "style": "moderne",
+      "lighting": "lumière du jour",
+      "difficulty": "facile",
+      "highlight": "Vue d’angle, grande pièce lumineuse",
+      "source": {
+        "kind": "pexels",
+        "author": "Curtis Adams",
+        "url": "https://www.pexels.com/photo/16641359/"
+      },
+      "availableForGallery": true,
+      "calibration": {
+        "status": "validated",
+        "checkedAt": "2026-10-12",
+        "method": "revue géométrique du 12/10/2026 (tools/scene-review.capture.mjs) : fuites du plan sur celles des murs, sol sous l’horizon, lames croissantes vers l’avant, échelle proche plausible ; planche relue à l’œil"
+      },
+      "renderReady": true
+    },
+    {
+      "id": "bureau-vide",
+      "name": "Bureau, vue d’angle",
+      "category": "bureau",
+      "image": "room-bureau-vide.jpg",
+      "thumbnail": "room-bureau-vide-640.jpg",
+      "sceneData": "scenes/bureau-vide.json",
+      "style": "moderne",
+      "lighting": "éclairage artificiel",
+      "difficulty": "facile",
+      "highlight": "Sol dégagé, deux plinthes mesurées",
+      "source": {
+        "kind": "pexels",
+        "author": "Curtis Adams",
+        "url": "https://www.pexels.com/photo/7028110/"
+      },
+      "availableForGallery": true,
+      "calibration": {
+        "status": "validated",
+        "checkedAt": "2026-10-12",
+        "method": "revue géométrique du 12/10/2026 (tools/scene-review.capture.mjs) : fuites du plan sur celles des murs, sol sous l’horizon, lames croissantes vers l’avant, échelle proche plausible ; planche relue à l’œil"
+      },
+      "renderReady": true
+    },
+    {
+      "id": "petite-piece",
+      "name": "Petit bureau près de la fenêtre",
+      "category": "bureau",
+      "image": "room-petite-piece.jpg",
+      "thumbnail": "room-petite-piece-640.jpg",
+      "sceneData": "scenes/petite-piece.json",
+      "style": "classique",
+      "lighting": "lumière du jour",
+      "difficulty": "difficile",
+      "highlight": "Bureau, chaise et radiateur devant le sol",
+      "source": {
+        "kind": "pexels",
+        "author": "Image Hunter",
+        "url": "https://www.pexels.com/photo/26747989/"
+      },
+      "availableForGallery": true,
+      "calibration": {
+        "status": "rejected",
+        "checkedAt": "2026-10-12",
+        "reason": "masque en arc qui ne suit ni les plinthes ni le coin : le sol d’origine reste visible le long des murs, ombres en taches"
+      },
+      "renderReady": false
+    },
+    {
+      "id": "entree-cadree",
+      "name": "Entrée cadrée",
+      "category": "entree",
+      "image": "room-entree-cadree.jpg",
+      "thumbnail": "room-entree-cadree-640.jpg",
+      "sceneData": "scenes/entree-cadree.json",
+      "style": "moderne",
+      "lighting": "lumière douce",
+      "difficulty": "facile",
+      "highlight": "Pièce vide, deux plinthes suivies",
+      "source": {
+        "kind": "pexels",
+        "author": "Gustavo Galeano Maz",
+        "url": "https://www.pexels.com/photo/7865621/"
+      },
+      "availableForGallery": true,
+      "calibration": {
+        "status": "validated",
+        "checkedAt": "2026-10-12",
+        "method": "revue géométrique du 12/10/2026 (tools/scene-review.capture.mjs) : fuites du plan sur celles des murs, sol sous l’horizon, lames croissantes vers l’avant, échelle proche plausible ; planche relue à l’œil"
+      },
+      "renderReady": true
+    },
+    {
+      "id": "couloir-enfilade",
+      "name": "Couloir bleu à moulures",
+      "category": "entree",
+      "image": "room-couloir-bleu.jpg",
+      "thumbnail": "room-couloir-bleu-640.jpg",
+      "sceneData": "scenes/couloir-enfilade.json",
+      "style": "haussmannien",
+      "lighting": "éclairage artificiel",
+      "difficulty": "moyenne",
+      "highlight": "Couloir étroit, fuite très marquée",
+      "source": {
+        "kind": "pexels",
+        "author": "Max Vakhtbovych",
+        "url": "https://www.pexels.com/photo/7587868/"
+      },
+      "availableForGallery": true,
+      "calibration": {
+        "status": "validated",
+        "checkedAt": "2026-10-12",
+        "method": "revue géométrique du 12/10/2026 (tools/scene-review.capture.mjs) : fuites du plan sur celles des murs, sol sous l’horizon, lames croissantes vers l’avant, échelle proche plausible ; planche relue à l’œil"
+      },
+      "renderReady": true
+    },
+    {
+      "id": "couloir",
+      "name": "Couloir clair",
+      "category": "entree",
+      "image": "room-couloir.jpg",
+      "thumbnail": "room-couloir-640.jpg",
+      "sceneData": "scenes/couloir.json",
+      "style": "moderne",
+      "lighting": "lumière douce",
+      "difficulty": "moyenne",
+      "highlight": "Portes en bois, ouverture au fond",
+      "source": {
+        "kind": "pexels",
+        "author": "Max Vakhtbovych",
+        "url": "https://www.pexels.com/photo/7587374/"
+      },
+      "availableForGallery": true,
+      "calibration": {
+        "status": "rejected",
+        "checkedAt": "2026-10-12",
+        "reason": "contrôles chiffrés en échec : fuites hors de l’horizon, lame proche 4,8 px sur 1 600 (échelle implausible)"
+      },
+      "renderReady": false
+    },
+    {
+      "id": "appartement-ancien",
+      "name": "Couloir d’appartement ancien",
+      "category": "entree",
+      "image": "room-appartement-ancien.jpg",
+      "thumbnail": "room-appartement-ancien-640.jpg",
+      "sceneData": "scenes/appartement-ancien.json",
+      "style": "haussmannien",
+      "lighting": "lumière douce",
+      "difficulty": "difficile",
+      "highlight": "Console et portemanteau devant le sol",
+      "source": {
+        "kind": "pexels",
+        "author": "Curtis Adams",
+        "url": "https://www.pexels.com/photo/8583672/"
+      },
+      "availableForGallery": true,
+      "calibration": {
+        "status": "rejected",
+        "checkedAt": "2026-10-12",
+        "reason": "masque partiel : le sol d’origine reste visible sous la console et au fond du couloir"
+      },
+      "renderReady": false
+    },
+    {
+      "id": "piece-claire",
+      "name": "Grande pièce claire",
+      "category": "grande-piece",
+      "image": "room-piece-claire.jpg",
+      "thumbnail": "room-piece-claire-640.jpg",
+      "sceneData": "scenes/piece-claire.json",
+      "style": "scandinave",
+      "lighting": "soleil direct",
+      "difficulty": "moyenne",
+      "highlight": "Meuble et radiateur devant le sol",
+      "source": {
+        "kind": "pexels",
+        "author": "Max Vakhtbovych",
+        "url": "https://www.pexels.com/photo/8146330/"
+      },
+      "availableForGallery": true,
+      "calibration": {
+        "status": "validated",
+        "checkedAt": "2026-10-12",
+        "method": "revue géométrique du 12/10/2026 (tools/scene-review.capture.mjs) : fuites du plan sur celles des murs, sol sous l’horizon, lames croissantes vers l’avant, échelle proche plausible ; planche relue à l’œil",
+        "notes": "masque repris (plinthes, pieds du meuble) validé à la revue ; les bandes de soleil de la photo ressortent peu sous le parquet"
+      },
+      "renderReady": true
+    },
+    {
+      "id": "piece-arcades",
+      "name": "Pièce aux arcades",
+      "category": "grande-piece",
+      "image": "room-piece-arcades.jpg",
+      "thumbnail": "room-piece-arcades-640.jpg",
+      "sceneData": "scenes/piece-arcades.json",
+      "style": "classique",
+      "lighting": "lumière douce",
+      "difficulty": "facile",
+      "highlight": "Grand volume, focale et hauteur d’œil mesurées",
+      "source": {
+        "kind": "pexels",
+        "author": "Daniel Tanque",
+        "url": "https://www.pexels.com/photo/13702811/"
+      },
+      "availableForGallery": true,
+      "calibration": {
+        "status": "validated",
+        "checkedAt": "2026-10-12",
+        "method": "revue géométrique du 12/10/2026 (tools/scene-review.capture.mjs) : fuites du plan sur celles des murs, sol sous l’horizon, lames croissantes vers l’avant, échelle proche plausible ; planche relue à l’œil"
+      },
+      "renderReady": true
+    },
+    {
+      "id": "cuisine-ouverte",
+      "name": "Cuisine ouverte sur le séjour",
+      "category": "cuisine",
+      "alsoIn": [
+        "sejour"
+      ],
+      "image": "room-cuisine-ouverte.jpg",
+      "thumbnail": "room-cuisine-ouverte-640.jpg",
+      "sceneData": "scenes/cuisine-ouverte.json",
+      "style": "contemporain",
+      "lighting": "soleil direct",
+      "difficulty": "facile",
+      "highlight": "Grand sol dégagé, soleil sur le parquet",
+      "source": {
+        "kind": "pexels",
+        "author": "Max Vakhtbovych",
+        "url": "https://www.pexels.com/photo/8146149/"
+      },
+      "availableForGallery": true,
+      "calibration": {
+        "status": "validated",
+        "checkedAt": "2026-10-12",
+        "method": "revue géométrique du 12/10/2026 (tools/scene-review.capture.mjs) : fuites du plan sur celles des murs, sol sous l’horizon, lames croissantes vers l’avant, échelle proche plausible ; planche relue à l’œil"
+      },
+      "renderReady": true
+    }
+  ]
+}

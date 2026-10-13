@@ -1,7 +1,7 @@
 /** Room select, session-only photos and local export. No persistent photo storage. */
 export function installProductHome(getConcept) {
   const c=getConcept();if(!c)return;
-  const session=new Map();let next=0,category='Toutes';
+  const session=new Map();let next=0;
   const root=document.getElementById('sessionRooms');
   const renderSession=()=>{
     root.replaceChildren();
@@ -17,19 +17,7 @@ export function installProductHome(getConcept) {
       item.append(open,remove);root.appendChild(item);
     }
   };
-  const gallery=()=>{
-    const cats=document.getElementById('homeCategories');cats.replaceChildren();
-    for(const label of ['Toutes',...c.CATEGORIES]){const b=document.createElement('button');b.type='button';b.textContent=label;b.setAttribute('aria-pressed',String(category===label));b.onclick=()=>{category=label;gallery();};cats.appendChild(b);}
-    const grid=document.getElementById('quickRooms');grid.replaceChildren();
-    for(const room of c.DEMO_ROOMS.filter(r=>category==='Toutes'||r.category===category)){
-      const b=document.createElement('button');b.type='button';b.className='rcard';b.dataset.room=room.id;
-      const ph=document.createElement('span');ph.className='ph';const img=document.createElement('img');img.src=c.originalUrl(room.id);img.alt=room.label;ph.appendChild(img);
-      const name=document.createElement('span');name.className='nm';name.textContent=room.label;
-      const cat=document.createElement('span');cat.className='cat';cat.textContent=room.category;
-      b.append(ph,name,cat);b.onclick=e=>{e.stopPropagation();c.openRoom(room.id);};grid.appendChild(b);
-    }
-  };
-  function home(){c.closeAll();c.releaseUpload();c.state.source=null;c.state.intent+=1;c.state.applied={key:null,source:null};c.state.compare=null;c.adapter.forget();document.getElementById('entry').classList.remove('hidden');document.getElementById('stage').classList.add('hidden');document.getElementById('hSwap').classList.add('hidden');c.drawer.syncLayout();c.paintChrome();renderSession();}
+  function home(){c.closeAll();c.releaseUpload();c.state.source=null;c.state.intent+=1;c.state.applied={key:null,source:null};c.state.compare=null;c.adapter.forget();document.getElementById('entry').classList.remove('hidden');document.getElementById('stage').classList.add('hidden');document.getElementById('hSwap').classList.add('hidden');c.drawer.syncLayout();c.paintChrome();c.paintQuick();renderSession();}
   window.__sessionRooms={
     owns:url=>[...session.values()].some(r=>r.url===url),
     remember(file,url){const existing=[...session.entries()].find(([,r])=>r.file===file);if(existing){URL.revokeObjectURL(existing[1].url);session.set(existing[0],{file,url,name:existing[1].name});}else session.set(++next,{file,url,name:`Ma pièce ${next}`});renderSession();},
@@ -53,7 +41,7 @@ export function installProductHome(getConcept) {
   const sync=()=>{back.hidden=!c.state.source;};
   const observer=new MutationObserver(sync);observer.observe(document.getElementById('stage'),{attributes:true,attributeFilter:['class']});sync();
   document.getElementById('hSwap').onclick=home;
-  document.getElementById('catalogSummary').textContent=`${c.PREMIBEL_DEMO_PRODUCTS.filter(p=>p.source==='premibel').length} références Premibel · ${c.PREMIBEL_DEMO_PRODUCTS.filter(p=>p.source==='inspiration').length} inspirations. Matières indicatives.`;
+  document.getElementById('catalogSummary').textContent=c.resumeCatalogue();
   const filters=document.createElement('details');filters.className='catalog-extra';
   const summary=document.createElement('summary');summary.textContent='Plus de filtres';filters.appendChild(summary);
   for(const [key,label] of [['finish','Finition'],['collection','Collection'],['species','Essence'],['type','Type']]){
@@ -65,5 +53,5 @@ export function installProductHome(getConcept) {
     select.onchange=()=>{c.state.filters[key]=select.value||null;c.paintCatalogue();};wrap.appendChild(select);filters.appendChild(wrap);
   }
   document.getElementById('catSearch').parentElement.insertAdjacentElement('afterend',filters);
-  renderSession();gallery();
+  renderSession();
 }

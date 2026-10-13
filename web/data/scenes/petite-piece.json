@@ -1,0 +1,456 @@
+{
+  "schema": "pose-parquet/scene@1",
+  "id": "petite-piece",
+  "label": "Petit bureau",
+  "status": "experimental",
+  "source": "precalibrated",
+  "note": "Petit bureau d'angle. C'est la scène la plus rigoureusement calibrée du lot après le séjour et la chambre, parce que la photo s'y prêtait — et elle a été choisie pour ça, par le pré-filtre, avant tout calibrage.\n\nPRÉ-FILTRE. Quatre candidates qualifiées en une dizaine de secondes chacune. Celle-ci a été retenue sur la corrélation du balayage angulaire du sol : r = −0,77 pour un balayage de 105 degrés, contre 0,27 à 0,37 pour les autres. C'est la mesure qui dit qu'une famille de lignes du sol converge vraiment, donc qu'un point de fuite est lisible. Flèche d'arc 1,38 px sur une arête bien décrite : pas de distorsion optique.\n\nDEUX DIRECTIONS MESURÉES, ET LA FOCALE AVEC.\n\nDirection du mur gauche : son pied a été relevé par seuil de teinte et de luminance, puis ajusté en moindres carrés totaux — 75 points retenus sur 75, résidu max 1,36 px, résidu moyen 0,42. Le meilleur ajustement obtenu sur ce dépôt. Le bord bas du second cadre accroché à ce même mur donne une seconde horizontale de son plan (résidu max 1,80 px). Leur intersection est la fuite de cette direction : (0,8656 ; 0,4570).\n\nDirection du mur de la fenêtre : l'appui de fenêtre, horizontale de ce plan, ajusté sur 109 points retenus sur 115, résidu max 1,67 px, résidu moyen 0,43. Croisé avec l'horizon, il donne (−0,7071 ; 0,4570).\n\nLes deux fuites encadrent le point principal — le produit scalaire est négatif — donc la focale se déduit de l'orthogonalité : 1062 px, champ 74 degrés. C'est l'équivalent d'un 24 mm sur plein format, ce qui est plausible pour une photo d'intérieur. Les scènes calibrées précédemment impliquaient 100 à 126 degrés, ce qui l'était moins.\n\nTROIS VÉRIFICATIONS INDÉPENDANTES.\n\n(1) La direction des joints du parquet, relevée au tenseur de structure en 12 points du sol (66 intersections deux à deux, angles balayant 154 à 94 degrés de façon monotone), fuit vers (0,8107 ; 0,4333). Elle tombe à 88 px en x et 25 px en y de la fuite du mur gauche, sur un point situé à plus de 1400 px de la zone mesurée : les lames de ce sol suivent bien ce mur.\n\n(2) Concordance des côtés opposés du quadrilatère : 0,00 % en largeur, 0,01 % en profondeur. Le quadrilatère est l'image d'un rectangle.\n\n(3) Le pas des lames existantes, mesuré sur deux coupes en travers et converti en mètres par le modèle de caméra, donne 18,6 et 19,4 cm. C'est une largeur de lame standard, et c'est la vérification la plus parlante : elle met à l'épreuve l'horizon, la focale ET la hauteur d'œil d'un coup.\n\nDÉCLARÉ. La hauteur d'œil, 1,45 m, est le seul paramètre posé — la focale ne la contraint pas. Elle est retenue parce qu'elle est la valeur qui fait tomber le pas des lames sur 19 cm ; à 1,35 m il descend à 17,3 cm, à 1,65 m il monte à 21,2. Le rectangle de référence mesure alors 3,25 × 1,81 m.\n\nContour affiné : gradient médian 10,0 → 25,7 (×2,57).\n\nPOURQUOI ELLE RESTE EXPERIMENTALE. Trois reserves, mesurees.\n\n(1) La direction du mur de la fenetre ne repose que sur l appui de fenetre. Son ajustement est excellent (109 points sur 115, residu max 1,67 px) mais il ne couvre que 0,21 de largeur d image, et sa fuite est extrapolee a 0,71 largeur du bord. Le pied de ce mur, qui l aurait recoupee, n est visible nulle part : le secretaire l occulte de 0,44 a 0,64, le radiateur de 0,62 a 0,89, et au-dela de 0,885 il y a un retour de mur — le segment que l on y releve appartient a un autre plan, ce qui a d abord fait croire a une corroboration.\n\nCe qui soutient tout de meme cette direction : la focale qui en decoule (1062 px, 74 degres) donne un pas de lames de 18,6 et 19,4 cm sur deux coupes independantes. Une fuite franchement fausse ne produirait pas une largeur de lame standard.\n\n(2) Le contour longe la plinthe de trop pres. Au rendu, une bande pale court le long des deux plinthes : le masque monte de quelques pixels sur elles, et comme l eclairement est relu dans la photo, ces pixels ressortent delaves au lieu de bois. L affineur cherche le maximum de gradient et attrape volontiers l arete HAUTE d une plinthe plutot que son pied — meme cause que sur l appartement ancien. Le remede est de reprendre le contour sur les droites mesurees, decalees de quelques pixels dans le sol ; il n a pas ete applique ici parce que la droite du mur droit n est pas fiable (voir 1).\n\n(3) Les occultations du secretaire et du radiateur sont des boites englobantes ajustees a leur contour visible, pas des silhouettes. Le sol du fond de cette piece est plus clair que celui du premier plan — la fenetre est juste la — et le seuil de luminance qui avait servi pour les pieds de la console de l appartement ancien attrape ici le sol lui-meme. Les trois pieds de la chaise sont, eux, releves a la main et corrects au rendu.\n\nCE QUI EST DEJA SOLIDE, et qui rend cette scene la plus prometteuse du lot : la direction du mur gauche, la perspective au rendu, l echelle des lames, et la couverture du cas « petite piece » qui manque encore.",
+  "image": {
+    "file": "room-petite-piece.jpg",
+    "width": 1600,
+    "height": 1067,
+    "alt": "Petit bureau d'angle, secrétaire en bois clair devant une fenêtre à rideaux",
+    "credit": "Image Hunter / Pexels"
+  },
+  "camera": {
+    "horizon": 0.457,
+    "vanishingPoints": [
+      {
+        "x": 0.8656,
+        "y": 0.457,
+        "weight": 1,
+        "role": "mur-gauche"
+      },
+      {
+        "x": -0.7071,
+        "y": 0.457,
+        "weight": 0.9,
+        "role": "mur-fenetre"
+      },
+      {
+        "x": 0.8107,
+        "y": 0.4333,
+        "weight": 0.6,
+        "role": "joints-du-parquet"
+      }
+    ],
+    "heightM": 1.45,
+    "focalPx": 1062
+  },
+  "surfaces": [
+    {
+      "id": "piece",
+      "label": "Parquet du bureau",
+      "continuous": true
+    }
+  ],
+  "planes": {
+    "piece": {
+      "quad": [
+        {
+          "x": 0.3231,
+          "y": 0.795
+        },
+        {
+          "x": 0.92,
+          "y": 0.9908
+        },
+        {
+          "x": 0.9974,
+          "y": 1.75
+        },
+        {
+          "x": 0.0021,
+          "y": 0.995
+        }
+      ],
+      "meters": {
+        "width": 3.25,
+        "depth": 1.81
+      },
+      "origin": {
+        "u": 0,
+        "v": 0
+      },
+      "rotationDeg": 90,
+      "note": "u suit le mur de la fenêtre, v le mur gauche. Le coin du fond est pris sur le pied du mur gauche à y = 0,795, et le quatrième coin n'est pas choisi : il est imposé par les deux fuites. rotationDeg 90 aligne les lames sur le mur gauche, comme le parquet réel de la photo."
+    }
+  },
+  "floorZones": [
+    {
+      "id": "piece",
+      "label": "Bureau",
+      "surfaceId": "piece",
+      "planeRef": "piece",
+      "order": 0,
+      "mask": {
+        "polygon": [
+          {
+            "x": 0.0012,
+            "y": 0.9532
+          },
+          {
+            "x": 0.0243,
+            "y": 0.9458
+          },
+          {
+            "x": 0.0476,
+            "y": 0.9342
+          },
+          {
+            "x": 0.0619,
+            "y": 0.9255
+          },
+          {
+            "x": 0.0947,
+            "y": 0.9126
+          },
+          {
+            "x": 0.1121,
+            "y": 0.9026
+          },
+          {
+            "x": 0.1772,
+            "y": 0.8712
+          },
+          {
+            "x": 0.2148,
+            "y": 0.8615
+          },
+          {
+            "x": 0.2791,
+            "y": 0.8219
+          },
+          {
+            "x": 0.34,
+            "y": 0.7799
+          },
+          {
+            "x": 0.3681,
+            "y": 0.7703
+          },
+          {
+            "x": 0.3871,
+            "y": 0.7689
+          },
+          {
+            "x": 0.4,
+            "y": 0.7704
+          },
+          {
+            "x": 0.4409,
+            "y": 0.7837
+          },
+          {
+            "x": 0.4758,
+            "y": 0.779
+          },
+          {
+            "x": 0.5263,
+            "y": 0.7819
+          },
+          {
+            "x": 0.5768,
+            "y": 0.7873
+          },
+          {
+            "x": 0.6113,
+            "y": 0.7945
+          },
+          {
+            "x": 0.6397,
+            "y": 0.7975
+          },
+          {
+            "x": 0.6774,
+            "y": 0.8051
+          },
+          {
+            "x": 0.6838,
+            "y": 0.8047
+          },
+          {
+            "x": 0.7098,
+            "y": 0.7979
+          },
+          {
+            "x": 0.7226,
+            "y": 0.7984
+          },
+          {
+            "x": 0.8264,
+            "y": 0.8256
+          },
+          {
+            "x": 0.8588,
+            "y": 0.8401
+          },
+          {
+            "x": 0.9158,
+            "y": 0.8607
+          },
+          {
+            "x": 0.9396,
+            "y": 0.8706
+          },
+          {
+            "x": 0.9734,
+            "y": 0.8778
+          },
+          {
+            "x": 1,
+            "y": 0.89
+          },
+          {
+            "x": 1,
+            "y": 1
+          },
+          {
+            "x": 0,
+            "y": 1
+          },
+          {
+            "x": 0,
+            "y": 0.9568
+          }
+        ],
+        "holes": [],
+        "note": "Relevé sur la vue graduée puis affiné sur les arêtes de l'image. Il passe derrière le secrétaire et le radiateur : ce sont les occultations qui les restituent, pas le contour qui les évite."
+      }
+    }
+  ],
+  "occluders": [
+    {
+      "id": "radiateur",
+      "label": "Radiateur sous la fenêtre",
+      "kind": "fixture",
+      "polygon": [
+        {
+          "x": 0.613,
+          "y": 0.6317
+        },
+        {
+          "x": 0.613,
+          "y": 0.7104
+        },
+        {
+          "x": 0.613,
+          "y": 0.8004
+        },
+        {
+          "x": 0.6767,
+          "y": 0.8116
+        },
+        {
+          "x": 0.897,
+          "y": 0.8116
+        },
+        {
+          "x": 0.897,
+          "y": 0.7104
+        },
+        {
+          "x": 0.897,
+          "y": 0.6317
+        }
+      ],
+      "contact": [
+        {
+          "x": 0.6767,
+          "y": 0.8116
+        },
+        {
+          "x": 0.897,
+          "y": 0.8116
+        }
+      ],
+      "depth": 0.62
+    },
+    {
+      "id": "bureau",
+      "label": "Secrétaire",
+      "kind": "furniture",
+      "polygon": [
+        {
+          "x": 0.433,
+          "y": 0.5998
+        },
+        {
+          "x": 0.433,
+          "y": 0.6898
+        },
+        {
+          "x": 0.433,
+          "y": 0.7798
+        },
+        {
+          "x": 0.4574,
+          "y": 0.791
+        },
+        {
+          "x": 0.4761,
+          "y": 0.7985
+        },
+        {
+          "x": 0.642,
+          "y": 0.7985
+        },
+        {
+          "x": 0.642,
+          "y": 0.6898
+        },
+        {
+          "x": 0.642,
+          "y": 0.5998
+        }
+      ],
+      "contact": [
+        {
+          "x": 0.4761,
+          "y": 0.7985
+        },
+        {
+          "x": 0.642,
+          "y": 0.7985
+        }
+      ],
+      "depth": 0.55
+    },
+    {
+      "id": "chaise-assise",
+      "label": "Chaise, assise et dossier",
+      "kind": "furniture",
+      "polygon": [
+        {
+          "x": 0.326,
+          "y": 0.638
+        },
+        {
+          "x": 0.443,
+          "y": 0.638
+        },
+        {
+          "x": 0.443,
+          "y": 0.752
+        },
+        {
+          "x": 0.326,
+          "y": 0.752
+        }
+      ],
+      "contact": null,
+      "depth": 0.5,
+      "castsShadow": false
+    },
+    {
+      "id": "chaise-pied-avant-gauche",
+      "label": "Chaise, pied avant gauche",
+      "kind": "furniture",
+      "polygon": [
+        {
+          "x": 0.331,
+          "y": 0.75
+        },
+        {
+          "x": 0.343,
+          "y": 0.75
+        },
+        {
+          "x": 0.319,
+          "y": 0.876
+        },
+        {
+          "x": 0.307,
+          "y": 0.876
+        }
+      ],
+      "contact": [
+        {
+          "x": 0.307,
+          "y": 0.876
+        },
+        {
+          "x": 0.319,
+          "y": 0.876
+        }
+      ],
+      "depth": 0.46
+    },
+    {
+      "id": "chaise-pied-avant-droit",
+      "label": "Chaise, pied avant droit",
+      "kind": "furniture",
+      "polygon": [
+        {
+          "x": 0.414,
+          "y": 0.75
+        },
+        {
+          "x": 0.426,
+          "y": 0.75
+        },
+        {
+          "x": 0.412,
+          "y": 0.876
+        },
+        {
+          "x": 0.4,
+          "y": 0.876
+        }
+      ],
+      "contact": [
+        {
+          "x": 0.4,
+          "y": 0.876
+        },
+        {
+          "x": 0.412,
+          "y": 0.876
+        }
+      ],
+      "depth": 0.46
+    },
+    {
+      "id": "chaise-pied-droit",
+      "label": "Chaise, pied droit",
+      "kind": "furniture",
+      "polygon": [
+        {
+          "x": 0.449,
+          "y": 0.75
+        },
+        {
+          "x": 0.461,
+          "y": 0.75
+        },
+        {
+          "x": 0.474,
+          "y": 0.868
+        },
+        {
+          "x": 0.462,
+          "y": 0.868
+        }
+      ],
+      "contact": [
+        {
+          "x": 0.462,
+          "y": 0.868
+        },
+        {
+          "x": 0.474,
+          "y": 0.868
+        }
+      ],
+      "depth": 0.5
+    }
+  ],
+  "light": {
+    "kind": "photo-luma",
+    "strength": 1,
+    "blurRadius": 0.03,
+    "tint": 0.5,
+    "ambient": 0.22,
+    "contact": 0.45
+  }
+}

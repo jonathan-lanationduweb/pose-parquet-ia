@@ -1,0 +1,146 @@
+{
+  "schema": "pose-parquet/scene@1",
+  "id": "salon",
+  "label": "Salon, entrée et couloir",
+  "source": "precalibrated",
+  "note": "BROUILLON — cette scène n'est pas dans index.json et n'est donc pas proposée. Quatre sols visibles à travers trois ouvertures, sur un parquet foncé très réfléchissant : le relevé automatique du bas des murs y échoue (les reflets créent des gradients plus forts que la jonction mur/sol) et les valeurs ci-dessous n'atteignent pas la précision des quatre pièces livrées. Ce qui est sûr : le mur de gauche suit une droite propre de (0,02 ; 0,725) à (0,22 ; 0,668), pente −0,285. Le reste demande un relevé point par point à la loupe. À reprendre : c'est le meilleur cas d'école pour des zones de sol réellement disjointes — le dégagement de droite est séparé du salon par une cloison, contrairement aux enfilades de sejour.json qui, elles, sont connectées.",
+  "image": {
+    "file": "room-salon.jpg",
+    "width": 1600,
+    "height": 1067,
+    "alt": "Salon avec moulures et lustre, ouvert sur une entrée et un couloir",
+    "credit": "Curtis Adams / Pexels"
+  },
+  "camera": {
+    "horizon": 0.5,
+    "vanishingPoints": [
+      { "x": 0.51, "y": 0.5, "weight": 0.8 }
+    ],
+    "heightM": 1.5
+  },
+  "surfaces": [
+    {
+      "id": "rez",
+      "label": "Parquet du rez-de-chaussée",
+      "continuous": true
+    }
+  ],
+  "floorZones": [
+    {
+      "id": "fond",
+      "label": "Pièce du fond",
+      "surfaceId": "rez",
+      "order": 0,
+      "plane": {
+        "quad": [
+          { "x": 0.445, "y": 0.545 },
+          { "x": 0.56, "y": 0.548 },
+          { "x": 0.567, "y": 0.6 },
+          { "x": 0.438, "y": 0.6 }
+        ],
+        "meters": { "width": 2.6, "depth": 1.8 },
+        "origin": { "u": 1.4, "v": -6.2 },
+        "rotationDeg": 0
+      },
+      "mask": {
+        "polygon": [
+          { "x": 0.447, "y": 0.548 },
+          { "x": 0.556, "y": 0.549 },
+          { "x": 0.559, "y": 0.594 },
+          { "x": 0.444, "y": 0.594 }
+        ],
+        "holes": []
+      }
+    },
+    {
+      "id": "couloir-droit",
+      "label": "Dégagement de droite",
+      "surfaceId": "rez",
+      "order": 1,
+      "plane": {
+        "quad": [
+          { "x": 0.617, "y": 0.567 },
+          { "x": 0.69, "y": 0.567 },
+          { "x": 0.7, "y": 0.63 },
+          { "x": 0.61, "y": 0.63 }
+        ],
+        "meters": { "width": 1.6, "depth": 1.4 },
+        "origin": { "u": 3.6, "v": -5.4 },
+        "rotationDeg": 0
+      },
+      "mask": {
+        "polygon": [
+          { "x": 0.62, "y": 0.57 },
+          { "x": 0.688, "y": 0.57 },
+          { "x": 0.696, "y": 0.625 },
+          { "x": 0.614, "y": 0.625 }
+        ],
+        "holes": []
+      }
+    },
+    {
+      "id": "entree",
+      "label": "Entrée",
+      "surfaceId": "rez",
+      "order": 2,
+      "plane": {
+        "quad": [
+          { "x": 0.352, "y": 0.6 },
+          { "x": 0.435, "y": 0.6 },
+          { "x": 0.44, "y": 0.69 },
+          { "x": 0.345, "y": 0.69 }
+        ],
+        "meters": { "width": 1.8, "depth": 2.2 },
+        "origin": { "u": 0.6, "v": -4.4 },
+        "rotationDeg": 0
+      },
+      "mask": {
+        "polygon": [
+          { "x": 0.352, "y": 0.603 },
+          { "x": 0.432, "y": 0.6 },
+          { "x": 0.437, "y": 0.678 },
+          { "x": 0.347, "y": 0.678 }
+        ],
+        "holes": []
+      }
+    },
+    {
+      "id": "salon",
+      "label": "Salon",
+      "surfaceId": "rez",
+      "order": 3,
+      "plane": {
+        "quad": [
+          { "x": 0.18, "y": 0.66 },
+          { "x": 0.84, "y": 0.66 },
+          { "x": 1.02, "y": 1 },
+          { "x": -0.02, "y": 1 }
+        ],
+        "meters": { "width": 5, "depth": 4.5 },
+        "origin": { "u": 0, "v": 0 },
+        "rotationDeg": 0
+      },
+      "mask": {
+        "polygon": [
+          { "x": 0, "y": 0.78 },
+          { "x": 0.3, "y": 0.673 },
+          { "x": 0.347, "y": 0.678 },
+          { "x": 0.437, "y": 0.678 },
+          { "x": 0.6, "y": 0.652 },
+          { "x": 0.86, "y": 0.66 },
+          { "x": 1, "y": 0.7 },
+          { "x": 1, "y": 1 },
+          { "x": 0, "y": 1 }
+        ],
+        "holes": []
+      }
+    }
+  ],
+  "occluders": [],
+  "light": {
+    "kind": "photo-luma",
+    "strength": 0.95,
+    "blurRadius": 0.03
+  },
+  "status": "brouillon"
+}

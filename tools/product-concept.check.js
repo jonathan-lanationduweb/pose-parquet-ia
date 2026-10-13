@@ -380,6 +380,22 @@ if (api) {
 }
 if (!api) { console.log('\nARRET : le script ne s est pas execute'); process.exit(1); }
 
+/* La bibliotheque de pieces arrive par `web/data/rooms.json`, lue par un
+   module (`room-library.js`) que ce DOM minimal n'execute pas. On donne a la
+   page ce que le module lui donnerait : les scenes `renderReady` dont la
+   calibration est validee, et les categories avec leur compte. Le module
+   lui-meme est verifie par `tools/room-library.check.mjs`. */
+const ROOMS = JSON.parse(require('fs').readFileSync('web/data/rooms.json', 'utf8'));
+const proposables = ROOMS.scenes.filter((s) => s.availableForGallery && s.renderReady
+  && s.calibration && s.calibration.status === 'validated' && s.sceneData);
+const dans = (s, c) => [s.category, ...(s.alsoIn || [])].includes(c);
+api.setRoomLibrary({
+  categories: ROOMS.categories.map((c) => ({ id: c.id, label: c.label,
+    count: proposables.filter((s) => dans(s, c.id)).length,
+    cover: proposables.find((s) => dans(s, c.id)) || null })).filter((c) => c.count > 0),
+  scenes: proposables,
+});
+
 const el = (id) => global.document.getElementById(id);
 const h = (id) => el(id).innerHTML || '';
 const count = (id, re) => (h(id).match(re) || []).length;
@@ -387,7 +403,7 @@ const R = 'local-demo-assets/renderings/';
 const REFS = ['POINF36005', 'BTRPF39009', 'CHENF39031', 'CHENF36014', 'CHENF36015'];
 
 /* ================= 5. Le mini-catalogue Premibel ================= */
-ok('onze scènes réellement disponibles', api.DEMO_ROOMS.length === 11, `${api.DEMO_ROOMS.length}`);
+ok('les scenes proposees sont celles du manifeste', api.DEMO_ROOMS.length === proposables.length && proposables.length >= 11, `${api.DEMO_ROOMS.length}/${proposables.length}`);
 const P = api.PREMIBEL_DEMO_PRODUCTS;
 ok('cinq produits Premibel', P.length === 5, `${P.length}`);
 ok('les cinq references attendues',
@@ -695,7 +711,7 @@ ok('chaque carte porte nom, motif, largeur et reference',
   /Point de Hongrie Zeus Naturel/.test(h('prods'))
   && /Point de Hongrie · 92 mm — Réf\. POINF36005/.test(h('prods')));
 ok('aucun prix sur les cartes', !/€/.test(h('prods')));
-ok('le compte figure dans le titre', el('catCount').textContent === '(5)', el('catCount').textContent);
+ok('le compte figure dans le titre, references et inspirations distinguees', el('catCount').textContent === '(5 références)', el('catCount').textContent);
 ok('filtre motif limite aux motifs presents',
   count('fPattern', /class="chip"/g) === api.presentPatterns().length
   && api.presentPatterns().length === 3);
@@ -708,7 +724,7 @@ ok('aucune largeur absente proposee',
   api.presentWidths().every((mm) => P.some((x) => x.widthMm === mm)));
 api.toggleFilter('pattern', 'baton-rompu');
 ok('un filtre reduit la grille', api.visible().length === 1, `${api.visible().length}`);
-ok('le compte suit le filtre', el('catCount').textContent === '(1)');
+ok('le compte suit le filtre', el('catCount').textContent === '(1 référence)');
 api.toggleFilter('pattern', 'baton-rompu');
 ok('le meme filtre se retire', api.visible().length === 5);
 api.toggleFilter('widthMm', 150);
@@ -1345,7 +1361,7 @@ for (const [quoi, re] of [
    trois clics rapides sur le sens de pose laissaient la capture de repli a
    l'ecran, definitivement. */
 ok('une demande concurrente est retenue, pas jetee',
-  /state\.pendingApply = true; return;/.test(code)
+  /state\.pendingApply = true; paintChrome\(\); return;/.test(code)
   && /if \(state\.pendingApply\) \{ state\.pendingApply = false; applyFloor\(\); \}/.test(code));
 ok('le rejeu ne peut pas s emballer',
   code.indexOf('state.pendingApply = false;') < code.indexOf('if (state.pendingApply) {'));
@@ -1469,8 +1485,15 @@ ok('aucun pinceau de retouche de masque', !/id="brush"/.test(html) && !/brAdd|br
 
 /* ================= 18. Selecteur de piece ================= */
 api.openRooms();
-ok('les categories sont listees', count('roomCats', /data-cat=/g) === 6,
+ok('les categories sont listees, une par categorie non vide du manifeste',
+  count('roomCats', /data-cat=/g) === api.ROOM_CATEGORIES.length && api.ROOM_CATEGORIES.length >= 6,
   `${count('roomCats', /data-cat=/g)}`);
+ok('chaque categorie porte son compte reel',
+  api.ROOM_CATEGORIES.every((c) => c.count === proposables.filter((s) => dans(s, c.id)).length
+    && h('roomCats').includes(`(${c.count})`)));
+ok('sans categorie ouverte, la grille montre les categories', count('roomGrid', /data-cat="/g) === api.ROOM_CATEGORIES.length);
+api.openRoomCategory(api.room().categoryId);
+ok('une categorie ouverte montre ses scenes', count('roomGrid', /data-room=/g) === api.scenesCategorie(api.room().categoryId).length);
 ok('le compte des pieces est affiche', /11 pièces/.test(el('roomCount').textContent),
   el('roomCount').textContent);
 ok('la grille montre les scenes', count('roomGrid', /<img/g) >= 1);

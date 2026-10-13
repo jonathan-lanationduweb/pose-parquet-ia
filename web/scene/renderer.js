@@ -35,6 +35,14 @@ export function createSceneRenderer({ prefer = 'auto' } = {}) {
   let residual = null; // { gloss, shadow }
   let lightDir = null;
   const buffers = new Map(); // canevas cible → ImageData réutilisée
+  /* Pièces déjà préparées : pixels, masques, éclairement. Rouvrir une pièce
+     de démonstration recalculait tout — mesuré le 12 octobre 2026 : 3 à 5 s
+     de fil principal à CHAQUE retour sur la chambre. Seules les pièces
+     calibrées y entrent (`cleCache`), jamais une photo importée, et une
+     entrée est oubliée dès que son masque est retouché. */
+  const preparees = new Map();
+  const PREPAREES_MAX = 4;
+  let cleCourante = null;
 
   /** Cartes d'éclairement, de reflets et d'ombres : refaites si le sol bouge.
    *
@@ -80,16 +88,30 @@ export function createSceneRenderer({ prefer = 'auto' } = {}) {
      * @param {object} nextScene SceneData normalisée
      * @param {{canvas:HTMLCanvasElement,width:number,height:number}} prepared
      */
-    setScene(nextScene, prepared) {
+    setScene(nextScene, prepared, { cleCache = null } = {}) {
       scene = nextScene;
       photo = prepared;
+      buffers.clear();
+      cleCourante = cleCache;
+      const deja = cleCache && preparees.get(cleCache);
+      if (deja && deja.photo === prepared) {
+        ({ source, masks, shading, residual, lightDir } = deja);
+        if (gl) {
+          gl.setPhoto(source);
+          chrono('I.gpu.cartes', () => { gl.setShading(shading); gl.setResidual(residual); gl.setMasks(masks); });
+        }
+        return;
+      }
       source = prepared.canvas
         .getContext('2d', { willReadFrequently: true })
         .getImageData(0, 0, prepared.width, prepared.height);
       masks = chrono('C.masques', () => createSceneMasks(scene, prepared.width, prepared.height));
-      buffers.clear();
       if (gl) gl.setPhoto(source);
       prepareLighting();
+      if (cleCache) {
+        if (preparees.size >= PREPAREES_MAX) preparees.delete(preparees.keys().next().value);
+        preparees.set(cleCache, { photo: prepared, source, masks, shading, residual, lightDir });
+      }
     },
 
     /**
@@ -97,7 +119,13 @@ export function createSceneRenderer({ prefer = 'auto' } = {}) {
      * prochain rendu ; l'éclairement, lui, coûte cher — on ne le recalcule
      * qu'à la fin du geste, via refreshLighting().
      */
+    /** Oublie la préparation gardée de la pièce courante (masque retouché). */
+    oublierPreparation() {
+      if (cleCourante) preparees.delete(cleCourante);
+    },
+
     invalidateMasks() {
+      if (cleCourante) preparees.delete(cleCourante);
       if (masks) masks.invalidate();
     },
 
@@ -110,6 +138,7 @@ export function createSceneRenderer({ prefer = 'auto' } = {}) {
      * qu'on la déplace.
      */
     refreshLighting() {
+      if (cleCourante) preparees.delete(cleCourante);
       if (masks) prepareLighting();
     },
 

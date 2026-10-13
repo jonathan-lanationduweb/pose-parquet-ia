@@ -96,6 +96,8 @@ export async function createLocalRenderer({ base = '', prefer = 'auto' } = {}) {
   /** Le seul état de configuration. Pas d'état d'iframe, pas d'état de Studio. */
   let config = { material: null, pattern: 'lames', width: null, plankLength: null, angle: 0, scale: 1 };
   let sceneId = null;
+  /** Photos décodées des pièces de démonstration, par fichier. */
+  const photosPieces = new Map();
   const abonnes = new Set();
   const canvas = document.createElement('canvas');
 
@@ -153,7 +155,15 @@ export async function createLocalRenderer({ base = '', prefer = 'auto' } = {}) {
         }
         /* `preparer` attend les cartes du worker : sans cela `paint` rend
            `false` sur une texture froide, et l'appelant croirait à un échec. */
-        await renderer.preparer(config);
+        /* Une fabrication de tuile qui échoue (worker hors d'usage, délai
+           dépassé) doit aussi prévenir : sinon l'abonné attend son délai de
+           garde entier pour apprendre qu'il n'y aura rien. */
+        try {
+          await renderer.preparer(config);
+        } catch {
+          prevenir(0);
+          return false;
+        }
         const fait = peindre(1);
         if (!fait) prevenir(0);
         return fait;
@@ -193,9 +203,16 @@ export async function createLocalRenderer({ base = '', prefer = 'auto' } = {}) {
            redimensionné pour l'écran s'il le faut : exactement ce qu'attend
            `setScene`, et le même chemin que le front. */
         const tPhoto = performance.now();
-        const prete = await loadImage(`${base}assets/images/${fichier}`);
+        /* La photo décodée est gardée : c'est elle qui identifie la
+           préparation mise en cache par le moteur (masques, lumière). */
+        let prete = photosPieces.get(fichier);
+        if (!prete) {
+          prete = await loadImage(`${base}assets/images/${fichier}`);
+          if (photosPieces.size >= 4) photosPieces.delete(photosPieces.keys().next().value);
+          photosPieces.set(fichier, prete);
+        }
         marquer('B.photo', tPhoto);
-        chrono('D.setScene', () => renderer.setScene(scene, prete));
+        chrono('D.setScene', () => renderer.setScene(scene, prete, { cleCache: `piece:${id}` }));
         sceneId = id;
         return true;
       });
@@ -262,6 +279,7 @@ export async function createLocalRenderer({ base = '', prefer = 'auto' } = {}) {
        partagent toutes le même plan, donc un pixel ajouté y reçoit la même
        perspective que ses voisins. */
     beginStroke(mode, radius, point) {
+      if (typeof renderer.oublierPreparation === 'function') renderer.oublierPreparation();
       const masks = renderer.masks;
       const zone = renderer.scene && renderer.scene.floorZones[0];
       if (!masks || !zone) return false;

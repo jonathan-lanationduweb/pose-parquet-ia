@@ -43,7 +43,7 @@ def test_bounded_model_input_preserves_original_mask_and_removes_padding(
             tensor.shape = [1, 3, images.height, images.width]
             return {"pixel_values": tensor}
 
-        def post_process_semantic_segmentation(self, outputs, *, target_sizes):
+        def post_process_semantic_segmentation(self, _outputs, *, target_sizes):
             labels = np.full(target_sizes[0], 3, dtype=np.int32)
             labels[small_height:] = 28
             return [Labels(labels)]
@@ -53,14 +53,11 @@ def test_bounded_model_input_preserves_original_mask_and_removes_padding(
         floor_semantic, "_torch", lambda: SimpleNamespace(inference_mode=nullcontext)
     )
     engine = floor_semantic.OneFormerFloor()
-    model = SimpleNamespace(device="cpu")
-    monkeypatch.setattr(engine, "_charger", lambda: (Processor(), lambda **kwargs: None, 0))
-
     # A callable model exposes its placement, as the real transformers model does.
     class Model:
         device = "cpu"
 
-        def __call__(self, **kwargs):
+        def __call__(self, **_kwargs):
             return None
 
     monkeypatch.setattr(engine, "_charger", lambda: (Processor(), Model(), 0))

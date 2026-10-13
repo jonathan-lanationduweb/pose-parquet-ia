@@ -700,7 +700,7 @@
             </svg>
           </span>
           <b>Choisir une pièce</b>
-          <span>Cinq intérieurs prêts à essayer.</span>
+          <span>Des pièces calibrées, prêtes à essayer.</span>
         </button>
       </div>
 
@@ -1000,6 +1000,21 @@
     from '../web/product/room-analysis-client.js';
   import { installMaterialPreviews } from '../web/product/material-previews.js';
   window.addEventListener('load', () => installMaterialPreviews(() => window.__concept));
+  import { chargerBibliotheque, categoriesGalerie, scenesProposees } from '../web/product/room-library.js';
+  /* La bibliotheque de pieces : `web/data/rooms.json`, lue une fois. En
+     echec, la galerie le dit au lieu de rester vide en silence. */
+  window.addEventListener('load', () => {
+    chargerBibliotheque('../web/')
+      .then((m) => {
+        /* `?dev=1&revue=1` : la revue géométrique ouvre AUSSI les scènes non
+           validées, pour pouvoir les juger. Jamais hors DEV. */
+        const c = window.__concept;
+        const revue = c.DEV && new URLSearchParams(location.search).get('revue') === '1';
+        const scenes = revue ? m.scenes.filter((x) => x.sceneData) : scenesProposees(m);
+        c.setRoomLibrary({ categories: categoriesGalerie(m), scenes });
+      })
+      .catch(() => { const q = document.getElementById('quickRooms'); if (q) q.textContent = 'Les pièces de démonstration sont indisponibles.'; });
+  });
   import { installProductHome } from '../web/product/product-home.js';
   window.addEventListener('load', () => installProductHome(() => window.__concept));
   import { installVisit } from '../web/product/visit-mode.js';
@@ -1037,26 +1052,21 @@
   })();
 
   /* =====================================================================
-     DEMO_ROOMS — les scènes, sans aucune géométrie
+     DEMO_ROOMS — les scènes proposées, lues dans `web/data/rooms.json`
 
-     Plus de `floorZones`, plus d'occulteurs, plus de masque : la maquette
-     n'a pas à savoir où est le sol. Elle affiche une image déjà rendue.
+     Aucune pièce n'est écrite ici. Le module `room-library.js` lit le
+     manifeste, ne garde que les scènes dont la calibration est validée
+     (`renderReady`), et appelle `setRoomLibrary`. Une catégorie est une
+     collection : « Chambre (3) » se calcule, il ne s'écrit pas.
+
+     Plus de `floorZones`, plus d'occulteurs, plus de masque : la page n'a
+     pas à savoir où est le sol. Le moteur le sait.
      ===================================================================== */
-  const DEMO_ROOMS = [
-    { id: 'sejour', label: 'Séjour et salle à manger', category: 'Séjour', file: 'room-sejour.jpg' },
-    { id: 'chambre', label: 'Chambre ouverte au jardin', category: 'Chambre', file: 'room-chambre.jpg' },
-    { id: 'piece-claire', label: 'Grande pièce claire', category: 'Grande pièce', file: 'room-piece-claire.jpg' },
-    { id: 'piece-arcades', label: 'Pièce aux arcades', category: 'Grande pièce', file: 'room-piece-arcades.jpg' },
-    { id: 'bureau-vide', label: 'Bureau, vue d’angle', category: 'Bureau', file: 'room-bureau-vide.jpg' },
-    { id: 'chambre-parisienne', label: "Chambre parisienne", category: 'Chambre', file: 'room-chambre-parisienne.jpg' },
-    { id: 'cuisine-ouverte', label: "Cuisine ouverte sur le séjour", category: 'Cuisine', file: 'room-cuisine-ouverte.jpg' },
-    { id: 'salon-angle', label: "Salon d’angle", category: 'Séjour', file: 'room-salon-angle.jpg' },
-    { id: 'couloir-enfilade', label: "Couloir en enfilade", category: 'Entrée', file: 'room-couloir-bleu.jpg' },
-    { id: 'entree-cadree', label: "Entrée cadrée", category: 'Entrée', file: 'room-entree-cadree.jpg' },
-    { id: 'chambre-claire', label: "Chambre claire", category: 'Chambre', file: 'room-chambre-claire.jpg' },
-  ];
-
-  const CATEGORIES = ['Séjour', 'Chambre', 'Grande pièce', 'Bureau', 'Entrée', 'Cuisine'];
+  const DEMO_ROOMS = [];
+  /* Libellés des catégories qui ont au moins une scène, dans l'ordre du
+     manifeste ; et leur détail (id, compte, couverture). */
+  const CATEGORIES = [];
+  const ROOM_CATEGORIES = [];
 
   /* Les trois motifs que le moteur du front connaît (`KNOWN_PATTERNS`) — et
      ce sont exactement les trois motifs de nos cinq produits Premibel. */
@@ -1131,6 +1141,35 @@
   PREMIBEL_DEMO_PRODUCTS.push(...(window.PP_PREMIBEL_CATALOG || []).filter(p => !commercialIds.has(p.id)));
   PREMIBEL_DEMO_PRODUCTS.forEach(p => { if (p.renderable === undefined) { p.renderable=true; p.materialFidelity='representative'; } });
   PREMIBEL_DEMO_PRODUCTS.push(...(window.PP_PARQUET_INSPIRATIONS || []));
+  /* Trois sortes d'éléments, et l'interface ne les confond pas :
+       product      une référence Premibel réelle (fiche, réf., vignette) ;
+       inspiration  un style rendu par le moteur, PAS une référence vendue ;
+     la MATIÈRE, elle, est la famille de rendu (`renderProfile.materialFamily`)
+     qu'une référence emprunte : huit familles procédurales aujourd'hui, aucune
+     matière exacte d'un produit. */
+  PREMIBEL_DEMO_PRODUCTS.forEach((p) => { p.kind = p.source === 'inspiration' ? 'inspiration' : 'product'; });
+
+  /** Les comptes réels du catalogue, pour l'en-tête et le rapport. */
+  function compteCatalogue() {
+    const produits = PREMIBEL_DEMO_PRODUCTS.filter((p) => p.kind === 'product');
+    const rendables = produits.filter((p) => p.renderable !== false);
+    return {
+      total: PREMIBEL_DEMO_PRODUCTS.length,
+      produits: produits.length,
+      rendables: rendables.length,
+      exacts: produits.filter((p) => p.materialFidelity === 'exact').length,
+      representatifs: rendables.filter((p) => p.materialFidelity !== 'exact').length,
+      vignetteSeule: produits.length - rendables.length,
+      inspirations: PREMIBEL_DEMO_PRODUCTS.length - produits.length,
+      matieres: new Set(PREMIBEL_DEMO_PRODUCTS.map((p) => p.renderProfile && p.renderProfile.materialFamily).filter(Boolean)).size,
+    };
+  }
+  /** Le résumé affiché sous la recherche : ce qu'on peut vraiment essayer. */
+  function resumeCatalogue() {
+    const c = compteCatalogue();
+    return `${c.produits} références Premibel, dont ${c.rendables} à essayer avec une matière indicative`
+      + ` (${c.vignetteSeule} : aperçu bientôt disponible). ${c.inspirations} inspirations de style, qui ne sont pas des références.`;
+  }
 
   /* Inspirations : une SÉLECTION ÉDITORIALE, écrite à la main. Aucune IA ne
      les a recommandées, et l'interface le dit. */
@@ -1157,17 +1196,57 @@
      ce qui exerce le repli pour de vrai.
      ===================================================================== */
   const RENDERED_ROOMS = ['sejour', 'chambre', 'piece-claire'];
+  const ORIGINAUX_LOCAUX = ['sejour', 'chambre', 'piece-claire', 'piece-arcades', 'bureau-vide'];
   const DEMO_RENDERINGS = {};
-  DEMO_ROOMS.forEach((room) => {
-    const set = { original: ['sejour','chambre','piece-claire','piece-arcades','bureau-vide'].includes(room.id)
-      ? RENDERS + room.id + '.original.jpg' : '../web/assets/images/' + room.file };
-    if (RENDERED_ROOMS.includes(room.id)) {
-      (window.PP_PREMIBEL_PRODUCTS || []).forEach((p) => {
-        set[p.id] = RENDERS + room.id + '.' + p.id + '.jpg';
-      });
-    }
-    DEMO_RENDERINGS[room.id] = set;
-  });
+  function calculerRendus() {
+    Object.keys(DEMO_RENDERINGS).forEach((k) => delete DEMO_RENDERINGS[k]);
+    DEMO_ROOMS.forEach((r) => {
+      const set = { original: ORIGINAUX_LOCAUX.includes(r.id)
+        ? RENDERS + r.id + '.original.jpg' : '../web/assets/images/' + r.file };
+      if (RENDERED_ROOMS.includes(r.id)) {
+        (window.PP_PREMIBEL_PRODUCTS || []).forEach((p) => {
+          set[p.id] = RENDERS + r.id + '.' + p.id + '.jpg';
+        });
+      }
+      DEMO_RENDERINGS[r.id] = set;
+    });
+  }
+
+  /**
+   * Installe la bibliothèque de pièces calculée par `room-library.js`.
+   * `lib.categories` : [{ id, label, count, cover }] ; `lib.scenes` : les
+   * scènes PROPOSÉES du manifeste. Les tableaux gardent leur identité : tout
+   * le code qui les tient déjà voit la nouvelle liste.
+   */
+  function setRoomLibrary(lib) {
+    const cats = (lib && lib.categories) || [];
+    const libelle = Object.fromEntries(cats.map((c) => [c.id, c.label]));
+    DEMO_ROOMS.splice(0, DEMO_ROOMS.length, ...((lib && lib.scenes) || []).map((sc) => ({
+      id: sc.id,
+      label: sc.name,
+      category: libelle[sc.category] || sc.category,
+      categoryId: sc.category,
+      categories: [sc.category, ...(sc.alsoIn || [])],
+      file: sc.image,
+      thumb: sc.thumbnail,
+      style: sc.style || null,
+      lighting: sc.lighting || null,
+      difficulty: sc.difficulty || null,
+    })));
+    ROOM_CATEGORIES.splice(0, ROOM_CATEGORIES.length, ...cats.map((c) => ({
+      id: c.id, label: c.label, count: c.count, cover: c.cover ? c.cover.id : null })));
+    CATEGORIES.splice(0, CATEGORIES.length, ...cats.map((c) => c.label));
+    if (!ROOM_CATEGORIES.some((c) => c.id === state.roomCategory)) state.roomCategory = null;
+    calculerRendus();
+    paintQuick();
+    if (!$('roomSheet').classList.contains('hidden')) paintRoomSheet();
+    if (typeof document.dispatchEvent === 'function' && typeof CustomEvent === 'function') document.dispatchEvent(new CustomEvent('rooms-ready'));
+  }
+
+  /** Les scènes d'une catégorie (par identifiant), dans l'ordre du manifeste. */
+  const scenesCategorie = (id) => DEMO_ROOMS.filter((r) => r.categories.includes(id));
+  /** Vignette d'une scène : la -640 du manifeste, sinon l'original. */
+  const thumbUrl = (r) => (r && r.thumb ? '../web/assets/images/' + r.thumb : originalUrl(r && r.id));
 
   const ANALYSIS = {
     success: { kind: 'ok', text: 'Pièce prête' },
@@ -1236,7 +1315,9 @@
     /* Un vrai produit porte sa largeur et sa finition : elles ne sont plus
        des réglages. Seul le sens de pose en est un. */
     filters: { pattern: null, tone: null, widthMm: null, mood: null },
-    category: 'Séjour',
+    /* Catégorie ouverte dans les sélecteurs de pièce ; `null` = la liste
+       des catégories. */
+    roomCategory: null,
     analysis: 'success',
     ba: false, split: 0.5, insetBas: 0,
     /* Les favoris survivent au rechargement. On ne stocke QUE des
@@ -1267,6 +1348,9 @@
     applied: { key: null, source: null },
     appliedB: { key: null, source: null },
     applying: false,
+    /* `{ key, raison }` : l'échec du DERNIER choix de parquet, ou null. */
+    produitErreur: null,
+    applyGen: 0,
     pendingApply: false,
     /* Numero de la derniere intention (produit, piece, orientation,
        comparaison, import). Un resultat asynchrone qui revient avec un autre
@@ -1325,7 +1409,8 @@
     if (state.source === 'uploaded' && state.uploaded) {
       return { id: 'uploaded', label: state.uploaded.name, category: null };
     }
-    return DEMO_ROOMS.find((r) => r.id === state.roomId) || DEMO_ROOMS[0];
+    return DEMO_ROOMS.find((r) => r.id === state.roomId) || DEMO_ROOMS[0]
+      || { id: state.roomId, label: '', category: null, categories: [] };
   }
 
   /** Chemin du rendu demandé, ou `null` s'il manque. */
@@ -1448,6 +1533,8 @@
     let studio = null;
     let refusScene = null;
     let mode = 'static';
+    /* Vrai quand la connexion au moteur a abouti, dans un sens ou dans l'autre. */
+    let etabli = false;
     let capabilities = { ...CAPABILITIES_NONE };
     let ready = null;
     let lastMs = null;
@@ -1654,7 +1741,7 @@
     function connect() {
       if (ready) return ready;
       if (!WANT_EXTERNAL) {
-        ready = connectLocal().then(
+        ready = connectLocal().finally(() => { etabli = true; }).then(
           (local) => {
             if (!local) {
               mode = 'static';
@@ -1759,6 +1846,7 @@
     }
 
     return {
+      get connecte() { return etabli; },
       get mode() { return mode; },
       /** `local` ou `external` — pour le bandeau de developpement. */
       get engine() { return WANT_EXTERNAL ? 'external' : 'local'; },
@@ -1963,7 +2051,13 @@
         studio.setPattern(profile.pattern);
         const abouti = await attente;
         lastMs = Math.round(performance.now() - t0);
-        /* On ne retient que ce que le moteur a fini de peindre. */
+        /* Rien de peint pour CETTE demande (délai de garde, ou zéro du
+           moteur) : on ne rend rien. Rendre `studio.canvas` ici présentait
+           le dernier état peint — parfois le produit d'avant — sous la clef
+           du nouveau : un parquet faux, marqué « rendu ». */
+        if (abouti === null) return null;
+        /* On ne retient que ce que le moteur a fini de peindre ; un
+           brouillon de CETTE demande s'affiche, mais n'entre pas au cache. */
         if (abouti !== 'fin') return studio.canvas;
         activeFrame = cachePut(key, studio.canvas) || studio.canvas;
         return activeFrame;
@@ -2416,8 +2510,13 @@
   /** Garde l'ancien rendu visible pendant le fondu du nouveau. */
   let fadeTimer = 0;
   function beginFade() {
-    if (REDUCED || !$('after').width) return;
-    paintLayer('afterPrev', $('after'));
+    if (REDUCED) return;
+    /* Premier parquet sur la photo : pas d'ancien rendu à garder dessous, le
+       nouveau apparaît en fondu sur la photo d'origine (12 octobre 2026 ;
+       avant, il surgissait d'un coup). La couche d'appoint est vidée : elle
+       pourrait porter le sol d'une autre pièce. */
+    if (!$('after').width || $('clipA').classList.contains('hidden')) { $('afterPrev').width = 0; $('afterPrev').height = 0; }
+    else paintLayer('afterPrev', $('after'));
     $('after').classList.add('fading');
     /* Meme regle que pour le viewport : pas de rAF pour porter un etat. Le
        double rAF qui retirait la classe ne se declenchait jamais quand
@@ -2429,6 +2528,55 @@
     fadeTimer = setTimeout(() => $('after').classList.remove('fading'), 40);
   }
 
+  /* =====================================================================
+     Application d'un parquet : IDLE -> APPLYING -> RENDERED | ERROR
+
+     Le statut « Application… » n'existe que tant qu'AUCUNE image du dernier
+     choix n'est à l'écran. Il ne dépend pas d'un événement secondaire du
+     moteur : dès qu'une frame de la clef demandée est présentée (capture de
+     démonstration exacte, ou rendu du moteur), il disparaît.
+
+     Le bug du 12 octobre 2026 : la capture de démonstration du produit était
+     déjà affichée, mais le statut attendait la fin du moteur — ouverture de
+     la pièce (cartes de lumière, ~5 s de fil principal sur la chambre) puis
+     tuile du worker (8 à 15 s sur le PC de développement chargé). Le parquet
+     était visible, « Application… » restait affiché.
+
+     Jamais APPLYING pour toujours : un délai de garde fait sortir en ERROR
+     (« Impossible d'appliquer ce parquet », Réessayer). Un résultat tardif
+     reste accepté s'il correspond encore au dernier choix.
+     ===================================================================== */
+  const APPLY_TIMEOUT_MS = (() => {
+    const v = DEV ? Number(new URLSearchParams(location.search).get('ptimeout')) : 0;
+    return v > 0 ? v : 25000;
+  })();
+  let gardeApplication = 0;
+
+  /** L'état du produit à l'écran, pour la clef courante. */
+  function etatApplication() {
+    if (!state.source || photoSansScene()) return 'idle';
+    const key = appliedKey();
+    if (state.applied.key === key) return 'rendered';
+    if (state.produitErreur && state.produitErreur.key === key) return 'error';
+    return 'applying';
+  }
+
+  /** Note (ou efface avec `null`) l'échec du dernier choix. */
+  function produitEchec(key, raison) {
+    state.produitErreur = key ? { key, raison: raison || 'inconnue' } : null;
+    if (key) journal('produit_echec', { raison: raison || 'inconnue' });
+  }
+
+  /* Les captures de démonstration ne sont qu'un REPLI quand le moteur est
+     indisponible. Elles viennent de l'ancien moteur du site, avec une autre
+     matière : mesuré le 12 octobre 2026 sur la chambre, Zeus y est pâle
+     (luminance moyenne du sol 187) quand le moteur le rend miel (136). Les
+     montrer comme « le parquet choisi » puis basculer sur le moteur faisait
+     changer la couleur sous les yeux — et c'était l'image « trop claire »
+     signalée. Elles sont aussi faites à 0° et à l'échelle 1 seulement. */
+  const statiqueExacte = () => state.orientationDeg === 0 && state.floorScale === 1
+    && adapter.mode !== 'live';
+
   async function applyFloor() {
     const entry = room();
     if (photoSansScene()) {
@@ -2439,17 +2587,29 @@
     }
     const key = appliedKey();
     if (state.applied.key === key && state.applied.source === 'live') { paintChrome(); return; }
+    if (state.produitErreur && state.produitErreur.key !== key) produitEchec(null);
 
-    /* 1. amorce immediate par la capture, si elle existe. */
+    /* 1. amorce immediate par la capture EXACTE, si elle existe. Sinon on
+       garde le rendu précédent de la MÊME pièce (le parquet d'avant reste
+       visible pendant que le nouveau se prépare) ; une autre pièce, elle,
+       vide la couche — son sol n'a rien à faire sur cette photo. */
     if (state.applied.key !== key) {
-      const drew = drawStatic('after', entry.id, state.productId);
+      const drew = statiqueExacte() && drawStatic('after', entry.id, state.productId);
       if (drew) state.applied = { key, source: 'static' };
-      else if (!renderUrl(entry.id, state.productId)) {
-        /* Aucun rendu pour cette scene : on VIDE la couche. Sans cela, le sol
-           de la scene precedente resterait affiche sur la nouvelle photo. */
-        $('after').width = 0;
-        $('after').height = 0;
-        state.applied = { key: null, source: null };
+      else {
+        /* Garder l'image d'avant n'a de sens que si une nouvelle arrive :
+           sans moteur, elle resterait affichée sous le nom du nouveau
+           produit — un parquet faux. */
+        const memePiece = adapter.mode === 'live' && state.applied.key
+          && state.applied.key.split('|')[0] === entry.id;
+        /* Une capture exacte en cours de chargement arrive d'elle-même
+           (`reapply` à son `onload`) : on ne vide pas en l'attendant. */
+        const captureAttendue = statiqueExacte() && renderUrl(entry.id, state.productId);
+        if (!memePiece && !captureAttendue) {
+          $('after').width = 0;
+          $('after').height = 0;
+          state.applied = { key: null, source: null };
+        }
       }
       $('clipA').classList.toggle('hidden', !$('after').width);
     }
@@ -2457,37 +2617,83 @@
 
     /* 2. puis le vrai moteur, s'il repond. */
     const caps = adapter.getCapabilities();
-    if (adapter.mode !== 'live' || !caps.pattern) return;
+    if (adapter.mode !== 'live' || !caps.pattern) {
+      /* Pas de moteur : la capture exacte est le rendu. Sans elle, rien ne
+         viendra — on le dit au lieu d'afficher « Application… » sans fin.
+         Pendant la connexion du moteur, on attend : `connecter` relance. */
+      if (state.applied.key !== key && adapter.connecte) produitEchec(key, 'moteur_indisponible');
+      paintChrome();
+      return;
+    }
     /* Une demande qui arrive pendant un rendu ne se perd pas : elle est
-       retenue, et rejouee des que le moteur est libre. La version precedente
-       l'ABANDONNAIT, et le rendu en cours se jetait lui-meme puisque sa clef
-       n'etait plus la bonne — trois clics rapides sur le sens de pose
-       laissaient donc la capture de repli a l'ecran, pour toujours. Un
-       controle visible sans effet visible : precisement ce qu'on refuse. */
-    if (state.applying) { state.pendingApply = true; return; }
+       retenue, et rejouee des que le moteur est libre. Le dernier choix
+       gagne. */
+    if (state.applying) { state.pendingApply = true; paintChrome(); return; }
     state.applying = true;
     state.pendingApply = false;
     const intent = state.intent;
+    const gen = (state.applyGen += 1);
+    const t0 = performance.now();
     paintChrome();
-    try {
+
+    /* Le délai de garde : il libère l'interface, pas le moteur. Si le moteur
+       finit plus tard, son résultat est accepté tant qu'il correspond encore
+       au dernier choix. */
+    clearTimeout(gardeApplication);
+    const garde = new Promise((resolve) => {
+      gardeApplication = setTimeout(() => resolve('delai'), APPLY_TIMEOUT_MS);
+    });
+
+    const travail = (async () => {
       /* La piece ouverte dans le moteur est un etat DU MOTEUR : c'est
-         l'adaptateur qui la connait, et la clef du cache s'en sert. En tenir
-         un second compte ici, c'est se donner deux verites a desynchroniser. */
-      if (adapter.scene !== entry.id) await adapter.openRoom(entry.id);
-      const canvas = await adapter.applyProfile({ ...product().renderProfile, scale: state.floorScale }, state.orientationDeg);
-      /* Deux gardes : la clef (c'est bien ce sol, dans cette piece) ET le
-         jeton (aucune autre intention n'est passee entre-temps). La clef
-         seule laisserait un aller-retour A -> B -> A afficher un rendu de A
-         commande avant B — juste, mais sans que le repli de B ait ete
-         remplace proprement. */
-      if (canvas && appliedKey() === key && state.intent === intent) {
-        beginFade();
-        if (paintLayer('after', canvas)) {
-          state.applied = { key, source: 'live' };
-          $('clipA').classList.remove('hidden');
-        }
+         l'adaptateur qui la connait, et la clef du cache s'en sert. */
+      if (adapter.scene !== entry.id) {
+        const ouverte = await adapter.openRoom(entry.id);
+        if (!ouverte) throw new Error('piece_non_ouverte');
       }
-    } catch { /* le moteur a flanche : la capture reste a l'ecran */ }
+      return adapter.applyProfile({ ...product().renderProfile, scale: state.floorScale }, state.orientationDeg);
+    })();
+
+    /* Présente le résultat s'il correspond ENCORE au dernier choix. Deux
+       gardes : la clef (c'est bien ce sol, dans cette pièce) ET le jeton
+       (aucune autre intention n'est passée entre-temps). */
+    const presenter = (canvas) => {
+      if (!canvas || appliedKey() !== key || state.intent !== intent) return false;
+      beginFade();
+      if (!paintLayer('after', canvas)) return false;
+      state.applied = { key, source: 'live' };
+      if (state.produitErreur && state.produitErreur.key === key) produitEchec(null);
+      $('clipA').classList.remove('hidden');
+      journal('produit_rendu', { ms: Math.round(performance.now() - t0) });
+      return true;
+    };
+    /* Un échec ne compte que pour le choix COURANT, et seulement si aucune
+       image exacte n'est déjà à l'écran. */
+    const echouer = (raison) => {
+      if (appliedKey() === key && state.intent === intent && state.applied.key !== key) produitEchec(key, raison);
+    };
+
+    let issue;
+    try {
+      issue = await Promise.race([travail, garde]);
+    } catch (e) {
+      issue = { erreur: (e && e.message) || 'moteur' };
+    }
+    clearTimeout(gardeApplication);
+
+    if (issue === 'delai') {
+      echouer('delai');
+      /* Le résultat tardif n'est pas perdu : s'il arrive et correspond
+         toujours au dernier choix, il remplace le message d'échec. */
+      travail.then((c) => {
+        if (state.applyGen === gen && presenter(c)) { paintChrome(); applyTransform(); }
+      }, () => {});
+    } else if (issue && issue.erreur) {
+      echouer(issue.erreur);
+    } else if (!presenter(issue) && !issue) {
+      /* `null` : le moteur a refusé (largeur, longueur) ou n'a rien peint. */
+      echouer(adapter.refus || 'rendu_absent');
+    }
     state.applying = false;
     paintChrome();
     applyTransform();
@@ -2495,6 +2701,13 @@
        en entree, donc la chaine s'arrete des que plus personne ne demande
        rien. */
     if (state.pendingApply) { state.pendingApply = false; applyFloor(); }
+  }
+
+  /** Réessayer après un échec : on oublie l'échec et on redemande. */
+  function relancerApplication() {
+    produitEchec(null);
+    state.intent += 1;
+    applyFloor();
   }
 
   function reapply() { applyFloor(); applyCompareB(); }
@@ -2509,7 +2722,7 @@
     const entry = room();
     const key = `${entry.id}|${state.compare.b}|${state.orientationDeg}|${state.floorScale}`;
     if (state.appliedB.key === key) return;
-    if (drawStatic('cmpB', entry.id, state.compare.b)) {
+    if (statiqueExacte() && drawStatic('cmpB', entry.id, state.compare.b)) {
       state.appliedB = { key, source: 'static' };
       $('vpB').classList.remove('hidden');
     }
@@ -2578,7 +2791,16 @@
     drawer.syncLayout?.();
     document.body.dataset.productState = etatProduit();
     document.body.classList.toggle('floor-rendered', hasRender);
-    $('card').classList.toggle('hidden', !hasRender);
+    /* Pendant la première application (ou après son échec), la carte reste
+       visible : c'est elle qui porte « Application… » ou « Impossible
+       d'appliquer ce parquet ». Sans elle, la photo restait nue plusieurs
+       secondes, sans un mot. */
+    const etatProd = etatApplication();
+    const carteVisible = hasRender || (Boolean(state.source) && !photoSansScene()
+      && (etatProd === 'applying' || etatProd === 'error'));
+    $('card').classList.toggle('hidden', !carteVisible);
+    $('card').dataset.etat = etatProd;
+    document.body.dataset.application = etatProd;
     $('tools').classList.toggle('hidden', !hasRender);
     /* Une photo importee sans scene n'a pas de parquet, donc pas de barre
        produit — mais elle a droit a une phrase qui explique pourquoi, et a
@@ -2701,13 +2923,25 @@
      rouvrir le catalogue. */
   /* Carte du produit actif : photo, nom, motif et largeur réels, référence
      discrète, puis le lien vers la vraie fiche Premibel. */
+  /* La pastille d'application : seulement tant qu'aucune image du DERNIER
+     choix n'est à l'écran, ou pour dire que l'application a échoué. */
+  function pastilleApplication() {
+    const etat = etatApplication();
+    if (etat === 'applying') return '<span class="busy" data-etat="applying"><i></i>Application…</span>';
+    if (etat === 'error') {
+      return '<span class="busy err" data-etat="error">Impossible d’appliquer ce parquet'
+        + ' <button type="button" data-open="retryApply">Réessayer</button></span>';
+    }
+    return '';
+  }
+
   function cardHtml(entry, side) {
     const on = state.favourites.has(entry.id);
     return `<span class="sw${swatchClass(entry)}" style="${swatchStyle(entry)}" ${previewAttrs(entry)}></span>
       <b>${entry.name}</b>
       <span class="dim">${side === 'A' ? resumeConfig() : `${PATTERNS[entry.pattern]} · ${entry.widthMm} mm`}</span>
       <span class="ref">${entry.source === 'inspiration' ? 'Inspiration' : `Réf. ${entry.ref}`}</span>
-      ${side === 'A' && state.applying ? '<span class="busy"><i></i>Application…</span>' : ''}
+      ${side === 'A' ? pastilleApplication() : ''}
       ${entry.productUrl ? `<a class="sheet" href="${entry.productUrl}" target="_blank"
          rel="noopener noreferrer" data-sheet="${entry.ref}">VOIR LA FICHE PREMIBEL</a>` : ''}
       <span class="row">
@@ -2846,45 +3080,92 @@
     });
   }
 
-  function paintRoomSheet() {
-    const cats = CATEGORIES.filter((c) => DEMO_ROOMS.some((r) => r.category === c));
-    $('roomCats').innerHTML = cats.map((c) => {
-      const n = DEMO_ROOMS.filter((r) => r.category === c).length;
-      return `<button type="button" data-cat="${c}" aria-pressed="${c === state.category}">
-        ${c} <span style="color:var(--ink-4);font-weight:400">${n}</span></button>`;
-    }).join('');
-
-    const list = DEMO_ROOMS.filter((r) => r.category === state.category);
-    $('roomCount').textContent = `(${DEMO_ROOMS.length} pièces)`;
-    $('roomGrid').innerHTML = list.map((r) => `
+  /* Une carte de scène, partagée par le tiroir et l'accueil. */
+  const carteScene = (r) => `
       <button class="rcard" type="button" data-room="${r.id}">
-        <span class="ph"><img alt="${r.label}" src="${originalUrl(r.id)}" />${
-          r.id === state.roomId ? `<span class="tick"><svg width="12" height="12" viewBox="0 0 24 24"
+        <span class="ph"><img alt="${r.label}" loading="lazy" src="${thumbUrl(r)}" />${
+          r.id === state.roomId && state.source === 'demo' ? `<span class="tick"><svg width="12" height="12" viewBox="0 0 24 24"
           fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"
           stroke-linejoin="round"><path d="M20 6L9 17l-5-5" /></svg></span>` : ''}</span>
         <span class="nm">${r.label}</span>
-        <span class="cat">${r.category}</span>
-      </button>`).join('');
+        <span class="cat">${[r.style, r.lighting].filter(Boolean).join(' · ')}</span>
+      </button>`;
+
+  /* Une carte de catégorie : sa couverture, son nom, son compte RÉEL. */
+  const carteCategorie = (c) => {
+    const couv = DEMO_ROOMS.find((r) => r.id === c.cover) || scenesCategorie(c.id)[0];
+    return `
+      <button class="rcard rcat" type="button" data-cat="${c.id}">
+        <span class="ph"><img alt="" loading="lazy" src="${thumbUrl(couv)}" /></span>
+        <span class="nm">${c.label} <span class="cnt">(${c.count})</span></span>
+        <span class="cat">${c.count} ${c.count > 1 ? 'pièces' : 'pièce'}</span>
+      </button>`;
+  };
+
+  /**
+   * Le tiroir « Choisir une pièce » : la liste des catégories à gauche, les
+   * scènes de la catégorie ouverte à droite. Sans catégorie ouverte, la
+   * grille montre les catégories elles-mêmes.
+   */
+  function paintRoomSheet() {
+    const actif = state.roomCategory;
+    $('roomCats').innerHTML = ROOM_CATEGORIES.map((c) => `<button type="button" data-cat="${c.id}" aria-pressed="${c.id === actif}">
+        ${c.label} <span style="color:var(--ink-4);font-weight:400">(${c.count})</span></button>`).join('');
+    $('roomCount').textContent = `(${DEMO_ROOMS.length} pièces)`;
+    const cat = ROOM_CATEGORIES.find((c) => c.id === actif);
+    $('roomGrid').innerHTML = cat
+      ? `<button type="button" class="room-back" data-cat-back>‹ Toutes les catégories</button>`
+        + `<h3 class="room-cat-title">${cat.label} (${cat.count})</h3>`
+        + scenesCategorie(cat.id).map(carteScene).join('')
+      : ROOM_CATEGORIES.map(carteCategorie).join('');
     markFallbacks($('roomGrid'));
   }
 
+  /* L'accueil : même navigation, catégories puis scènes. */
   function paintQuick() {
-    $('quickRooms').innerHTML = DEMO_ROOMS.slice(0, 3).map((r) => `
-      <button class="rcard" type="button" data-room="${r.id}">
-        <span class="ph"><img alt="${r.label}" src="${originalUrl(r.id)}" /></span>
-        <span class="nm">${r.label}</span>
-        <span class="cat">${r.category}</span>
-      </button>`).join('');
+    const cat = ROOM_CATEGORIES.find((c) => c.id === state.roomCategory);
+    const cats = $('homeCategories');
+    if (cats) {
+      cats.innerHTML = cat
+        ? `<button type="button" class="room-back" data-cat-back>‹ Toutes les catégories</button><b class="room-cat-title">${cat.label} (${cat.count})</b>`
+        : '';
+    }
+    if (!DEMO_ROOMS.length) {
+      $('quickRooms').innerHTML = '<p class="rooms-loading">Chargement des pièces…</p>';
+      return;
+    }
+    $('quickRooms').innerHTML = cat
+      ? scenesCategorie(cat.id).map(carteScene).join('')
+      : ROOM_CATEGORIES.map(carteCategorie).join('');
     markFallbacks($('quickRooms'));
+  }
+
+  /** Ouvre une catégorie (ou revient à la liste avec `null`) partout. */
+  function openRoomCategory(id) {
+    state.roomCategory = ROOM_CATEGORIES.some((c) => c.id === id) ? id : null;
+    paintQuick();
+    if (!$('roomSheet').classList.contains('hidden')) paintRoomSheet();
   }
 
   /** Changer de pièce CONSERVE le parquet : on juge le même bois ailleurs. */
   function openRoom(id) {
+    if (!DEMO_ROOMS.some((r) => r.id === id)) return false;
     state.intent += 1;
     state.source = 'demo';
     state.roomId = id;
     releaseUpload();
-    state.category = room().category;
+    /* Nouvelle pièce : tout ce qui appartenait à l'ancienne repart à zéro —
+       comparaison, avant/après, choix B en cours, correction du sol, rendu
+       en attente. Le PRODUIT, lui, est gardé : on juge le même bois ailleurs. */
+    if (floorEdit.actif) floorEditStop(false);
+    state.compare = null;
+    state.picking = false;
+    state.ba = false;
+    state.split = 0.5;
+    state.pendingApply = false;
+    state.applied = { key: null, source: null };
+    state.appliedB = { key: null, source: null };
+    produitEchec(null);
     preload(id);
     closeAll();
     enter(true);
@@ -3318,9 +3599,15 @@
           aria-pressed="${f.mood === m.id}">${m.label} · ${m.refs.length}</button>`).join('')}</div>`;
 
     const favoris = state.catalogueView === 'favourites';
-    const list = favoris ? PREMIBEL_DEMO_PRODUCTS.filter((p) => state.favourites.has(p.id)) : visible();
+    /* Ce qu'on peut essayer d'abord, puis les références sans aperçu, puis
+       les inspirations : un visiteur ne doit pas tomber d'emblée sur des
+       cartes qui ne mènent à rien. Tri stable : l'ordre du catalogue tient
+       à l'intérieur de chaque groupe. */
+    const rang = (p) => (p.kind === 'inspiration' ? 2 : p.renderable === false ? 1 : 0);
+    const list = (favoris ? PREMIBEL_DEMO_PRODUCTS.filter((p) => state.favourites.has(p.id)) : visible())
+      .map((p, i) => [p, i]).sort((a, b) => rang(a[0]) - rang(b[0]) || a[1] - b[1]).map(([p]) => p);
     if (favoris && !list.length) { state.catalogueView = 'all'; paintCatalogue(); return; }
-    $('catCount').textContent = favoris ? `(${list.length} en favoris)` : `(${list.length})`;
+    $('catCount').textContent = favoris ? `(${list.length} en favoris)` : comptesListe(list);
     $('prods').innerHTML = list.length ? list.map((p) => {
       const on = state.favourites.has(p.id);
       return `<button class="pd" type="button" data-id="${p.id}" aria-pressed="${p.id === state.productId}">
@@ -3332,6 +3619,26 @@
         <span class="catalog-fidelity">${p.renderable === false ? 'Aperçu bientôt disponible' : p.source === 'inspiration' ? 'Inspiration' : 'Matière indicative'}</span>
       </button>`;
     }).join('') : '<p class="empty">Aucune référence du catalogue ne correspond à ces filtres.</p>';
+  }
+
+  /* « 394 références · 34 inspirations » plutôt qu'un total qui laisserait
+     croire à 428 produits. */
+  function comptesListe(list) {
+    const ref = list.filter((p) => p.kind === 'product').length;
+    const insp = list.length - ref;
+    return `(${ref} référence${ref > 1 ? 's' : ''}${insp ? ` · ${insp} inspiration${insp > 1 ? 's' : ''}` : ''})`;
+  }
+
+  /** Met à jour la carte sélectionnée du catalogue sans le reconstruire. */
+  function marquerSelection() {
+    const grille = $('prods');
+    if (!grille || typeof grille.querySelectorAll !== 'function') { paintCatalogue(); return; }
+    const cartes = grille.querySelectorAll('.pd[data-id]');
+    if (!cartes.length) { paintCatalogue(); return; }
+    cartes.forEach((b) => {
+      const oui = b.dataset.id === state.productId;
+      if ((b.getAttribute('aria-pressed') === 'true') !== oui) b.setAttribute('aria-pressed', String(oui));
+    });
   }
 
   function toggleFilter(kind, value) {
@@ -3589,7 +3896,11 @@
     state.intent += 1;
     state.productId = id;
     paint();
-    paintCatalogue();
+    /* Seule la carte sélectionnée change : reconstruire les 428 cartes à
+       chaque clic coûtait 180 ms de script plus ~280 ms de mise en page
+       forcée (mesuré le 12 octobre 2026) — un produit déjà rendu mettait
+       ainsi 350 à 450 ms à s'afficher, pour 0 ms de moteur. */
+    marquerSelection();
     paintCustom();
     if (!silent) toast(`${entry.name} · ${PATTERNS[entry.pattern]}`);
   }
@@ -3688,7 +3999,7 @@
   function annulerChoixB() {
     if (!state.picking) return;
     state.picking = false;
-    $('catCount').textContent = `(${visible().length})`;
+    $('catCount').textContent = comptesListe(visible());
   }
 
   function closeAll() {
@@ -3730,14 +4041,12 @@
     if (f) loadUpload(f);
   });
 
-  $('roomCats').onclick = (e) => {
-    const b = e.target.closest('[data-cat]');
-    if (!b) return;
-    state.category = b.dataset.cat;
-    paintRoomSheet();
-  };
-  ['roomGrid', 'quickRooms'].forEach((id) => {
+  ['roomCats', 'roomGrid', 'quickRooms', 'homeCategories'].forEach((id) => {
     $(id).onclick = (e) => {
+      e.stopPropagation();
+      if (e.target.closest('[data-cat-back]')) { openRoomCategory(null); return; }
+      const c = e.target.closest('[data-cat]');
+      if (c) { openRoomCategory(c.dataset.cat); return; }
       const b = e.target.closest('[data-room]');
       if (b) openRoom(b.dataset.room);
     };
@@ -3787,6 +4096,7 @@
           else floorEditStart();
         }
         else if (open.dataset.open === 'retry') relancerAnalyse();
+        else if (open.dataset.open === 'retryApply') relancerApplication();
         else if (open.dataset.open === 'cus') openCus();
         else if (open.dataset.open === 'cmpB') pickB();
         else startCompare();
@@ -4167,6 +4477,7 @@
     enter, room, product, renderUrl, originalUrl, preload, probeImages,
     findMatchingProduct, findVariant: findMatchingProduct, presentPatterns, presentTones, presentWidths, startCompare,
     adapter, paintLayer, applyFloor, applyCompareB, appliedKey, paintChrome,
+    etatApplication, relancerApplication, APPLY_TIMEOUT_MS, compteCatalogue, resumeCatalogue,
     photoSansScene, poserScenePhoto, appliquerScenePhoto, floorEditStart, floorEditStop, floorEdit,
     etatProduit, relancerAnalyse, ouvrirSceneManuelle,
     getRenderStateKey: (profile, deg) => adapter.getRenderStateKey(profile, deg),
@@ -4176,6 +4487,7 @@
     cssScale, clamp, applyTransform,
     setVp, fitToView, zoomAt, setImmersive, onWheel, onDown, onMove, onUp, onDouble,
     paint, paintCard, paintCatalogue, paintCustom, paintRoomSheet, paintQuick,
+    setRoomLibrary, openRoomCategory, scenesCategorie, ROOM_CATEGORIES,
     openRoom, loadUpload, releaseUpload, select, stepProduct, toggleFav,
     drawer, regleReserveTiroir,
     toggleFilter, visible, setDemo, closeAll, openRooms, openCat, openCus,
