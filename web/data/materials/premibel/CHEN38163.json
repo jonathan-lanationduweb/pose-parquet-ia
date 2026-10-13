@@ -1,0 +1,88 @@
+{
+  "id": "premibel-CHEN38163",
+  "name": "Matière exacte CHEN38163",
+  "slug": "premibel-chen38163",
+  "wood": "Chêne",
+  "tone": "fonce",
+  "finish": "verni",
+  "boardWidth": 0.13,
+  "boardLength": 1.05,
+  "defaultPattern": "lames",
+  "compatiblePatterns": [
+    "lames"
+  ],
+  "texture": {
+    "base": [
+      107,
+      70,
+      48
+    ],
+    "grain": [
+      88,
+      54,
+      39
+    ],
+    "warm": 7,
+    "spread": 17,
+    "grainLines": 12,
+    "grainAlpha": 0.23,
+    "grainWidth": 0.016,
+    "knots": 0.28,
+    "knotSize": 0.06,
+    "contrast": 1.05,
+    "bevel": 0.028,
+    "joint": 0.5,
+    "sheen": 0.07,
+    "cracks": 0.05
+  },
+  "atlas": {
+    "url": "assets/products/premibel/materials/CHEN38163.atlas.webp",
+    "ppm": 0.6,
+    "rows": [
+      {
+        "x": 0,
+        "y": 0,
+        "w": 492,
+        "h": 78
+      },
+      {
+        "x": 0,
+        "y": 78,
+        "w": 124,
+        "h": 78
+      },
+      {
+        "x": 0,
+        "y": 156,
+        "w": 236,
+        "h": 78
+      },
+      {
+        "x": 0,
+        "y": 234,
+        "w": 426,
+        "h": 78
+      }
+    ]
+  },
+  "provenance": {
+    "kind": "exact",
+    "product": "CHEN38163",
+    "sourceKind": "closeup",
+    "source": "web/assets/products/premibel/CHEN38163.webp",
+    "planks": 4,
+    "woodMeters": 2.13,
+    "sourcePxPerMm": 0.355,
+    "focal": [
+      "resolue:527px fuite mesuree:6 segments"
+    ],
+    "inherits": "chene-tabac",
+    "inheritedFields": [
+      "joint",
+      "bevel",
+      "sheen",
+      "finish"
+    ],
+    "limits": "Éclairage de la photo égalisé ; longueur des morceaux déduite de la perspective. Joint et chanfrein empruntés à la famille représentative."
+  }
+}

@@ -454,6 +454,59 @@ function grain(ctx, x, y, w, h, tex, random) {
  *   plus sûrement une texture synthétique : sur un parquet posé, les joints
  *   de bout se remarquent à peine.
  */
+/* L'atlas de la matière en cours de dessin (matière EXACTE), ou null.
+   Posé par `buildTexture` le temps d'un dessin : le dessin est synchrone,
+   aucune autre tuile ne peut s'intercaler. */
+let ATLAS = null;
+
+/**
+ * Remplit une lame avec une vraie bande de bois de l'atlas : une rangée tirée
+ * au sort (une rangée = une lame réelle de la photo du produit), un départ
+ * tiré au sort, et des retournements dans la longueur et dans la largeur.
+ * Une lame plus longue que la bande se prolonge en miroir, ce qui ne crée
+ * pas de joint de bout fictif.
+ */
+function lameAtlas(ctx, x, y, w, h, random) {
+  const { image, rows, ppm } = ATLAS;
+  const horizontal = w >= h;
+  const longPx = horizontal ? w : h;
+  const traversPx = horizontal ? h : w;
+  const row = rows[Math.min(rows.length - 1, Math.floor(random() * rows.length))];
+  const besoin = Math.max(4, (longPx / TILE) * TILE_METERS * 1000 * ppm);
+  const inverseLong = random() < 0.5;
+  const inverseTravers = random() < 0.5;
+  ctx.save();
+  if (horizontal) ctx.translate(x, y);
+  else { ctx.translate(x + w, y); ctx.rotate(Math.PI / 2); }
+  if (inverseLong) { ctx.translate(longPx, 0); ctx.scale(-1, 1); }
+  if (inverseTravers) { ctx.translate(0, traversPx); ctx.scale(1, -1); }
+  /* Un morceau plus court que la lame est d'abord ÉTIRÉ le long du fil,
+     jusqu'à 2× : le fil du chêne supporte l'allongement, un nœud devient une
+     ellipse plus longue. Ce n'est qu'au-delà qu'il se prolonge en miroir.
+     Sans cet étirement, un morceau de 0,5 m revenait 4 fois dans une lame
+     de 1,90 m, nœuds compris (revue du 13 octobre 2026). */
+  const etirement = besoin > row.w ? Math.min(2, besoin / row.w) : 1;
+  const source = besoin / etirement;
+  const echelle = longPx / source;
+  let reste = source;
+  let pos = 0;
+  let sx = row.w > source ? random() * (row.w - source) : 0;
+  let sens = 1;
+  while (reste > 0.5) {
+    const part = Math.min(reste, row.w - sx);
+    if (part <= 0.5) break;
+    ctx.save();
+    if (sens < 0) { ctx.translate((pos + part) * echelle, 0); ctx.scale(-1, 1); ctx.drawImage(image, row.x + sx, row.y, part, row.h, 0, 0, part * echelle, traversPx); }
+    else ctx.drawImage(image, row.x + sx, row.y, part, row.h, pos * echelle, 0, part * echelle, traversPx);
+    ctx.restore();
+    pos += part;
+    reste -= part;
+    sx = 0;
+    sens = -sens;
+  }
+  ctx.restore();
+}
+
 function board(ctx, x, y, w, h, tex, random) {
   const horizontal = w >= h;
 
@@ -470,17 +523,23 @@ function board(ctx, x, y, w, h, tex, random) {
   const warm = Math.round((random() - 0.5) * tex.warm * varLame);
 
   ctx.save();
-  const gradient = horizontal
-    ? ctx.createLinearGradient(x, y, x + w, y)
-    : ctx.createLinearGradient(x, y, x, y + h);
-  const amp = 5 * tex.contrast;
-  gradient.addColorStop(0, rgb(tex.base, shift - amp, warm));
-  gradient.addColorStop(0.45, rgb(tex.base, shift + amp * 0.55, warm));
-  gradient.addColorStop(1, rgb(tex.base, shift - amp * 0.7, warm));
-  ctx.fillStyle = gradient;
-  ctx.fillRect(x, y, w, h);
+  if (ATLAS) {
+    /* Matière exacte : le bois vient de la photo du produit. Pas de dégradé,
+       pas de veinage dessiné — la photo les porte déjà. */
+    lameAtlas(ctx, x, y, w, h, random);
+  } else {
+    const gradient = horizontal
+      ? ctx.createLinearGradient(x, y, x + w, y)
+      : ctx.createLinearGradient(x, y, x, y + h);
+    const amp = 5 * tex.contrast;
+    gradient.addColorStop(0, rgb(tex.base, shift - amp, warm));
+    gradient.addColorStop(0.45, rgb(tex.base, shift + amp * 0.55, warm));
+    gradient.addColorStop(1, rgb(tex.base, shift - amp * 0.7, warm));
+    ctx.fillStyle = gradient;
+    ctx.fillRect(x, y, w, h);
 
-  grain(ctx, x, y, w, h, tex, random);
+    grain(ctx, x, y, w, h, tex, random);
+  }
 
   // Reflet de finition : léger, dans la longueur de la lame
   if (tex.sheen > 0.01) {
@@ -891,7 +950,7 @@ function filmGrain(ctx, w, h, amount) {
  * @param {number} [o.width]    largeur de lame en m (défaut : celle du matériau)
  * @returns {HTMLCanvasElement}
  */
-export function buildTexture(material, { pattern = 'lames', width, plankLength, size = TILE } = {}) {
+export function buildTexture(material, { pattern = 'lames', width, plankLength, size = TILE, atlas = null } = {}) {
   const tex = material.texture;
   const profile = patternProfile(material, pattern, width, plankLength);
   const canvas = creerCanvas(size, size);
@@ -929,9 +988,17 @@ export function buildTexture(material, { pattern = 'lames', width, plankLength, 
   ctx.fillStyle = rgb(tex.grain, -14);
   ctx.fillRect(0, 0, TILE, TILE);
 
-  if (pattern === 'point-de-hongrie') drawChevron(ctx, tex, profile, graine);
-  else if (pattern === 'baton-rompu') drawHerringbone(ctx, tex, profile, graine);
-  else drawStraight(ctx, tex, profile, graine);
+  /* Matière exacte : l'atlas décodé (ImageBitmap) et ses rangées. */
+  ATLAS = atlas && material.atlas && Array.isArray(material.atlas.rows) && material.atlas.rows.length
+    ? { image: atlas, rows: material.atlas.rows, ppm: material.atlas.ppm || 0.6 }
+    : null;
+  try {
+    if (pattern === 'point-de-hongrie') drawChevron(ctx, tex, profile, graine);
+    else if (pattern === 'baton-rompu') drawHerringbone(ctx, tex, profile, graine);
+    else drawStraight(ctx, tex, profile, graine);
+  } finally {
+    ATLAS = null;
+  }
 
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   filmGrain(ctx, size, size, 6);

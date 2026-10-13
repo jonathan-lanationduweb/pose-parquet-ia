@@ -906,6 +906,7 @@
         <input id="catSearch" type="search" placeholder="Chêne fumé, naturel, bâton rompu…" />
         <label for="catCollection">Collection</label>
         <select id="catCollection"><option value="all">Tous les parquets</option><option value="inspiration">Inspirations</option><option value="premibel">Références Premibel</option></select>
+        <label class="apercu-filtre"><input type="checkbox" id="fApercu" /> Aperçu disponible</label>
         <p id="catalogSummary">Références Premibel et inspirations. Matières indicatives.</p>
       </div>
       <details class="catalog-filters"><summary>Filtres et inspirations</summary>
@@ -1148,17 +1149,55 @@
      qu'une référence emprunte : huit familles procédurales aujourd'hui, aucune
      matière exacte d'un produit. */
   PREMIBEL_DEMO_PRODUCTS.forEach((p) => { p.kind = p.source === 'inspiration' ? 'inspiration' : 'product'; });
+  /* Fidélité de la matière, pour chaque référence :
+       exact          matière construite sur la photo du produit lui-même
+                      (posée plus bas, quand le moteur confirme son atlas) ;
+       representative matière générique proche ;
+       preview_only   vignette disponible, aucune matière rendable ;
+       unavailable    ni vignette ni matière. */
+  PREMIBEL_DEMO_PRODUCTS.forEach((p) => {
+    if (p.kind !== 'product') return;
+    p.materialFidelity = p.renderable === false
+      ? ((p.thumbnail || p.catalogThumbnail) ? 'preview_only' : 'unavailable')
+      : 'representative';
+  });
+
+  /**
+   * Promeut en « exact » les références dont le moteur a réellement chargé
+   * la matière (atlas présent). Le profil représentatif est gardé à côté :
+   * il n'est plus utilisé, mais il dit d'où l'on vient.
+   */
+  function appliquerMatieresExactes(liste) {
+    let n = 0;
+    (liste || []).forEach((m) => {
+      const p = PREMIBEL_DEMO_PRODUCTS.find((x) => x.id === m.product);
+      if (!p) return;
+      if (p.materialFidelity !== 'exact') p.representativeProfile = p.renderProfile || null;
+      p.renderable = true;
+      p.materialFidelity = 'exact';
+      p.pattern = p.pattern || m.pattern;
+      p.widthMm = p.widthMm || m.widthMm;
+      p.lengthMm = p.lengthMm || m.lengthMm;
+      p.renderProfile = { materialFamily: m.material, pattern: m.pattern, widthM: m.widthMm / 1000,
+        lengthM: m.lengthMm / 1000, orientationDeg: 0 };
+      n += 1;
+    });
+    return n;
+  }
 
   /** Les comptes réels du catalogue, pour l'en-tête et le rapport. */
   function compteCatalogue() {
     const produits = PREMIBEL_DEMO_PRODUCTS.filter((p) => p.kind === 'product');
     const rendables = produits.filter((p) => p.renderable !== false);
+    const de = (f) => produits.filter((p) => p.materialFidelity === f).length;
     return {
       total: PREMIBEL_DEMO_PRODUCTS.length,
       produits: produits.length,
       rendables: rendables.length,
-      exacts: produits.filter((p) => p.materialFidelity === 'exact').length,
-      representatifs: rendables.filter((p) => p.materialFidelity !== 'exact').length,
+      exacts: de('exact'),
+      representatifs: de('representative'),
+      apercuSeul: de('preview_only'),
+      indisponibles: de('unavailable'),
       vignetteSeule: produits.length - rendables.length,
       inspirations: PREMIBEL_DEMO_PRODUCTS.length - produits.length,
       matieres: new Set(PREMIBEL_DEMO_PRODUCTS.map((p) => p.renderProfile && p.renderProfile.materialFamily).filter(Boolean)).size,
@@ -1167,8 +1206,11 @@
   /** Le résumé affiché sous la recherche : ce qu'on peut vraiment essayer. */
   function resumeCatalogue() {
     const c = compteCatalogue();
-    return `${c.produits} références Premibel, dont ${c.rendables} à essayer avec une matière indicative`
-      + ` (${c.vignetteSeule} : aperçu bientôt disponible). ${c.inspirations} inspirations de style, qui ne sont pas des références.`;
+    /* Une seule phrase pour tout le catalogue, au lieu de « Matière
+       indicative » répété sous chaque carte. */
+    return `${c.produits} références Premibel · ${c.rendables} à essayer`
+      + (c.exacts ? `, dont ${c.exacts} en rendu exact (« Exact »)` : '')
+      + ` · ${c.vignetteSeule} aperçus bientôt · ${c.inspirations} inspirations de style. Matières indicatives sauf mention « Exact ».`;
   }
 
   /* Inspirations : une SÉLECTION ÉDITORIALE, écrite à la main. Aucune IA ne
@@ -1535,6 +1577,20 @@
     let mode = 'static';
     /* Vrai quand la connexion au moteur a abouti, dans un sens ou dans l'autre. */
     let etabli = false;
+    /* Préchargement des pièces : une file courte, une pièce à la fois. */
+    let filePieces = [];
+    let pieceEnCours = null;
+    const piecesPretes = new Set();
+    const auRepos = (f) => (typeof requestIdleCallback === 'function' ? requestIdleCallback(f, { timeout: 800 }) : setTimeout(f, 120));
+    function pomperPieces() {
+      const id = filePieces.shift();
+      if (!id) { pieceEnCours = null; return; }
+      pieceEnCours = id;
+      auRepos(() => {
+        studio.prechargerPiece(id).then((ok) => { if (ok) piecesPretes.add(id); }, () => {})
+          .finally(() => { pieceEnCours = null; pomperPieces(); });
+      });
+    }
     let capabilities = { ...CAPABILITIES_NONE };
     let ready = null;
     let lastMs = null;
@@ -1847,6 +1903,34 @@
 
     return {
       get connecte() { return etabli; },
+      /** Les matières exactes que le moteur a réellement chargées. */
+      get matieresExactes() {
+        return mode === 'live' && studio && Array.isArray(studio.matieresExactes) ? studio.matieresExactes : [];
+      },
+
+      /**
+       * Précharge des pièces de démonstration (photo, scène, éclairement),
+       * une à la fois, pendant les temps morts. Une nouvelle liste remplace
+       * l'ancienne : on ne prépare que ce qui est à l'écran. Rien n'entre
+       * dans la file des opérations : une ouverture demandée passe devant.
+       */
+      prechargerPieces(ids, { devant = false } = {}) {
+        if (mode !== 'live' || !studio || typeof studio.prechargerPiece !== 'function') return false;
+        const voulues = ids.filter((id) => id && id !== engineScene && !piecesPretes.has(id));
+        filePieces = devant ? [...voulues, ...filePieces.filter((x) => !voulues.includes(x))] : voulues.slice(0, 4);
+        if (!pieceEnCours) pomperPieces();
+        return true;
+      },
+      get piecesPretes() { return [...piecesPretes]; },
+
+      /** Matières des cartes visibles du catalogue, préparées en temps mort. */
+      prechargerMatieres(profils) {
+        if (mode !== 'live' || !studio || typeof studio.prechargerMatieres !== 'function') return 0;
+        return studio.prechargerMatieres(profils);
+      },
+      matierePrete(profil) {
+        return Boolean(mode === 'live' && studio && typeof studio.matierePrete === 'function' && studio.matierePrete(profil));
+      },
       get mode() { return mode; },
       /** `local` ou `external` — pour le bandeau de developpement. */
       get engine() { return WANT_EXTERNAL ? 'external' : 'local'; },
@@ -2927,7 +3011,7 @@
      choix n'est à l'écran, ou pour dire que l'application a échoué. */
   function pastilleApplication() {
     const etat = etatApplication();
-    if (etat === 'applying') return '<span class="busy" data-etat="applying"><i></i>Application…</span>';
+    if (etat === 'applying') return '<span class="busy" data-etat="applying"><i></i>Préparation du parquet…</span>';
     if (etat === 'error') {
       return '<span class="busy err" data-etat="error">Impossible d’appliquer ce parquet'
         + ' <button type="button" data-open="retryApply">Réessayer</button></span>';
@@ -3145,6 +3229,9 @@
     state.roomCategory = ROOM_CATEGORIES.some((c) => c.id === id) ? id : null;
     paintQuick();
     if (!$('roomSheet').classList.contains('hidden')) paintRoomSheet();
+    /* Les scènes maintenant à l'écran se préparent pendant qu'on les
+       regarde : l'ouverture qui suit est chaude. */
+    if (state.roomCategory) adapter.prechargerPieces(scenesCategorie(state.roomCategory).map((r) => r.id));
   }
 
   /** Changer de pièce CONSERVE le parquet : on juge le même bois ailleurs. */
@@ -3578,6 +3665,7 @@
       && (!f.collection || p.collection === f.collection)
       && (!f.species || p.species === f.species)
       && (!f.type || p.type === f.type)
+      && (!f.apercu || p.renderable !== false)
       && (!mood || mood.refs.includes(p.ref)));
   }
 
@@ -3616,9 +3704,11 @@
               aria-label="Favori">${heart(on, 13)}</span>
         <span class="nm">${p.name}</span>
         <span class="ref">${PATTERNS[p.pattern] || 'Motif non renseigné'} · ${p.widthMm ? p.widthMm + ' mm' : 'Largeur non renseignée'} — ${p.source === 'inspiration' ? 'Inspiration' : `Réf. ${p.ref}`}</span>
-        <span class="catalog-fidelity">${p.renderable === false ? 'Aperçu bientôt disponible' : p.source === 'inspiration' ? 'Inspiration' : 'Matière indicative'}</span>
+        ${p.materialFidelity === 'exact' ? '<span class="pd-badge exact" title="Matière construite sur la photo du produit">Exact</span>'
+          : p.renderable === false ? '<span class="pd-badge bientot" title="Aperçu 3D bientôt disponible">Bientôt</span>' : ''}
       </button>`;
     }).join('') : '<p class="empty">Aucune référence du catalogue ne correspond à ces filtres.</p>';
+    observerCartes();
   }
 
   /* « 394 références · 34 inspirations » plutôt qu'un total qui laisserait
@@ -3627,6 +3717,38 @@
     const ref = list.filter((p) => p.kind === 'product').length;
     const insp = list.length - ref;
     return `(${ref} référence${ref > 1 ? 's' : ''}${insp ? ` · ${insp} inspiration${insp > 1 ? 's' : ''}` : ''})`;
+  }
+
+  /* Les cartes visibles du catalogue : leurs matières se préparent en
+     temps mort, pour que le clic trouve la tuile déjà faite. */
+  const cartesVisibles = new Set();
+  let observateurCartes = null;
+  let minuteurVisibles = 0;
+  function observerCartes() {
+    if (typeof IntersectionObserver !== 'function') return;
+    if (!observateurCartes) {
+      observateurCartes = new IntersectionObserver((entrees) => {
+        entrees.forEach((e) => {
+          const id = e.target.dataset.id;
+          if (e.isIntersecting) cartesVisibles.add(id); else cartesVisibles.delete(id);
+        });
+        clearTimeout(minuteurVisibles);
+        minuteurVisibles = setTimeout(prechargerVisibles, 250);
+      }, { rootMargin: '120px 0px' });
+    }
+    observateurCartes.disconnect();
+    cartesVisibles.clear();
+    $('prods').querySelectorAll('.pd[data-id]').forEach((b) => observateurCartes.observe(b));
+  }
+  /* `?dev=1&prefetch=0` : pas de préchargement, pour mesurer une matière
+     réellement froide. Jamais hors DEV. */
+  const PRECHARGEMENT = !(DEV && new URLSearchParams(location.search).get('prefetch') === '0');
+  function prechargerVisibles() {
+    if (!PRECHARGEMENT) return;
+    const profils = PREMIBEL_DEMO_PRODUCTS
+      .filter((p) => cartesVisibles.has(p.id) && p.renderable !== false && p.renderProfile && p.id !== state.productId)
+      .map((p) => p.renderProfile);
+    adapter.prechargerMatieres(profils);
   }
 
   /** Met à jour la carte sélectionnée du catalogue sans le reconstruire. */
@@ -3876,7 +3998,7 @@
   function select(id, silent) {
     const entry = product(id);
     if (!entry) return;
-    if (entry.renderable === false) { toast('Aperçu bientôt disponible pour cette référence.'); return; }
+    if (entry.renderable === false) { ouvrirFicheLegere(entry); return; }
     if (state.picking) {
       /* Comparer une reference a elle-meme n'a aucun sens : les deux cotes
          seraient identiques et l'utilisateur croirait le separateur casse. */
@@ -3903,6 +4025,29 @@
     marquerSelection();
     paintCustom();
     if (!silent) toast(`${entry.name} · ${PATTERNS[entry.pattern]}`);
+  }
+
+  /**
+   * Fiche légère d'une référence sans aperçu : on ne pose JAMAIS une matière
+   * inventée. Le nom, la vignette, et le lien vers la vraie fiche.
+   */
+  function ouvrirFicheLegere(entry) {
+    let f = $('ficheLegere');
+    if (!f) {
+      f = document.createElement('div');
+      f.id = 'ficheLegere';
+      f.setAttribute('role', 'dialog');
+      f.setAttribute('aria-label', 'Aperçu bientôt disponible');
+      document.body.appendChild(f);
+      f.addEventListener('click', (e) => { if (e.target.closest('[data-fermer]')) f.hidden = true; });
+    }
+    const vignette = entry.thumbnail || entry.catalogThumbnail;
+    f.innerHTML = `${vignette ? `<img src="${vignette}" alt="" />` : ''}
+      <div><b>${entry.name}</b><span>Aperçu 3D bientôt disponible</span>
+      <p>Cette référence n’a pas encore de matière fidèle : nous ne la posons pas avec une matière inventée.</p>
+      <div class="fl-actions">${entry.productUrl ? `<a href="${entry.productUrl}" target="_blank" rel="noopener noreferrer">Voir la fiche produit</a>` : ''}
+      <button type="button" data-fermer>Fermer</button></div></div>`;
+    f.hidden = false;
   }
 
   function stepProduct(dir, side) {
@@ -4041,6 +4186,13 @@
     if (f) loadUpload(f);
   });
 
+  /* Survoler une scène la fait passer en tête du préchargement. */
+  ['roomGrid', 'quickRooms'].forEach((id) => {
+    $(id).addEventListener('pointerenter', (e) => {
+      const b = e.target && e.target.closest && e.target.closest('[data-room]');
+      if (b) adapter.prechargerPieces([b.dataset.room], { devant: true });
+    }, true);
+  });
   ['roomCats', 'roomGrid', 'quickRooms', 'homeCategories'].forEach((id) => {
     $(id).onclick = (e) => {
       e.stopPropagation();
@@ -4164,6 +4316,7 @@
   }
   $('catSearch').addEventListener('input', () => { state.catalogSearch = $('catSearch').value; paintCatalogue(); });
   $('catCollection').addEventListener('change', () => { state.catalogCollection = $('catCollection').value; paintCatalogue(); });
+  $('fApercu').addEventListener('change', () => { state.filters.apercu = $('fApercu').checked || null; paintCatalogue(); });
   $('floorScale').addEventListener('input', () => { $('floorScaleValue').textContent = `${$('floorScale').value} %`; });
   $('floorScale').addEventListener('change', () => { state.floorScale = Number($('floorScale').value) / 100; state.intent += 1; paint(); });
   $('cmpBtn').onclick = startCompare;
@@ -4267,6 +4420,21 @@
        et c'est le poste le plus cher du premier rendu. La lancer ici, c'est
        la mettre en parallele du decodage de la photo et de l'installation de
        la scene au lieu de l'enchainer derriere. */
+    /* Matières exactes : seulement celles dont le moteur a chargé l'atlas. */
+    const exactes = adapter.matieresExactes;
+    /* Premier parquet montré : une référence en rendu EXACT si le moteur en a
+       une et que le visiteur n'a encore rien choisi. Sa tuile se fabrique en
+       ~0,7 s, contre 5 à 8 s pour le point de Hongrie procédural qui ouvrait
+       la page — et ce calcul se disputait la machine avec l'éclairage de la
+       première pièce (mesuré le 13 octobre 2026). */
+    const parDefaut = 'BTRPF39009';
+    if (!state.source && state.intent === 0 && exactes.some((m) => m.product === parDefaut)) state.productId = parDefaut;
+    if (appliquerMatieresExactes(exactes)) {
+      paintCatalogue();
+      const resume = $('catalogSummary');
+      if (resume) resume.textContent = resumeCatalogue();
+      if (state.source) paint();
+    }
     adapter.prechaufferCourant(product().renderProfile);
     if (DEV) toast(`Moteur : ${mode}`);
   });
@@ -4477,7 +4645,8 @@
     enter, room, product, renderUrl, originalUrl, preload, probeImages,
     findMatchingProduct, findVariant: findMatchingProduct, presentPatterns, presentTones, presentWidths, startCompare,
     adapter, paintLayer, applyFloor, applyCompareB, appliedKey, paintChrome,
-    etatApplication, relancerApplication, APPLY_TIMEOUT_MS, compteCatalogue, resumeCatalogue,
+    etatApplication, relancerApplication, APPLY_TIMEOUT_MS, compteCatalogue, resumeCatalogue, prechargerVisibles,
+    appliquerMatieresExactes, ouvrirFicheLegere,
     photoSansScene, poserScenePhoto, appliquerScenePhoto, floorEditStart, floorEditStop, floorEdit,
     etatProduit, relancerAnalyse, ouvrirSceneManuelle,
     getRenderStateKey: (profile, deg) => adapter.getRenderStateKey(profile, deg),

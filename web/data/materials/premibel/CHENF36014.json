@@ -1,0 +1,108 @@
+{
+  "id": "premibel-CHENF36014",
+  "name": "Matière exacte CHENF36014",
+  "slug": "premibel-chenf36014",
+  "wood": "Chêne",
+  "tone": "chaud",
+  "finish": "verni",
+  "boardWidth": 0.15,
+  "boardLength": 1.9,
+  "defaultPattern": "lames",
+  "compatiblePatterns": [
+    "lames"
+  ],
+  "texture": {
+    "base": [
+      190,
+      128,
+      60
+    ],
+    "grain": [
+      155,
+      97,
+      36
+    ],
+    "warm": 11,
+    "spread": 18,
+    "grainLines": 10,
+    "grainAlpha": 0.21,
+    "grainWidth": 0.019,
+    "knots": 0.26,
+    "knotSize": 0.065,
+    "contrast": 1.06,
+    "bevel": 0.028,
+    "joint": 0.5,
+    "sheen": 0.1,
+    "cracks": 0.04
+  },
+  "atlas": {
+    "url": "assets/products/premibel/materials/CHENF36014.atlas.webp",
+    "ppm": 0.6,
+    "rows": [
+      {
+        "x": 0,
+        "y": 0,
+        "w": 818,
+        "h": 90
+      },
+      {
+        "x": 0,
+        "y": 90,
+        "w": 359,
+        "h": 90
+      },
+      {
+        "x": 0,
+        "y": 180,
+        "w": 132,
+        "h": 90
+      },
+      {
+        "x": 0,
+        "y": 270,
+        "w": 196,
+        "h": 90
+      },
+      {
+        "x": 0,
+        "y": 360,
+        "w": 416,
+        "h": 90
+      },
+      {
+        "x": 0,
+        "y": 450,
+        "w": 118,
+        "h": 90
+      },
+      {
+        "x": 0,
+        "y": 540,
+        "w": 223,
+        "h": 90
+      }
+    ]
+  },
+  "provenance": {
+    "kind": "exact",
+    "product": "CHENF36014",
+    "sourceKind": "ambiance",
+    "source": "tools/local-demo-assets/premibel/CHENF36014.jpg",
+    "planks": 7,
+    "woodMeters": 3.77,
+    "sourcePxPerMm": 0.304,
+    "focal": [
+      "resolue:847px fuite mesuree:56 segments",
+      "supposee:779px fuite mesuree:20 segments",
+      "supposee:779px fuite annotee (fuite mesuree incoherente)"
+    ],
+    "inherits": "chene-caramel",
+    "inheritedFields": [
+      "joint",
+      "bevel",
+      "sheen",
+      "finish"
+    ],
+    "limits": "Éclairage de la photo égalisé ; longueur des morceaux déduite de la perspective. Joint et chanfrein empruntés à la famille représentative."
+  }
+}

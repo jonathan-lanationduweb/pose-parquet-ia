@@ -26,13 +26,32 @@
 import { buildTexture, buildMips } from './texture.js';
 import { reliefFromAlbedo } from './relief.js';
 
-self.onmessage = (event) => {
+/* Atlas des matières exactes, décodés une fois : un `ImageBitmap` se dessine
+   sans redécodage. Clé : l'URL absolue de l'atlas. */
+const atlas = new Map();
+function chargerAtlas(url) {
+  if (!atlas.has(url)) {
+    atlas.set(url, fetch(url)
+      .then((r) => { if (!r.ok) throw new Error(`atlas ${r.status}`); return r.blob(); })
+      .then((b) => createImageBitmap(b))
+      .catch((e) => { atlas.delete(url); throw e; }));
+  }
+  return atlas.get(url);
+}
+
+self.onmessage = async (event) => {
   const { id, material, config, kind } = event.data || {};
   try {
+    /* Matière exacte : sans son atlas, on ne dessine PAS une matière
+       procédurale à sa place — ce serait mentir sur la fidélité. L'erreur
+       remonte, et la page garde le produit en matière représentative. */
+    const tA0 = performance.now();
+    const bitmap = material && material.atlas && material.atlas.url ? await chargerAtlas(material.atlas.url) : null;
+    const tAtlas = performance.now();
     if (kind === 'apercu') {
       // Aperçu d'un motif pour le panneau : même dessin, tuile réduite, et un
       // ImageBitmap transféré — pas de lecture de pixels, pas de copie.
-      const petite = buildTexture(material, { pattern: config.pattern, width: config.width, plankLength: config.plankLength, size: config.size || 320 });
+      const petite = buildTexture(material, { pattern: config.pattern, width: config.width, plankLength: config.plankLength, size: config.size || 320, atlas: bitmap });
       const bitmap = petite.transferToImageBitmap();
       self.postMessage({ id, bitmap }, [bitmap]);
       return;
@@ -42,6 +61,7 @@ self.onmessage = (event) => {
       pattern: config.pattern || material.defaultPattern,
       width: config.width || null,
       plankLength: config.plankLength || null,
+      atlas: bitmap,
     });
     const t1 = performance.now();
     const [albedo] = buildMips(tile, 1);
@@ -58,6 +78,7 @@ self.onmessage = (event) => {
           lecturePixels: t2 - t1,
           relief: t3 - t2,
           taille: albedo.size,
+          atlas: bitmap ? tAtlas - tA0 : 0,
         },
       },
       [albedo.data.buffer, relief.data.buffer],

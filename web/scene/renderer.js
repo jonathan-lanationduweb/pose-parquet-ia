@@ -15,12 +15,65 @@
  * éclairement et la même caméra. Seul le matériau change.
  */
 import { createSceneMasks } from './mask.js';
-import { mark, mesure, chrono } from '../utils/perf.js';
-import { buildShadingMap, buildResidualMaps } from './shading.js';
+import { mark, mesure, chrono, releve } from '../utils/perf.js';
+import { buildShadingMap, buildResidualMaps, habillerShading, habillerResidus } from './shading.js';
 import { lightDirection } from './geometry.js';
 import { materialMaps, materialMapsAsync, warmMaterial } from './material.js';
 import { createCanvasRenderer } from './renderer-canvas.js';
 import { createGlRenderer, glAvailable } from './renderer-gl.js';
+
+/* ------------------------------------------------------------------ */
+/* Éclairement hors du fil principal                                    */
+/* ------------------------------------------------------------------ */
+
+let workerLumiere = null;
+let lumiereIndisponible = false;
+let compteurLumiere = 0;
+const attentesLumiere = new Map();
+
+function obtenirWorkerLumiere() {
+  if (workerLumiere || lumiereIndisponible) return workerLumiere;
+  if (typeof Worker !== 'function' || typeof window === 'undefined') { lumiereIndisponible = true; return null; }
+  try {
+    workerLumiere = new Worker(new URL('./lighting-worker.js', import.meta.url), { type: 'module' });
+  } catch {
+    lumiereIndisponible = true;
+    return null;
+  }
+  workerLumiere.onmessage = (event) => {
+    const { id, shading, residual, erreur } = event.data || {};
+    const a = attentesLumiere.get(id);
+    if (!a) return;
+    attentesLumiere.delete(id);
+    if (erreur) a.reject(new Error(erreur));
+    else a.resolve({ shading: habillerShading(shading), residual: habillerResidus(residual) });
+  };
+  workerLumiere.onerror = () => {
+    attentesLumiere.forEach((a) => a.reject(new Error('worker d’éclairement indisponible')));
+    attentesLumiere.clear();
+    workerLumiere.terminate();
+    workerLumiere = null;
+    lumiereIndisponible = true;
+  };
+  return workerLumiere;
+}
+
+/** Calcule l'éclairement d'une photo dans le worker. `null` sans worker. */
+function lumiereAsync(source, coverage, light) {
+  const w = obtenirWorkerLumiere();
+  if (!w) return null;
+  const id = (compteurLumiere += 1);
+  return new Promise((resolve, reject) => {
+    attentesLumiere.set(id, { resolve, reject });
+    /* Des copies : la page garde ses pixels et son masque. */
+    w.postMessage({
+      id,
+      source: { width: source.width, height: source.height, data: new Uint8ClampedArray(source.data) },
+      coverage: new Uint8Array(coverage),
+      light: light ? JSON.parse(JSON.stringify(light)) : light,
+    });
+  });
+}
 
 export function createSceneRenderer({ prefer = 'auto' } = {}) {
   const gl = prefer === 'canvas' || !glAvailable() ? null : createGlRenderer();
@@ -41,8 +94,11 @@ export function createSceneRenderer({ prefer = 'auto' } = {}) {
      calibrées y entrent (`cleCache`), jamais une photo importée, et une
      entrée est oubliée dès que son masque est retouché. */
   const preparees = new Map();
-  const PREPAREES_MAX = 4;
+  const PREPAREES_MAX = 6;
   let cleCourante = null;
+  /* Une scène installée après une autre annule l'éclairement en vol de la
+     première : son résultat tardif ne doit pas écraser celui de la seconde. */
+  let generationScene = 0;
 
   /** Cartes d'éclairement, de reflets et d'ombres : refaites si le sol bouge.
    *
@@ -52,8 +108,13 @@ export function createSceneRenderer({ prefer = 'auto' } = {}) {
    * pour une finition brillante, fabriquée au premier clic sur l'une d'elles. */
   function prepareLighting() {
     shading = chrono('J.lumiere.shading', () => buildShadingMap(source, masks.coverage, scene.light));
-    lightDir = lightDirection(shading);
     residual = chrono('J.lumiere.residus', () => buildResidualMaps(source, masks.coverage, shading));
+    installerLumiere();
+  }
+
+  /** Pose des cartes déjà calculées (ici ou dans le worker) sur le moteur. */
+  function installerLumiere() {
+    lightDir = lightDirection(shading);
     if (gl) {
       chrono('I.gpu.cartes', () => {
         gl.setShading(shading);
@@ -61,6 +122,57 @@ export function createSceneRenderer({ prefer = 'auto' } = {}) {
         gl.setMasks(masks);
       });
     }
+  }
+
+  /* Préparations en cours, par clé de pièce : un préchargement et une
+     ouverture de la même pièce partagent le même calcul. */
+  const enPreparation = new Map();
+
+  function retenirPreparation(cle, prep) {
+    if (!cle) return;
+    if (preparees.size >= PREPAREES_MAX) preparees.delete(preparees.keys().next().value);
+    preparees.set(cle, prep);
+  }
+
+  /**
+   * Calcule pixels, masques et éclairement d'une scène. Rend l'objet tout de
+   * suite sans worker, une promesse avec. N'installe rien.
+   */
+  function preparer(sc, prepared, cle) {
+    const src = prepared.canvas
+      .getContext('2d', { willReadFrequently: true })
+      .getImageData(0, 0, prepared.width, prepared.height);
+    const msk = chrono('C.masques', () => createSceneMasks(sc, prepared.width, prepared.height));
+    const calcul = lumiereAsync(src, msk.coverage, sc.light);
+    const finir = (sh, re) => {
+      const prep = { photo: prepared, source: src, masks: msk, shading: sh, residual: re, lightDir: lightDirection(sh) };
+      retenirPreparation(cle, prep);
+      return prep;
+    };
+    if (!calcul) {
+      const sh = chrono('J.lumiere.shading', () => buildShadingMap(src, msk.coverage, sc.light));
+      const re = chrono('J.lumiere.residus', () => buildResidualMaps(src, msk.coverage, sh));
+      return finir(sh, re);
+    }
+    const t0 = performance.now();
+    const promesse = calcul.then(({ shading: sh, residual: re }) => {
+      releve('J.lumiere.worker', performance.now() - t0);
+      return finir(sh, re);
+    }, () => {
+      /* Worker en panne : le calcul se fait ici, comme avant. */
+      const sh = buildShadingMap(src, msk.coverage, sc.light);
+      return finir(sh, buildResidualMaps(src, msk.coverage, sh));
+    }).finally(() => { if (cle && enPreparation.get(cle) === entree) enPreparation.delete(cle); });
+    const entree = { photo: prepared, promesse };
+    if (cle) enPreparation.set(cle, entree);
+    return promesse;
+  }
+
+  /** Installe une préparation sur le moteur (cartes GPU comprises). */
+  function installer(prep) {
+    ({ source, masks, shading, residual } = prep);
+    if (gl) gl.setPhoto(source);
+    installerLumiere();
   }
 
   return {
@@ -80,7 +192,7 @@ export function createSceneRenderer({ prefer = 'auto' } = {}) {
       return photo ? { width: photo.width, height: photo.height } : null;
     },
     get ready() {
-      return Boolean(scene && source && masks);
+      return Boolean(scene && source && masks && shading);
     },
 
     /**
@@ -93,25 +205,40 @@ export function createSceneRenderer({ prefer = 'auto' } = {}) {
       photo = prepared;
       buffers.clear();
       cleCourante = cleCache;
+      const jeton = (generationScene += 1);
+      /* Préparée d'avance (préchargement) ou en cours de préparation : on
+         la reprend au lieu de la recalculer. */
       const deja = cleCache && preparees.get(cleCache);
-      if (deja && deja.photo === prepared) {
-        ({ source, masks, shading, residual, lightDir } = deja);
-        if (gl) {
-          gl.setPhoto(source);
-          chrono('I.gpu.cartes', () => { gl.setShading(shading); gl.setResidual(residual); gl.setMasks(masks); });
-        }
-        return;
-      }
-      source = prepared.canvas
-        .getContext('2d', { willReadFrequently: true })
-        .getImageData(0, 0, prepared.width, prepared.height);
-      masks = chrono('C.masques', () => createSceneMasks(scene, prepared.width, prepared.height));
-      if (gl) gl.setPhoto(source);
-      prepareLighting();
-      if (cleCache) {
-        if (preparees.size >= PREPAREES_MAX) preparees.delete(preparees.keys().next().value);
-        preparees.set(cleCache, { photo: prepared, source, masks, shading, residual, lightDir });
-      }
+      if (deja && deja.photo === prepared) { installer(deja); return undefined; }
+      const enVol = cleCache && enPreparation.get(cleCache);
+      const calcul = enVol && enVol.photo === prepared ? enVol.promesse : preparer(nextScene, prepared, cleCache);
+      if (!(calcul instanceof Promise)) { installer(calcul); return undefined; }
+      /* Dans le worker : la page reste vivante. La scène n'est « prête »
+         qu'avec son éclairement — `ready` reste faux d'ici là, et
+         l'appelant attend la promesse. */
+      shading = null;
+      return calcul.then((prep) => {
+        if (jeton !== generationScene) return false; // une autre scène est passée
+        installer(prep);
+        return true;
+      });
+    },
+
+    /**
+     * Prépare une pièce SANS l'installer : pixels, masques, éclairement,
+     * calculés dans le worker et gardés pour la prochaine ouverture. Sert au
+     * préchargement des pièces visibles de la galerie. Sans worker, ne fait
+     * rien : le calcul figerait la page, ce qu'un préchargement ne doit
+     * jamais faire.
+     */
+    precharger(nextScene, prepared, cleCache) {
+      if (!cleCache || !obtenirWorkerLumiere()) return Promise.resolve(false);
+      const deja = preparees.get(cleCache);
+      if (deja && deja.photo === prepared) return Promise.resolve(true);
+      const enVol = enPreparation.get(cleCache);
+      if (enVol && enVol.photo === prepared) return enVol.promesse.then(() => true, () => false);
+      const calcul = preparer(nextScene, prepared, cleCache);
+      return calcul instanceof Promise ? calcul.then(() => true, () => false) : Promise.resolve(true);
     },
 
     /**

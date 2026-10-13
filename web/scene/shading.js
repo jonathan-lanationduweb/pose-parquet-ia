@@ -137,27 +137,67 @@ function blurWeighted(channels, weight, width, height, radius, passes = 3) {
  * `op` = 'blur' | 'min' | 'max'. Sert au flou des résidus et à l'ouverture
  * morphologique (min puis max) qui retire les lignes fines.
  */
+/* Les trois passes d'un filtre séparable, en fonctions de premier niveau et
+   sans fermeture : V8 les optimise dès le premier appel. Écrites en
+   fermetures, le PREMIER calcul d'éclairement d'une session coûtait ~6 s
+   (mesuré le 13 octobre 2026, profil CPU), les suivants ~0,7 s. */
+
+/** Flou par somme glissante : coût indépendant du rayon, bords répétés. */
+function passeFlou(from, to, count, stride, lanes, laneStride, radius) {
+  const n = radius * 2 + 1;
+  const der = count - 1;
+  for (let lane = 0; lane < lanes; lane += 1) {
+    const base = lane * laneStride;
+    let acc = 0;
+    for (let k = -radius; k <= radius; k += 1) acc += from[base + (k < 0 ? 0 : k > der ? der : k) * stride];
+    for (let i = 0; i < count; i += 1) {
+      to[base + i * stride] = acc / n;
+      const ajout = i + radius + 1;
+      const retrait = i - radius;
+      acc += from[base + (ajout > der ? der : ajout) * stride] - from[base + (retrait < 0 ? 0 : retrait) * stride];
+    }
+  }
+}
+
+function passeMin(from, to, count, stride, lanes, laneStride, radius) {
+  const der = count - 1;
+  for (let lane = 0; lane < lanes; lane += 1) {
+    const base = lane * laneStride;
+    for (let i = 0; i < count; i += 1) {
+      let acc = Infinity;
+      for (let k = -radius; k <= radius; k += 1) {
+        const j = i + k;
+        const v = from[base + (j < 0 ? 0 : j > der ? der : j) * stride];
+        if (v < acc) acc = v;
+      }
+      to[base + i * stride] = acc;
+    }
+  }
+}
+
+function passeMax(from, to, count, stride, lanes, laneStride, radius) {
+  const der = count - 1;
+  for (let lane = 0; lane < lanes; lane += 1) {
+    const base = lane * laneStride;
+    for (let i = 0; i < count; i += 1) {
+      let acc = -Infinity;
+      for (let k = -radius; k <= radius; k += 1) {
+        const j = i + k;
+        const v = from[base + (j < 0 ? 0 : j > der ? der : j) * stride];
+        if (v > acc) acc = v;
+      }
+      to[base + i * stride] = acc;
+    }
+  }
+}
+
+/** Filtre séparable : flou (moyenne de boîte), minimum ou maximum. */
 function filterChannel(src, width, height, radius, op) {
   const out = new Float32Array(src.length);
   const tmp = new Float32Array(src.length);
-  const pass = (from, to, count, stride, lanes, laneStride) => {
-    for (let lane = 0; lane < lanes; lane += 1) {
-      const base = lane * laneStride;
-      for (let i = 0; i < count; i += 1) {
-        let acc = op === 'min' ? Infinity : op === 'max' ? -Infinity : 0;
-        for (let k = -radius; k <= radius; k += 1) {
-          const j = Math.min(count - 1, Math.max(0, i + k));
-          const v = from[base + j * stride];
-          if (op === 'min') acc = v < acc ? v : acc;
-          else if (op === 'max') acc = v > acc ? v : acc;
-          else acc += v;
-        }
-        to[base + i * stride] = op === 'blur' ? acc / (radius * 2 + 1) : acc;
-      }
-    }
-  };
-  pass(src, tmp, width, 1, height, width);
-  pass(tmp, out, height, width, width, 1);
+  const passe = op === 'min' ? passeMin : op === 'max' ? passeMax : passeFlou;
+  passe(src, tmp, width, 1, height, width, radius);
+  passe(tmp, out, height, width, width, 1, radius);
   return out;
 }
 
@@ -308,6 +348,16 @@ export function buildShadingMap(source, coverage, light) {
     }
   }
 
+  return habillerShading({ width, height, rgba, reference, referenceRgb: refRgb, lightTint, fullW, fullH });
+}
+
+/**
+ * Donne à une carte d'éclairement ses deux lectures, `sample` et
+ * `luminance`. Séparé du calcul pour qu'il puisse se faire dans un worker :
+ * seules les données voyagent, les fonctions sont refaites ici
+ * (12 octobre 2026 — le calcul gelait la page 3 s à chaque pièce).
+ */
+export function habillerShading({ width, height, rgba, reference, referenceRgb, lightTint, fullW, fullH }) {
   const sample = (x, y, out) => {
     const fx = Math.min(width - 1.001, Math.max(0, (x / fullW) * width - 0.5));
     const fy = Math.min(height - 1.001, Math.max(0, (y / fullH) * height - 0.5));
@@ -335,8 +385,10 @@ export function buildShadingMap(source, coverage, light) {
     height,
     rgba,
     reference,
-    referenceRgb: refRgb,
+    referenceRgb,
     lightTint,
+    fullW,
+    fullH,
     sample,
     /** Éclairement en luminance seule : sert au repérage de la direction. */
     luminance(x, y) {
@@ -467,8 +519,9 @@ export function buildResidualMaps(source, coverage, shading) {
       membres.push(p);
       aire += 1;
       const x = p % width;
-      const voisins = [p - width, p + width, x > 0 ? p - 1 : -1, x < width - 1 ? p + 1 : -1];
-      for (const q of voisins) {
+      /* Les quatre voisins, sans tableau alloué par pixel. */
+      for (let v = 0; v < 4; v += 1) {
+        const q = v === 0 ? p - width : v === 1 ? p + width : v === 2 ? (x > 0 ? p - 1 : -1) : (x < width - 1 ? p + 1 : -1);
         if (q < 0 || q >= midBrut.length || vu[q] || midBrut[q] <= 0) continue;
         vu[q] = 1;
         pile[haut++] = q;
@@ -479,12 +532,17 @@ export function buildResidualMaps(source, coverage, shading) {
   const midDoux = filterChannel(midBrut, width, height, Math.max(1, Math.round((fullW * 0.004) / k)), 'blur');
   for (let i = 0; i < midDoux.length; i += 1) if (!sol[i]) midDoux[i] = 0;
 
+  return habillerResidus({ gloss: glossFlou, shadow: shadowDoux, light: lightDoux, mid: midDoux, width, height, fullW, fullH, k });
+}
+
+/** Les résidus et leur version agrandie, fabriquée seulement à la demande. */
+export function habillerResidus({ gloss, shadow, light, mid, width, height, fullW, fullH, k }) {
   /* Le moteur Canvas lit les cartes au pixel de l'image : il reçoit une
      version agrandie, fabriquée seulement s'il la demande. */
   let pleine = null;
   const fullRes = () => {
     if (pleine) return pleine;
-    if (k === 1) { pleine = { gloss: glossFlou, shadow: shadowDoux, light: lightDoux, mid: midDoux }; return pleine; }
+    if (k === 1) { pleine = { gloss, shadow, light, mid }; return pleine; }
     const g = new Float32Array(fullW * fullH);
     const o = new Float32Array(fullW * fullH);
     const l = new Float32Array(fullW * fullH);
@@ -494,17 +552,17 @@ export function buildResidualMaps(source, coverage, shading) {
       const row = y * fullW;
       for (let x = 0; x < fullW; x += 1) {
         const i = ry + Math.min(width - 1, (x / k) | 0);
-        g[row + x] = glossFlou[i];
-        o[row + x] = shadowDoux[i];
-        l[row + x] = lightDoux[i];
-        mm[row + x] = midDoux[i];
+        g[row + x] = gloss[i];
+        o[row + x] = shadow[i];
+        l[row + x] = light[i];
+        mm[row + x] = mid[i];
       }
     }
     pleine = { gloss: g, shadow: o, light: l, mid: mm };
     return pleine;
   };
 
-  return { gloss: glossFlou, shadow: shadowDoux, light: lightDoux, mid: midDoux, width, height, fullRes };
+  return { gloss, shadow, light, mid, width, height, fullW, fullH, k, fullRes };
 }
 
 /**

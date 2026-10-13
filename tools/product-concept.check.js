@@ -1294,7 +1294,7 @@ const CONTRAT_V1 = ['visitSnapshot', 'setScale', 'setPlankLength', 'geometryDiag
   'openScene', 'beginStroke', 'extendStroke', 'endStroke', 'undoStroke', 'coverageOverlay',
   /* MISSION STABILISATION : une scène MANUELLE (plan par défaut, sol tracé au
      pinceau) quand l'analyse n'a rien d'exploitable. Gardée par typeof. */
-  'openManualScene'];
+  'openManualScene', 'prechargerPiece', 'matieresExactes', 'prechargerMatieres', 'matierePrete'];
 /* `studio` est le moteur negocie, `st` le candidat qu'examine `connect()`.
    Le nom doit etre entier, d'ou la classe ecrite en clair : les raccourcis
    comme la sequence mot-frontiere ne survivent pas aux couches

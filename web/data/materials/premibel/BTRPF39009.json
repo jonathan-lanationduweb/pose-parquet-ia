@@ -1,0 +1,119 @@
+{
+  "id": "premibel-BTRPF39009",
+  "name": "Matière exacte BTRPF39009",
+  "slug": "premibel-btrpf39009",
+  "wood": "Chêne",
+  "tone": "naturel",
+  "finish": "verni",
+  "boardWidth": 0.09,
+  "boardLength": 0.6,
+  "defaultPattern": "baton-rompu",
+  "compatiblePatterns": [
+    "baton-rompu"
+  ],
+  "texture": {
+    "base": [
+      209,
+      180,
+      151
+    ],
+    "grain": [
+      181,
+      153,
+      126
+    ],
+    "warm": 6,
+    "spread": 19,
+    "grainLines": 11,
+    "grainAlpha": 0.2,
+    "grainWidth": 0.018,
+    "knots": 0.3,
+    "knotSize": 0.07,
+    "contrast": 1,
+    "bevel": 0.03,
+    "joint": 0.46,
+    "sheen": 0.05,
+    "cracks": 0.05
+  },
+  "atlas": {
+    "url": "assets/products/premibel/materials/BTRPF39009.atlas.webp",
+    "ppm": 0.6,
+    "rows": [
+      {
+        "x": 0,
+        "y": 0,
+        "w": 353,
+        "h": 54
+      },
+      {
+        "x": 0,
+        "y": 54,
+        "w": 317,
+        "h": 54
+      },
+      {
+        "x": 0,
+        "y": 108,
+        "w": 286,
+        "h": 54
+      },
+      {
+        "x": 0,
+        "y": 162,
+        "w": 106,
+        "h": 54
+      },
+      {
+        "x": 0,
+        "y": 216,
+        "w": 156,
+        "h": 54
+      },
+      {
+        "x": 0,
+        "y": 270,
+        "w": 253,
+        "h": 54
+      },
+      {
+        "x": 0,
+        "y": 324,
+        "w": 284,
+        "h": 54
+      },
+      {
+        "x": 0,
+        "y": 378,
+        "w": 61,
+        "h": 54
+      }
+    ]
+  },
+  "provenance": {
+    "kind": "exact",
+    "product": "BTRPF39009",
+    "sourceKind": "ambiance",
+    "source": "tools/local-demo-assets/premibel/BTRPF39009.png",
+    "planks": 8,
+    "woodMeters": 3.03,
+    "sourcePxPerMm": 0.389,
+    "focal": [
+      "supposee:693px fuite annotee aspect mesure 4.52 -> reel 6.67",
+      "supposee:693px fuite annotee aspect mesure 5.29 -> reel 6.67",
+      "supposee:693px fuite annotee aspect mesure 6.45 -> reel 6.67",
+      "supposee:693px fuite annotee aspect mesure 5.81 -> reel 6.67",
+      "supposee:693px fuite annotee aspect mesure 5.11 -> reel 6.67",
+      "supposee:693px fuite annotee aspect mesure 3.97 -> reel 6.67",
+      "supposee:693px fuite annotee aspect mesure 4.33 -> reel 6.67",
+      "supposee:693px fuite annotee aspect mesure 4.50 -> reel 6.67"
+    ],
+    "inherits": "chene-naturel",
+    "inheritedFields": [
+      "joint",
+      "bevel",
+      "sheen",
+      "finish"
+    ],
+    "limits": "Éclairage de la photo égalisé ; longueur des morceaux déduite de la perspective. Joint et chanfrein empruntés à la famille représentative."
+  }
+}

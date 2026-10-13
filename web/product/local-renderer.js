@@ -49,9 +49,9 @@ import { createSceneRenderer } from '../scene/renderer.js';
 import { reviewGeometry } from '../scene/geometry-review.js';
 import { normalizeScene, validerScene, createBlankScene } from '../scene/schema.js';
 import {
-  createMaterial, enCache, warmMaterial, quandCartesPretes, materialMapsAsync,
+  createMaterial, enCache, warmMaterial, quandCartesPretes, materialMapsAsync, fabricationAsynchrone,
 } from '../scene/material.js';
-import { chrono, releve } from '../utils/perf.js';
+import { releve } from '../utils/perf.js';
 
 /** Version du contrat local. */
 export const API_VERSION = 1;
@@ -68,6 +68,46 @@ export const API_VERSION = 1;
  * `catalog.js` « inutiles au produit » sans dire d'où venaient les objets
  * matériau. Le classement était juste, l'explication incomplète.
  */
+/**
+ * Matières EXACTES des produits Premibel (`data/materials/premibel/`).
+ *
+ * Une matière exacte n'est retenue que si son atlas — dérivé de la photo du
+ * produit, non versionné — est réellement servi, et si un worker peut la
+ * fabriquer (le chemin synchrone ne sait pas lire un atlas). Sinon elle est
+ * ignorée, et le produit reste en matière représentative : on ne déclare
+ * jamais « exact » un rendu qui ne l'est pas.
+ *
+ * @returns {Promise<{ materials: object[], produits: object[] }>}
+ */
+async function loadExactMaterials(base) {
+  if (!fabricationAsynchrone()) return { materials: [], produits: [] };
+  try {
+    const r = await fetch(`${base}data/materials/premibel/index.json`, { cache: 'no-cache' });
+    if (!r.ok) return { materials: [], produits: [] };
+    const index = await r.json();
+    const entrees = Object.entries(index.materials || {}).filter(([, e]) => e.materialFidelity === 'exact' && e.definition);
+    const resultats = await Promise.all(entrees.map(async ([produit, e]) => {
+      try {
+        const def = await (await fetch(`${base}${e.definition}`, { cache: 'no-cache' })).json();
+        const url = new URL(`${base}${def.atlas.url}`, globalThis.location ? globalThis.location.href : undefined).href;
+        const tete = await fetch(url, { method: 'HEAD', cache: 'no-cache' });
+        if (!tete.ok) return null;
+        return { produit, entree: e, material: createMaterial({ ...def, atlas: { ...def.atlas, url } }) };
+      } catch {
+        return null;
+      }
+    }));
+    const ok = resultats.filter(Boolean);
+    return {
+      materials: ok.map((x) => x.material),
+      produits: ok.map((x) => ({ product: x.produit, material: x.material.id, pattern: x.entree.pattern,
+        widthMm: x.entree.widthMm, lengthMm: x.entree.lengthMm })),
+    };
+  } catch {
+    return { materials: [], produits: [] };
+  }
+}
+
 async function loadMaterials(base) {
   const reponse = await fetch(`${base}data/parquets.json`, { cache: 'no-cache' });
   if (!reponse.ok) throw new Error('Catalogue de matières indisponible');
@@ -88,10 +128,12 @@ export async function createLocalRenderer({ base = '', prefer = 'auto' } = {}) {
      scènes, et l'index des scènes ne dit rien des matières. Elles étaient
      enchaînées par deux `await` successifs — un aller-retour réseau de plus,
      payé à chaque démarrage pour rien. */
-  const [materials, index] = await Promise.all([
+  const [materials, exactes, index] = await Promise.all([
     loadMaterials(base),
+    loadExactMaterials(base),
     loadSceneIndex(base).catch(() => ({ scenes: [] })),
   ]);
+  exactes.materials.forEach((m) => materials.set(m.id, m));
 
   /** Le seul état de configuration. Pas d'état d'iframe, pas d'état de Studio. */
   let config = { material: null, pattern: 'lames', width: null, plankLength: null, angle: 0, scale: 1 };
@@ -137,6 +179,37 @@ export async function createLocalRenderer({ base = '', prefer = 'auto' } = {}) {
      rendu, celui de l'état final. La demande est donc coalescée sur une
      microtâche, et la file garantit qu'un rendu en cours n'est pas doublé. */
   let demande = false;
+  /* ---------------- Préchargement des matières ----------------
+
+     Les matières des cartes VISIBLES du catalogue se préparent pendant les
+     temps morts, une à la fois. Deux règles :
+       * le produit demandé passe toujours devant : tant qu'un rendu attend
+         sa matière (`renduEnAttente`), le préchargement se suspend ;
+       * on ne prépare que ce qu'on montre — une liste courte, remplacée à
+         chaque défilement, jamais les 394 références. */
+  let fileMatieres = [];
+  let pompeMatieres = false;
+  let renduEnAttente = 0;
+  /* Ouvertures de pièce en cours : leur éclairement passe avant. */
+  let ouvertures = 0;
+  const auRepos = (f) => (typeof requestIdleCallback === 'function' ? requestIdleCallback(f, { timeout: 1000 }) : setTimeout(f, 150));
+  function pomperMatieres() {
+    const prochain = fileMatieres.shift();
+    if (!prochain) { pompeMatieres = false; return; }
+    pompeMatieres = true;
+    auRepos(() => {
+      if (renduEnAttente > 0 || ouvertures > 0) {
+        fileMatieres.unshift(prochain);
+        setTimeout(pomperMatieres, 250);
+        return;
+      }
+      const m = materials.get(prochain.materialFamily);
+      const conf = { pattern: prochain.pattern, width: prochain.widthM || null, plankLength: prochain.lengthM || null };
+      if (!m || enCache(m, conf)) { pomperMatieres(); return; }
+      materialMapsAsync(m, conf).catch(() => {}).finally(pomperMatieres);
+    });
+  }
+
   function demandeRendu() {
     if (demande) return;
     demande = true;
@@ -154,15 +227,19 @@ export async function createLocalRenderer({ base = '', prefer = 'auto' } = {}) {
           return false;
         }
         /* `preparer` attend les cartes du worker : sans cela `paint` rend
-           `false` sur une texture froide, et l'appelant croirait à un échec. */
+           `false` sur une texture froide, et l'appelant croirait à un échec.
+           Pendant cette attente, le préchargement du catalogue se tait. */
         /* Une fabrication de tuile qui échoue (worker hors d'usage, délai
            dépassé) doit aussi prévenir : sinon l'abonné attend son délai de
            garde entier pour apprendre qu'il n'y aura rien. */
+        renduEnAttente += 1;
         try {
           await renderer.preparer(config);
         } catch {
           prevenir(0);
           return false;
+        } finally {
+          renduEnAttente -= 1;
         }
         const fait = peindre(1);
         if (!fait) prevenir(0);
@@ -186,8 +263,35 @@ export async function createLocalRenderer({ base = '', prefer = 'auto' } = {}) {
     },
     /** Les pièces calibrées disponibles localement. */
     get scenes() { return (index.scenes || []).map((s) => s.id); },
+    /** Produits Premibel dont la matière EXACTE est réellement disponible. */
+    get matieresExactes() { return exactes.produits.map((p) => ({ ...p })); },
     /** Diagnostic seulement, hors contrat. */
     get config() { return { ...config, material: config.material ? config.material.id : null }; },
+
+    /**
+     * Prépare une pièce sans l'ouvrir : SceneData, photo décodée, masques et
+     * éclairement (dans le worker). Hors de la file : un préchargement ne
+     * retarde jamais une ouverture demandée. Rend `true` si la pièce est
+     * prête pour une ouverture rapide.
+     */
+    async prechargerPiece(id) {
+      const entree = (index.scenes || []).find((s) => s.id === id);
+      if (!entree || sceneId === id) return false;
+      try {
+        const scene = await analyzeScene({ sceneId: id, base }, 'precalibrated');
+        const fichier = entree.file || (scene.image && scene.image.file);
+        if (!fichier) return false;
+        let prete = photosPieces.get(fichier);
+        if (!prete) {
+          prete = await loadImage(`${base}assets/images/${fichier}`);
+          if (photosPieces.size >= 6) photosPieces.delete(photosPieces.keys().next().value);
+          photosPieces.set(fichier, prete);
+        }
+        return await renderer.precharger(scene, prete, `piece:${id}`);
+      } catch {
+        return false;
+      }
+    },
 
     /** Ouvre une pièce : scène calibrée, photo, masques, cartes de lumière. */
     openRoom(id) {
@@ -208,11 +312,11 @@ export async function createLocalRenderer({ base = '', prefer = 'auto' } = {}) {
         let prete = photosPieces.get(fichier);
         if (!prete) {
           prete = await loadImage(`${base}assets/images/${fichier}`);
-          if (photosPieces.size >= 4) photosPieces.delete(photosPieces.keys().next().value);
+          if (photosPieces.size >= 6) photosPieces.delete(photosPieces.keys().next().value);
           photosPieces.set(fichier, prete);
         }
         marquer('B.photo', tPhoto);
-        chrono('D.setScene', () => renderer.setScene(scene, prete, { cleCache: `piece:${id}` }));
+        { const tS = performance.now(); ouvertures += 1; try { await renderer.setScene(scene, prete, { cleCache: `piece:${id}` }); } finally { ouvertures -= 1; } marquer('D.setScene', tS); }
         sceneId = id;
         return true;
       });
@@ -246,7 +350,7 @@ export async function createLocalRenderer({ base = '', prefer = 'auto' } = {}) {
         const tPhoto = performance.now();
         const prete = await loadImage(imageUrl);
         marquer('B.photo', tPhoto);
-        chrono('D.setScene', () => renderer.setScene(scene, prete));
+        { const tS = performance.now(); ouvertures += 1; try { await renderer.setScene(scene, prete); } finally { ouvertures -= 1; } marquer('D.setScene', tS); }
         sceneId = id;
         return true;
       });
@@ -262,7 +366,7 @@ export async function createLocalRenderer({ base = '', prefer = 'auto' } = {}) {
       return enFile(async () => {
         const scene = createBlankScene({ width, height, label: 'Ma pièce (sol tracé à la main)' });
         const prete = await loadImage(imageUrl);
-        chrono('D.setScene', () => renderer.setScene(scene, prete));
+        { const tS = performance.now(); ouvertures += 1; try { await renderer.setScene(scene, prete); } finally { ouvertures -= 1; } marquer('D.setScene', tS); }
         sceneId = id;
         return true;
       });
@@ -432,6 +536,23 @@ export async function createLocalRenderer({ base = '', prefer = 'auto' } = {}) {
      * 1 534 à 3 357 ms de tuile, en série. Les deux ne dépendent pas l'un de
      * l'autre : une tuile de bois ne sait rien de la pièce où elle sera posée.
      */
+    /**
+     * Prépare en tâche de fond les matières d'une liste de profils (les cartes
+     * visibles du catalogue). Remplace la liste précédente. Rend le nombre de
+     * profils retenus.
+     */
+    prechargerMatieres(profils) {
+      fileMatieres = (profils || []).filter((p) => p && materials.has(p.materialFamily)).slice(0, 8);
+      if (!pompeMatieres) pomperMatieres();
+      return fileMatieres.length;
+    },
+
+    /** La matière de ce profil est-elle déjà prête ? */
+    matierePrete(profil) {
+      const m = profil && materials.get(profil.materialFamily);
+      return Boolean(m && enCache(m, { pattern: profil.pattern, width: profil.widthM || null, plankLength: profil.lengthM || null }));
+    },
+
     prechauffer(materialId, pattern, width, { urgent = false, plankLength = null } = {}) {
       const material = materialId ? materials.get(materialId) : config.material;
       if (!material) return false;

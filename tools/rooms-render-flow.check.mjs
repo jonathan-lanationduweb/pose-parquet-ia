@@ -119,7 +119,7 @@ const capture = async (page, nom) => { if (CAPTURES) await page.screenshot({ pat
     const b = document.querySelector('#card .busy[data-etat="applying"]');
     return b && b.getBoundingClientRect().width > 0 && !document.getElementById('card').classList.contains('hidden');
   }, null, { timeout: 10000 }).then(() => true, () => false);
-  ok('pendant la première application, la carte montre « Application… »', vuApplication
+  ok('pendant la première application, la carte montre « Préparation du parquet… »', vuApplication
     || (await page.evaluate(() => window.__concept.etatApplication())) === 'rendered');
   await capture(page, '07-product-applying.jpg');
   await attendreRendu(page);
@@ -215,7 +215,7 @@ const capture = async (page, nom) => { if (CAPTURES) await page.screenshot({ pat
   const e = await etat(page);
   /* L'état affiché est ERROR. Une nouvelle tentative peut tourner en fond
      (`applying`) : le message reste stable jusqu'au succès ou à Réessayer. */
-  ok('délai dépassé : sortie en ERROR, statut d’échec affiché', e.etat === 'error' && /Impossible d’appliquer/.test(e.pill) && !/Application…/.test(e.pill), e);
+  ok('délai dépassé : sortie en ERROR, statut d’échec affiché', e.etat === 'error' && /Impossible d’appliquer/.test(e.pill) && !/Préparation du parquet…/.test(e.pill), e);
   ok('délai dépassé : bouton Réessayer (même instant)', e.retry === true);
   ok('délai dépassé : la photo reste visible', await page.evaluate(() => !!document.getElementById('photo').getAttribute('src')));
   /* Le résultat tardif du moteur est accepté s'il correspond encore au choix. */
@@ -241,7 +241,7 @@ const capture = async (page, nom) => { if (CAPTURES) await page.screenshot({ pat
   await page.evaluate((id) => window.__concept.select(id, true), autre);
   await page.waitForFunction(() => window.__concept.etatApplication() === 'error', null, { timeout: 15000 }).catch(() => {});
   const e = await etat(page);
-  ok('moteur en erreur : ERROR, pas APPLYING', e.etat === 'error' && !e.applying && !/Application…/.test(e.pill), e);
+  ok('moteur en erreur : ERROR, pas APPLYING', e.etat === 'error' && !e.applying && !/Préparation du parquet…/.test(e.pill), e);
   ok('moteur en erreur : la photo reste affichée', await page.evaluate(() => !!document.getElementById('photo').getAttribute('src')));
   await page.evaluate(() => { window.__concept.adapter.applyProfile = window.__vraiApply; });
   await page.click('[data-open="retryApply"]');
@@ -256,6 +256,69 @@ const capture = async (page, nom) => { if (CAPTURES) await page.screenshot({ pat
   ok('overlay DEV : diagnostics de géométrie disponibles', !!(d && d.zones && d.zones.length));
   await page.waitForTimeout(300);
   await capture(page, '06-geometry-overlay.jpg');
+  await ctx.close();
+}
+
+/* ================= 7 bis. Matières Premibel exactes, catalogue ================= */
+{
+  const { ctx, page, erreurs } = await ouvrir({ width: 1440, height: 900 });
+  const index = JSON.parse(fs.readFileSync('web/data/materials/premibel/index.json', 'utf8'));
+  const declarees = Object.entries(index.materials).filter(([, e]) => e.materialFidelity === 'exact').map(([id]) => id);
+  const atlasLocaux = declarees.filter((id) => fs.existsSync(`web/assets/products/premibel/materials/${id}.atlas.webp`));
+  const info = await page.evaluate(() => {
+    const c = window.__concept;
+    return { chargees: c.adapter.matieresExactes.map((m) => m.product), compte: c.compteCatalogue(),
+      badges: document.querySelectorAll('#prods .pd-badge.exact').length,
+      repetee: (document.getElementById('prods').textContent.match(/Matière indicative/g) || []).length };
+  });
+  ok('exactes : le moteur charge exactement celles dont l’atlas est présent',
+    JSON.stringify([...info.chargees].sort()) === JSON.stringify([...atlasLocaux].sort()), info.chargees);
+  ok('exactes : aucune référence « exact » sans matière chargée', info.compte.exacts === info.chargees.length, info.compte);
+  ok('catalogue : les quatre statuts couvrent toutes les références',
+    info.compte.exacts + info.compte.representatifs + info.compte.apercuSeul + info.compte.indisponibles === info.compte.produits, info.compte);
+  ok('catalogue : plus de « Matière indicative » répété sous chaque carte', info.repetee === 0, info.repetee);
+  ok('catalogue : un badge « Exact » par référence exacte affichée', info.badges <= info.chargees.length && (info.chargees.length === 0 || info.badges > 0));
+  if (info.chargees.length) {
+    await page.evaluate(() => window.__concept.openRoom('chambre'));
+    await attendreRendu(page);
+    const t = await page.evaluate(async (id) => {
+      const c = window.__concept; const t0 = performance.now(); c.select(id, true);
+      await new Promise((ok) => { const f = () => (c.etatApplication() === 'rendered' && !c.state.applying && !c.state.pendingApply) ? ok() : requestAnimationFrame(f); f(); });
+      return { ms: Math.round(performance.now() - t0), fid: c.product().materialFidelity, src: c.state.applied.source };
+    }, info.chargees.find((id) => id !== 'BTRPF39009') || info.chargees[0]);
+    ok('exacte : rendue par le moteur', t.fid === 'exact' && t.src === 'live', t);
+    mesures.matiereExacte = t.ms;
+  }
+  /* Une référence sans aperçu : fiche légère, rien n'est appliqué. */
+  const avant = await page.evaluate(() => window.__concept.state.productId);
+  const fiche = await page.evaluate(() => {
+    const c = window.__concept;
+    const p = c.PREMIBEL_DEMO_PRODUCTS.find((x) => x.renderable === false && x.productUrl);
+    c.select(p.id);
+    const f = document.getElementById('ficheLegere');
+    return { ouverte: !!f && !f.hidden, lien: !!(f && f.querySelector('a[href]')), texte: f ? f.textContent : '', produit: c.state.productId };
+  });
+  ok('sans aperçu : fiche légère avec lien, aucun parquet appliqué',
+    fiche.ouverte && fiche.lien && /Aperçu 3D bientôt disponible/.test(fiche.texte) && fiche.produit === avant, fiche);
+  /* Filtre « Aperçu disponible ». */
+  const filtre = await page.evaluate(() => {
+    const c = window.__concept; const tous = c.visible().length;
+    document.getElementById('fApercu').click();
+    const filtres = c.visible();
+    return { tous, apres: filtres.length, toutesRendables: filtres.every((p) => p.renderable !== false) };
+  });
+  ok('filtre « Aperçu disponible » : ne garde que ce qui se rend', filtre.apres < filtre.tous && filtre.toutesRendables, filtre);
+  /* Préchargement : les cartes visibles préparent leur matière. */
+  const precharge = await page.evaluate(async () => {
+    const c = window.__concept;
+    c.prechargerVisibles();
+    const cibles = c.PREMIBEL_DEMO_PRODUCTS.filter((p) => p.renderable !== false && p.renderProfile && p.id !== c.state.productId).slice(0, 2);
+    const t0 = performance.now();
+    await new Promise((ok) => { const f = () => (cibles.some((p) => c.adapter.matierePrete(p.renderProfile)) || performance.now() - t0 > 45000 ? ok() : setTimeout(f, 100)); f(); });
+    return cibles.some((p) => c.adapter.matierePrete(p.renderProfile));
+  });
+  ok('préchargement : une carte visible a sa matière prête avant le clic', precharge);
+  ok('console sans erreur (matières)', erreurs.length === 0, erreurs.slice(0, 3));
   await ctx.close();
 }
 

@@ -1,0 +1,79 @@
+{
+  "materials": {
+    "CHENF228": {
+      "materialFidelity": "representative",
+      "rejected": [
+        "3 morceau(x) de lame < 4",
+        "0.96 m de bois < 1.5",
+        "0.96 m de bois < une longueur de lame (1.21 m)"
+      ]
+    },
+    "F52386574": {
+      "materialFidelity": "representative",
+      "rejected": [
+        "1.47 m de bois < 1.5",
+        "1.47 m de bois < une longueur de lame (2.20 m)"
+      ]
+    },
+    "CHEN38163": {
+      "materialFidelity": "exact",
+      "material": "premibel-CHEN38163",
+      "definition": "data/materials/premibel/CHEN38163.json",
+      "pattern": "lames",
+      "widthMm": 130,
+      "lengthMm": 1050,
+      "planks": 4,
+      "sourcePxPerMm": 0.355,
+      "review": "revue du 13/10/2026 : plus fidèle que la représentative (brun de la vignette au lieu d’orange)"
+    },
+    "CHENF2681": {
+      "materialFidelity": "representative",
+      "rejected": [
+        "photo trop peu fine : 0.25 px/mm < 0.3"
+      ]
+    },
+    "POINF38000": {
+      "materialFidelity": "representative",
+      "rejected": [
+        "2 morceau(x) de lame < 4",
+        "0.58 m de bois < 1.5",
+        "0.58 m de bois < une longueur de lame (0.79 m)"
+      ]
+    },
+    "CHENF36014": {
+      "materialFidelity": "exact",
+      "material": "premibel-CHENF36014",
+      "definition": "data/materials/premibel/CHENF36014.json",
+      "pattern": "lames",
+      "widthMm": 150,
+      "lengthMm": 1900,
+      "planks": 7,
+      "sourcePxPerMm": 0.304,
+      "review": "revue du 13/10/2026 : couleur plus fidèle, mais nœuds plus denses que sur la photo produit — à juger"
+    },
+    "CHENF36015": {
+      "materialFidelity": "exact",
+      "material": "premibel-CHENF36015",
+      "definition": "data/materials/premibel/CHENF36015.json",
+      "pattern": "lames",
+      "widthMm": 150,
+      "lengthMm": 1900,
+      "planks": 9,
+      "sourcePxPerMm": 0.339,
+      "review": "revue du 13/10/2026 : couleur plus fidèle, nœuds plus denses que sur la photo produit — à juger ; décision humaine Pivoine toujours ouverte"
+    },
+    "BTRPF39009": {
+      "materialFidelity": "exact",
+      "material": "premibel-BTRPF39009",
+      "definition": "data/materials/premibel/BTRPF39009.json",
+      "pattern": "baton-rompu",
+      "widthMm": 90,
+      "lengthMm": 600,
+      "planks": 8,
+      "sourcePxPerMm": 0.389,
+      "review": "revue du 13/10/2026 : chêne clair naturel, proche de la vignette ; décision humaine Notting Hill toujours ouverte"
+    }
+  },
+  "schema": "pose-parquet/premibel-materials@1",
+  "note": "Statut matière des produits passés par scripts/import_premibel_material.py. Les atlas ne sont pas versionnés : sans eux, le moteur garde la matière représentative."
+}

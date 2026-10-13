@@ -475,6 +475,8 @@ export function createGlRenderer() {
   let maskBytes = null;
   let residualBytes = null;
   let currentMaterial = null;
+  const gpuMatieres = new Map();
+  const GPU_MATIERES_MAX = 4;
   const noResidual = new Uint8Array([0, 0, 0, 0]);
 
   shared = {
@@ -536,12 +538,42 @@ export function createGlRenderer() {
       upload(tex.gloss, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, w, h, octets);
     },
 
-    /** Cartes du matériau. Les mipmaps sont fabriquées par le GPU. */
+    /**
+     * Cartes du matériau. Les mipmaps sont fabriquées par le GPU.
+     *
+     * Les matières récentes GARDENT leurs textures : revenir à un produit déjà
+     * vu ne renvoie pas 2 × 6,5 Mo au GPU ni ne refait ses mipmaps, on
+     * rattache seulement ses deux textures aux unités 2 et 3. Quatre
+     * matières au plus (≈ 70 Mo de mémoire vidéo avec les mipmaps).
+     */
     setMaterial(id, maps) {
       if (currentMaterial === id) return;
-      const side = maps.albedo[0].size;
-      upload(tex.albedo, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, side, side, maps.albedo[0].data);
-      upload(tex.relief, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, side, side, maps.relief[0].data);
+      let paire = gpuMatieres.get(id);
+      if (paire) {
+        gpuMatieres.delete(id);
+        gpuMatieres.set(id, paire); // le plus récent en dernier
+      } else {
+        if (gpuMatieres.size >= GPU_MATIERES_MAX) {
+          const [vieuxId, vieux] = gpuMatieres.entries().next().value;
+          gpuMatieres.delete(vieuxId);
+          gl.deleteTexture(vieux.albedo.texture);
+          gl.deleteTexture(vieux.relief.texture);
+        }
+        paire = {
+          albedo: makeTexture(tex.albedo.unit, { wrap: gl.REPEAT, mips: true }),
+          relief: makeTexture(tex.relief.unit, { wrap: gl.REPEAT, mips: true }),
+        };
+        const side = maps.albedo[0].size;
+        upload(paire.albedo, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, side, side, maps.albedo[0].data);
+        upload(paire.relief, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, side, side, maps.relief[0].data);
+        gpuMatieres.set(id, paire);
+      }
+      tex.albedo = paire.albedo;
+      tex.relief = paire.relief;
+      gl.activeTexture(gl.TEXTURE0 + paire.albedo.unit);
+      gl.bindTexture(gl.TEXTURE_2D, paire.albedo.texture);
+      gl.activeTexture(gl.TEXTURE0 + paire.relief.unit);
+      gl.bindTexture(gl.TEXTURE_2D, paire.relief.texture);
       currentMaterial = id;
     },
 
