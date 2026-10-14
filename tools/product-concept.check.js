@@ -1292,7 +1292,7 @@ const CONTRAT_V1 = ['visitSnapshot', 'setScale', 'setPlankLength', 'geometryDiag
      moteur savaient deja recevoir des traits, personne ne les branchait.
      `coverageSnapshot` montre la zone pendant la correction. Tous gardes par
      `typeof === 'function'`. */
-  'openScene', 'beginStroke', 'extendStroke', 'endStroke', 'undoStroke', 'coverageOverlay',
+  'openScene', 'beginStroke', 'extendStroke', 'endStroke', 'undoStroke', 'commitStrokeEdits', 'coverageOverlay',
   /* MISSION STABILISATION : une scène MANUELLE (plan par défaut, sol tracé au
      pinceau) quand l'analyse n'a rien d'exploitable. Gardée par typeof. */
   'openManualScene', 'prechargerPiece', 'matieresExactes', 'prechargerMatieres', 'matierePrete'];

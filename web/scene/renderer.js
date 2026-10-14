@@ -269,6 +269,25 @@ export function createSceneRenderer({ prefer = 'auto' } = {}) {
       if (masks) prepareLighting();
     },
 
+    /** Photo edits use the same worker as scene preparation. Late results cannot replace a new scene. */
+    async refreshLightingAsync() {
+      if (cleCourante) preparees.delete(cleCourante);
+      if (!masks) return false;
+      const token = generationScene, editedMasks = masks;
+      const calcul = lumiereAsync(source, masks.coverage, scene.light);
+      if (!calcul) { prepareLighting(); return true; }
+      try {
+        const next = await calcul;
+        if (token !== generationScene || editedMasks !== masks) return false;
+        shading = next.shading; residual = next.residual;
+        installerLumiere();
+      } catch {
+        if (token !== generationScene || editedMasks !== masks) return false;
+        prepareLighting();
+      }
+      return true;
+    },
+
     /** Prépare une texture en tâche de fond, pour que le clic soit instantané. */
     warm: warmMaterial,
 

@@ -77,3 +77,21 @@ contiennent que dimensions, durées, statuts et avertissements, jamais de pixels
 Le masque brut et le masque raffiné restent distincts dans la revue. L'échelle
 absolue d'une seule photo et les occlusions non reconnues demandent toujours une
 relecture humaine ; les captures permettent de vérifier le cas concret.
+
+## Mobile et fluidité
+
+Le choix du parquet et Personnaliser restent fixes en bas, dans la hauteur
+visible avec safe area. Le menu est ancré à droite. La fiche catalogue conserve
+ses cartes quand filtres, favoris et données produit sont inchangés ; une rotation
+ne reconstruit pas la grille. Les matières visibles seules sont préchargées.
+
+En correction photo, les traits et Annuler changent seulement le masque et son
+aperçu. Terminé recalcule la lumière dans le worker existant puis présente le
+parquet. Les éditeurs qui appellent directement endStroke conservent leur rendu
+immédiat. Une scène nouvelle invalide les résultats tardifs du worker.
+
+`tools/mobile-performance.check.mjs` teste les cinq largeurs 320, 360, 375, 390,
+430 avec vraie photo privée, catalogue défilé au toucher, rotation, avant/après,
+comparaison, pincement, déplacement, pinceau, annulation et Terminé. Les captures
+et tâches longues restent dans review ; les mesures Chrome émulé ne sont pas
+un benchmark matériel iPhone/Android.

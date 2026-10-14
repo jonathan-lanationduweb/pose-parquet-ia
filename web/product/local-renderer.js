@@ -140,6 +140,7 @@ export async function createLocalRenderer({ base = '', prefer = 'auto' } = {}) {
   /** Le seul état de configuration. Pas d'état d'iframe, pas d'état de Studio. */
   let config = { material: null, pattern: 'lames', width: null, plankLength: null, angle: 0, scale: 1 };
   let sceneId = null;
+  let coveragePreview = null;
   /** Photos décodées des pièces de démonstration, par fichier. */
   const photosPieces = new Map();
   const abonnes = new Set();
@@ -398,17 +399,23 @@ export async function createLocalRenderer({ base = '', prefer = 'auto' } = {}) {
       return true;
     },
     /** Fin de geste : masques refaits au prochain rendu, lumière recalculée. */
-    endStroke() {
+    endStroke({ deferRender = false } = {}) {
       if (!renderer.ready) return false;
       renderer.invalidateMasks();
-      renderer.refreshLighting();
-      demandeRendu();
+      if (!deferRender) { renderer.refreshLighting(); demandeRendu(); }
       return true;
     },
-    undoStroke() {
+    /** Photo brush: keep the mask overlay responsive, rebuild lighting once on Done. */
+    commitStrokeEdits() {
+      return enFile(async () => {
+        if (!renderer.ready) return false;
+        return renderer.refreshLightingAsync();
+      });
+    },
+    undoStroke({ deferRender = false } = {}) {
       if (!renderer.masks) return false;
       const fait = renderer.masks.undo();
-      if (fait) { renderer.invalidateMasks(); renderer.refreshLighting(); demandeRendu(); }
+      if (fait) { renderer.invalidateMasks(); if (!deferRender) { renderer.refreshLighting(); demandeRendu(); } }
       return fait;
     },
     /**
@@ -426,16 +433,19 @@ export async function createLocalRenderer({ base = '', prefer = 'auto' } = {}) {
       const masks = renderer.masks;
       if (!masks) return null;
       const { width, height, coverage } = masks;
-      const image = new ImageData(width, height);
+      if (!coveragePreview || coveragePreview.width !== width || coveragePreview.height !== height) {
+        const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height;
+        coveragePreview = { canvas, image: new ImageData(width, height), width, height };
+      }
+      const image = coveragePreview.image;
       const d = image.data;
+      d.fill(0);
       for (let i = 0, p = 0; i < coverage.length; i += 1, p += 4) {
         const a = coverage[i];
         if (!a) continue;
         d[p] = 60; d[p + 1] = 130; d[p + 2] = 255; d[p + 3] = Math.round(a * 0.42);
       }
-      const teinte = document.createElement('canvas');
-      teinte.width = width;
-      teinte.height = height;
+      const teinte = coveragePreview.canvas;
       teinte.getContext('2d').putImageData(image, 0, 0);
       return { canvas: teinte, width, height };
     },

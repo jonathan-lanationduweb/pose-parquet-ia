@@ -1313,3 +1313,8 @@ body[data-application="applying"] #photoScan::before { animation: photoScan 2.4s
 @media(max-width:700px) {
   #noscene.approximate-result { top:66px; left:12px; transform:none; width:calc(100% - 24px); }
 }
+
+/* Compact mobile controls avoid costly full-screen blur during touch gestures. */
+@media (max-width:700px) {
+  .card, .pill, .zoom, #floorTools { backdrop-filter:none; }
+}

@@ -2059,11 +2059,12 @@
          reste du contrat. Un moteur qui ne les a pas rend faux, et
          l'interface n'affiche pas l'outil. */
       pinceau: {
+        commit() { return !!(studio && typeof studio.commitStrokeEdits === 'function' && studio.commitStrokeEdits()); },
         disponible() { return !!(studio && typeof studio.beginStroke === 'function'); },
         begin(mode, radius, point) { return !!(studio && typeof studio.beginStroke === 'function' && studio.beginStroke(mode, radius, point)); },
         extend(point) { return !!(studio && typeof studio.extendStroke === 'function' && studio.extendStroke(point)); },
-        end() { return !!(studio && typeof studio.endStroke === 'function' && studio.endStroke()); },
-        undo() { return !!(studio && typeof studio.undoStroke === 'function' && studio.undoStroke()); },
+        end() { return !!(studio && typeof studio.endStroke === 'function' && studio.endStroke({ deferRender: true })); },
+        undo() { return !!(studio && typeof studio.undoStroke === 'function' && studio.undoStroke({ deferRender: true })); },
         overlay() { return studio && typeof studio.coverageOverlay === 'function' ? studio.coverageOverlay() : null; },
       },
 
@@ -3675,7 +3676,13 @@
       && (!mood || mood.refs.includes(p.ref)));
   }
 
+  let catalogueSignature = null;
   function paintCatalogue() {
+    const signature = JSON.stringify([state.filters, state.catalogSearch, state.catalogCollection,
+      state.catalogueView, [...state.favourites].sort(),
+      PREMIBEL_DEMO_PRODUCTS.map((p) => [p.id, p.materialFidelity, p.renderable])]);
+    if (signature === catalogueSignature) { marquerSelection(); return; }
+    catalogueSignature = signature;
     const f = state.filters;
     $('fApercu').checked = Boolean(f.apercu);
     $('fPattern').innerHTML = presentPatterns().map((k) =>
@@ -3761,9 +3768,9 @@
   /** Met à jour la carte sélectionnée du catalogue sans le reconstruire. */
   function marquerSelection() {
     const grille = $('prods');
-    if (!grille || typeof grille.querySelectorAll !== 'function') { paintCatalogue(); return; }
+    if (!grille || typeof grille.querySelectorAll !== 'function') return;
     const cartes = grille.querySelectorAll('.pd[data-id]');
-    if (!cartes.length) { paintCatalogue(); return; }
+    if (!cartes.length) return;
     cartes.forEach((b) => {
       const oui = b.dataset.id === state.productId;
       if ((b.getAttribute('aria-pressed') === 'true') !== oui) b.setAttribute('aria-pressed', String(oui));
@@ -4525,6 +4532,7 @@
     /* Le cadrage n'a pas change en entrant : il ne change pas en sortant. */
     if (appliquer) {
       if (state.photoScene) state.photoScene.userAdjusted = true;
+      adapter.pinceau.commit();
       /* La correction a change le masque : les captures retenues sont
          fausses, et le rendu doit etre refait avec le nouveau sol. */
       adapter.forget();

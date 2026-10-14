@@ -54,6 +54,7 @@ export function createSceneMasks(scene, width, height) {
   let boxes = new Map();
   let unionBox = null;
   let hasOcclusion = false;
+  let occlusionSignature = null;
   let dirty = true;
 
   /* ---------------- Tracé ---------------- */
@@ -155,30 +156,36 @@ export function createSceneMasks(scene, width, height) {
     });
 
     /* Occlusions : données de scène, valables pour toutes les zones. */
-    occlusion.fill(0);
-    hasOcclusion = false;
-    if (scene.occluders.length) {
-      ctx.clearRect(0, 0, width, height);
-      ctx.fillStyle = '#fff';
-      scene.occluders.forEach((occluder) => {
-        // Un liseré adouci évite l'arête de découpe, qui trahit tout de suite
-        // un montage. Le flou est exprimé en fraction de largeur d'image.
-        const blur = Math.max(0, occluder.feather * width);
-        ctx.save();
-        if (blur > 0.4) ctx.filter = `blur(${blur.toFixed(2)}px)`;
-        ctx.beginPath();
-        trace(ctx, occluder.polygon, width, height);
-        (occluder.holes || []).forEach(hole => trace(ctx, hole, width, height));
-        ctx.fill('evenodd');
-        ctx.restore();
-      });
-      const data = ctx.getImageData(0, 0, width, height).data;
-      for (let i = 0, p = 3; i < occlusion.length; i += 1, p += 4) {
-        if (data[p] > 2) {
-          occlusion[i] = data[p];
-          hasOcclusion = true;
+    // Brush strokes alter floor coverage, not static furniture occlusions.
+    // Detect actual occluder edits so other editors still invalidate correctly.
+    const nextOcclusionSignature = JSON.stringify(scene.occluders);
+    if (nextOcclusionSignature !== occlusionSignature) {
+      occlusion.fill(0);
+      hasOcclusion = false;
+      if (scene.occluders.length) {
+        ctx.clearRect(0, 0, width, height);
+        ctx.fillStyle = '#fff';
+        scene.occluders.forEach((occluder) => {
+          // Un liseré adouci évite l'arête de découpe, qui trahit tout de suite
+          // un montage. Le flou est exprimé en fraction de largeur d'image.
+          const blur = Math.max(0, occluder.feather * width);
+          ctx.save();
+          if (blur > 0.4) ctx.filter = `blur(${blur.toFixed(2)}px)`;
+          ctx.beginPath();
+          trace(ctx, occluder.polygon, width, height);
+          (occluder.holes || []).forEach(hole => trace(ctx, hole, width, height));
+          ctx.fill('evenodd');
+          ctx.restore();
+        });
+        const data = ctx.getImageData(0, 0, width, height).data;
+        for (let i = 0, p = 3; i < occlusion.length; i += 1, p += 4) {
+          if (data[p] > 2) {
+            occlusion[i] = data[p];
+            hasOcclusion = true;
+          }
         }
       }
+      occlusionSignature = nextOcclusionSignature;
     }
 
     dirty = false;

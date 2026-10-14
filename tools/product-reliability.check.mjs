@@ -114,7 +114,7 @@ async function nouvellePage({ largeur = 1440, hauteur = 900, sansWebGL = false }
 
 async function ouvrir(p, q = '') {
   await p.goto(PAGE(q), { waitUntil: 'load' });
-  await p.waitForFunction(() => window.__concept && window.__concept.state);
+  await p.waitForFunction(() => window.__concept && window.__concept.adapter.connecte && window.__concept.DEMO_ROOMS.length > 0, null, { timeout: 120000 });
 }
 
 const etat = (p) => p.evaluate(() => window.__concept.etatProduit());
