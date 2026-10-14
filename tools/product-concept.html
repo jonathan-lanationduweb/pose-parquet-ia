@@ -2893,8 +2893,11 @@
        l'acces au catalogue. Sur une piece de demonstration dont le rendu
        n'est pas encore arrive, non : il arrive, et la capture est deja a
        l'ecran. */
-    $('noscene').classList.toggle('hidden', !(uploaded && !hasRender));
-    paintNoscene(uploaded && !hasRender);
+    const approximate = uploaded && state.photoScene?.status === 'approximate_render'
+      && !state.photoScene.accepted && !state.photoScene.userAdjusted;
+    $('noscene').classList.toggle('approximate-result', Boolean(approximate && hasRender));
+    $('noscene').classList.toggle('hidden', !(uploaded && (!hasRender || approximate)));
+    paintNoscene(uploaded && (!hasRender || approximate));
     if (typeof mesurerBarre === 'function') mesurerBarre();
     applyTransform();
 
@@ -3343,7 +3346,8 @@
     if (ps && (ps.status === 'needs_manual_adjustment' || ps.status === 'invalid' || ps.status === 'no_floor')) return 'NEEDS_MANUAL_ADJUSTMENT';
     if (a.status === 'unavailable' || a.status === 'timeout') return 'ANALYSIS_UNAVAILABLE';
     if (a.status === 'error' || a.status === 'rejected') return 'ANALYSIS_ERROR';
-    if (ps && ps.status === 'auto_render') return 'RENDER_PENDING';
+    if (ps && ['auto_render', 'approximate_render'].includes(ps.status)) return 'RENDER_PENDING';
+    if (!ps && a.analysis?.experimental?.floor?.sceneStatus === 'approximate_render') return 'RENDER_PENDING';
     /* Analyse terminée sans scène (mode expérimental éteint) : la photo reste,
        la correction manuelle est offerte. */
     return 'NEEDS_MANUAL_ADJUSTMENT';
@@ -3467,7 +3471,7 @@
     /* Sous le seuil, la scene est une PROPOSITION : la photo reste nue, la
        barre dit que le sol est approximatif et propose d'ajuster. Rien ne se
        pose sans un geste. */
-    if (xp.status !== 'auto_render') { paintChrome(); return; }
+    if (!['auto_render', 'approximate_render'].includes(xp.status)) { paintChrome(); return; }
     await appliquerScenePhoto(jeton);
   }
 
@@ -3549,7 +3553,7 @@
     } else if (etat === 'ANALYZING') {
       titre = 'Analyse de la pièce…';
       texte = 'Votre photo reste visible pendant la détection du sol.';
-    } else if (ps && ps.raw && ps.status === 'needs_manual_adjustment') {
+    } else if (ps && ps.raw && ['needs_manual_adjustment', 'approximate_render'].includes(ps.status)) {
       titre = 'Sol détecté approximativement';
       texte = 'Le contour ou la perspective du sol est incertain. Vérifiez la zone, puis le sens et la taille des lames dans Personnaliser.';
       const checks = ps.provenance?.decision?.checks || {};
@@ -4258,7 +4262,11 @@
         else if (open.dataset.open === 'poser') {
           const checks = state.photoScene?.provenance?.decision?.checks;
           const unsafe = !checks || !Object.keys(checks).length || Object.values(checks).some(Boolean);
-          if (!unsafe) appliquerScenePhoto(state.photoGeneration);
+          if (!unsafe) {
+            state.photoScene.accepted = true;
+            if (state.photoScene.posee) paintChrome();
+            else appliquerScenePhoto(state.photoGeneration);
+          }
           else floorEditStart();
         }
         else if (open.dataset.open === 'retry') relancerAnalyse();

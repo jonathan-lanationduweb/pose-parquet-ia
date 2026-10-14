@@ -25,6 +25,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+openvino = ["openvino>=2026.4.1,<2027"]
 dev = [
   "pytest>=8.3",
   "httpx>=0.27",  # client de test de FastAPI
@@ -73,4 +74,8 @@ strict = true
 # OpenCV n'expose pas de stubs complets.
 [[tool.mypy.overrides]]
 module = ["cv2.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["openvino", "openvino.*"]
 ignore_missing_imports = true

@@ -158,6 +158,8 @@ class CameraEstimate:
     vanishing_points: list[VanishingPointEstimate]
     segments: int
     notes: list[str] = field(default_factory=list)
+    selected_pair: tuple[int, int] | None = None
+    hypotheses: list[dict[str, float | int | bool]] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -292,28 +294,55 @@ def find_vanishing_points(
         pool = [candidats[i] for i in restants]
         poids = np.array([s.length for s in pool])
         poids /= poids.sum()
+        midpoints = np.asarray([s.midpoint for s in pool])
+        directions = np.asarray([s.direction for s in pool])
+        lengths = np.asarray([s.length for s in pool])
+        lines = np.asarray([s.line for s in pool])
+
+        def score(
+            vx: float, vy: float, midpoints: np.ndarray = midpoints,
+            directions: np.ndarray = directions, lengths: np.ndarray = lengths,
+        ) -> tuple[float, list[int]]:
+            delta = np.array([vx, vy]) - midpoints
+            norms = np.linalg.norm(delta, axis=1)
+            cross = np.abs(directions[:, 0] * delta[:, 1] - directions[:, 1] * delta[:, 0])
+            angle = np.degrees(np.arcsin(np.clip(cross / np.maximum(norms, 1e-9), 0, 1)))
+            selected = np.flatnonzero(angle < tol_deg)
+            total = float(np.sum(lengths[selected] * (1 - angle[selected] / tol_deg)))
+            return total, selected.tolist()
+
+        pairs = np.array([rng.choice(len(pool), size=2, replace=False, p=poids)
+                          for _ in range(iters)])
+        crosses = np.cross(lines[pairs[:, 0]], lines[pairs[:, 1]])
+        denominators = crosses[:, 2]
+        safe = np.abs(denominators) >= 1e-12
+        xy = crosses[:, :2] / np.where(safe, denominators, 1)[:, None]
+        delta_directions = directions[pairs[:, 0]]
+        other_directions = directions[pairs[:, 1]]
+        separation = np.abs(delta_directions[:, 0] * other_directions[:, 1]
+                            - delta_directions[:, 1] * other_directions[:, 0])
+        valid = (safe & (separation >= math.sin(math.radians(1)))
+                 & (xy[:, 1] > -0.5 * height) & (xy[:, 1] < 1.5 * height)
+                 & (np.abs(xy[:, 0] - cx) <= 12 * width))
+        proposals = xy[valid]
         meilleur: tuple[float, float, float, list[int]] | None = None
-        for _ in range(iters):
-            a, b = rng.choice(len(pool), size=2, replace=False, p=poids)
-            sa, sb = pool[a], pool[b]
-            da, db = sa.direction, sb.direction
-            if abs(da[0] * db[1] - da[1] * db[0]) < math.sin(math.radians(1.0)):
-                continue  # presque parallèles : intersection instable
-            p = np.cross(sa.line, sb.line)
-            if abs(p[2]) < 1e-12:
-                continue
-            vx, vy = float(p[0] / p[2]), float(p[1] / p[2])
-            if not (-0.5 * height < vy < 1.5 * height) or abs(vx - cx) > 12 * width:
-                continue
-            total, inl = _score(pool, vx, vy, tol_deg)
-            if meilleur is None or total > meilleur[0]:
-                meilleur = (total, vx, vy, inl)
+        if len(proposals):
+            delta = proposals[:, None, :] - midpoints[None, :, :]
+            norms = np.linalg.norm(delta, axis=2)
+            cross = np.abs(directions[None, :, 0] * delta[:, :, 1]
+                           - directions[None, :, 1] * delta[:, :, 0])
+            angles = np.degrees(np.arcsin(np.clip(cross / np.maximum(norms, 1e-9), 0, 1)))
+            totals = (np.maximum(0, 1 - angles / tol_deg) * lengths[None, :]).sum(axis=1)
+            best = int(np.argmax(totals))
+            vx, vy = (float(v) for v in proposals[best])
+            meilleur = (float(totals[best]), vx, vy,
+                        np.flatnonzero(angles[best] < tol_deg).tolist())
         if meilleur is None:
             break
         total, vx, vy, inl = meilleur
         affine = _refine(pool, inl)
         if affine is not None and -0.5 * height < affine[1] < 1.5 * height:
-            t2, inl2 = _score(pool, affine[0], affine[1], tol_deg)
+            t2, inl2 = score(affine[0], affine[1])
             if t2 >= total * 0.9:
                 total, (vx, vy), inl = t2, affine, inl2
         support = total / width
@@ -384,6 +413,18 @@ def estimate_camera(
     gris = cv2.cvtColor(image_rgb, cv2.COLOR_RGB2GRAY)
     segments = detect_segments(gris)
     notes: list[str] = []
+    if floor_mask is not None and floor_mask.shape == image_rgb.shape[:2]:
+        # Existing boards/tiles have their own parallel directions. They must
+        # not outweigh the walls and change the focal of the room itself.
+        radius = max(3, round(min(largeur, hauteur) * 0.01))
+        interior = cv2.erode(floor_mask.astype(np.uint8), np.ones((radius, radius), np.uint8))
+        structural = [s for s in segments if not interior[
+            min(hauteur - 1, max(0, round(s.midpoint[1]))),
+            min(largeur - 1, max(0, round(s.midpoint[0]))),
+        ]]
+        if len(structural) >= MIN_VP_COUNT * 2:
+            notes.append(f"{len(segments) - len(structural)} segments de texture du sol écartés")
+            segments = structural
     points = find_vanishing_points(segments, largeur, hauteur)
 
     plafond: float | None = None
@@ -406,18 +447,33 @@ def estimate_camera(
     source: str | None = None
     confiance = 0.0
 
-    if len(forts) >= 2:
-        a, b = forts[0], forts[1]
-        if abs(b.x - a.x) > 0.3 * largeur:
-            roll = math.degrees(math.atan2(b.y - a.y, b.x - a.x))
-            if abs(roll) <= MAX_HORIZON_ROLL_DEG or abs(abs(roll) - 180) <= MAX_HORIZON_ROLL_DEG:
-                y_centre = a.y + (b.y - a.y) * ((largeur / 2 - a.x) / (b.x - a.x))
-                dans_la_plage = 0.05 * hauteur <= y_centre <= 0.85 * hauteur
-                if dans_la_plage and (plafond is None or y_centre <= plafond):
-                    horizon, source = y_centre, "lines-2vp"
-                    confiance = min(0.9, 0.55 + 0.1 * min(a.support, b.support))
-            else:
-                notes.append("deux points de fuite non alignés : horizon sur le plus fort")
+    hypotheses: list[dict[str, float | int | bool]] = []
+    selected_pair: tuple[int, int] | None = None
+    best_score = -math.inf
+    paired_focal: float | None = None
+    for i, a in enumerate(forts):
+        for j in range(i + 1, len(forts)):
+            b = forts[j]
+            if abs(b.x - a.x) < 0.3 * largeur:
+                continue
+            slope = (b.y - a.y) / (b.x - a.x)
+            roll = abs(math.degrees(math.atan(slope)))
+            y_center = a.y + slope * (largeur / 2 - a.x)
+            focal = focal_from_vanishing_points((a.x, a.y), (b.x, b.y), largeur, hauteur)
+            valid = (roll <= MAX_HORIZON_ROLL_DEG and focal is not None
+                     and 0.05 * hauteur <= y_center <= 0.85 * hauteur
+                     and (plafond is None or y_center <= plafond))
+            # Joint hypothesis: horizon and focal must come from the SAME pair.
+            support = min(a.support, b.support)
+            score = support + 0.15 * max(a.support, b.support) - 0.04 * roll
+            hypotheses.append({"a": i, "b": j, "horizon": y_center / hauteur,
+                               "focalPx": focal or 0.0, "rollDeg": roll,
+                               "score": score, "valid": valid})
+            if valid and score > best_score:
+                best_score, paired_focal = score, focal
+                horizon, source = y_center, "lines-2vp"
+                confiance = min(0.9, 0.55 + 0.1 * support)
+                selected_pair = (points.index(a), points.index(b))
     if horizon is None:
         for p in forts:
             if horizon_possible(p):
@@ -427,21 +483,10 @@ def estimate_camera(
     if horizon is None and forts:
         notes.append("points de fuite trouvés mais aucun à hauteur d'horizon")
 
-    focal: float | None = None
-    focal_source: str | None = None
-    meilleur_support = 0.0
-    for i in range(len(forts)):
-        for j in range(i + 1, len(forts)):
-            f = focal_from_vanishing_points(
-                (forts[i].x, forts[i].y), (forts[j].x, forts[j].y), largeur, hauteur
-            )
-            if f is None:
-                continue
-            s = min(forts[i].support, forts[j].support)
-            if s > meilleur_support:
-                focal, focal_source, meilleur_support = f, "vanishing-points", s
+    focal = paired_focal
+    focal_source = "vanishing-points" if focal is not None else None
     if focal is None and len(forts) >= 2:
-        notes.append("deux points de fuite sans focale plausible")
+        notes.append("aucune paire cohérente pour horizon et focale")
 
     return CameraEstimate(
         horizon=None if horizon is None else horizon / hauteur,
@@ -452,6 +497,8 @@ def estimate_camera(
         vanishing_points=points,
         segments=len(segments),
         notes=notes,
+        selected_pair=selected_pair,
+        hypotheses=hypotheses,
     )
 
 

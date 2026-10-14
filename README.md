@@ -10,38 +10,19 @@ PHOTO  →  pose-parquet-ai  →  SceneData  →  Visualiseur (JS/WebGL)
 Python **comprend la pièce**. Il ne dessine pas le parquet : le moteur de rendu
 existe déjà, il est éprouvé, et il n'a rien à apprendre de ce service.
 
-> ## État : LOT IA 2A — infrastructure validée, campagne d'annotation à mener
->
-> | | |
-> | --- | --- |
-> | Infrastructure LOT IA 2A | **VALIDÉE** |
-> | Expérience LOT IA 2A | **EN ATTENTE DES ANNOTATIONS HUMAINES** |
-> | LOT IA 2B | **non autorisé** avant analyse des premières annotations |
->
-> Ce service **ne fait pas encore d'analyse de pièce.** Il valide et redresse
-> une photo, mesure sa netteté, son exposition et la courbure de ses arêtes, et
-> renvoie ces mesures. Il ne cherche pas le sol, n'estime ni profondeur ni
-> perspective, et ne renvoie donc **jamais** de `sceneData`.
->
-> Le LOT 1 a mis trois mesures de netteté et trois détecteurs de distorsion en
-> concurrence sur un corpus à vérité terrain imposée, et retenu ceux que la
-> mesure désigne. Résultats, limites et échecs :
-> [docs/quality-methodology.md](docs/quality-methodology.md).
->
-> Le préambule du LOT 2 a posé le cadre de la **segmentation du sol** : format
-> d'annotation humaine, contrôles, métriques de surface et de contour, banc
-> d'essai. Le LOT 2A y a ajouté la mesure de l'**accord humain**, la mesure du
-> **temps d'annotation**, un balayage de tolérance de contour, et un corpus
-> pilote de **onze photos réelles** — collecté, décrit, **pas encore annoté**.
->
-> **Aucun modèle de segmentation n'est installé ni comparé.** Ce qui manque
-> maintenant n'est pas du code : c'est le relevé humain. Une campagne de
-> **quatre scènes × deux passes** est prête et attend d'être annotée — marche à
-> suivre dans [docs/pilot-runbook.md](docs/pilot-runbook.md), règles dans
-> [docs/annotation-protocol.md](docs/annotation-protocol.md).
->
-> **Aucun modèle lourd n'est installé** — ni PyTorch, ni ONNX, ni poids. Voir
-> [docs/roadmap.md](docs/roadmap.md).
+## État du visualiseur photo
+
+Le mode local importe une photo, détecte le sol avec OneFormer, estime sa
+perspective, protège les objets reconnus et applique le parquet sélectionné.
+Les résultats incertains restent corrigibles au pinceau. L'échelle absolue reste
+estimée ; la campagne d'annotation officielle et ses métriques sont conservées.
+
+Le contrat API de base reste limité aux contrôles techniques lorsque le mode
+expérimental est désactivé. `scripts.product_dev` active le pipeline photo local
+et son préchauffage. Les dépendances et les poids sont installés séparément.
+Le runtime Intel optionnel, son export reproductible et les tests privés sont
+expliqués dans [docs/photo-roomvo-accuracy.md](docs/photo-roomvo-accuracy.md).
+Les photos personnelles et les modèles restent hors Git.
 
 ---
 
@@ -63,7 +44,9 @@ une exploration sans modèle lourd, avec correction manuelle lorsque nécessaire
 `--port 8143` change le port. Le preset n'affecte que ce processus : les valeurs
 normales de production restent désactivées. Les photos privées ne sont jamais servies.
 
-Le rendu des références commerciales reste une approximation procédurale.
+Le catalogue distingue les matières photographiques réellement disponibles des
+matières représentatives et des références sans aperçu ; voir
+[docs/premibel-materials.md](docs/premibel-materials.md).
 Pour inspecter la projection, ajouter `?dev=1`, ouvrir une pièce puis **Axes du sol** :
 contour, directions et largeur projetée des lames au fond, au milieu et devant.
 

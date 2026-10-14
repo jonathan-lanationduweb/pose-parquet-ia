@@ -7,6 +7,7 @@ ailleurs (voir docs/architecture.md), et ce service reste un pur analyseur —
 donc réplicable et remplaçable sans migration.
 """
 
+import asyncio
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -60,6 +61,9 @@ def create_app() -> FastAPI:
     """Construit l'application. Une fonction, pour que les tests l'isolent."""
     configure_logging()
     settings = get_settings()
+    import cv2
+
+    cv2.setNumThreads(settings.opencv_threads)
 
     # Garde-fou anti bombe de décompression, posé une fois pour le processus :
     # Pillow refuse au-delà, sans quoi un PNG de 40 ko peut réclamer plusieurs
@@ -101,6 +105,8 @@ def create_app() -> FastAPI:
             "aucune `sceneData` renvoyée."
         ),
     )
+
+    app.state.analysis_slots = asyncio.Semaphore(1)
 
     if settings.cors_origin_list:
         app.add_middleware(

@@ -432,8 +432,8 @@ for (const [code, attendu, motif] of [[500, 'error', /échoué/], [422, 'rejecte
 /* ============================================================ 9. préparation du modèle */
 {
   const p = await nouvellePage();
-  let healthCalls = 0;
-  await p.route('**/health', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'ok', service: 'pose-parquet-ai', experimentalFloor: ++healthCalls < 3 ? 'loading' : 'ready' }) }));
+  let modelReady = false;
+  await p.route('**/health', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'ok', service: 'pose-parquet-ai', experimentalFloor: modelReady ? 'ready' : 'loading' }) }));
   await simulerAnalyse(p, async () => { await pause(2500); return sceneSimulee(); });
   await ouvrir(p);
   await importer(p, DEMO_PHOTO);
@@ -441,6 +441,7 @@ for (const [code, attendu, motif] of [[500, 'error', /échoué/], [422, 'rejecte
   const pendant = await lecture(p);
   ok('modèle en préparation : « Préparation de l’analyse… », photo visible', pendant.etat === 'ANALYSIS_WAITING' && /Préparation/.test(pendant.texteBarre || ''), `${pendant.etat} ${pendant.texteBarre}`);
   ok('aucune photo envoyée pendant le chargement', p.__analyses === 0);
+  modelReady = true;
   await p.evaluate(() => { const c = window.__concept; c.select('CHENF39031', true); c.setOrientation(37, false); });
   const fin = await attendreEtatFinal(p);
   ok('… puis rendu une fois prêt', fin === 'RENDER_READY', fin);

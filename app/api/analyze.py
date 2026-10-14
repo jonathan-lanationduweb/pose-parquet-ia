@@ -71,7 +71,13 @@ async def analyze_room(
         # Le pipeline est purement calculatoire : le sortir de la boucle
         # d'événements évite qu'une photo de 20 Mo bloque toutes les autres
         # requêtes pendant son analyse.
-        analysis = await run_in_threadpool(analyse_room, data)
+        # An aborted import may still finish its running inference. Serialize
+        # jobs to avoid overlapping model work and skip disconnected queued
+        # clients before spending another inference on their obsolete photo.
+        async with request.app.state.analysis_slots:
+            if await request.is_disconnected():
+                return Response(status_code=499)
+            analysis = await run_in_threadpool(analyse_room, data)
     except ImageRejected as rejected:
         log.info("photo refusée", extra={"request_id": request_id, "reason": rejected.code})
         raise HTTPException(

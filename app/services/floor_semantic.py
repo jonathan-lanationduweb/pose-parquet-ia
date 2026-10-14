@@ -39,6 +39,7 @@ from __future__ import annotations
 
 import os
 import time
+from contextlib import suppress
 from typing import Any
 
 import cv2
@@ -100,6 +101,37 @@ def _depuis_le_cache(classe: Any, checkpoint: str) -> Any:
         return classe.from_pretrained(checkpoint, cache_dir=CACHE_DIR)
 
 
+def semantic_labels_chunked(
+    outputs: Any, target_shape: tuple[int, int], *, return_confidence: bool = False
+) -> Any:
+    """Same bilinear class argmax, without an H×W×150 probability volume.
+
+    Keep only a small block of resized classes plus running maxima. This
+    avoids large transient allocations and paging on the local CPU machine.
+    """
+    torch = _torch()
+    classes = outputs.class_queries_logits.softmax(dim=-1)[..., :-1]
+    masks = outputs.masks_queries_logits.sigmoid()
+    scores = torch.einsum("bqc,bqhw->bchw", classes, masks)
+    best = torch.full((scores.shape[0], *target_shape), -float("inf"), device=scores.device)
+    labels = torch.zeros_like(best, dtype=torch.int64)
+    for start in range(0, scores.shape[1], 16):
+        resized = torch.nn.functional.interpolate(
+            scores[:, start:start + 16], size=target_shape, mode="bilinear", align_corners=False
+        )
+        values, indices = resized.max(dim=1)
+        update = values > best
+        labels[update] = (indices + start)[update]
+        best[update] = values[update]
+    if return_confidence:
+        probability = scores[:, 3] / scores.sum(dim=1).clamp_min(1e-8)
+        probability = torch.nn.functional.interpolate(
+            probability[:, None], size=target_shape, mode="bilinear", align_corners=False
+        )[:, 0]
+        return labels, probability
+    return labels
+
+
 class OneFormerFloor:
     """OneFormer ADE20K : segmentation sémantique à 150 classes."""
 
@@ -109,23 +141,49 @@ class OneFormerFloor:
         self.checkpoint = checkpoint or CHECKPOINTS["oneformer"]
 
     def _charger(self) -> tuple[Any, Any, float]:
-        if self.checkpoint in _charges:
-            return (*_charges[self.checkpoint], 0.0)
-        from transformers import OneFormerForUniversalSegmentation, OneFormerProcessor
+        from app.services.openvino_floor import OpenVinoOneFormer, available
 
-        _torch().set_num_threads(max(1, min(32, int(os.environ.get("PPAI_TORCH_THREADS", "4")))))
+        requested = os.environ.get("PPAI_INFERENCE_BACKEND", "auto")
+        if requested not in {"auto", "torch", "openvino"}:
+            raise ValueError("PPAI_INFERENCE_BACKEND must be auto, torch or openvino")
+        use_ov = requested != "torch" and available(self.checkpoint)
+        if requested == "openvino" and not use_ov:
+            raise RuntimeError("Reviewed OpenVINO graph unavailable")
+        cache_key = f"{self.checkpoint}|{'openvino' if use_ov else 'torch'}"
+        if cache_key in _charges:
+            return (*_charges[cache_key], 0.0)
+        from transformers import OneFormerProcessor
+
+        _torch().set_num_threads(max(1, min(8, int(os.environ.get("PPAI_TORCH_THREADS", "4")))))
+        with suppress(RuntimeError):  # Process-wide pool may already be in use.
+            _torch().set_num_interop_threads(1)
         t0 = time.perf_counter()
         processeur = _depuis_le_cache(OneFormerProcessor, self.checkpoint)
-        modele = _depuis_le_cache(OneFormerForUniversalSegmentation, self.checkpoint)
+        modele: Any
+        if use_ov:
+            try:
+                modele = OpenVinoOneFormer()
+            except ImportError:
+                if requested == "openvino":
+                    raise
+                use_ov = False
+                cache_key = f"{self.checkpoint}|torch"
+        if not use_ov:
+            from transformers import OneFormerForUniversalSegmentation
+
+            modele = _depuis_le_cache(OneFormerForUniversalSegmentation, self.checkpoint)
         device = os.environ.get("PPAI_INFERENCE_DEVICE", "cpu")
         if device not in {"cpu", "cuda"}:
             raise ValueError("PPAI_INFERENCE_DEVICE must be cpu or cuda")
         if device == "cuda" and not _torch().cuda.is_available():
             raise RuntimeError("CUDA requested but unavailable")
-        modele.to(device)
-        modele.eval()
+        if not use_ov:
+            modele.to(device)
+            modele.eval()
+        elif device != "cpu":
+            raise ValueError("This reviewed OpenVINO graph is CPU only")
         ms = (time.perf_counter() - t0) * 1000
-        _charges[self.checkpoint] = (processeur, modele)
+        _charges[cache_key] = (processeur, modele)
         return processeur, modele, ms
 
     def segment(self, image_rgb: np.ndarray) -> FloorSegmentationResult:
@@ -135,8 +193,12 @@ class OneFormerFloor:
         processeur, modele, load_ms = self._charger()
         t0 = time.perf_counter()
         original_shape = image_rgb.shape[:2]
-        side = max(320, min(1280, int(os.environ.get("PPAI_INFERENCE_LONG_SIDE", "640"))))
-        ratio = min(1.0, side / max(original_shape))
+        requested_side = max(320, min(1280, int(os.environ.get("PPAI_INFERENCE_LONG_SIDE", "640"))))
+        target_shape = (modele.select_shape(original_shape)
+                        if hasattr(modele, "select_shape") else None)
+        side = getattr(modele, "canonical_side", requested_side)
+        ratio = (min(1.0, target_shape[0] / original_shape[0], target_shape[1] / original_shape[1])
+                 if target_shape else min(1.0, side / max(original_shape)))
         small = (
             cv2.resize(
                 image_rgb,
@@ -153,6 +215,12 @@ class OneFormerFloor:
         padded = cv2.copyMakeBorder(
             small, 0, (-small.shape[0]) % 32, 0, (-small.shape[1]) % 32, cv2.BORDER_REPLICATE
         )
+        if hasattr(modele, "canonical_side"):
+            assert target_shape is not None
+            padded = cv2.copyMakeBorder(
+                small, 0, target_shape[0] - small.shape[0], 0,
+                target_shape[1] - small.shape[1], cv2.BORDER_REPLICATE
+            )
         image = Image.fromarray(padded)
         resize_ms = (time.perf_counter() - t0) * 1000
         t0 = time.perf_counter()
@@ -165,18 +233,30 @@ class OneFormerFloor:
         t0 = time.perf_counter()
         with torch.inference_mode():
             sorties = modele(**entrees)
-        infer_ms = (time.perf_counter() - t0) * 1000
+        infer_ms = getattr(sorties, "inference_ms", (time.perf_counter() - t0) * 1000)
         t0 = time.perf_counter()
         # Never allocate a 150-class probability volume at original 4K resolution.
-        carte = processeur.post_process_semantic_segmentation(
-            sorties, target_sizes=[padded.shape[:2]]
-        )[0]
-        labels = carte.cpu().numpy().astype(np.int32)[: small.shape[0], : small.shape[1]]
+        if hasattr(sorties, "semantic_labels"):
+            labels = sorties.semantic_labels[0][:small.shape[0], :small.shape[1]].astype(np.int32)
+            probabilities = sorties.floor_probability[0][:small.shape[0], :small.shape[1]]
+            floor_pixels = labels == 3
+            floor_confidence = (float(probabilities[floor_pixels].mean())
+                                if floor_pixels.any() else 0.0)
+        else:
+            cartes, probabilities = semantic_labels_chunked(
+                sorties, padded.shape[:2], return_confidence=True
+            )
+            carte = cartes[0]
+            floor_pixels = carte == 3
+            floor_confidence = (float(probabilities[0][floor_pixels].mean())
+                                if bool(floor_pixels.any()) else 0.0)
+            labels = carte.cpu().numpy().astype(np.int32)[:small.shape[0], :small.shape[1]]
         if labels.shape != original_shape:
             labels = cv2.resize(
                 labels, (original_shape[1], original_shape[0]), interpolation=cv2.INTER_NEAREST
             )
-        postprocess_ms = (time.perf_counter() - t0) * 1000
+        postprocess_ms = ((time.perf_counter() - t0) * 1000
+                          + getattr(sorties, "postprocess_ms", 0.0))
         t0 = time.perf_counter()
         masque = clean_mask(semantic_to_floor_visible(labels))
         clean_ms = (time.perf_counter() - t0) * 1000
@@ -204,6 +284,12 @@ class OneFormerFloor:
             },
             metadata={
                 "kind": "semantic",
+                "backend": getattr(modele, "backend", "pytorch"),
+                "floor_confidence": round(floor_confidence, 4),
+                "confidence_source": "normalized semantic scores; not calibrated",
+                "requested_long_side": requested_side,
+                "fused_postprocess": bool(getattr(modele, "fused_post", False)),
+                "postprocessing_backend": getattr(modele, "post_backend", "torch-chunks"),
                 "learned": True,
                 "checkpoint": self.checkpoint,
                 "classes": "ADE20K 150",

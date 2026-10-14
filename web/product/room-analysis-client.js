@@ -277,7 +277,7 @@ export function resumerAnalyse(analysis) {
   if (xp && xp.scene && xp.status === 'auto_render') {
     return { etat: 'experimental_scene', texte: 'Sol détecté (expérimental)' };
   }
-  if (xp && xp.scene && xp.status === 'needs_manual_adjustment') {
+  if (xp && xp.scene && ['needs_manual_adjustment', 'approximate_render'].includes(xp.status)) {
     return { etat: 'experimental_adjust', texte: 'Sol détecté approximativement' };
   }
   if (analysis.sceneData) {

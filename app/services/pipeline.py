@@ -138,6 +138,7 @@ def _segmentation_experimentale(
                 # droites de la photo et dans son EXIF, pas seulement dans le
                 # masque. L'image reste en mémoire, jamais écrite.
                 image_rgb=rgb,
+                floor_confidence=resultat.metadata.get("floor_confidence"),
                 exif_focal_35mm=focal_35mm,
             )
         except Exception:

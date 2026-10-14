@@ -29,6 +29,9 @@ def test_bounded_model_input_preserves_original_mask_and_removes_padding(
         def __init__(self, labels):
             self.labels = labels
 
+        def __eq__(self, value):
+            return self.labels == value
+
         def cpu(self):
             return self
 
@@ -60,7 +63,14 @@ def test_bounded_model_input_preserves_original_mask_and_removes_padding(
         def __call__(self, **_kwargs):
             return None
 
-    monkeypatch.setattr(engine, "_charger", lambda: (Processor(), Model(), 0))
+    processor = Processor()
+    def postprocess(outputs, shape, *, return_confidence):
+        assert return_confidence
+        labels = processor.post_process_semantic_segmentation(outputs, target_sizes=[shape])
+        return labels, [np.ones(shape, dtype=np.float32)]
+
+    monkeypatch.setattr(floor_semantic, "semantic_labels_chunked", postprocess)
+    monkeypatch.setattr(engine, "_charger", lambda: (processor, Model(), 0))
     result = engine.segment(original)
     assert max(observed["size"]) <= 640
     assert all(side % 32 == 0 for side in observed["size"])

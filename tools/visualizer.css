@@ -1305,3 +1305,11 @@ body[data-application="applying"] #photoScan::before { animation: photoScan 2.4s
 .catalog-collection select { width:100%; min-height:44px; padding:8px; border:1px solid var(--line); border-radius:9px; background:var(--paper,#fff); color:var(--ink); }
 .catalog-collection .apercu-filtre { display:flex; align-items:center; gap:8px; min-height:44px; }
 .catalog-extra h3 { font-size:13px; }
+
+/* A usable uncertain photo stays rendered, with an explicit correction choice. */
+#noscene.approximate-result { top:calc(var(--header-h) + 72px); bottom:auto;
+  width:min(420px,calc(100% - 24px)); padding:12px 16px; }
+#noscene.approximate-result .tx>span { font-size:12px; }
+@media(max-width:700px) {
+  #noscene.approximate-result { top:66px; left:12px; transform:none; width:calc(100% - 24px); }
+}

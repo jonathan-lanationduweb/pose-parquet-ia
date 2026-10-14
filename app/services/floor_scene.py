@@ -107,9 +107,66 @@ STATUS_NONE = "no_floor"
 # ---------------------------------------------------------------------------
 
 
+def refine_image_edges(mask: np.ndarray, image_rgb: np.ndarray) -> np.ndarray:
+    """Classify only a narrow uncertain band using local original-image colour.
+
+    Confident seeds on both sides are required. Interior holes are protected,
+    so this cannot fill a rug or a thin leg merely to recover a wall border.
+    Similar-colour borders keep the model prediction instead of guessing.
+    """
+    if image_rgb.shape[:2] != mask.shape or not mask.any():
+        return mask.copy()
+    radius = max(2, min(12, math.ceil(max(mask.shape) / 512) * 3))
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * radius + 1,) * 2)
+    band = (cv2.dilate(mask.astype(np.uint8), kernel)
+            != cv2.erode(mask.astype(np.uint8), kernel))
+    ys, xs = np.nonzero(band)
+    if not len(xs):
+        return mask.copy()
+    # Compute colours only around uncertain boundaries, with sufficient halo
+    # for both the seed erosion and the local colour window.
+    halo = radius * 3
+    x0, x1 = max(0, int(xs.min()) - halo), min(mask.shape[1], int(xs.max()) + halo + 1)
+    y0, y1 = max(0, int(ys.min()) - halo), min(mask.shape[0], int(ys.max()) + halo + 1)
+    patch = mask[y0:y1, x0:x1]
+    foreground = cv2.erode(patch.astype(np.uint8), kernel).astype(np.float32)
+    background = cv2.erode((~patch).astype(np.uint8), kernel).astype(np.float32)
+    window = (4 * radius + 1,) * 2
+    count_f = cv2.boxFilter(foreground, -1, window, normalize=False)
+    count_b = cv2.boxFilter(background, -1, window, normalize=False)
+    image = image_rgb[y0:y1, x0:x1].astype(np.float32) / 255
+    means = []
+    for seeds, counts in ((foreground, count_f), (background, count_b)):
+        channels = [cv2.boxFilter(image[:, :, c] * seeds, -1, window, normalize=False)
+                    / np.maximum(counts, 1) for c in range(3)]
+        means.append(np.stack(channels, axis=2))
+    mean_f, mean_b = means
+    difference = np.sum((mean_f - mean_b) ** 2, axis=2)
+    distance_f = np.sum((image - mean_f) ** 2, axis=2)
+    distance_b = np.sum((image - mean_b) ** 2, axis=2)
+    uncertain = band[y0:y1, x0:x1]
+    supported = uncertain & (count_f >= 4) & (count_b >= 4) & (difference > 0.005)
+    supported &= np.abs(distance_f - distance_b) > 0.001
+    result = mask.copy()
+    result_patch = result[y0:y1, x0:x1]
+    result_patch[supported] = distance_f[supported] < distance_b[supported]
+    # Protect every interior opening in the original mask.
+    _, components, stats, _ = cv2.connectedComponentsWithStats(
+        (~mask).astype(np.uint8), connectivity=4
+    )
+    h, w = mask.shape
+    protected = np.zeros(len(stats), dtype=bool)
+    for i in range(1, len(stats)):
+        x, y, cw, ch, _ = stats[i]
+        protected[i] = x > 0 and y > 0 and x + cw < w and y + ch < h
+    result[protected[components]] = False
+    return result
+
+
 def refine_mask(
     mask: np.ndarray,
     *,
+    image_rgb: np.ndarray | None = None,
     min_component_ratio: float = 0.002,
     max_hole_ratio: float = 0.0004,
 ) -> np.ndarray:
@@ -132,6 +189,8 @@ def refine_mask(
     """
     if mask.dtype != bool:
         mask = mask.astype(bool)
+    if image_rgb is not None:
+        mask = refine_image_edges(mask, image_rgb)
     hauteur, largeur = mask.shape[:2]
     if not mask.any():
         return mask.copy()
@@ -354,6 +413,57 @@ def _projected_plank_px(
     return plank_m * d_px / camera_height_m
 
 
+def camera_floor_reference(
+    cam: CameraEstimate, width: int, height: int, focal: float, camera_height: float
+) -> list[tuple[float, float]] | None:
+    """Project a 4 m reference square on the measured infinite ground plane.
+
+    It is a coordinate frame, NOT a measurement of the room dimensions. The
+    renderer extrapolates this homography and clips only by the floor mask.
+    This preserves camera pitch/roll and both measured Manhattan directions.
+    """
+    if cam.selected_pair is None:
+        return None
+    k = np.array([[focal, 0, width / 2], [0, focal, height / 2], [0, 0, 1.]])
+    inverse = np.linalg.inv(k)
+    directions = []
+    for i in cam.selected_pair:
+        vp = cam.vanishing_points[i]
+        ray = inverse @ np.array([vp.x, vp.y, 1.])
+        directions.append(ray / np.linalg.norm(ray))
+    u, v = directions
+    # EXIF can disagree with the pair; don't silently bend its measured focal.
+    if abs(float(u @ v)) > 0.12:
+        return None
+    v = v - float(u @ v) * u
+    v /= np.linalg.norm(v)
+    normal = np.cross(u, v)
+    if normal[1] < 0:
+        normal = -normal
+    ray = inverse @ np.array([width / 2, height * 0.65, 1.])
+    denominator = float(normal @ ray)
+    if denominator <= 0.02:
+        return None
+    center = ray * camera_height / denominator
+    quad = []
+    for a, b in ((1, 1), (-1, 1), (-1, -1), (1, -1)):
+        point = center + 2 * a * u + 2 * b * v
+        pixel = k @ point
+        if pixel[2] <= 0.05:
+            return None
+        quad.append((float(pixel[0] / pixel[2] / width),
+                     float(pixel[1] / pixel[2] / height)))
+    polygon = np.asarray(quad, dtype=np.float32)
+    if not cv2.isContourConvex(polygon) or abs(cv2.contourArea(polygon)) < 0.001:
+        return None
+    # Ordering convention shared by Canvas/WebGL and the scene validator.
+    if polygon[0, 0] > polygon[1, 0]:
+        quad = [quad[1], quad[0], quad[3], quad[2]]
+    if not (quad[0][1] < quad[3][1] and quad[1][1] < quad[2][1]):
+        return None
+    return quad
+
+
 def estimate_perspective(
     mask: np.ndarray,
     *,
@@ -465,6 +575,21 @@ def estimate_perspective(
         confiance -= 0.05
         metric = "low"
 
+    if cam is not None and cam.selected_pair is not None:
+        reference = camera_floor_reference(cam, largeur, hauteur, f, camera_height_m)
+        if reference is not None:
+            quad = reference
+            w_m, d_m = 4.0, 4.0
+            metric = "medium" if focal_source != "prior" else "low"
+            assert cam.horizon is not None
+            horizon_px = cam.horizon * hauteur
+            vanishing = (cam.vanishing_points[cam.selected_pair[1]].x / largeur,
+                         cam.vanishing_points[cam.selected_pair[1]].y / hauteur)
+            method = "lines-vp"
+            confiance = cam.horizon_confidence
+            notes = [n for n in notes if n != "échelle bornée"]
+            notes.append("plan métrique de référence 4×4 m, pas les dimensions de la pièce")
+
     # --- Plausibilité : la géométrie obtenue est-elle celle d'une pièce ? ----
     rapport = d_m / w_m
     d_mid = 0.5 * (d_near + d_far)
@@ -478,7 +603,36 @@ def estimate_perspective(
         "referencePlankM": REFERENCE_PLANK_M,
         "ok": True,
     }
-    if rapport > DEPTH_OVER_WIDTH_MAX or rapport < 0.2:
+    if method == "lines-vp" and cam is not None and cam.selected_pair is not None:
+        # The square is a reference frame: its aspect ratio says nothing about
+        # room plausibility. Measure actual projected metric widths instead.
+        corners = np.asarray(quad, np.float32) * np.array([largeur, hauteur])
+        ground = np.array([[0, 0], [w_m, 0], [w_m, d_m], [0, d_m]], np.float32)
+        forward = cv2.getPerspectiveTransform(ground, corners.astype(np.float32))
+        inverse = np.linalg.inv(forward)
+        samples = {}
+        for name, y in (("near", 0.95 * hauteur), ("mid", (far_edge_px + hauteur) / 2),
+                        ("far", far_edge_px + 0.02 * hauteur)):
+            ray = inverse @ np.array([largeur / 2, y, 1.])
+            uv = ray[:2] / ray[2]
+            origin = forward @ np.array([*uv, 1.])
+            widths = {}
+            for mm in (92, 150, 190):
+                shifted = forward @ np.array([uv[0], uv[1] + mm / 1000, 1.])
+                widths[str(mm)] = round(float(np.linalg.norm(
+                    shifted[:2] / shifted[2] - origin[:2] / origin[2])), 1)
+            samples[name] = widths
+        plausibility["metricReferenceOnly"] = True
+        plausibility["projectedWidthsPx"] = samples
+        plausibility["projectedPlankWidthPx"] = {name: values["92"]
+                                                for name, values in samples.items()}
+        plausibility["ok"] = all(math.isfinite(v) and v > 0
+                                 for values in samples.values() for v in values.values())
+        if samples["near"]["92"] < MIN_NEAR_PLANK_PX:
+            plausibility["ok"] = False
+
+    if (not plausibility.get("metricReferenceOnly")
+            and (rapport > DEPTH_OVER_WIDTH_MAX or rapport < 0.2)):
         plausibility["ok"] = False
         notes.append(f"rapport profondeur/largeur {rapport:.1f} hors d'une pièce ordinaire")
         confiance -= 0.1
@@ -507,6 +661,8 @@ def estimate_perspective(
                 "horizonConfidence": round(cam.horizon_confidence, 2),
                 "focalPx": None if cam.focal_px is None else round(cam.focal_px, 1),
                 "segments": cam.segments,
+                "selectedPair": cam.selected_pair,
+                "hypotheses": cam.hypotheses,
                 "vanishingPoints": [p.as_dict(largeur, hauteur) for p in cam.vanishing_points],
             }
             if cam is not None
@@ -558,8 +714,8 @@ def mask_zones(
         enfant = hier[i][2]
         while enfant != -1:
             c = contours[enfant]
-            if cv2.contourArea(c) >= mask.size * 0.0005:
-                trou = _normaliser(cv2.approxPolyDP(c, eps, True), largeur, hauteur)
+            if cv2.contourArea(c) >= 4:
+                trou = _normaliser(cv2.approxPolyDP(c, min(eps, 0.5), True), largeur, hauteur)
                 if len(trou) >= 3:
                     trous.append(trou)
             enfant = hier[enfant][0]
@@ -818,6 +974,7 @@ def build_experimental_scene(
     min_confidence: float = 0.55,
     image_rgb: np.ndarray | None = None,
     exif_focal_35mm: float | None = None,
+    floor_confidence: float | None = None,
 ) -> ExperimentalScene:
     """Masque → scène expérimentale, statut et confiance.
 
@@ -839,7 +996,7 @@ def build_experimental_scene(
         "pipeline": "EXPERIMENTAL PRODUCT PIPELINE — LOT PHOTO.2",
         "candidate": candidate,
         "modelSelected": False,
-        "refiner": "ouverture morphologique petite + filtre de composantes + trous compacts",
+        "refiner": "frontières couleur originales + morphologie bornée + trous protégés",
         "perspective": None,
         "horizonSources": "droites de l'image (points de fuite) > rails du masque > mur du fond",
         "focalSources": f"EXIF 35 mm > deux points de fuite > a priori {FOCAL_RATIO} × largeur",
@@ -858,7 +1015,7 @@ def build_experimental_scene(
     stage_start = time.perf_counter()
     measured: dict[str, float] = {}
     provenance["timingsMs"] = measured
-    raffine = refine_mask(mask)
+    raffine = refine_mask(mask, image_rgb=image_rgb)
     measured["FloorMaskRefiner"] = round((time.perf_counter() - stage_start) * 1000, 3)
     stage_start = time.perf_counter()
     if raffine.mean() < MIN_COVERAGE:
@@ -907,17 +1064,18 @@ def build_experimental_scene(
         )
         for n, (ext, trous) in enumerate(zones)
     ]
+    selected = persp.camera.get("selectedPair")
+    measured_points = persp.camera.get("vanishingPoints", [])
+    camera_points = ([VanishingPoint(x=measured_points[i]["x"], y=measured_points[i]["y"],
+                                    weight=min(1., measured_points[i]["support"] / 3),
+                                    role=f"floor-{axis}")
+                      for axis, i in zip(("u", "v"), selected, strict=True)]
+                     if selected is not None else
+                     [VanishingPoint(x=persp.vanishing[0], y=persp.vanishing[1],
+                                     weight=1., role="rails-sol")] if persp.vanishing else [])
     camera = Camera(
         horizon=round(persp.horizon, 4),
-        vanishing_points=(
-            [
-                VanishingPoint(
-                    x=persp.vanishing[0], y=persp.vanishing[1], weight=1.0, role="rails-sol"
-                )
-            ]
-            if persp.vanishing
-            else []
-        ),
+        vanishing_points=camera_points,
         fov_deg=round(math.degrees(2 * math.atan(width / (2 * persp.focal_px))), 1),
         height_m=persp.camera_height_m,
     )
@@ -986,11 +1144,37 @@ def build_experimental_scene(
     checks = validate_scene(scene, persp, mask.astype(bool), raffine)
     status, raisons = decide(confiance, min_confidence, checks)
     measured["scene_validation"] = round((time.perf_counter() - stage_start) * 1000, 3)
+    change_ratio = float(np.logical_xor(mask.astype(bool), raffine).sum()) / max(1, int(mask.sum()))
+    quality = {
+        "floorConfidence": floor_confidence,
+        "floorConfidenceSource": ("model semantic score, not calibrated"
+                                  if floor_confidence is not None else "not measured"),
+        "boundaryQuality": round(max(0, 1 - change_ratio), 3),
+        "geometryQuality": round(persp.confidence, 3),
+        "scaleQuality": 1.0 if persp.plausibility.get("ok") else 0.0,
+        "sceneDataValid": not any(checks.values()),
+    }
+    if floor_confidence is not None:
+        if float(raffine.mean()) < 0.08:
+            status = STATUS_ADJUST
+            raisons.append("low_floor_coverage")
+        elif floor_confidence < 0.35:
+            status = STATUS_ADJUST
+            raisons.append("low_floor_confidence")
+        elif not any(checks.values()) and (floor_confidence < 0.55 or confiance < min_confidence):
+            status = "approximate_render"
+    provenance["stageTrace"] = [
+        {"stage": name, "ms": duration, "dimensions": [width, height],
+         "confidence": quality.get("geometryQuality") if name == "camera_geometry" else None,
+         "decision": status, "warnings": raisons}
+        for name, duration in measured.items()
+    ]
     provenance["decision"] = {
         "status": status,
         "reasons": raisons,
         "confidence": round(confiance, 3),
         "minConfidence": min_confidence,
+        "quality": quality,
         "checks": checks,
     }
     if checks.get("non_finite"):

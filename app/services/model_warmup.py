@@ -94,7 +94,15 @@ def _prechauffer(candidat: str) -> None:
         if callable(charger):
             charger()
         t1 = time.perf_counter()
-        moteur.segment(_image_synthetique())
+        first = moteur.segment(_image_synthetique())
+        # Intel GPU kernels need more than one pass before the ready signal.
+        if str(getattr(first, "metadata", {}).get("backend", "")).startswith("openvino-gpu"):
+            moteur.segment(_image_synthetique())
+            moteur.segment(_image_synthetique())
+            # Warm the second general aspect profile before reporting ready.
+            portrait = np.transpose(_image_synthetique(), (1, 0, 2)).copy()
+            for _ in range(3):
+                moteur.segment(portrait)
         t2 = time.perf_counter()
         with _etat.verrou:
             _etat.timings_ms = {

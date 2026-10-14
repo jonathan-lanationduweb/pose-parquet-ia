@@ -83,6 +83,7 @@ class Settings(BaseSettings):
     #: (`datasets/private-real/`) à un chemin devinable. Le mettre à vrai est
     #: une décision de poste de travail, jamais un défaut d'image.
     dev_serve_static: bool = False
+    opencv_threads: int = Field(default=1, ge=1, le=8)
 
     #: Joindre à l'analyse une segmentation du sol **EXPÉRIMENTALE**.
     #:
