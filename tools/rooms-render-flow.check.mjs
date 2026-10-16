@@ -112,7 +112,8 @@ const capture = async (page, nom) => { if (CAPTURES) await page.screenshot({ pat
   await page.click('[data-cat-back]');
 
   /* ================= 2. Chambre bleue + Zeus : le statut se lève ========= */
-  await page.click('#quickRooms [data-cat="chambre"]');
+  const blueCategory = ROOMS.scenes.find(r => r.id === 'chambre').category;
+  await page.click(`#quickRooms [data-cat="${blueCategory}"]`);
   const t0 = Date.now();
   await page.click('#quickRooms [data-room="chambre"]');
   const vuApplication = await page.waitForFunction(() => {
@@ -330,7 +331,7 @@ for (const [w, h] of [[390, 844], [768, 1024], [1440, 900]]) {
   const debord = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   ok(`${w} : pas de débordement horizontal (accueil)`, debord <= 0, `${debord}px`);
   if (w === 390) await capture(page.locator ? page : page, '09-room-categories-390.jpg');
-  await page.click('#quickRooms [data-cat="chambre"]');
+  await page.click(`#quickRooms [data-cat="${ROOMS.scenes.find(r => r.id === 'chambre').category}"]`);
   const cols = await page.evaluate(() => getComputedStyle(document.getElementById('quickRooms')).gridTemplateColumns.split(' ').length);
   ok(`${w} : galerie de scènes en ${cols} colonne(s)`, w <= 400 ? cols <= 2 : cols >= 2);
   if (w === 390) {

@@ -3,7 +3,7 @@
   const PREMIBEL = 'local-demo-assets/premibel/';
   window.PP_PREMIBEL_PRODUCTS = [
     {
-      id: 'POINF36005', ref: 'POINF36005', source: 'premibel',
+      id: 'POINF36005', ref: 'POINF36005', source: 'premibel', compatibility: 'interior', usage: 'interieur',
       name: 'Point de Hongrie Zeus Naturel',
       fullTitle: 'POINT DE HONGRIE ZEUS NATUREL 92X12X520',
       productUrl: 'https://www.premibel.fr/parquet-flottant-chene-verni/POINF36005/',
@@ -44,7 +44,7 @@
       visualAccuracy: 'approximate',
     },
     {
-      id: 'BTRPF39009', ref: 'BTRPF39009', source: 'premibel',
+      id: 'BTRPF39009', ref: 'BTRPF39009', source: 'premibel', compatibility: 'interior', usage: 'interieur',
       name: 'Bâton rompu Notting Hill Invisible',
       fullTitle: 'Baton rompu notting hill invisible 90X15X600mm',
       productUrl: 'https://www.premibel.fr/parquet-flottant-chene-verni/BTRPF39009/',
@@ -86,7 +86,7 @@
       visualAccuracy: 'approximate',
     },
     {
-      id: 'CHENF39031', ref: 'CHENF39031', source: 'premibel',
+      id: 'CHENF39031', ref: 'CHENF39031', source: 'premibel', compatibility: 'interior', usage: 'interieur',
       name: 'Chêne naturel Houston',
       fullTitle: 'Chêne naturel houston 190X15X400mm',
       productUrl: 'https://www.premibel.fr/parquet-flottant-chene-verni/CHENF39031/',
@@ -128,7 +128,7 @@
       visualAccuracy: 'approximate',
     },
     {
-      id: 'CHENF36014', ref: 'CHENF36014', source: 'premibel',
+      id: 'CHENF36014', ref: 'CHENF36014', source: 'premibel', compatibility: 'interior', usage: 'interieur',
       name: 'Chêne Colza',
       fullTitle: 'CHENE COLZA 150X15',
       productUrl: 'https://www.premibel.fr/parquet-flottant-chene-verni/CHENF36014/',
@@ -169,7 +169,7 @@
       visualAccuracy: 'approximate',
     },
     {
-      id: 'CHENF36015', ref: 'CHENF36015', source: 'premibel',
+      id: 'CHENF36015', ref: 'CHENF36015', source: 'premibel', compatibility: 'interior', usage: 'interieur',
       name: 'Chêne Invisible Pivoine',
       fullTitle: 'CHENE INVISIBLE PIVOINE 150X15',
       productUrl: 'https://www.premibel.fr/parquet-flottant-chene-verni/CHENF36015/',

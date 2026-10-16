@@ -218,7 +218,7 @@ async function correctionManuelle(p) {
   const z1 = await zone();
   await p.click('#floorUndo');
   await p.click('#floorTools [data-brush="remove"]');
-  await p.click('#floorTools [data-size="16"]');
+  await p.click('#floorTools [data-size="6"]');
   await p.mouse.move(box.x + box.w * 0.5, box.y + box.h * 0.85); await p.mouse.down(); await p.mouse.move(box.x + box.w * 0.55, box.y + box.h * 0.85); await p.mouse.up();
   const z2 = await zone();
   await p.click('#floorUndo');

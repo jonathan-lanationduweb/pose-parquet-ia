@@ -1,0 +1,19 @@
+{
+  "VLAME16012": {
+    "renderable": true,
+    "materialFidelity": "representative",
+    "visualAccuracy": "approximate",
+    "renderMaterial": {
+      "kind": "photographic",
+      "family": "ipe-terrasse"
+    },
+    "renderProfile": {
+      "materialFamily": "ipe-terrasse",
+      "pattern": "lames",
+      "widthM": 0.14,
+      "lengthM": 2,
+      "orientationDeg": 0
+    },
+    "materialNote": "Aperçu extrait de la photo de la référence. Longueur visuelle estimée."
+  }
+}

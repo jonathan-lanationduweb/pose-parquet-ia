@@ -27,6 +27,7 @@ try {
    if(Date.now()-healthStart>600000)throw Error('Backend warmup failed or timed out');
    await page.waitForTimeout(1000);
   }
+  if(process.env.PPAI_INITIAL_PRODUCT)await page.evaluate(id=>window.__concept.select(id,true),process.env.PPAI_INITIAL_PRODUCT);
   const start=Date.now();await page.setInputFiles('#file',item.file);
   await page.waitForFunction(()=>['RENDER_READY','NEEDS_MANUAL_ADJUSTMENT','ANALYSIS_ERROR','ANALYSIS_UNAVAILABLE'].includes(window.__concept.etatProduit()),null,{timeout:180000});
   await page.waitForTimeout(300);
@@ -44,6 +45,7 @@ try {
    assert.equal(count,analysisCount,'Manual completion must not reanalyse');
   }
   assert.equal(await page.evaluate(()=>window.__concept.etatProduit()),'RENDER_READY',`${item.id}: no usable final frame`);
+  await page.click('#photoMore');assert.ok(await page.locator('#photoActions').getByRole('button',{name:'Ajuster le sol',exact:true}).isVisible(),'Imported photo correction missing from options');assert.ok(await page.locator('#photoActions').getByRole('button',{name:'Télécharger le rendu',exact:true}).isEnabled(),'Rendered photo export disabled');await page.click('#photoMore');
   const frame=await page.evaluate(()=>document.getElementById('after').toDataURL('image/jpeg',.95));
   fs.writeFileSync(`${OUT}/${item.id}-frame.jpg`,Buffer.from(frame.split(',')[1],'base64'));
   await page.screenshot({path:`${OUT}/${item.id}-ui.jpg`,type:'jpeg',quality:92});

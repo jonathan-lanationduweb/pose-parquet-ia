@@ -3,13 +3,13 @@
 Le service n'a ni base de données, ni état persistant, ni file d'attente. Il
 reçoit une photo, la mesure, et l'oublie. Cette absence est un choix
 d'architecture, pas un manque : les demandes des utilisateurs seront gérées
-ailleurs (voir docs/architecture.md), et ce service reste un pur analyseur —
-donc réplicable et remplaçable sans migration.
+ailleurs (voir docs/architecture.md). Le transfert QR utilise une boîte temporaire
+en mémoire, expirée après dix minutes : plusieurs workers exigent une affinité de session.
 """
 
 import asyncio
 from collections.abc import AsyncIterator, Awaitable, Callable
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from pathlib import Path
 from uuid import uuid4
 
@@ -19,7 +19,7 @@ from fastapi.staticfiles import StaticFiles
 from PIL import Image
 from starlette.types import Scope
 
-from app.api import analyze, health
+from app.api import analyze, health, photo_transfer
 from app.core.config import SERVICE_NAME, get_settings
 from app.core.logging import configure_logging
 from app.services import model_warmup
@@ -88,7 +88,14 @@ def create_app() -> FastAPI:
         reglages = get_settings()
         if reglages.experimental_floor and reglages.experimental_floor_warmup:
             model_warmup.start_warmup(reglages.experimental_floor_candidate)
-        yield
+        cleanup = asyncio.create_task(_app.state.photo_transfers.cleanup())
+        try:
+            yield
+        finally:
+            cleanup.cancel()
+            with suppress(asyncio.CancelledError):
+                await cleanup
+            _app.state.photo_transfers.items.clear()
 
     app = FastAPI(
         lifespan=cycle_de_vie,
@@ -107,6 +114,7 @@ def create_app() -> FastAPI:
     )
 
     app.state.analysis_slots = asyncio.Semaphore(1)
+    app.state.photo_transfers = photo_transfer.TransferStore()
 
     if settings.cors_origin_list:
         app.add_middleware(
@@ -135,6 +143,7 @@ def create_app() -> FastAPI:
 
     app.include_router(health.router)
     app.include_router(analyze.router)
+    app.include_router(photo_transfer.router)
 
     if settings.dev_serve_static:
         _monter_fichiers_de_dev(app)

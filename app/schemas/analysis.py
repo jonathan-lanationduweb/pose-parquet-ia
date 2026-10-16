@@ -356,6 +356,7 @@ class ExperimentalOutputs(_Model):
     """Ce que le service sait produire hors contrat, quand on le lui demande."""
 
     floor: ExperimentalFloor | None = None
+    walls: dict[str, Any] | None = None
 
 
 class AnalysisResult(_Model):

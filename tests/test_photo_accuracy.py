@@ -85,3 +85,71 @@ def test_chunked_semantic_resize_matches_full_class_argmax():
     result = semantic_labels_chunked(SimpleNamespace(class_queries_logits=classes,
                                                    masks_queries_logits=masks), (24, 32))
     assert torch.equal(result, expected)
+
+
+def test_outer_mask_keeps_subpixel_border_detail():
+    import cv2
+    import numpy as np
+
+    from app.services.floor_scene import mask_zones
+
+    mask = np.zeros((1200, 1600), np.uint8)
+    mask[500:, 100:1500] = 1
+    mask[500:502, 800:803] = 0
+    zones = mask_zones(mask)
+    contour = np.array([(p.x * 1600, p.y * 1200) for p in zones[0][0]], np.float32)
+    assert abs(cv2.pointPolygonTest(contour, (800., 501.), True)) <= .5
+
+
+def test_occluders_do_not_restore_stale_semantic_edges_over_refined_floor():
+    from app.services.floor_scene import ADE20K_RUG, furniture_occluders, rug_occluders
+
+    labels = np.zeros((200, 300), dtype=np.uint8)
+    labels[90:160, 30:130] = ADE20K_RUG
+    labels[50:100, 160:260] = 10
+    floor = np.zeros_like(labels, dtype=bool)
+    floor[150:, :150] = True
+    floor[95:, 150:] = True
+    for objects, exposed, protected in [
+        (rug_occluders(labels, floor_mask=floor), (80., 155.), (80., 120.)),
+        (furniture_occluders(labels, floor_mask=floor), (200., 97.), (200., 75.)),
+    ]:
+        assert objects
+        def covered(point, objects=objects):
+            return any(cv2.pointPolygonTest(
+                np.array([(p.x * 300, p.y * 200) for p in obj.polygon], np.float32),
+                point, False,
+            ) >= 0 for obj in objects)
+        assert not covered(exposed)
+        assert covered(protected)
+
+
+def test_edge_refiner_keeps_light_furniture_above_a_dark_contact_shadow():
+    image = np.full((240, 360, 3), (130, 90, 50), dtype=np.uint8)
+    image[:100] = (215, 210, 200)
+    image[100:108] = (30, 25, 20)
+    mask = np.zeros((240, 360), dtype=bool)
+    mask[109:] = True
+    result = refine_image_edges(mask, image)
+    assert not result[:100].any(), "Floor must not creep onto the cabinet"
+    assert result[115:].all()
+
+
+def test_low_metric_confidence_is_never_announced_as_reliable_photo(monkeypatch):
+    from dataclasses import replace
+
+    from app.services import floor_scene
+
+    mask = np.zeros((480, 640), dtype=bool)
+    polygon = np.array([[150, 240], [490, 240], [639, 479], [0, 479]], np.int32)
+    cv2.fillPoly(mask.view(np.uint8), [polygon], 1)
+    perspective = floor_scene.estimate_perspective(mask)
+    perspective = replace(perspective, metric_scale_confidence="low", confidence=0.9)
+    monkeypatch.setattr(floor_scene, "estimate_perspective", lambda *_a, **_kw: perspective)
+    result = floor_scene.build_experimental_scene(
+        mask, 640, 480, image_rgb=np.full((480, 640, 3), 128, np.uint8),
+        floor_confidence=0.95,
+    )
+    assert result.status == "approximate_render"
+    assert "metric_scale_estimated" in result.provenance["decision"]["reasons"]
+    assert result.provenance["decision"]["quality"]["scaleQuality"] < 1

@@ -79,6 +79,19 @@ export function installGeometryReview(getConcept) {
       for (const s of z.samples) if (s.valid) line(s.a,s.b,'#fff');
       text.push(`${z.id}: `+z.samples.map(s=>`${s.position} ${s.valid?s.plankWidthPx.toFixed(1)+' px':'—'}`).join(' · '));
     }
+    for (const mm of [92,150,190]) {
+      const base = c.product().renderProfile;
+      const guides = c.adapter.geometryDiagnostics({...base,widthM:mm/1000},c.state.orientationDeg);
+      if (!guides) continue;
+      for(const z of guides.zones) if(z.valid) {
+        for(const sample of z.samples)if(sample.valid)line(sample.a,sample.b,mm===92?'#68f08c':mm===150?'#ffd400':'#ef91ff');
+        text.push(`${mm} mm : `+z.samples.map(s=>`${s.position} ${s.valid?s.plankWidthPx.toFixed(1)+' px':'—'}`).join(' · '));
+      }
+    }
+    const evidence = c.state.roomAnalysis?.analysis?.experimental?.floor?.perspective
+      || c.state.roomAnalysis?.result?.experimental?.floor?.perspective;
+    const candidates = evidence?.plausibility?.geometryCandidates || [];
+    for(const candidate of candidates)text.push(`${candidate.chosen?'✓ ':''}${candidate.id}: ${Number(candidate.score).toFixed(2)} · ${candidate.reason}`);
     legend.textContent=text.join('\n');
     c.applyTransform();
     return d;

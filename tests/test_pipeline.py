@@ -113,3 +113,18 @@ def test_un_etage_qui_leve_est_quand_meme_chronometre():
 def test_tous_les_etages_sont_declares_dans_la_sortie():
     reported = Timings().as_dict()
     assert set(reported) == {f"{stage}_ms" for stage in STAGES} | {"total_ms"}
+
+
+def test_visualizer_preview_skips_lens_audit_but_keeps_quality(monkeypatch):
+    from app.services import pipeline
+
+    def forbidden(_):
+        raise AssertionError("Interactive preview must not run the lens audit")
+
+    monkeypatch.setattr(pipeline.lens_analysis, "analyse_lens", forbidden)
+    result = analyse_room(patterns.encode(patterns.checkerboard(), "JPEG"),
+                          fast_preview=True).result
+    assert result.quality is not None
+    assert result.lens is None
+    assert result.timings["lens_analysis_ms"] is None
+    assert result.scene_data is None

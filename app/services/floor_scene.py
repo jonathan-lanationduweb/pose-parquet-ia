@@ -47,7 +47,7 @@ from __future__ import annotations
 
 import math
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 import cv2
@@ -67,6 +67,7 @@ from app.schemas.scene_data import (
     Surface,
     VanishingPoint,
 )
+from app.services.boundary_refiner import BoundaryRefiner, guided_boundary_seed
 from app.services.camera_geometry import (
     FOCAL_PRIOR_RATIO,
     CameraEstimate,
@@ -108,59 +109,9 @@ STATUS_NONE = "no_floor"
 
 
 def refine_image_edges(mask: np.ndarray, image_rgb: np.ndarray) -> np.ndarray:
-    """Classify only a narrow uncertain band using local original-image colour.
-
-    Confident seeds on both sides are required. Interior holes are protected,
-    so this cannot fill a rug or a thin leg merely to recover a wall border.
-    Similar-colour borders keep the model prediction instead of guessing.
-    """
-    if image_rgb.shape[:2] != mask.shape or not mask.any():
-        return mask.copy()
-    radius = max(2, min(12, math.ceil(max(mask.shape) / 512) * 3))
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * radius + 1,) * 2)
-    band = (cv2.dilate(mask.astype(np.uint8), kernel)
-            != cv2.erode(mask.astype(np.uint8), kernel))
-    ys, xs = np.nonzero(band)
-    if not len(xs):
-        return mask.copy()
-    # Compute colours only around uncertain boundaries, with sufficient halo
-    # for both the seed erosion and the local colour window.
-    halo = radius * 3
-    x0, x1 = max(0, int(xs.min()) - halo), min(mask.shape[1], int(xs.max()) + halo + 1)
-    y0, y1 = max(0, int(ys.min()) - halo), min(mask.shape[0], int(ys.max()) + halo + 1)
-    patch = mask[y0:y1, x0:x1]
-    foreground = cv2.erode(patch.astype(np.uint8), kernel).astype(np.float32)
-    background = cv2.erode((~patch).astype(np.uint8), kernel).astype(np.float32)
-    window = (4 * radius + 1,) * 2
-    count_f = cv2.boxFilter(foreground, -1, window, normalize=False)
-    count_b = cv2.boxFilter(background, -1, window, normalize=False)
-    image = image_rgb[y0:y1, x0:x1].astype(np.float32) / 255
-    means = []
-    for seeds, counts in ((foreground, count_f), (background, count_b)):
-        channels = [cv2.boxFilter(image[:, :, c] * seeds, -1, window, normalize=False)
-                    / np.maximum(counts, 1) for c in range(3)]
-        means.append(np.stack(channels, axis=2))
-    mean_f, mean_b = means
-    difference = np.sum((mean_f - mean_b) ** 2, axis=2)
-    distance_f = np.sum((image - mean_f) ** 2, axis=2)
-    distance_b = np.sum((image - mean_b) ** 2, axis=2)
-    uncertain = band[y0:y1, x0:x1]
-    supported = uncertain & (count_f >= 4) & (count_b >= 4) & (difference > 0.005)
-    supported &= np.abs(distance_f - distance_b) > 0.001
-    result = mask.copy()
-    result_patch = result[y0:y1, x0:x1]
-    result_patch[supported] = distance_f[supported] < distance_b[supported]
-    # Protect every interior opening in the original mask.
-    _, components, stats, _ = cv2.connectedComponentsWithStats(
-        (~mask).astype(np.uint8), connectivity=4
-    )
-    h, w = mask.shape
-    protected = np.zeros(len(stats), dtype=bool)
-    for i in range(1, len(stats)):
-        x, y, cw, ch, _ = stats[i]
-        protected[i] = x > 0 and y > 0 and x + cw < w and y + ch < h
-    result[protected[components]] = False
-    return result
+    """Snap locally to continuous image edges, preserving semantic holes."""
+    seed = guided_boundary_seed(mask, image_rgb)
+    return BoundaryRefiner().refine(seed, image_rgb).mask
 
 
 def refine_mask(
@@ -640,6 +591,32 @@ def estimate_perspective(
     if plausibility["projectedPlankWidthPx"]["far"] < 1.5:
         notes.append("lame de référence sous 1,5 px au fond : motif illisible là-bas")
 
+    # Complete, inspectable candidate planes; never derive metric certainty
+    # from the score. Heights and the 4m reference are explicit assumptions.
+    candidates = []
+    if cam is not None:
+        strong = [p for p in cam.vanishing_points
+                  if p.support >= .8 and p.count >= 4]
+        for index, item in enumerate(cam.hypotheses):
+            pair = (cam.vanishing_points.index(strong[item["a"]]),
+                    cam.vanishing_points.index(strong[item["b"]]))
+            candidate_cam = replace(cam, selected_pair=pair, horizon=item["horizon"])
+            plane = (camera_floor_reference(candidate_cam, largeur, hauteur,
+                                            item["focalPx"], camera_height_m)
+                     if item["valid"] else None)
+            candidates.append({**item, "id": f"pair-{index}", "vp": pair,
+                               "floorPlane": plane, "referenceMeters": [4., 4.],
+                               "scaleMeasured": False,
+                               "chosen": pair == cam.selected_pair})
+    if not any(c["chosen"] for c in candidates):
+        candidates.append({"id": "conservative-fallback", "chosen": True,
+                           "score": confiance, "horizon": horizon_px/hauteur,
+                           "focalPx": f, "floorPlane": quad,
+                           "referenceMeters": [w_m, d_m], "scaleMeasured": False,
+                           "reason": "weak wall evidence; estimated placement retained"})
+    plausibility["geometryCandidates"] = candidates
+    plausibility["chosenCandidate"] = next(c["id"] for c in candidates if c["chosen"])
+
     return PerspectiveEstimate(
         horizon=horizon_px / hauteur,
         vanishing=vanishing,
@@ -697,7 +674,7 @@ def mask_zones(
     )
     if hierarchie is None:
         return []
-    eps = epsilon_ratio * max(largeur, hauteur)
+    eps = min(0.5, epsilon_ratio * max(largeur, hauteur))
     hier = hierarchie[0]
     exterieurs = [
         (i, cv2.contourArea(c))
@@ -723,7 +700,10 @@ def mask_zones(
     return zones
 
 
-def rug_occluders(labels: np.ndarray | None, *, min_ratio: float = 0.002) -> list[Occluder]:
+def rug_occluders(
+    labels: np.ndarray | None, *, min_ratio: float = 0.002,
+    floor_mask: np.ndarray | None = None,
+) -> list[Occluder]:
     """Tapis vus par la sémantique ADE20K — **signal non validé**.
 
     Le corpus officiel ne contient aucun tapis : rien ici n'a été mesuré
@@ -734,6 +714,8 @@ def rug_occluders(labels: np.ndarray | None, *, min_ratio: float = 0.002) -> lis
     if labels is None:
         return []
     tapis = labels == ADE20K_RUG
+    if floor_mask is not None and floor_mask.shape == tapis.shape:
+        tapis &= ~floor_mask
     if not tapis.any():
         return []
     hauteur, largeur = tapis.shape[:2]
@@ -745,7 +727,7 @@ def rug_occluders(labels: np.ndarray | None, *, min_ratio: float = 0.002) -> lis
         if cv2.contourArea(c) < tapis.size * min_ratio:
             continue
         poly = _normaliser(
-            cv2.approxPolyDP(c, 0.002 * max(largeur, hauteur), True), largeur, hauteur
+            cv2.approxPolyDP(c, min(0.5, 0.002 * max(largeur, hauteur)), True), largeur, hauteur
         )
         if len(poly) < 3:
             continue
@@ -770,7 +752,9 @@ SEMANTIC_OCCLUDERS = {
 }
 
 
-def furniture_occluders(labels: np.ndarray | None) -> list[Occluder]:
+def furniture_occluders(
+    labels: np.ndarray | None, *, floor_mask: np.ndarray | None = None,
+) -> list[Occluder]:
     """Protection sémantique additive, avec ouvertures entre les pieds."""
     if labels is None:
         return []
@@ -778,6 +762,8 @@ def furniture_occluders(labels: np.ndarray | None) -> list[Occluder]:
     result: list[Occluder] = []
     for label_id, name in SEMANTIC_OCCLUDERS.items():
         mask = (labels == label_id).astype(np.uint8)
+        if floor_mask is not None and floor_mask.shape == mask.shape:
+            mask[floor_mask] = 0
         contours, hierarchy = cv2.findContours(mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
         if hierarchy is None:
             continue
@@ -996,7 +982,8 @@ def build_experimental_scene(
         "pipeline": "EXPERIMENTAL PRODUCT PIPELINE — LOT PHOTO.2",
         "candidate": candidate,
         "modelSelected": False,
-        "refiner": "frontières couleur originales + morphologie bornée + trous protégés",
+        "refiner": "BoundaryRefiner: local edges + lines + floor-side color + protected holes",
+        "finalFloorBoundary": "scene.floorZones[].mask (refined; raw mask retained separately)",
         "perspective": None,
         "horizonSources": "droites de l'image (points de fuite) > rails du masque > mur du fond",
         "focalSources": f"EXIF 35 mm > deux points de fuite > a priori {FOCAL_RATIO} × largeur",
@@ -1038,8 +1025,8 @@ def build_experimental_scene(
     measured["mask_zones"] = round((time.perf_counter() - stage_start) * 1000, 3)
     stage_start = time.perf_counter()
     confiance = scene_confidence(persp, raffine)
-    rug_masks = rug_occluders(labels)
-    furniture_masks = furniture_occluders(labels)
+    rug_masks = rug_occluders(labels, floor_mask=raffine)
+    furniture_masks = furniture_occluders(labels, floor_mask=raffine)
     occluders = rug_masks + furniture_masks
     provenance["occluders"] = {"rugs": len(rug_masks), "furniture": len(furniture_masks)}
     if labels is not None:
@@ -1150,8 +1137,12 @@ def build_experimental_scene(
         "floorConfidenceSource": ("model semantic score, not calibrated"
                                   if floor_confidence is not None else "not measured"),
         "boundaryQuality": round(max(0, 1 - change_ratio), 3),
+        "boundaryQualitySource": "stability relative to the raw mask, not ground truth",
         "geometryQuality": round(persp.confidence, 3),
-        "scaleQuality": 1.0 if persp.plausibility.get("ok") else 0.0,
+        "scaleQuality": (0.5 if persp.metric_scale_confidence == "low" else 0.75)
+            if persp.plausibility.get("ok") else 0.0,
+        "scaleQualitySource": ("projection plausibility with assumed camera height, "
+                               "not measured meters"),
         "sceneDataValid": not any(checks.values()),
     }
     if floor_confidence is not None:
@@ -1163,6 +1154,9 @@ def build_experimental_scene(
             raisons.append("low_floor_confidence")
         elif not any(checks.values()) and (floor_confidence < 0.55 or confiance < min_confidence):
             status = "approximate_render"
+    if image_rgb is not None and status == STATUS_AUTO and persp.metric_scale_confidence == "low":
+        status = "approximate_render"
+        raisons.append("metric_scale_estimated")
     provenance["stageTrace"] = [
         {"stage": name, "ms": duration, "dimensions": [width, height],
          "confidence": quality.get("geometryQuality") if name == "camera_geometry" else None,

@@ -826,6 +826,147 @@
         }
       },
       "dimensionUnit": "m"
+    },
+    {
+      "id": "ipe-terrasse",
+      "name": "Ipé de terrasse — aperçu photographique",
+      "slug": "ipe-terrasse",
+      "wood": "Ipé",
+      "tone": "chaud",
+      "finish": "brut",
+      "boardWidth": 0.14,
+      "boardLength": 2.0,
+      "defaultPattern": "lames",
+      "compatiblePatterns": [
+        "lames"
+      ],
+      "texture": {
+        "base": [
+          190,
+          159,
+          129
+        ],
+        "grain": [
+          170,
+          139,
+          109
+        ],
+        "warm": 6,
+        "spread": 19,
+        "grainLines": 11,
+        "grainAlpha": 0.2,
+        "grainWidth": 0.018,
+        "knots": 0,
+        "knotSize": 0.07,
+        "contrast": 1,
+        "bevel": 0.014,
+        "joint": 1.4,
+        "sheen": 0.015,
+        "cracks": 0
+      },
+      "maps": {
+        "albedo": null,
+        "normal": null,
+        "roughness": null
+      },
+      "proceduralFallback": true,
+      "dimensions": {
+        "width": 0.18,
+        "length": 1.8
+      },
+      "patternProfiles": {
+        "lames": {
+          "width": 0.18,
+          "length": 1.8
+        },
+        "point-de-hongrie": {
+          "width": 0.09,
+          "length": 0.6,
+          "angleDeg": 45
+        },
+        "baton-rompu": {
+          "width": 0.09,
+          "length": 0.45
+        }
+      },
+      "dimensionUnit": "m",
+      "atlas": {
+        "url": "assets/materials/ipe-terrasse/planks.webp",
+        "ppm": 0.6,
+        "version": "ipe-planks-review-2",
+        "rows": [
+          {
+            "x": 0,
+            "y": 0,
+            "w": 506,
+            "h": 84
+          },
+          {
+            "x": 0,
+            "y": 84,
+            "w": 202,
+            "h": 84
+          },
+          {
+            "x": 0,
+            "y": 168,
+            "w": 720,
+            "h": 84
+          },
+          {
+            "x": 0,
+            "y": 252,
+            "w": 588,
+            "h": 84
+          },
+          {
+            "x": 0,
+            "y": 336,
+            "w": 720,
+            "h": 84
+          },
+          {
+            "x": 0,
+            "y": 420,
+            "w": 369,
+            "h": 84
+          },
+          {
+            "x": 0,
+            "y": 504,
+            "w": 337,
+            "h": 84
+          },
+          {
+            "x": 0,
+            "y": 588,
+            "w": 655,
+            "h": 84
+          },
+          {
+            "x": 0,
+            "y": 672,
+            "w": 523,
+            "h": 84
+          },
+          {
+            "x": 0,
+            "y": 756,
+            "w": 182,
+            "h": 84
+          }
+        ]
+      },
+      "provenance": {
+        "kind": "representative",
+        "product": "VLAME16012",
+        "source": "https://www.premibel.fr/wp-content/uploads/2025/05/VLAME16012-97ecb64f9c20.jpg",
+        "note": "Morceaux de lames photographiés, perspective redressée ; longueur visuelle estimée et non dimension commerciale déclarée."
+      },
+      "surfaceFamily": "exterior_deck",
+      "spacingM": 0.005,
+      "spacingSource": "visual assumption, not supplier installation specification",
+      "orientation": 0
     }
   ],
   "patternNote": "Le niveau de chutes est qualitatif (faibles, modérées, élevées), pas un pourcentage : le taux réel dépend de la pièce, du calepinage et des longueurs livrées.",

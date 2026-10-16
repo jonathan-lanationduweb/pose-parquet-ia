@@ -72,7 +72,13 @@ class OpenVinoOneFormer:
                else MODEL_PATH)
         # Fused postprocessing is selected only after its local conformance check.
         manifest = fused.with_suffix('.json')
-        valid = manifest.is_file() and json.loads(manifest.read_text()).get('validated') is True
+        try:
+            data = json.loads(manifest.read_text(encoding='utf-8'))
+            valid = (data.get('validated') is True
+                     and data.get('inputShape') == [1, 3, *shape]
+                     and data.get('checkpoint') == 'shi-labs/oneformer_ade20k_swin_tiny')
+        except (OSError, ValueError):
+            valid = False
         self.fused_post = bool(fused.is_file() and valid)
         selected = fused if self.fused_post else raw
         if shape not in self.compiled_profiles:

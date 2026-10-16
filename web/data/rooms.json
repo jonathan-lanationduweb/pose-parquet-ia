@@ -29,6 +29,10 @@
     {
       "id": "cuisine",
       "label": "Cuisine"
+    },
+    {
+      "id": "terrasse",
+      "label": "Terrasse et extérieur"
     }
   ],
   "scenes": [
@@ -57,7 +61,8 @@
         "checkedAt": "2026-10-12",
         "method": "revue géométrique du 12/10/2026 (tools/scene-review.capture.mjs) : fuites du plan sur celles des murs, sol sous l’horizon, lames croissantes vers l’avant, échelle proche plausible ; planche relue à l’œil"
       },
-      "renderReady": true
+      "renderReady": true,
+      "surfaceType": "interior_floor"
     },
     {
       "id": "salon-angle",
@@ -81,7 +86,8 @@
         "checkedAt": "2026-10-12",
         "method": "revue géométrique du 12/10/2026 (tools/scene-review.capture.mjs) : fuites du plan sur celles des murs, sol sous l’horizon, lames croissantes vers l’avant, échelle proche plausible ; planche relue à l’œil"
       },
-      "renderReady": true
+      "renderReady": true,
+      "surfaceType": "interior_floor"
     },
     {
       "id": "salon",
@@ -108,12 +114,13 @@
         "checkedAt": "2026-10-12",
         "reason": "contrôles chiffrés en échec : fuites hors de l’horizon, largeur de lame projetée 2,6 à 10 px (échelle implausible) sur quatre zones"
       },
-      "renderReady": false
+      "renderReady": false,
+      "surfaceType": "interior_floor"
     },
     {
       "id": "chambre",
-      "name": "Chambre ouverte au jardin",
-      "category": "chambre",
+      "name": "Pièce bleue ouverte au jardin",
+      "category": "grande-piece",
       "image": "room-chambre.jpg",
       "thumbnail": "room-chambre-640.jpg",
       "sceneData": "scenes/chambre.json",
@@ -133,12 +140,13 @@
         "method": "revue géométrique du 12/10/2026 (tools/scene-review.capture.mjs) : fuites du plan sur celles des murs, sol sous l’horizon, lames croissantes vers l’avant, échelle proche plausible ; planche relue à l’œil",
         "notes": "chambre bleue : fuites du plan à moins de 3 % de largeur de celles des murs, horizon 0,4955, lame proche 27,5 px ; grille de ventilation gardée devant le parquet"
       },
-      "renderReady": true
+      "renderReady": true,
+      "surfaceType": "interior_floor"
     },
     {
       "id": "chambre-parisienne",
-      "name": "Chambre parisienne",
-      "category": "chambre",
+      "name": "Pièce bleue avec deux baies",
+      "category": "grande-piece",
       "image": "room-chambre-parisienne.jpg",
       "thumbnail": "room-chambre-parisienne-640.jpg",
       "sceneData": "scenes/chambre-parisienne.json",
@@ -157,12 +165,13 @@
         "checkedAt": "2026-10-12",
         "method": "revue géométrique du 12/10/2026 (tools/scene-review.capture.mjs) : fuites du plan sur celles des murs, sol sous l’horizon, lames croissantes vers l’avant, échelle proche plausible ; planche relue à l’œil"
       },
-      "renderReady": true
+      "renderReady": true,
+      "surfaceType": "interior_floor"
     },
     {
       "id": "chambre-claire",
-      "name": "Chambre claire",
-      "category": "chambre",
+      "name": "Pièce claire avec fenêtres",
+      "category": "grande-piece",
       "image": "room-chambre-claire.jpg",
       "thumbnail": "room-chambre-claire-640.jpg",
       "sceneData": "scenes/chambre-claire.json",
@@ -181,7 +190,8 @@
         "checkedAt": "2026-10-12",
         "method": "revue géométrique du 12/10/2026 (tools/scene-review.capture.mjs) : fuites du plan sur celles des murs, sol sous l’horizon, lames croissantes vers l’avant, échelle proche plausible ; planche relue à l’œil"
       },
-      "renderReady": true
+      "renderReady": true,
+      "surfaceType": "interior_floor"
     },
     {
       "id": "bureau-vide",
@@ -205,7 +215,8 @@
         "checkedAt": "2026-10-12",
         "method": "revue géométrique du 12/10/2026 (tools/scene-review.capture.mjs) : fuites du plan sur celles des murs, sol sous l’horizon, lames croissantes vers l’avant, échelle proche plausible ; planche relue à l’œil"
       },
-      "renderReady": true
+      "renderReady": true,
+      "surfaceType": "interior_floor"
     },
     {
       "id": "petite-piece",
@@ -229,7 +240,8 @@
         "checkedAt": "2026-10-12",
         "reason": "masque en arc qui ne suit ni les plinthes ni le coin : le sol d’origine reste visible le long des murs, ombres en taches"
       },
-      "renderReady": false
+      "renderReady": false,
+      "surfaceType": "interior_floor"
     },
     {
       "id": "entree-cadree",
@@ -253,7 +265,8 @@
         "checkedAt": "2026-10-12",
         "method": "revue géométrique du 12/10/2026 (tools/scene-review.capture.mjs) : fuites du plan sur celles des murs, sol sous l’horizon, lames croissantes vers l’avant, échelle proche plausible ; planche relue à l’œil"
       },
-      "renderReady": true
+      "renderReady": true,
+      "surfaceType": "interior_floor"
     },
     {
       "id": "couloir-enfilade",
@@ -277,7 +290,8 @@
         "checkedAt": "2026-10-12",
         "method": "revue géométrique du 12/10/2026 (tools/scene-review.capture.mjs) : fuites du plan sur celles des murs, sol sous l’horizon, lames croissantes vers l’avant, échelle proche plausible ; planche relue à l’œil"
       },
-      "renderReady": true
+      "renderReady": true,
+      "surfaceType": "interior_floor"
     },
     {
       "id": "couloir",
@@ -301,7 +315,8 @@
         "checkedAt": "2026-10-12",
         "reason": "contrôles chiffrés en échec : fuites hors de l’horizon, lame proche 4,8 px sur 1 600 (échelle implausible)"
       },
-      "renderReady": false
+      "renderReady": false,
+      "surfaceType": "interior_floor"
     },
     {
       "id": "appartement-ancien",
@@ -325,7 +340,8 @@
         "checkedAt": "2026-10-12",
         "reason": "masque partiel : le sol d’origine reste visible sous la console et au fond du couloir"
       },
-      "renderReady": false
+      "renderReady": false,
+      "surfaceType": "interior_floor"
     },
     {
       "id": "piece-claire",
@@ -350,7 +366,8 @@
         "method": "revue géométrique du 12/10/2026 (tools/scene-review.capture.mjs) : fuites du plan sur celles des murs, sol sous l’horizon, lames croissantes vers l’avant, échelle proche plausible ; planche relue à l’œil",
         "notes": "masque repris (plinthes, pieds du meuble) validé à la revue ; les bandes de soleil de la photo ressortent peu sous le parquet"
       },
-      "renderReady": true
+      "renderReady": true,
+      "surfaceType": "interior_floor"
     },
     {
       "id": "piece-arcades",
@@ -374,15 +391,13 @@
         "checkedAt": "2026-10-12",
         "method": "revue géométrique du 12/10/2026 (tools/scene-review.capture.mjs) : fuites du plan sur celles des murs, sol sous l’horizon, lames croissantes vers l’avant, échelle proche plausible ; planche relue à l’œil"
       },
-      "renderReady": true
+      "renderReady": true,
+      "surfaceType": "interior_floor"
     },
     {
       "id": "cuisine-ouverte",
-      "name": "Cuisine ouverte sur le séjour",
-      "category": "cuisine",
-      "alsoIn": [
-        "sejour"
-      ],
+      "name": "Grand séjour avec cuisine en retrait",
+      "category": "grande-piece",
       "image": "room-cuisine-ouverte.jpg",
       "thumbnail": "room-cuisine-ouverte-640.jpg",
       "sceneData": "scenes/cuisine-ouverte.json",
@@ -401,7 +416,242 @@
         "checkedAt": "2026-10-12",
         "method": "revue géométrique du 12/10/2026 (tools/scene-review.capture.mjs) : fuites du plan sur celles des murs, sol sous l’horizon, lames croissantes vers l’avant, échelle proche plausible ; planche relue à l’œil"
       },
-      "renderReady": true
+      "renderReady": true,
+      "surfaceType": "interior_floor"
+    },
+    {
+      "id": "premibel-salon",
+      "name": "Salon Premibel",
+      "category": "sejour",
+      "image": "room-premibel-salon.jpg",
+      "thumbnail": "room-premibel-salon-640.jpg",
+      "sceneData": "scenes/premibel-salon.json",
+      "style": "ambiance Premibel",
+      "lighting": "lumière naturelle",
+      "difficulty": "moyenne",
+      "highlight": "Photo Premibel — parquet personnalisable",
+      "source": {
+        "kind": "premibel",
+        "author": "Premibel",
+        "url": "https://www.premibel.fr/parquet-flottant-chene-verni/CHENF36015/",
+        "imageUrl": "https://www.premibel.fr/wp-content/uploads/2026/07/CHENF36015-429b1a357c28.jpg",
+        "productRef": "CHENF36015"
+      },
+      "availableForGallery": true,
+      "renderReady": true,
+      "calibration": {
+        "status": "validated",
+        "checkedAt": "2026-10-15",
+        "method": "Revue visuelle locale en lames et bâton rompu ; masque et mobilier contrôlés, coussin/couette/plante repris dans la chambre. Perspective de présentation et échelle estimées ; aucune dimension de pièce mesurée."
+      },
+      "surfaceType": "interior_floor"
+    },
+    {
+      "id": "premibel-piano",
+      "name": "Salon avec piano Premibel",
+      "category": "sejour",
+      "image": "room-premibel-piano.jpg",
+      "thumbnail": "room-premibel-piano-640.jpg",
+      "sceneData": "scenes/premibel-piano.json",
+      "style": "ambiance Premibel",
+      "lighting": "lumière naturelle",
+      "difficulty": "moyenne",
+      "highlight": "Photo Premibel — parquet personnalisable",
+      "source": {
+        "kind": "premibel",
+        "author": "Premibel",
+        "url": "https://www.premibel.fr/parquet-flottant-chene-verni/BTRPF39009/",
+        "imageUrl": "https://www.premibel.fr/wp-content/uploads/2026/04/BTRPF39009.png",
+        "productRef": "BTRPF39009"
+      },
+      "availableForGallery": true,
+      "renderReady": true,
+      "calibration": {
+        "status": "validated",
+        "checkedAt": "2026-10-15",
+        "method": "Revue visuelle locale en lames et bâton rompu ; masque et mobilier contrôlés, coussin/couette/plante repris dans la chambre. Perspective de présentation et échelle estimées ; aucune dimension de pièce mesurée."
+      },
+      "surfaceType": "interior_floor"
+    },
+    {
+      "id": "premibel-entree",
+      "name": "Entrée lumineuse Premibel",
+      "category": "entree",
+      "image": "room-premibel-entree.jpg",
+      "thumbnail": "room-premibel-entree-640.jpg",
+      "sceneData": "scenes/premibel-entree.json",
+      "style": "ambiance Premibel",
+      "lighting": "lumière naturelle",
+      "difficulty": "moyenne",
+      "highlight": "Photo Premibel — parquet personnalisable",
+      "source": {
+        "kind": "premibel",
+        "author": "Premibel",
+        "url": "https://www.premibel.fr/parquet-massif-chene-verni/BTRP38006/",
+        "imageUrl": "https://www.premibel.fr/wp-content/uploads/2025/05/BTRP38006-38f7ab6f1b4e.jpg",
+        "productRef": "BTRP38006"
+      },
+      "availableForGallery": true,
+      "renderReady": true,
+      "calibration": {
+        "status": "validated",
+        "checkedAt": "2026-10-15",
+        "method": "Revue visuelle locale en lames et bâton rompu ; masque et mobilier contrôlés, coussin/couette/plante repris dans la chambre. Perspective de présentation et échelle estimées ; aucune dimension de pièce mesurée."
+      },
+      "surfaceType": "interior_floor"
+    },
+    {
+      "id": "premibel-chambre",
+      "name": "Chambre Premibel",
+      "category": "chambre",
+      "image": "room-premibel-chambre.jpg",
+      "thumbnail": "room-premibel-chambre-640.jpg",
+      "sceneData": "scenes/premibel-chambre.json",
+      "style": "ambiance Premibel",
+      "lighting": "lumière naturelle",
+      "difficulty": "moyenne",
+      "highlight": "Photo Premibel — parquet personnalisable",
+      "source": {
+        "kind": "premibel",
+        "author": "Premibel",
+        "url": "https://www.premibel.fr/parquet-flottant-chene-verni/BTRPF39005/",
+        "imageUrl": "https://www.premibel.fr/wp-content/uploads/2025/05/BTRPF39005-5cfc53464d5b.jpg",
+        "productRef": "BTRPF39005"
+      },
+      "availableForGallery": true,
+      "renderReady": true,
+      "calibration": {
+        "status": "validated",
+        "checkedAt": "2026-10-15",
+        "method": "Revue visuelle locale en lames et bâton rompu ; masque et mobilier contrôlés, coussin/couette/plante repris dans la chambre. Perspective de présentation et échelle estimées ; aucune dimension de pièce mesurée."
+      },
+      "surfaceType": "interior_floor"
+    },
+    {
+      "id": "cuisine-blanche",
+      "name": "Cuisine blanche avec îlot",
+      "category": "cuisine",
+      "image": "room-cuisine-blanche.jpg",
+      "thumbnail": "room-cuisine-blanche-640.jpg",
+      "sceneData": "scenes/cuisine-blanche.json",
+      "source": {
+        "kind": "pexels",
+        "author": "Curtis Adams / Pexels",
+        "url": "https://www.pexels.com/photo/10628472/"
+      },
+      "availableForGallery": true,
+      "renderReady": true,
+      "calibration": {
+        "status": "validated",
+        "checkedAt": "2026-10-16",
+        "method": "Contours du sol et mobilier relevés sur la photo, perspective approximative ; contrôle visuel du rendu local avant publication."
+      },
+      "surfaceType": "interior_floor"
+    },
+    {
+      "id": "cuisine-ilot",
+      "name": "Cuisine et coin repas",
+      "category": "cuisine",
+      "image": "room-cuisine-ilot.jpg",
+      "thumbnail": "room-cuisine-ilot-640.jpg",
+      "sceneData": "scenes/cuisine-ilot.json",
+      "source": {
+        "kind": "pexels",
+        "author": "Curtis Adams / Pexels",
+        "url": "https://www.pexels.com/photo/3958947/"
+      },
+      "availableForGallery": true,
+      "renderReady": true,
+      "calibration": {
+        "status": "validated",
+        "checkedAt": "2026-10-16",
+        "method": "Contours du sol et mobilier relevés sur la photo, perspective approximative ; contrôle visuel du rendu local avant publication."
+      },
+      "surfaceType": "interior_floor"
+    },
+    {
+      "id": "terrasse-mer",
+      "name": "Terrasse couverte avec vue sur mer",
+      "category": "terrasse",
+      "image": "room-terrasse-mer.jpg",
+      "thumbnail": "room-terrasse-mer-640.jpg",
+      "sceneData": "scenes/terrasse-mer.json",
+      "source": {
+        "kind": "pexels",
+        "author": "Thomas Parker / Pexels",
+        "url": "https://www.pexels.com/photo/view-of-the-sea-from-a-house-terrace-24246924/"
+      },
+      "availableForGallery": true,
+      "renderReady": true,
+      "calibration": {
+        "status": "validated",
+        "checkedAt": "2026-10-16",
+        "method": "Deux directions de fuite mesurées sur la photographie, horizon 0.5519 et focale 953.6 px ; plan de référence 4 × 4 m, hauteur caméra supposée 1.5 m ; revue comparative lames et bâton rompu."
+      },
+      "surfaceType": "exterior_terrace"
+    },
+    {
+      "id": "terrasse-premibel",
+      "name": "Terrasse avec salon de jardin",
+      "category": "terrasse",
+      "image": "room-terrasse-premibel.jpg",
+      "thumbnail": "room-terrasse-premibel-640.jpg",
+      "sceneData": "scenes/terrasse-premibel.json",
+      "source": {
+        "kind": "premibel",
+        "author": "Premibel — LAME16030",
+        "url": "https://www.premibel.fr/lots-fin-de-serie-parquet/LAME16030/"
+      },
+      "availableForGallery": false,
+      "renderReady": false,
+      "calibration": {
+        "status": "needs_review",
+        "checkedAt": "2026-10-16",
+        "method": "Retirée du simulateur : mobilier dominant, trop peu de sol libre pour une démonstration convaincante."
+      },
+      "surfaceType": "exterior_terrace"
+    },
+    {
+      "id": "bureau-meuble",
+      "name": "Bureau avec table de travail",
+      "category": "bureau",
+      "image": "room-bureau-meuble.jpg",
+      "thumbnail": "room-bureau-meuble-640.jpg",
+      "sceneData": "scenes/bureau-meuble.json",
+      "source": {
+        "kind": "pexels",
+        "author": "Pexels",
+        "url": "https://www.pexels.com/photo/10099162/"
+      },
+      "availableForGallery": true,
+      "renderReady": true,
+      "calibration": {
+        "status": "validated",
+        "checkedAt": "2026-10-16",
+        "method": "Relevé du mobilier et du sol ; repère métrique estimé, contrôle visuel des rendus."
+      },
+      "surfaceType": "interior_floor"
+    },
+    {
+      "id": "salle-a-manger-meublee",
+      "name": "Salle à manger avec table et chaises",
+      "category": "salle-a-manger",
+      "image": "room-salle-a-manger-meublee.jpg",
+      "thumbnail": "room-salle-a-manger-meublee-640.jpg",
+      "sceneData": "scenes/salle-a-manger-meublee.json",
+      "source": {
+        "kind": "pexels",
+        "author": "Pexels",
+        "url": "https://www.pexels.com/photo/3935321/"
+      },
+      "availableForGallery": true,
+      "renderReady": true,
+      "calibration": {
+        "status": "validated",
+        "checkedAt": "2026-10-16",
+        "method": "Relevé du mobilier et du sol ; repère métrique estimé, contrôle visuel des rendus."
+      },
+      "surfaceType": "interior_floor"
     }
   ]
 }

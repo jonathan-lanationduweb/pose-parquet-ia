@@ -1,0 +1,16 @@
+import fs from 'node:fs';import assert from 'node:assert/strict';import{createRequire}from'node:module';
+const{chromium}=createRequire(import.meta.url)(process.env.PPAI_PLAYWRIGHT_CORE);const browser=await chromium.launch({channel:'chrome',headless:true});fs.mkdirSync('review/scene-rework',{recursive:true});
+try{for(const width of [390,1440]){
+ const p=await browser.newPage({viewport:{width,height:900},isMobile:width<700,hasTouch:width<700});const errors=[];p.on('pageerror',e=>errors.push(e.message));
+ await p.goto('http://127.0.0.1:8000/tools/product-concept.html?prefetch=0');await p.waitForFunction(()=>window.__wallPaint&&window.__concept.adapter.connecte,null,{timeout:90000});
+ await p.evaluate(()=>window.__concept.openRoom('chambre-parisienne'));await p.waitForFunction(()=>!window.__concept.state.applying&&window.__wallPaint.walls.length===3,null,{timeout:90000});
+ await p.evaluate(()=>window.__concept.fitAll(false));await p.locator('#photoMore').click();await p.locator('#wallPaintOpen').click();const box=await p.locator('#wallOutline').boundingBox();await p.mouse.click(box.x+box.width*.38,box.y+box.height*.35);assert.equal(await p.locator('#wallSelect').inputValue(),'mur-fond','Clicking photo did not select the back wall');await p.getByRole('button',{name:'Sauge',exact:true}).click();await p.waitForTimeout(150);
+ await p.screenshot({path:`review/scene-rework/${width}-direct-wall.jpg`,type:'jpeg',quality:90});await p.locator('#floorSurfaceMode').click();assert.ok(!(await p.locator('#wallPaintPanel').isVisible()));assert.equal(await p.locator('#floorSurfaceMode').getAttribute('aria-pressed'),'true');
+ if(width===390){
+  await p.setInputFiles('#file','web/assets/images/room-chambre-parisienne.jpg');await p.waitForFunction(()=>window.__concept.state.photoScene?.posee&&!window.__concept.state.applying&&window.__wallPaint.walls.some(w=>w.detected),null,{timeout:120000});
+  assert.ok(await p.evaluate(()=>window.__wallPaint.walls.every(w=>!w.prepared)),'Upload inherited demo calibration');
+  const samples=()=>p.evaluate(()=>{const n=document.getElementById('after'),ctx=n.getContext('2d');return [[.38,.35],[.50,.50],[.6,.9],[.16,.35]].map(([x,y])=>Array.from(ctx.getImageData(Math.floor(n.width*x),Math.floor(n.height*y),1,1).data));});const original=await samples();
+  await p.evaluate(()=>window.__concept.fitAll(false));await p.locator('#photoMore').click();await p.locator('#wallPaintOpen').click();const b=await p.locator('#wallOutline').boundingBox();await p.touchscreen.tap(b.x+b.width*.38,b.y+b.height*.35);await p.getByRole('button',{name:'Terracotta',exact:true}).tap();await p.waitForTimeout(150);const painted=await samples();assert.notDeepEqual(painted[0],original[0]);assert.deepEqual(painted.slice(1),original.slice(1),'Detected wall painted glass, floor or the adjacent wall');await p.screenshot({path:'review/scene-rework/import-detected-wall.jpg',type:'jpeg',quality:90});
+ }
+ assert.deepEqual(errors,[]);console.log(`PASS ${width}: direct wall selection and Sols/Murs; ${width===390?'actual upload semantic masks preserve window and floor':'desktop photo click reaches wall'}`);await p.close();
+}}finally{await browser.close();}

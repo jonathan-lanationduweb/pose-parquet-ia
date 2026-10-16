@@ -146,7 +146,16 @@ def _segmentation_experimentale(
 
         if scene_exp:
             resultat.timings.update(scene_exp.provenance.get("timingsMs", {}))
+        from app.services.wall_regions import wall_regions
+
+        try:
+            walls = wall_regions(resultat.labels, rgb)
+            resultat.timings["wall_regions"] = walls.get("timingMs", 0.0)
+        except Exception:
+            log.exception("wall regions unavailable")
+            walls = None
         return ExperimentalOutputs(
+            walls=walls,
             floor=ExperimentalFloor(
                 candidate=resultat.candidate,
                 mask_png_base64=base64.b64encode(png).decode("ascii"),
@@ -162,7 +171,7 @@ def _segmentation_experimentale(
                 perspective=scene_exp.perspective if scene_exp else {},
                 rug=scene_exp.rug if scene_exp else {},
                 scene_provenance=scene_exp.provenance if scene_exp else {},
-            )
+            ),
         )
     except Exception:
         # On ne dit rien de plus qu'ici : la sortie experimentale est absente,
@@ -172,7 +181,7 @@ def _segmentation_experimentale(
         return None
 
 
-def analyse_room(data: bytes) -> Analysis:
+def analyse_room(data: bytes, *, fast_preview: bool = False) -> Analysis:
     """Analyse une photo de pièce, d'octets bruts à `AnalysisResult`.
 
     :raises ImageRejected: si la photo n'entre pas dans le pipeline. C'est la
@@ -199,7 +208,7 @@ def analyse_room(data: bytes) -> Analysis:
     # LOT 0.
     blocked = any(warning in BLOCKING for warning in warnings)
     lens = None
-    if not blocked:
+    if not blocked and not fast_preview:
         with timings.measure("lens_analysis"):
             lens = lens_analysis.analyse_lens(luma01)
         warnings += lens_analysis.lens_warnings(lens)

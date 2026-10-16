@@ -1,0 +1,113 @@
+{
+  "schema": "pose-parquet/scene@1",
+  "id": "terrasse-mer",
+  "label": "Terrasse couverte avec vue sur mer",
+  "source": "precalibrated",
+  "image": {
+    "file": "room-terrasse-mer.jpg",
+    "width": 1125,
+    "height": 750,
+    "alt": "Terrasse couverte avec vue sur mer",
+    "credit": "Thomas Parker / Pexels"
+  },
+  "camera": {
+    "horizon": 0.5519,
+    "vanishingPoints": [
+      {
+        "x": 0.3856,
+        "y": 0.5511,
+        "weight": 1,
+        "role": "floor-u"
+      },
+      {
+        "x": 6.799,
+        "y": 0.5957,
+        "weight": 0.7566666666666667,
+        "role": "floor-v"
+      }
+    ],
+    "fovDeg": 61.1,
+    "tiltDeg": null,
+    "heightM": 1.5
+  },
+  "surfaces": [
+    {
+      "id": "sol",
+      "label": "Sol",
+      "continuous": true
+    }
+  ],
+  "planes": {
+    "sol": {
+      "quad": [
+        {
+          "x": 0.5669825494554297,
+          "y": 0.6403035441636589
+        },
+        {
+          "x": 0.6074867211438768,
+          "y": 0.6602282118054373
+        },
+        {
+          "x": 0.4155195829643863,
+          "y": 0.6622294633375605
+        },
+        {
+          "x": 0.4099194942071841,
+          "y": 0.6414281272794938
+        }
+      ],
+      "meters": {
+        "width": 4,
+        "depth": 4
+      },
+      "origin": {
+        "u": 0,
+        "v": 0
+      },
+      "rotationDeg": 90,
+      "note": "Deux directions mesurées dans la photographie ; hauteur caméra et échelle estimées."
+    }
+  },
+  "floorZones": [
+    {
+      "id": "terrasse",
+      "surfaceId": "sol",
+      "planeRef": "sol",
+      "mask": {
+        "polygon": [
+          {
+            "x": 0,
+            "y": 1
+          },
+          {
+            "x": 0.20857142857142857,
+            "y": 0.8392282958199357
+          },
+          {
+            "x": 0.20857142857142857,
+            "y": 0.7545551982851019
+          },
+          {
+            "x": 0.6314285714285715,
+            "y": 0.7545551982851019
+          },
+          {
+            "x": 0.6314285714285715,
+            "y": 1
+          }
+        ],
+        "holes": []
+      }
+    }
+  ],
+  "occluders": [],
+  "light": {
+    "kind": "photo-luma",
+    "strength": 0.65,
+    "blurRadius": 0.025,
+    "ambient": 0.35,
+    "tint": 0.25,
+    "contact": 0.25
+  }
+}

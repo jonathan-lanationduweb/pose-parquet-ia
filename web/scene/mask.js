@@ -44,6 +44,7 @@ export function createSceneMasks(scene, width, height) {
   const labels = new Uint8Array(width * height);
   const coverage = new Uint8ClampedArray(width * height);
   const occlusion = new Uint8ClampedArray(width * height);
+  const baseOcclusion = new Uint8ClampedArray(width * height);
 
   /** Contours courants, par zone : l'édition ne touche pas la scène d'origine. */
   const polygons = new Map(scene.floorZones.map((zone) => [zone.id, zonePolygon(zone).map((p) => ({ ...p }))]));
@@ -156,7 +157,7 @@ export function createSceneMasks(scene, width, height) {
     });
 
     /* Occlusions : données de scène, valables pour toutes les zones. */
-    // Brush strokes alter floor coverage, not static furniture occlusions.
+    // Keep automatic protection cached; explicit Add strokes can override it.
     // Detect actual occluder edits so other editors still invalidate correctly.
     const nextOcclusionSignature = JSON.stringify(scene.occluders);
     if (nextOcclusionSignature !== occlusionSignature) {
@@ -185,7 +186,35 @@ export function createSceneMasks(scene, width, height) {
           }
         }
       }
+      baseOcclusion.set(occlusion);
       occlusionSignature = nextOcclusionSignature;
+    }
+
+
+    occlusion.set(baseOcclusion);
+    const additions = strokes.filter(stroke => stroke.mode === 'add');
+    if (additions.length) {
+      ctx.clearRect(0, 0, width, height);
+      let x0 = width, y0 = height, x1 = 0, y1 = 0;
+      for (const stroke of additions) {
+        paintStroke(stroke);
+        for (const point of stroke.points) {
+          x0 = Math.min(x0, point.x * width - stroke.radius - 1);
+          y0 = Math.min(y0, point.y * height - stroke.radius - 1);
+          x1 = Math.max(x1, point.x * width + stroke.radius + 1);
+          y1 = Math.max(y1, point.y * height + stroke.radius + 1);
+        }
+      }
+      x0 = Math.max(0, Math.floor(x0)); y0 = Math.max(0, Math.floor(y0));
+      x1 = Math.min(width, Math.ceil(x1)); y1 = Math.min(height, Math.ceil(y1));
+      if (x1 > x0 && y1 > y0) {
+        const stride = x1 - x0;
+        const alpha = ctx.getImageData(x0, y0, stride, y1 - y0).data;
+        for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
+          const i = y * width + x, p = ((y - y0) * stride + x - x0) * 4 + 3;
+          occlusion[i] = Math.round(baseOcclusion[i] * (1 - alpha[p] / 255));
+        }
+      }
     }
 
     dirty = false;

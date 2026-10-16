@@ -1,0 +1,52 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
+const {chromium}=createRequire(import.meta.url)(process.env.PPAI_PLAYWRIGHT_CORE);
+const browser=await chromium.launch({channel:'chrome',headless:true});
+fs.mkdirSync('review/catalog-ux',{recursive:true});
+try {
+ for(const width of [320,390,430,1440]) {
+  const height=width===320?640:900;
+  const p=await browser.newPage({viewport:{width,height},isMobile:width<700,hasTouch:width<700});
+  const errors=[];p.on('pageerror',e=>errors.push(e.message));
+  await p.goto(`${process.env.PPAI_UI_BASE||'http://127.0.0.1:8000'}/tools/product-concept.html?prefetch=0`);
+  await p.waitForFunction(()=>window.__catalogBrowser&&window.__concept?.adapter.connecte,null,{timeout:90000});
+  await p.evaluate(()=>window.__concept.openRoom('sejour'));
+  await p.waitForFunction(()=>window.__concept.state.source==='demo'&&!window.__concept.state.applying,null,{timeout:90000});
+  if(width<1024)await p.locator('#card [data-open="cat"]').click();
+  await p.locator('#catalogFiltersOpen').waitFor({state:'visible'});
+  const total=await p.locator('#prods .pd').count();assert.ok(total>100);
+  await p.locator('#catalogList').click();assert.equal(await p.locator('#prods').getAttribute('data-layout'),'list');assert.equal(await p.locator('#prods .pd').count(),total);
+  await p.screenshot({path:`review/catalog-ux/${width}-list.jpg`,type:'jpeg',quality:88});
+  await p.locator('#catalogGrid').click();assert.equal(await p.locator('#prods').getAttribute('data-layout'),'grid');
+  await p.screenshot({path:`review/catalog-ux/${width}-grid.jpg`,type:'jpeg',quality:88});
+  await p.locator('#catalogFiltersOpen').click();
+  const footer=await p.locator('#catalogFiltersApply').boundingBox();assert.ok(footer&&footer.y>=0&&footer.y+footer.height<=height+1,`${width}: footer clipped ${JSON.stringify(footer)}`);
+  await p.locator('#fPattern [data-v="baton-rompu"]').focus();await p.keyboard.press('Enter');assert.equal(await p.evaluate(()=>document.activeElement?.dataset.v),'baton-rompu','Keyboard focus lost');await p.locator('#fTone [data-v="naturel"]').click();
+  const filtered=await p.evaluate(()=>window.__concept.visible().length);assert.ok(filtered>0&&filtered<total);assert.equal(await p.locator('#catalogFiltersApply').textContent(),`Voir ${filtered} parquets`);
+  await p.screenshot({path:`review/catalog-ux/${width}-filters.jpg`,type:'jpeg',quality:88});
+  await p.locator('#catalogWidthMax').evaluate(n=>{n.value=160;n.dispatchEvent(new Event('input',{bubbles:true}));});await p.waitForTimeout(150);
+  assert.ok(await p.evaluate(()=>window.__concept.visible().every(p=>p.widthMm<=160)));
+  await p.locator('#catalogWidthMax').evaluate(n=>{n.value=n.max;n.dispatchEvent(new Event('input',{bubbles:true}));});await p.waitForTimeout(150);
+  const anchored=await p.locator('#catalogFiltersApply').boundingBox();assert.ok(anchored.y+anchored.height<=height+1);
+  await p.locator('#catalogFiltersApply').click();assert.equal(await p.locator('#prods .pd').count(),filtered);assert.equal(await p.locator('#catalogFilterCount').textContent(),'2');
+  assert.ok(await p.locator('#catalogActiveFilters').isVisible());await p.getByRole('button',{name:'Retirer le filtre Teinte : Naturel',exact:true}).click();
+  assert.equal(await p.evaluate(()=>window.__concept.state.filters.tone),null);
+  await p.locator('#catalogFiltersOpen').click();
+  await p.locator('#catalogMoreFilters > summary').click();await p.getByRole('group',{name:'Finition',exact:true}).getByRole('button',{name:'Verni',exact:true}).click();
+  await p.locator('#clearFilters').click();assert.equal(await p.getByRole('group',{name:'Finition',exact:true}).getByRole('button',{name:'Toutes',exact:true}).getAttribute('aria-pressed'),'true');
+  assert.equal(await p.locator('#catalogFiltersApply').textContent(),`Voir ${total} parquets`);
+  await p.locator('#catalogFiltersBack').click();
+  await p.locator('#catSearch').fill('aucunparquetxyz');assert.equal(await p.locator('#prods .pd').count(),0);await p.locator('#prods .empty button').click();assert.equal(await p.locator('#prods .pd').count(),total);
+  await p.locator('#catalogFiltersOpen').click();await p.keyboard.press('Escape');assert.ok(await p.locator('#catalogFiltersOpen').isVisible());
+  assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,`${width}: page overflows`);
+  const overflow=await p.locator('#catSheet').evaluate(n=>n.scrollWidth>n.clientWidth+1);assert.equal(overflow,false,`${width}: catalogue overflows`);
+  await p.locator('#catalogList').click();await p.locator('#prods .pd[data-id="BTRPF39009"]').click();await p.waitForFunction(()=>window.__concept.state.productId==='BTRPF39009'&&!window.__concept.state.applying,null,{timeout:90000});
+  await p.evaluate(()=>{const c=window.__concept;c.state.favourites.clear();c.state.favourites.add('CHENF39031');c.state.favourites.add('BTRPF39009');});
+  await p.locator('#hFav').click();assert.equal(await p.locator('#prods .pd').count(),2);
+  await p.locator('#catalogFiltersOpen').click();await p.locator('#fPattern [data-v="baton-rompu"]').click();assert.equal(await p.locator('#catalogFiltersApply').textContent(),'Voir 1 parquet');await p.locator('#catalogFiltersApply').click();assert.equal(await p.locator('#prods .pd').count(),1);
+  await p.locator('#catalogFiltersOpen').click();await p.locator('#fPattern [data-v="point-de-hongrie"]').click();assert.equal(await p.locator('#catalogFiltersApply').textContent(),'Voir 0 parquet');await p.locator('#catalogFiltersApply').click();assert.equal(await p.locator('#prods .pd').count(),0);assert.equal(await p.evaluate(()=>window.__concept.state.catalogueView),'favourites');
+  await p.locator('#prods .empty button').click();assert.equal(await p.locator('#prods .pd').count(),2);
+  assert.deepEqual(errors,[]);console.log(`PASS ${width}px: grid/list, filters and count, remove/reset, empty search, pinned footer, Escape, parquet selection`);await p.close();
+ }
+}finally{await browser.close();}

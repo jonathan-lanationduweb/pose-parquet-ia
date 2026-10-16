@@ -636,8 +636,9 @@ function wrapped(ctx, draw, box) {
 /* Motifs                                                              */
 /* ------------------------------------------------------------------ */
 
-function drawStraight(ctx, tex, profile, graine) {
-  const h = fit((profile.width / TILE_METERS) * TILE);
+function drawStraight(ctx, tex, profile, graine, spacingM = 0) {
+  const h = fit(((profile.width + spacingM) / TILE_METERS) * TILE);
+  const gap = spacingM / TILE_METERS * TILE;
   const w = fit(Math.min(TILE, (profile.length / TILE_METERS) * TILE));
   const rows = Math.round(TILE / h);
   const cols = Math.round(TILE / w);
@@ -650,7 +651,7 @@ function drawStraight(ctx, tex, profile, graine) {
       const y = r * h;
       // La lame c = -1 est la lame c = cols - 1 décalée d'une tuile : même clé.
       const cle = mod(c, cols);
-      wrapped(ctx, () => board(ctx, x, y, w, h, tex, alea(graine, 1, r, cle)), { x, y, w, h });
+      wrapped(ctx, () => board(ctx, x + gap/2, y + gap/2, w-gap, h-gap, tex, alea(graine, 1, r, cle)), { x, y, w, h });
     }
   }
 }
@@ -999,7 +1000,7 @@ export function buildTexture(material, { pattern = 'lames', width, plankLength, 
   try {
     if (pattern === 'point-de-hongrie') drawChevron(ctx, tex, profile, graine);
     else if (pattern === 'baton-rompu') drawHerringbone(ctx, tex, profile, graine);
-    else drawStraight(ctx, tex, profile, graine);
+    else drawStraight(ctx, tex, profile, graine, material.surfaceFamily === 'exterior_deck' ? Number(material.spacingM) || 0 : 0);
   } finally {
     ATLAS = null;
   }

@@ -1,3 +1,6 @@
+import { installComparisonView } from './comparison-view.js';
+import { installPhoneTransfer } from './phone-transfer.js';
+import { installCatalogBrowser } from './catalog-browser.js';
 /** Room select, session-only photos and local export. No persistent photo storage. */
 export function installProductHome(getConcept) {
   const c=getConcept();if(!c)return;
@@ -25,21 +28,22 @@ export function installProductHome(getConcept) {
     get count(){return session.size;},home,
   };
   const back=document.createElement('button');back.id='homeReturn';back.className='home-return';back.type='button';back.textContent='‹ Pièces';back.setAttribute('aria-label','Retour à mes pièces');back.onclick=home;document.querySelector('header').insertBefore(back,document.getElementById('hSwap'));
-  const download=document.createElement('button');download.type='button';download.textContent='↓';download.title='Télécharger le rendu';download.setAttribute('aria-label','Télécharger le rendu');
+  const download=document.createElement('button');download.type='button';download.textContent='Télécharger le rendu';download.title='Télécharger le rendu';download.setAttribute('aria-label','Télécharger le rendu');
   download.onclick=()=>{if(c.state.applying)return;const canvas=document.getElementById('after');if(!canvas?.width||!c.state.applied.source)return;canvas.toBlob(blob=>{if(!blob)return;const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='mon-parquet.jpg';a.click();setTimeout(()=>URL.revokeObjectURL(url),5000);},'image/jpeg',.94);};
   const tools=document.getElementById('tools');
   const actions=document.createElement('div');actions.id='photoActions';actions.hidden=true;
   const more=document.createElement('button');more.type='button';more.id='photoMore';more.textContent='⋯';more.setAttribute('aria-label','Options de la photo');more.setAttribute('aria-expanded','false');
   const toggle=show=>{actions.hidden=!show;more.setAttribute('aria-expanded',String(show));};
   more.onclick=()=>toggle(actions.hidden);
-  actions.appendChild(document.getElementById('fsBtn'));actions.appendChild(download);actions.appendChild(document.getElementById('zoombar'));
+  const fullscreen=document.getElementById('fsBtn');const fsLabel=document.createElement('span');fsLabel.className='photo-option-label';fsLabel.textContent='Plein écran';fullscreen.appendChild(fsLabel);actions.appendChild(fullscreen);actions.appendChild(download);actions.appendChild(document.getElementById('zoombar'));
+  const whole=document.createElement('button');whole.type='button';whole.textContent='Voir toute la pièce';whole.onclick=()=>{toggle(false);c.fitAll(true);};actions.appendChild(whole);
   const adjust=document.createElement('button');adjust.type='button';adjust.textContent='Ajuster le sol';adjust.onclick=()=>{toggle(false);c.floorEditStart();};actions.appendChild(adjust);
   tools.append(more,actions);
   document.addEventListener('keydown',e=>{if(e.key==='Escape')toggle(false);});
   document.addEventListener('pointerdown',e=>{if(!tools.contains(e.target))toggle(false);});
   const scan=document.createElement('div');scan.id='photoScan';scan.setAttribute('aria-hidden','true');document.getElementById('stage').appendChild(scan);
-  const sync=()=>{back.hidden=!c.state.source;};
-  const observer=new MutationObserver(sync);observer.observe(document.getElementById('stage'),{attributes:true,attributeFilter:['class']});sync();
+  const sync=()=>{back.hidden=!c.state.source;adjust.hidden=c.state.source!=='uploaded';download.disabled=c.state.applying||!c.state.applied.source;};
+  const observer=new MutationObserver(sync);observer.observe(document.getElementById('stage'),{attributes:true,attributeFilter:['class']});observer.observe(document.body,{attributes:true,attributeFilter:['data-product-state']});sync();
   document.getElementById('hSwap').onclick=home;
   document.getElementById('menuRooms').onclick=home;
   document.getElementById('developerMenu').hidden=!c.DEV;
@@ -48,21 +52,8 @@ export function installProductHome(getConcept) {
   back.addEventListener('click',closeOptions);
   document.getElementById('menuRooms').addEventListener('click',closeOptions);
   document.getElementById('catalogSummary').textContent=c.resumeCatalogue();
-  const filters=document.createElement('div');filters.className='catalog-extra';
-  const summary=document.createElement('h3');summary.textContent='Finition et collection';filters.appendChild(summary);
-  for(const [key,label] of [['finish','Finition'],['collection','Collection'],['species','Essence'],['type','Type']]){
-    const wrap=document.createElement('label');wrap.textContent=label;
-    const select=document.createElement('select');select.setAttribute('aria-label',label);
-    const all=document.createElement('option');all.value='';all.textContent='Toutes';select.appendChild(all);
-    const values=[...new Set(c.PREMIBEL_DEMO_PRODUCTS.map(p=>p[key]).filter(Boolean))].sort();
-    for(const value of values){const option=document.createElement('option');option.value=value;option.textContent=value;select.appendChild(option);}
-    select.onchange=()=>{c.state.filters[key]=select.value||null;c.paintCatalogue();};wrap.appendChild(select);filters.appendChild(wrap);
-  }
-  const advanced=document.querySelector('#catSheet .catalog-filters');
-  advanced.querySelector('summary').textContent='Filtres';
-  const collection=document.createElement('div');collection.className='catalog-collection';
-  collection.append(document.querySelector('label[for="catCollection"]'),document.getElementById('catCollection'),document.getElementById('fApercu').closest('label'));
-  advanced.querySelector('summary').insertAdjacentElement('afterend',collection);
-  advanced.append(filters,document.querySelector('.catalog-about'));
+  installCatalogBrowser(c);
+  installPhoneTransfer(c);
+  installComparisonView(c);
   renderSession();
 }

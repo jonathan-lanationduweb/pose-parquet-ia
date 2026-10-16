@@ -3,7 +3,7 @@
   "id": "chambre-parisienne",
   "label": "Chambre parisienne",
   "source": "precalibrated",
-  "note": "Pièce vide, sol entièrement dégagé : aucun meuble, donc aucun occulteur et aucun trou de masque à inventer. C'est la scène la plus simple du dépôt, et la première dont la calibration ait buté sur le RECADRAGE des photographies. PERSPECTIVE : deux plinthes latérales traquées au gradient — 113 points à gauche (résidu max 1,08 px, moyen 0,28 ; force d'arête 58) et 95 à droite (0,99 px, 0,39 ; force 76) — se croisent en (0,4437 ; 0,5013), qui est donc la fuite de la profondeur et fixe l'horizon. La frontière du mur du fond, traquée sur 49 points, est EXACTEMENT horizontale (angle 0,000 degré, résidu max 0) : elle prouve à la fois l'absence de roulis et que la fuite de la largeur est à l'infini. POINT PRINCIPAL : c'est là que le recadrage se voit. Une direction dont la fuite est à l'infini le long de l'axe x de l'image impose que la fuite perpendiculaire ait la même abscisse que le point principal. Or la fuite de la profondeur est à x 0,4437, soit 90 px à GAUCHE du centre de l'image : le point principal n'est pas au centre, parce que Pexels livre un recadrage 1600x1067 d'un cliché plus large. Les scènes précédentes supposaient le centre ; ici l'hypothèse est réfutée par la mesure. On prend donc cx 709,9 px et cy 534,9 px (l'horizon, la caméra étant sans roulis). FOCALE : avec ce point principal, les deux familles de lames du chevron — perpendiculaires entre elles, à 45 degrés des murs, donc de fuites situées à plus ou moins f du point principal — donnent 517 et 557 px, d'accord à 4 pour cent. C'est une mesure faible mais concordante, et c'est la SEULE contrainte de focale disponible : une pièce rectangulaire vue de face n'en offre aucune autre, les deux directions du sol se réduisant à une fuite finie et une fuite à l'infini. On retient 537 px, champ horizontal 112 degrés — très large, ce qui est courant en photographie immobilière. PREUVE DU RECTANGLE : le quadrilatère est construit sur les deux plinthes et sur deux horizontales, donc sur des côtés parallèles deux à deux dans la pièce ; mesuré, il rend 3,20 sur 2,32 m avec 0,02 et 0,01 pour cent de concordance entre côtés opposés. ÉCHELLE : hauteur d'œil 1,05 m, déduite d'une seule référence — l'ouverture vitrée du fond, prise à 2,15 m, par la fraction de sa hauteur située sous l'horizon (0,489). Ce n'est pas recoupé : la pièce mesure alors 3,20 m de large, valeur plausible pour une chambre, mais une vraisemblance, pas une preuve. DISTORSION : la flèche d'arc sur arête verticale n'a rien donné — aucune verticale de cette photo n'est traçable au gradient, les jambages bleus sur mur bleu manquent de contraste et le traqueur part sur la baie. Le contrôle retenu est meilleur pour ce qu'on en attend : les deux plinthes, qui courent dans le TIERS BAS de l'image, là où la distorsion radiale est la plus forte, sont droites à 1,08 et 0,99 px sur 113 et 95 points. Un barillet capable de gêner le rendu les aurait bombées. MASQUE : le sol s'arrête au seuil de pierre de la baie, dont le bord bas est traqué sur 50 points (résidu max 5,92 px, moyen 1,65, pente 1,95 degré) et qui, avec sa grille de convecteur, est exclu du masque — un parquet peint par-dessus une pierre blanche et une grille métallique se voit immédiatement. Reste un liseré sombre d'environ 3 px sur le sol devant la porte de droite, à y 0,735 : c'est le bord d'un tapis de seuil, il sera recouvert.",
+  "note": "Pièce vide, sol entièrement dégagé : aucun meuble, donc aucun occulteur et aucun trou de masque à inventer. C'est la scène la plus simple du dépôt, et la première dont la calibration ait buté sur le RECADRAGE des photographies. PERSPECTIVE : deux plinthes latérales traquées au gradient — 113 points à gauche (résidu max 1,08 px, moyen 0,28 ; force d'arête 58) et 95 à droite (0,99 px, 0,39 ; force 76) — se croisent en (0,4437 ; 0,5013), qui est donc la fuite de la profondeur et fixe l'horizon. La frontière du mur du fond, traquée sur 49 points, est EXACTEMENT horizontale (angle 0,000 degré, résidu max 0) : elle prouve à la fois l'absence de roulis et que la fuite de la largeur est à l'infini. POINT PRINCIPAL : c'est là que le recadrage se voit. Une direction dont la fuite est à l'infini le long de l'axe x de l'image impose que la fuite perpendiculaire ait la même abscisse que le point principal. Or la fuite de la profondeur est à x 0,4437, soit 90 px à GAUCHE du centre de l'image : le point principal n'est pas au centre, parce que Pexels livre un recadrage 1600x1067 d'un cliché plus large. Les scènes précédentes supposaient le centre ; ici l'hypothèse est réfutée par la mesure. On prend donc cx 709,9 px et cy 534,9 px (l'horizon, la caméra étant sans roulis). FOCALE : avec ce point principal, les deux familles de lames du chevron — perpendiculaires entre elles, à 45 degrés des murs, donc de fuites situées à plus ou moins f du point principal — donnent 517 et 557 px, d'accord à 4 pour cent. C'est une mesure faible mais concordante, et c'est la SEULE contrainte de focale disponible : une pièce rectangulaire vue de face n'en offre aucune autre, les deux directions du sol se réduisant à une fuite finie et une fuite à l'infini. On retient 537 px, champ horizontal 112 degrés — très large, ce qui est courant en photographie immobilière. PREUVE DU RECTANGLE : le quadrilatère est construit sur les deux plinthes et sur deux horizontales, donc sur des côtés parallèles deux à deux dans la pièce ; mesuré, il rend 3,20 sur 2,32 m avec 0,02 et 0,01 pour cent de concordance entre côtés opposés. ÉCHELLE : hauteur d'œil 1,05 m, déduite d'une seule référence — l'ouverture vitrée du fond, prise à 2,15 m, par la fraction de sa hauteur située sous l'horizon (0,489). Ce n'est pas recoupé : la pièce mesure alors 3,20 m de large, valeur plausible pour une chambre, mais une vraisemblance, pas une preuve. DISTORSION : la flèche d'arc sur arête verticale n'a rien donné — aucune verticale de cette photo n'est traçable au gradient, les jambages bleus sur mur bleu manquent de contraste et le traqueur part sur la baie. Le contrôle retenu est meilleur pour ce qu'on en attend : les deux plinthes, qui courent dans le TIERS BAS de l'image, là où la distorsion radiale est la plus forte, sont droites à 1,08 et 0,99 px sur 113 et 95 points. Un barillet capable de gêner le rendu les aurait bombées. MASQUE : correction du 16/10 : la lumière devant la baie appartient au sol à remplacer ; seules les deux grilles métalliques restent exclues. Reste un liseré sombre d'environ 3 px sur le sol devant la porte de droite, à y 0,735 : c'est le bord d'un tapis de seuil, il sera recouvert.",
   "image": {
     "file": "room-chambre-parisienne.jpg",
     "width": 1600,
@@ -14,28 +14,68 @@
   "camera": {
     "horizon": 0.5013,
     "vanishingPoints": [
-      { "x": 0.4437, "y": 0.5013, "weight": 1, "role": "profondeur-deux-plinthes" },
-      { "x": 0.1207, "y": 0.4958, "weight": 0.5, "role": "chevron-famille-A" },
-      { "x": 0.7917, "y": 0.4877, "weight": 0.5, "role": "chevron-famille-B" }
+      {
+        "x": 0.4437,
+        "y": 0.5013,
+        "weight": 1,
+        "role": "profondeur-deux-plinthes"
+      },
+      {
+        "x": 0.1207,
+        "y": 0.4958,
+        "weight": 0.5,
+        "role": "chevron-famille-A"
+      },
+      {
+        "x": 0.7917,
+        "y": 0.4877,
+        "weight": 0.5,
+        "role": "chevron-famille-B"
+      }
     ],
     "heightM": 1.05,
     "focalPx": 537,
-    "principalPoint": { "x": 0.4437, "y": 0.5013 },
+    "principalPoint": {
+      "x": 0.4437,
+      "y": 0.5013
+    },
     "principalNote": "Point principal MESURÉ, pas supposé au centre : l'image est un recadrage. Voir la note de la scène."
   },
   "surfaces": [
-    { "id": "sol", "label": "Sol de la chambre", "continuous": true }
+    {
+      "id": "sol",
+      "label": "Sol de la chambre",
+      "continuous": true
+    }
   ],
   "planes": {
     "sol": {
       "quad": [
-        { "x": 0.3082, "y": 0.6476 },
-        { "x": 0.6051, "y": 0.6476 },
-        { "x": 0.8837, "y": 0.9 },
-        { "x": 0.0744, "y": 0.9 }
+        {
+          "x": 0.3082,
+          "y": 0.6476
+        },
+        {
+          "x": 0.6051,
+          "y": 0.6476
+        },
+        {
+          "x": 0.8837,
+          "y": 0.9
+        },
+        {
+          "x": 0.0744,
+          "y": 0.9
+        }
       ],
-      "meters": { "width": 3.2, "depth": 2.32 },
-      "origin": { "u": 0, "v": 0 },
+      "meters": {
+        "width": 3.2,
+        "depth": 2.32
+      },
+      "origin": {
+        "u": 0,
+        "v": 0
+      },
       "rotationDeg": 90,
       "note": "Deux côtés portés par les plinthes (direction de la profondeur), deux côtés horizontaux (direction de la largeur, dont la fuite est à l'infini) : le quadrilatère est l'image d'un rectangle par construction, et non par un placement à l'œil. Il va du mur du fond à y 0,9 et non jusqu'au bas du cadre, pour rester bien conditionné. u suit le mur du fond, v la profondeur ; rotationDeg 90 met les lames dans la direction v, celle de la colonne vertébrale du chevron en place."
     }
@@ -49,36 +89,138 @@
       "order": 0,
       "mask": {
         "polygon": [
-          { "x": 0, "y": 0.9887 },
-          { "x": 0.04, "y": 0.9455 },
-          { "x": 0.08, "y": 0.9023 },
-          { "x": 0.12, "y": 0.8591 },
-          { "x": 0.16, "y": 0.8159 },
-          { "x": 0.2, "y": 0.7728 },
-          { "x": 0.24, "y": 0.7296 },
-          { "x": 0.28, "y": 0.6864 },
-          { "x": 0.3082, "y": 0.656 },
-          { "x": 0.4405, "y": 0.656 },
-          { "x": 0.4405, "y": 0.6932 },
-          { "x": 0.5815, "y": 0.6995 },
-          { "x": 0.5815, "y": 0.656 },
-          { "x": 0.6051, "y": 0.656 },
-          { "x": 0.65, "y": 0.6966 },
-          { "x": 0.7, "y": 0.742 },
-          { "x": 0.75, "y": 0.7873 },
-          { "x": 0.8, "y": 0.8326 },
-          { "x": 0.85, "y": 0.8779 },
-          { "x": 0.9, "y": 0.9232 },
-          { "x": 0.95, "y": 0.9685 },
-          { "x": 0.9847, "y": 1 },
-          { "x": 0, "y": 1 }
+          {
+            "x": 0,
+            "y": 0.9887
+          },
+          {
+            "x": 0.04,
+            "y": 0.9455
+          },
+          {
+            "x": 0.08,
+            "y": 0.9023
+          },
+          {
+            "x": 0.12,
+            "y": 0.8591
+          },
+          {
+            "x": 0.16,
+            "y": 0.8159
+          },
+          {
+            "x": 0.2,
+            "y": 0.7728
+          },
+          {
+            "x": 0.24,
+            "y": 0.7296
+          },
+          {
+            "x": 0.28,
+            "y": 0.6864
+          },
+          {
+            "x": 0.3082,
+            "y": 0.656
+          },
+          {
+            "x": 0.6051,
+            "y": 0.656
+          },
+          {
+            "x": 0.65,
+            "y": 0.6966
+          },
+          {
+            "x": 0.7,
+            "y": 0.742
+          },
+          {
+            "x": 0.75,
+            "y": 0.7873
+          },
+          {
+            "x": 0.8,
+            "y": 0.8326
+          },
+          {
+            "x": 0.85,
+            "y": 0.8779
+          },
+          {
+            "x": 0.9,
+            "y": 0.9232
+          },
+          {
+            "x": 0.95,
+            "y": 0.9685
+          },
+          {
+            "x": 0.9847,
+            "y": 1
+          },
+          {
+            "x": 0,
+            "y": 1
+          }
         ],
         "holes": [],
-        "note": "Contour porté par les deux droites de plinthe ajustées (résidus 1,08 et 0,99 px) et par le bord bas du seuil de la baie, puis DÉCALÉ DE 9 px VERS LE SOL. Ce décalage n'est pas une marge de sécurité : cette pièce a une plinthe de bois, et le relevé chaleur mur/bois en trouve le HAUT. Un premier rendu, contour posé là, a recouvert la plinthe de parquet sur les trois murs — le détail disparaissait et le raccord devenait un simple angle. La hauteur de la plinthe a donc été mesurée sur six colonnes réparties (profils de luminance et de chaleur) : 8 à 9 px partout, à gauche comme au fond comme à droite. Le contour passe sous elle. C'est la règle du bureau vide, prise dans l'autre sens : là-bas on décalait de 1,6 px pour ne pas délaver une plinthe blanche, ici de 9 px pour ne pas effacer une plinthe en bois. Le décrochement entre x 0,4405 et 0,5815 retire le seuil de pierre et sa grille de convecteur."
+        "note": "Contour sous les plinthes ; le sol éclairé est couvert, seules les deux grilles métalliques sont conservées."
       }
     }
   ],
-  "occluders": [],
+  "occluders": [
+    {
+      "id": "grille-fond",
+      "kind": "fixture",
+      "polygon": [
+        {
+          "x": 0.461875,
+          "y": 0.659794
+        },
+        {
+          "x": 0.550625,
+          "y": 0.659794
+        },
+        {
+          "x": 0.560625,
+          "y": 0.669166
+        },
+        {
+          "x": 0.46375,
+          "y": 0.670103
+        }
+      ],
+      "feather": 0.0003,
+      "castsShadow": false
+    },
+    {
+      "id": "grille-droite",
+      "kind": "fixture",
+      "polygon": [
+        {
+          "x": 0.6025,
+          "y": 0.680412
+        },
+        {
+          "x": 0.643125,
+          "y": 0.680412
+        },
+        {
+          "x": 0.68625,
+          "y": 0.733833
+        },
+        {
+          "x": 0.641875,
+          "y": 0.733833
+        }
+      ],
+      "feather": 0.0003,
+      "castsShadow": false
+    }
+  ],
   "light": {
     "kind": "photo-luma",
     "strength": 1,
@@ -86,5 +228,194 @@
     "tint": 0.45,
     "ambient": 0.26,
     "contact": 0.5
-  }
+  },
+  "wallZones": [
+    {
+      "id": "mur-gauche",
+      "label": "Mur gauche",
+      "polygon": [
+        {
+          "x": 0.0,
+          "y": 0.0
+        },
+        {
+          "x": 0.184375,
+          "y": 0.0
+        },
+        {
+          "x": 0.305625,
+          "y": 0.232427366447985
+        },
+        {
+          "x": 0.306875,
+          "y": 0.647610121836926
+        },
+        {
+          "x": 0.0,
+          "y": 0.9803186504217432
+        }
+      ],
+      "holes": [
+        [
+          {
+            "x": 0.2975,
+            "y": 0.5679475164011246
+          },
+          {
+            "x": 0.305,
+            "y": 0.5660731021555764
+          },
+          {
+            "x": 0.306875,
+            "y": 0.5857544517338332
+          },
+          {
+            "x": 0.2975,
+            "y": 0.5885660731021556
+          }
+        ]
+      ]
+    },
+    {
+      "id": "mur-fond",
+      "label": "Mur du fond",
+      "polygon": [
+        {
+          "x": 0.306875,
+          "y": 0.23336457357075913
+        },
+        {
+          "x": 0.410625,
+          "y": 0.23336457357075913
+        },
+        {
+          "x": 0.410625,
+          "y": 0.22211808809746955
+        },
+        {
+          "x": 0.60875,
+          "y": 0.22211808809746955
+        },
+        {
+          "x": 0.60875,
+          "y": 0.6485473289597001
+        },
+        {
+          "x": 0.306875,
+          "y": 0.6485473289597001
+        }
+      ],
+      "holes": [
+        [
+          {
+            "x": 0.4475,
+            "y": 0.3364573570759138
+          },
+          {
+            "x": 0.571875,
+            "y": 0.3364573570759138
+          },
+          {
+            "x": 0.5725,
+            "y": 0.6569821930646673
+          },
+          {
+            "x": 0.44625,
+            "y": 0.6569821930646673
+          }
+        ]
+      ]
+    },
+    {
+      "id": "mur-droit",
+      "label": "Mur droit",
+      "polygon": [
+        {
+          "x": 0.60875,
+          "y": 0.22211808809746955
+        },
+        {
+          "x": 0.729375,
+          "y": 0.0
+        },
+        {
+          "x": 1.0,
+          "y": 0.0
+        },
+        {
+          "x": 1.0,
+          "y": 0.9803186504217432
+        },
+        {
+          "x": 0.69875,
+          "y": 0.7291471415182755
+        },
+        {
+          "x": 0.625,
+          "y": 0.6729147141518276
+        },
+        {
+          "x": 0.60875,
+          "y": 0.662605435801312
+        }
+      ],
+      "holes": [
+        [
+          {
+            "x": 0.62375,
+            "y": 0.32052483598875353
+          },
+          {
+            "x": 0.699375,
+            "y": 0.2492970946579194
+          },
+          {
+            "x": 0.699375,
+            "y": 0.7310215557638238
+          },
+          {
+            "x": 0.625,
+            "y": 0.676663542642924
+          }
+        ],
+        [
+          {
+            "x": 0.84875,
+            "y": 0.36644798500468606
+          },
+          {
+            "x": 0.9525,
+            "y": 0.3467666354264292
+          },
+          {
+            "x": 0.955,
+            "y": 0.38331771321462044
+          },
+          {
+            "x": 0.84875,
+            "y": 0.4076850984067479
+          }
+        ],
+        [
+          {
+            "x": 0.63,
+            "y": 0.34395501405810686
+          },
+          {
+            "x": 0.640625,
+            "y": 0.3402061855670103
+          },
+          {
+            "x": 0.64125,
+            "y": 0.36082474226804123
+          },
+          {
+            "x": 0.63,
+            "y": 0.36457357075913777
+          }
+        ]
+      ]
+    }
+  ],
+  "wallNote": "Contours de peinture préparés manuellement pour le prototype ; ouvertures et prises exclues. Aucun détecteur de murs automatique."
 }

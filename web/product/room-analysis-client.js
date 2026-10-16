@@ -146,6 +146,7 @@ export function createRoomAnalysisClient({ base, timeoutMs = 120000 } = {}) {
       }
       const reponse = await fetch(`${base}/v1/analyze-room`, {
         method: 'POST',
+        headers: { 'X-Analysis-Profile': 'visualizer' },
         body: corps,
         signal: controleur.signal,
       });

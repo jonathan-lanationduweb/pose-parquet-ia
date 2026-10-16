@@ -6,7 +6,7 @@ export async function installMaterialPreviews(getConcept) {
   try {
     const response = await fetch(new URL('../data/parquets.json', import.meta.url));
     if (!response.ok) return;
-    materials = (await response.json()).parquets;
+    materials = (await response.json()).parquets.map(m => m.atlas ? { ...m, atlas: { ...m.atlas, url: new URL('../'+m.atlas.url, import.meta.url).href } } : m);
   } catch { return; }
   const products = new Map(concept.PREMIBEL_DEMO_PRODUCTS.map(p => [p.id, p]));
   const materialById = new Map(materials.map(m => [m.id, m]));
@@ -57,19 +57,12 @@ export async function installMaterialPreviews(getConcept) {
   const scan = () => {
     scheduled = false;
     document.querySelectorAll('[data-material-preview]').forEach(node => {
-      const id = node.dataset.materialPreview;
-      if (cache.has(id)) { if (!node.dataset.materialPreviewReady) apply(id, cache.get(id)); }
-      else {
-        const r = node.getBoundingClientRect();
-        if (r.width && r.height && r.bottom >= -100 && r.top <= innerHeight + 100 && r.right >= 0 && r.left <= innerWidth) enqueue(id);
-        else if (!observed.has(node)) { observed.add(node); observer.observe(node); }
-      }
+      if (!observed.has(node)) { observed.add(node); observer.observe(node); }
     });
     next();
   };
   new MutationObserver(() => {
     if (!scheduled) { scheduled = true; setTimeout(scan, 0); }
   }).observe(document.body, { childList: true, subtree: true });
-  document.addEventListener('scroll', () => { if (!scheduled) { scheduled = true; setTimeout(scan, 32); } }, true);
   scan();
 }

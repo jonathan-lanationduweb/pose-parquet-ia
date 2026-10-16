@@ -84,8 +84,10 @@ def main() -> None:
             "materialAsset": None,
             "renderMaterial": {"kind": "procedural", "family": family} if renderable else None,
             "checkedAt": data.get("generatedAt"),
-            "rightsStatus": ("authorized local export; thumbnail reuse for local review; "
-                            "distribution rights not established"),
+            "rightsStatus": (
+                "authorized local export; thumbnail reuse for local review; "
+                "distribution rights not established"
+            ),
         }
         if renderable:
             assert width is not None and length is not None
@@ -110,6 +112,13 @@ def main() -> None:
         "sourceGeneratedAt": data.get("generatedAt"),
         "products": rows,
     }
+    overrides_path = Path("web/data/materials/catalog-overrides.json")
+    overrides = (
+        json.loads(overrides_path.read_text(encoding="utf-8")) if overrides_path.exists() else {}
+    )
+    for product in rows:
+        product["usage"] = "terrasse" if "terrasse" in product["name"].lower() else "interieur"
+        product.update(overrides.get(product["id"], {}))
     Path("web/data/catalog.json").write_text(
         json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8"
     )

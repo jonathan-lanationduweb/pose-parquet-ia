@@ -54,6 +54,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
+from typing import Any
 
 import cv2
 import numpy as np
@@ -159,7 +160,7 @@ class CameraEstimate:
     segments: int
     notes: list[str] = field(default_factory=list)
     selected_pair: tuple[int, int] | None = None
-    hypotheses: list[dict[str, float | int | bool]] = field(default_factory=list)
+    hypotheses: list[dict[str, Any]] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -426,6 +427,25 @@ def estimate_camera(
             notes.append(f"{len(segments) - len(structural)} segments de texture du sol écartés")
             segments = structural
     points = find_vanishing_points(segments, largeur, hauteur)
+    # Structural support close to the semantic boundary is stronger evidence
+    # for a floor axis than a cornice or unrelated furniture edge.
+    boundary_distance = None
+    if floor_mask is not None:
+        binary = floor_mask.astype(np.uint8)
+        border = binary != cv2.erode(binary, np.ones((3, 3), np.uint8))
+        boundary_distance = cv2.distanceTransform((~border).astype(np.uint8), cv2.DIST_L2, 3)
+
+    def floor_line_support(point: VanishingPointEstimate) -> float:
+        if boundary_distance is None:
+            return 0.
+        total = 0.
+        for k in point.inliers:
+            segment = segments[k]
+            x, y = segment.midpoint
+            xi, yi = min(largeur-1, max(0, round(x))), min(hauteur-1, max(0, round(y)))
+            distance = float(boundary_distance[yi, xi])
+            total += segment.length / largeur * math.exp(-distance / max(4., hauteur*.015))
+        return total
 
     plafond: float | None = None
     if floor_mask is not None and floor_mask.any():
@@ -447,7 +467,7 @@ def estimate_camera(
     source: str | None = None
     confiance = 0.0
 
-    hypotheses: list[dict[str, float | int | bool]] = []
+    hypotheses: list[dict[str, Any]] = []
     selected_pair: tuple[int, int] | None = None
     best_score = -math.inf
     paired_focal: float | None = None
@@ -465,10 +485,31 @@ def estimate_camera(
                      and (plafond is None or y_center <= plafond))
             # Joint hypothesis: horizon and focal must come from the SAME pair.
             support = min(a.support, b.support)
-            score = support + 0.15 * max(a.support, b.support) - 0.04 * roll
+            wall_score = support + 0.15 * max(a.support, b.support)
+            baseboard_score = floor_line_support(a) + floor_line_support(b)
+            camera_penalty = .04 * roll
+            # Weak scale plausibility only; camera height remains assumed.
+            floor_top = plafond + .02*hauteur if plafond is not None else .7*hauteur
+            near_gap, far_gap = .95*hauteur-y_center, max(1., floor_top-y_center)
+            width_near = .092*max(0., near_gap)/1.5
+            width_far = .092*far_gap/1.5
+            depth_width = ((focal or FOCAL_PRIOR_RATIO*largeur)/largeur
+                           * max(0., near_gap/far_gap-1))
+            scale_penalty = (.1 if width_near < 3 else 0.)
+            scale_penalty += .02*max(0., depth_width-5)
+            score = wall_score + .35 * baseboard_score - camera_penalty - scale_penalty
             hypotheses.append({"a": i, "b": j, "horizon": y_center / hauteur,
                                "focalPx": focal or 0.0, "rollDeg": roll,
-                               "score": score, "valid": valid})
+                               "score": score, "valid": valid,
+                               "wallLineConsistency": wall_score,
+                               "baseboardThresholdConsistency": baseboard_score,
+                               "cameraRollPenalty": camera_penalty,
+                               "scalePlausibilityPenalty": scale_penalty,
+                               "referencePlankNearPx": width_near,
+                               "referencePlankFarPx": width_far,
+                               "estimatedDepthWidthRatio": depth_width,
+                               "metricScaleMeasured": False,
+                               "reason": "wall lines + boundary support - camera/scale penalties"})
             if valid and score > best_score:
                 best_score, paired_focal = score, focal
                 horizon, source = y_center, "lines-2vp"

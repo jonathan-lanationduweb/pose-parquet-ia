@@ -432,7 +432,7 @@ export function buildResidualMaps(source, coverage, shading) {
      environ huit fois moins ici. */
   const fullW = source.width;
   const fullH = source.height;
-  const k = fullW * fullH > 600000 ? 2 : 1;
+  const k = Math.max(fullW * fullH > 600000 ? 2 : 1, Math.ceil(Math.max(fullW, fullH) / 640));
   const width = Math.ceil(fullW / k);
   const height = Math.ceil(fullH / k);
   const src = source.data;

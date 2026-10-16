@@ -54,7 +54,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHENF36014",
@@ -108,7 +109,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHENF39031",
@@ -162,7 +164,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "POINF36005",
@@ -216,7 +219,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "POINF39026",
@@ -270,7 +274,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "POINF39011",
@@ -324,7 +329,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "POIN36015",
@@ -378,7 +384,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "BTRPF39009",
@@ -432,7 +439,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "BTRPF39005",
@@ -486,7 +494,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "BTRP38006",
@@ -540,7 +549,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "BTRP26001",
@@ -594,7 +604,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "VERF39004",
@@ -628,7 +639,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "BAMB36122",
@@ -664,7 +676,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "BAMB36121",
@@ -700,7 +713,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "BAMB36103",
@@ -736,7 +750,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "BAMB36130",
@@ -772,7 +787,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "BAMB36132",
@@ -808,7 +824,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "BAMB36131",
@@ -844,7 +861,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "BAMB36133",
@@ -880,7 +898,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "BAMB36107",
@@ -916,7 +935,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "BAMB36108",
@@ -952,7 +972,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "BAMB36135",
@@ -988,7 +1009,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "BAMB36129",
@@ -1022,7 +1044,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "BAMB36128_1",
@@ -1056,7 +1079,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "BAMB36134",
@@ -1092,7 +1116,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "BAMB36136",
@@ -1128,7 +1153,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "BAMB36106",
@@ -1164,7 +1190,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "BAMB0018",
@@ -1198,7 +1225,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "BAMB36115",
@@ -1232,7 +1260,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "BAMB36118",
@@ -1266,7 +1295,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "BAMB36126L_1",
@@ -1302,7 +1332,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "BAMB36120_1",
@@ -1338,7 +1369,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "BAMB36127L_1",
@@ -1372,7 +1404,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "BAMB36109",
@@ -1408,7 +1441,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "BAMB36110",
@@ -1444,7 +1478,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "BAMB36105",
@@ -1480,7 +1515,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "BTRP26000",
@@ -1534,7 +1570,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "TECK26005",
@@ -1568,7 +1605,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "BTRPF39002",
@@ -1622,7 +1660,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "BTRP36004",
@@ -1676,7 +1715,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "BTRPF36004",
@@ -1730,7 +1770,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "BTRP38005",
@@ -1784,7 +1825,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "BTRP28000_2",
@@ -1838,7 +1880,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "BTRP28000_1",
@@ -1892,7 +1935,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "BTRP28000",
@@ -1946,7 +1990,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "BTRP39030_1",
@@ -2000,7 +2045,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "BTRPF36000",
@@ -2054,7 +2100,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "BTRPF39007",
@@ -2108,7 +2155,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "BTRP39001",
@@ -2162,7 +2210,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "BTRP39003",
@@ -2216,7 +2265,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "BTRP39004",
@@ -2270,7 +2320,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "BTRP39020",
@@ -2324,7 +2375,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "BTRPF39001",
@@ -2378,7 +2430,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "BTRP38010",
@@ -2432,7 +2485,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHAMP_PLAT_16000",
@@ -2466,7 +2520,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHEN19027",
@@ -2500,7 +2555,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHEN39312",
@@ -2534,7 +2590,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHEN39310",
@@ -2588,7 +2645,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN39255",
@@ -2642,7 +2700,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN16041",
@@ -2678,7 +2737,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHENF39036",
@@ -2732,7 +2792,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHENF39037",
@@ -2786,7 +2847,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN38163_1",
@@ -2822,7 +2884,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHEN38163",
@@ -2876,7 +2939,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN3031",
@@ -2910,7 +2974,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHENF2689",
@@ -2964,7 +3029,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN29291",
@@ -3018,7 +3084,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN29296_1",
@@ -3054,7 +3121,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHEN29292",
@@ -3108,7 +3176,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN29292_1",
@@ -3144,7 +3213,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHENF2672",
@@ -3178,7 +3248,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHENF2674",
@@ -3232,7 +3303,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHENF2697",
@@ -3286,7 +3358,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHENF2700",
@@ -3340,7 +3413,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHENF2698",
@@ -3394,7 +3468,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHENF2701",
@@ -3448,7 +3523,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHENF2699",
@@ -3502,7 +3578,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN29286",
@@ -3556,7 +3633,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN29286_1",
@@ -3610,7 +3688,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHENF2687",
@@ -3664,7 +3743,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN29282",
@@ -3718,7 +3798,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN29287",
@@ -3772,7 +3853,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN29321",
@@ -3826,7 +3908,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHENF314",
@@ -3880,7 +3963,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN3058",
@@ -3914,7 +3998,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHEN39367_1",
@@ -3968,7 +4053,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN39367",
@@ -4022,7 +4108,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN39367_2",
@@ -4076,7 +4163,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN39278_1",
@@ -4130,7 +4218,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN39278",
@@ -4184,7 +4273,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN39309_2",
@@ -4220,7 +4310,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHEN39361_4",
@@ -4274,7 +4365,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN39361_3",
@@ -4328,7 +4420,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN39361_2",
@@ -4382,7 +4475,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN39361_1",
@@ -4436,7 +4530,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN39361",
@@ -4490,7 +4585,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN39361_5",
@@ -4544,7 +4640,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHENF2665",
@@ -4578,7 +4675,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHENF2667",
@@ -4632,7 +4730,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "517602",
@@ -4666,7 +4765,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHENF2663",
@@ -4720,7 +4820,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHENF3664",
@@ -4754,7 +4855,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHENF2675",
@@ -4788,7 +4890,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHENF2695",
@@ -4824,7 +4927,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHENF36024",
@@ -4860,7 +4964,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHENF36023",
@@ -4896,7 +5001,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHEN39299_1",
@@ -4950,7 +5056,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN39289_2",
@@ -5004,7 +5111,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN39288_2",
@@ -5058,7 +5166,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN29278_1",
@@ -5112,7 +5221,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN29278_2",
@@ -5166,7 +5276,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "DALLE3000",
@@ -5202,7 +5313,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "VERF39007",
@@ -5236,7 +5348,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "VERF39011",
@@ -5270,7 +5383,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "VERF19000",
@@ -5304,7 +5418,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "VERF39009",
@@ -5338,7 +5453,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "VERF39010",
@@ -5372,7 +5488,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "VERF39005",
@@ -5406,7 +5523,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "VERF39006",
@@ -5440,7 +5558,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "VERF36014",
@@ -5474,7 +5593,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "VERF39012",
@@ -5508,7 +5628,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "VERF39013",
@@ -5542,7 +5663,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHEN39323",
@@ -5576,7 +5698,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHEN39331",
@@ -5630,7 +5753,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN39330",
@@ -5684,7 +5808,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN39330_1",
@@ -5720,7 +5845,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHENF36021",
@@ -5756,7 +5882,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHENF36020",
@@ -5810,7 +5937,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN29203",
@@ -5844,7 +5972,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "F52386574",
@@ -5878,7 +6007,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHENF2684",
@@ -5932,7 +6062,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHENF3602",
@@ -5966,7 +6097,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHENF2685",
@@ -6020,7 +6152,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHENF240",
@@ -6054,7 +6187,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHENF2693",
@@ -6108,7 +6242,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN39380_2",
@@ -6162,7 +6297,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN39386",
@@ -6198,7 +6334,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHEN39387",
@@ -6234,7 +6371,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHEN39380_1",
@@ -6288,7 +6426,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHENF3690",
@@ -6342,7 +6481,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHENF2661",
@@ -6396,7 +6536,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHENF2623",
@@ -6430,7 +6571,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHENF2694",
@@ -6484,7 +6626,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHENF39019",
@@ -6538,7 +6681,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN39344_4",
@@ -6592,7 +6736,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN39344_6",
@@ -6628,7 +6773,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHEN39344_5",
@@ -6682,7 +6828,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN39344",
@@ -6736,7 +6883,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN39344_2",
@@ -6790,7 +6938,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN29247_3",
@@ -6844,7 +6993,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN29247_2",
@@ -6898,7 +7048,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN29247",
@@ -6952,7 +7103,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN29247_1",
@@ -7006,7 +7158,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN38162",
@@ -7060,7 +7213,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN39301",
@@ -7114,7 +7268,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN29198",
@@ -7168,7 +7323,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHENF39003",
@@ -7222,7 +7378,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHENF39011",
@@ -7276,7 +7433,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHENF36016_1",
@@ -7312,7 +7470,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHEN39301_1",
@@ -7366,7 +7525,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN39301_2",
@@ -7420,7 +7580,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN39269",
@@ -7474,7 +7635,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN39393",
@@ -7528,7 +7690,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHENF2641",
@@ -7562,7 +7725,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHENF36013",
@@ -7598,7 +7762,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHENF36005_1",
@@ -7634,7 +7799,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHENF36003",
@@ -7668,7 +7834,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHENF2670",
@@ -7722,7 +7889,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHENF2669",
@@ -7776,7 +7944,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHENF3672",
@@ -7810,7 +7979,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHEN39225",
@@ -7864,7 +8034,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN29238",
@@ -7918,7 +8089,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN29250",
@@ -7972,7 +8144,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN29294",
@@ -8026,7 +8199,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN29259",
@@ -8080,7 +8254,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN29294_1",
@@ -8116,7 +8291,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHENF36012",
@@ -8152,7 +8328,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHEN29227",
@@ -8206,7 +8383,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN0303",
@@ -8240,7 +8418,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHEN18013",
@@ -8276,7 +8455,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "VERS38000",
@@ -8310,7 +8490,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHEN29271",
@@ -8344,7 +8525,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHEN39276_1",
@@ -8380,7 +8562,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHEN39303",
@@ -8416,7 +8599,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHEN39396",
@@ -8452,7 +8636,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHEN39397",
@@ -8488,7 +8673,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHEN39233",
@@ -8524,7 +8710,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHEN36243",
@@ -8578,7 +8765,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHENF2629",
@@ -8612,7 +8800,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHENF2616",
@@ -8646,7 +8835,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHEN39268",
@@ -8700,7 +8890,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHENF2676",
@@ -8754,7 +8945,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN29301",
@@ -8808,7 +9000,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN29310",
@@ -8844,7 +9037,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHEN29301_1",
@@ -8898,7 +9092,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN29316",
@@ -8934,7 +9129,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHEN29304",
@@ -8988,7 +9184,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN29322",
@@ -9042,7 +9239,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN29322_1",
@@ -9096,7 +9294,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN29312",
@@ -9132,7 +9331,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHEN29311",
@@ -9168,7 +9368,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHEN29315",
@@ -9202,7 +9403,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHEN29308",
@@ -9238,7 +9440,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHEN29319_1",
@@ -9274,7 +9477,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHEN29319",
@@ -9328,7 +9532,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN29318",
@@ -9364,7 +9569,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHEN29309",
@@ -9418,7 +9624,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHENF3663",
@@ -9452,7 +9659,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHEN2160",
@@ -9486,7 +9694,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHENF2679",
@@ -9540,7 +9749,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHENF228",
@@ -9574,7 +9784,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHENF238",
@@ -9608,7 +9819,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHENF231",
@@ -9642,7 +9854,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHENF2678",
@@ -9676,7 +9889,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHENF2682",
@@ -9730,7 +9944,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHENF2680",
@@ -9784,7 +9999,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHENF2681",
@@ -9838,7 +10054,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHENF2668",
@@ -9892,7 +10109,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN39374",
@@ -9946,7 +10164,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN39374_1",
@@ -10000,7 +10219,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN39348_1",
@@ -10054,7 +10274,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN39348_5",
@@ -10108,7 +10329,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN39348_4",
@@ -10162,7 +10384,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN39348",
@@ -10216,7 +10439,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN29299_5",
@@ -10270,7 +10494,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN39399",
@@ -10324,7 +10549,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN39357",
@@ -10378,7 +10604,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN39358",
@@ -10432,7 +10659,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHENF36022",
@@ -10468,7 +10696,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHEN39373_2",
@@ -10504,7 +10733,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHEN39373",
@@ -10558,7 +10788,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN39347_2",
@@ -10612,7 +10843,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN39347",
@@ -10666,7 +10898,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN39356",
@@ -10702,7 +10935,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHEN39352",
@@ -10756,7 +10990,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN39353",
@@ -10810,7 +11045,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN39354",
@@ -10864,7 +11100,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN39355",
@@ -10918,7 +11155,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN39359",
@@ -10972,7 +11210,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN39373_1",
@@ -11026,7 +11265,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN39394",
@@ -11062,7 +11302,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHEN39389_1",
@@ -11098,7 +11339,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHENF2690",
@@ -11152,7 +11394,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHENF315",
@@ -11186,7 +11429,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHEN29280",
@@ -11240,7 +11484,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHENF39008",
@@ -11294,7 +11539,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHENF2664",
@@ -11348,7 +11594,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHENF3621",
@@ -11382,7 +11629,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHEN39405",
@@ -11436,7 +11684,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN39385_1",
@@ -11490,7 +11739,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN29324",
@@ -11544,7 +11794,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHENF2657",
@@ -11578,7 +11829,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHENF39033",
@@ -11614,7 +11866,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHENF39020",
@@ -11650,7 +11903,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHENF39021",
@@ -11686,7 +11940,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHENF36002",
@@ -11740,7 +11995,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN29329",
@@ -11794,7 +12050,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHENF3687",
@@ -11848,7 +12105,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHENF3684",
@@ -11882,7 +12140,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHEN39306",
@@ -11936,7 +12195,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN39306_2",
@@ -11990,7 +12250,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN39306_1",
@@ -12044,7 +12305,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN39271",
@@ -12098,7 +12360,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHENF39005",
@@ -12152,7 +12415,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHENF39012",
@@ -12206,7 +12470,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN29266",
@@ -12260,7 +12525,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHENF2686",
@@ -12314,7 +12580,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHENF39014",
@@ -12368,7 +12635,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHENF39006",
@@ -12422,7 +12690,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN29328",
@@ -12476,7 +12745,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN29290",
@@ -12530,7 +12800,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN39277_1",
@@ -12584,7 +12855,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN0407",
@@ -12618,7 +12890,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "517729",
@@ -12652,7 +12925,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHENF2671",
@@ -12706,7 +12980,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHENF2632",
@@ -12760,7 +13035,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHENF2628",
@@ -12814,7 +13090,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN36236",
@@ -12868,7 +13145,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN38160",
@@ -12922,7 +13200,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN38158",
@@ -12976,7 +13255,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN36245",
@@ -13030,7 +13310,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "CHEN39279_1",
@@ -13066,7 +13347,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "CHENF39018",
@@ -13100,7 +13382,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "JARF36000",
@@ -13134,7 +13417,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "FRENF36011",
@@ -13168,7 +13452,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "FRENF36006",
@@ -13202,7 +13487,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "FRENF36015",
@@ -13236,7 +13522,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "FRENF36008",
@@ -13270,7 +13557,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "HARO524689",
@@ -13304,7 +13592,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "HARO528682",
@@ -13338,7 +13627,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "HARO533032",
@@ -13372,7 +13662,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "HARO539203",
@@ -13406,7 +13697,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "HARO536247",
@@ -13440,7 +13732,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "HARO537262",
@@ -13474,7 +13767,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "HARO540180",
@@ -13508,7 +13802,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "HARO541000",
@@ -13542,7 +13837,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "HARO541001",
@@ -13576,7 +13872,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "HARO531679",
@@ -13610,7 +13907,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "HARO539697",
@@ -13644,7 +13942,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "HARO537349",
@@ -13678,7 +13977,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "HARO538938",
@@ -13712,7 +14012,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "HARO540174",
@@ -13746,7 +14047,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "HARO541004",
@@ -13780,7 +14082,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "HARO536707",
@@ -13814,7 +14117,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "HARO536374",
@@ -13848,7 +14152,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "HARO540154",
@@ -13882,7 +14187,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "HARO538370",
@@ -13916,7 +14222,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "HARO523809",
@@ -13950,7 +14257,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "HARO531772",
@@ -13984,7 +14292,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "HEVEAF36001",
@@ -14018,7 +14327,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "IPEF3000",
@@ -14052,7 +14362,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "IPE55",
@@ -14086,7 +14397,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "IPE3000",
@@ -14120,7 +14432,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "JATF3004",
@@ -14154,7 +14467,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "KEMP3001",
@@ -14188,7 +14502,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "KEMP3000",
@@ -14222,7 +14537,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "LAME16030",
@@ -14256,7 +14572,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "terrasse"
     },
     {
       "id": "LAME16025",
@@ -14290,7 +14607,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "terrasse"
     },
     {
       "id": "VLAME16012",
@@ -14318,13 +14636,25 @@
       "thumbnail": "../web/assets/products/premibel/VLAME16012.webp",
       "productUrl": "https://www.premibel.fr/lames-de-terrasse-bois-exotique/VLAME16012/",
       "heroImage": "../web/assets/products/premibel/VLAME16012.webp",
-      "renderable": false,
-      "materialFidelity": "unavailable",
-      "visualAccuracy": "unavailable",
+      "renderable": true,
+      "materialFidelity": "representative",
+      "visualAccuracy": "approximate",
       "materialAsset": null,
-      "renderMaterial": null,
+      "renderMaterial": {
+        "kind": "photographic",
+        "family": "ipe-terrasse"
+      },
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "terrasse",
+      "renderProfile": {
+        "materialFamily": "ipe-terrasse",
+        "pattern": "lames",
+        "widthM": 0.14,
+        "lengthM": 2,
+        "orientationDeg": 0
+      },
+      "materialNote": "Aperçu extrait de la photo de la référence. Longueur visuelle estimée."
     },
     {
       "id": "VLAME16010",
@@ -14358,7 +14688,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "terrasse"
     },
     {
       "id": "MAHOG39000",
@@ -14392,7 +14723,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "COUM39001",
@@ -14426,7 +14758,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "VMASSA36003",
@@ -14462,7 +14795,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "EPAD36005",
@@ -14496,7 +14830,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "TAUA36000",
@@ -14530,7 +14865,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "TAUA16000",
@@ -14564,7 +14900,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "TECK36008",
@@ -14600,7 +14937,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "TECK36009",
@@ -14636,7 +14974,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "TECK26004",
@@ -14672,7 +15011,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "TECK36011",
@@ -14708,7 +15048,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "TECK26006",
@@ -14744,7 +15085,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "TECK36004",
@@ -14780,7 +15122,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "TECK36012",
@@ -14816,7 +15159,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "TECK36005",
@@ -14852,7 +15196,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "MERB16001",
@@ -14888,7 +15233,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "MERB26000",
@@ -14924,7 +15270,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "NOYF36001",
@@ -14958,7 +15305,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "POINF36003",
@@ -14992,7 +15340,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "POIN36029",
@@ -15028,7 +15377,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "POINF2601",
@@ -15062,7 +15412,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "POINF2603",
@@ -15116,7 +15467,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "POINB36004",
@@ -15152,7 +15504,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "POINB36002",
@@ -15188,7 +15541,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "POINB36006",
@@ -15224,7 +15578,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "POINB36003",
@@ -15260,7 +15615,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "POINB36005",
@@ -15296,7 +15652,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "POINB36001",
@@ -15332,7 +15689,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "POINB36000",
@@ -15368,7 +15726,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "POINF2608",
@@ -15422,7 +15781,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "POIN39262",
@@ -15476,7 +15836,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "POINF2610",
@@ -15530,7 +15891,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "POIN38018",
@@ -15564,7 +15926,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "POIN38016",
@@ -15618,7 +15981,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "POIN36005",
@@ -15654,7 +16018,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "POIN39268",
@@ -15708,7 +16073,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "POINF36002",
@@ -15742,7 +16108,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "POIN39274",
@@ -15778,7 +16145,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "POINF39027",
@@ -15814,7 +16182,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "POINF39025",
@@ -15848,7 +16217,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "POINF39038",
@@ -15884,7 +16254,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "POINF39012",
@@ -15938,7 +16309,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "POINF39004",
@@ -15974,7 +16346,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "POIN39264",
@@ -16028,7 +16401,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "POINF39030",
@@ -16064,7 +16438,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "POINF39028_A_B",
@@ -16118,7 +16493,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "POINF39009",
@@ -16172,7 +16548,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "POIN36027",
@@ -16226,7 +16603,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "POINF39010",
@@ -16280,7 +16658,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "POINF39001",
@@ -16334,7 +16713,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "POIN39266",
@@ -16388,7 +16768,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "POIN39261",
@@ -16424,7 +16805,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "POINF39035",
@@ -16460,7 +16842,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "POIN39272",
@@ -16494,7 +16877,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "POINF38000",
@@ -16548,7 +16932,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "POIN36028",
@@ -16602,7 +16987,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "POIN36020",
@@ -16656,7 +17042,8 @@
         "tone": "approximate",
         "grain": "approximate",
         "finish": "approximate"
-      }
+      },
+      "usage": "interieur"
     },
     {
       "id": "512890",
@@ -16690,7 +17077,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "WENF3000",
@@ -16726,7 +17114,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "WENG3007",
@@ -16762,7 +17151,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "WENG36010",
@@ -16798,7 +17188,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "WENG36017",
@@ -16834,7 +17225,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "WENG3011",
@@ -16870,7 +17262,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "WENG36008",
@@ -16906,7 +17299,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "WENG36019",
@@ -16942,7 +17336,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "WENG3016",
@@ -16978,7 +17373,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "WENG3009",
@@ -17014,7 +17410,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "WENG3012",
@@ -17050,7 +17447,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "WENG3013",
@@ -17086,7 +17484,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "WENG1003",
@@ -17122,7 +17521,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "WENG1002",
@@ -17158,7 +17558,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "WENG3015",
@@ -17194,7 +17595,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "WENG3008",
@@ -17230,7 +17632,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "WENG3014",
@@ -17266,7 +17669,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     },
     {
       "id": "WENG36011",
@@ -17302,7 +17706,8 @@
       "materialAsset": null,
       "renderMaterial": null,
       "checkedAt": "2026-10-05T12:03:24.833Z",
-      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established"
+      "rightsStatus": "authorized local export; thumbnail reuse for local review; distribution rights not established",
+      "usage": "interieur"
     }
   ]
 }

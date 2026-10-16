@@ -126,8 +126,8 @@ ok('rien de la photo ne part en stockage',
    d'une iframe et que le fichier ne devait donc rien charger. Le moteur est
    maintenant ici, et un moteur de 3 900 lignes ne se colle pas dans une
    page. Ce qui reste garde, c'est qu'aucun script ne vienne du RESEAU. */
-ok('trois <script> : la page, le moteur local, le tiroir',
-  (html.match(/<script/g) || []).length === 6
+ok('scripts locaux : interface, moteur, catalogue et compatibilite',
+  (html.match(/<script/g) || []).length === 7
   && /<script type="module">/.test(html)
   && /from '\.\.\/web\/product\/local-renderer\.js'/.test(html));
 ok('le moteur local est charge en relatif, jamais depuis le reseau',
@@ -364,6 +364,7 @@ try {
      navigateur ou `window.document` existe. */
   global.window.document = global.document;
   new Function(fs.readFileSync('tools/product-catalog.js', 'utf8'))();
+  new Function(fs.readFileSync('web/product/surface-products.js', 'utf8'))();
   new Function(script)();
   ok("le prototype s'execute sans exception", true);
 } catch (error) {
@@ -1267,7 +1268,7 @@ ok('aucune mutation de la configuration du moteur',
    dans le contrat documente. Une garde nominative (« pas de config ») ne
    protege que de ce qu'on a pense a interdire ; celle-ci protege de ce qu'on
    n'a pas pense a interdire. */
-const CONTRAT_V1 = ['visitSnapshot', 'setScale', 'setPlankLength', 'geometryDiagnostics', 'apiVersion', 'openRoom', 'selectMaterial', 'setPattern',
+const CONTRAT_V1 = ['rendre', 'visitSnapshot', 'setScale', 'setPlankLength', 'geometryDiagnostics', 'apiVersion', 'openRoom', 'selectMaterial', 'setPattern',
   'setAngle', 'setWidth', 'getCapabilities', 'onRendered', 'canvas',
   /* Deux ajouts du moteur LOCAL (LOT UX.4). Ils n'ont jamais existe sur le
      pont externe : `window.__studio` n'exposait aucun moyen de peindre en
@@ -1388,7 +1389,7 @@ ok('le corps de l application existe hors file', corpsApply.length > 200);
 ok('le refus est verifie avant tout abonnement',
   corpsApply.indexOf('studio.setWidth(voulue) !== true') > 0
   && corpsApply.indexOf('studio.setWidth(voulue) !== true')
-     < corpsApply.indexOf('const attente = nextRender(20000);'));
+     < corpsApply.indexOf('const attente = localExplicit ? null : nextRender(20000);'));
 ok('le refus est dit en dev', /adapter\.refus/.test(code));
 
 /* Un moteur recharge est un moteur neuf : rien d'ouvert, rien de valable. */
@@ -1495,7 +1496,7 @@ ok('chaque categorie porte son compte reel',
 ok('sans categorie ouverte, la grille montre les categories', count('roomGrid', /data-cat="/g) === api.ROOM_CATEGORIES.length);
 api.openRoomCategory(api.room().categoryId);
 ok('une categorie ouverte montre ses scenes', count('roomGrid', /data-room=/g) === api.scenesCategorie(api.room().categoryId).length);
-ok('le compte des pieces est affiche', /11 pièces/.test(el('roomCount').textContent),
+ok('le compte des pieces est affiche', el('roomCount').textContent === `(${api.DEMO_ROOMS.length} pièces)`,
   el('roomCount').textContent);
 ok('la grille montre les scenes', count('roomGrid', /<img/g) >= 1);
 ok('la piece courante est cochee', /class="tick"/.test(h('roomGrid')));

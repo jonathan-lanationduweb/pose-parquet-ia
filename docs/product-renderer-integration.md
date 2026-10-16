@@ -685,3 +685,77 @@ Le cache garde désormais le canevas du profil effectivement affiché. Les
 y compris la largeur et le coefficient de taille. L’export utilise directement
 la couche A du visualiseur, sans interface, afin qu’un retour à un produit en
 cache ne télécharge pas le dernier produit calculé par le moteur.
+
+### Fin de rendu locale explicite
+
+Le moteur local expose rendre(): Promise<boolean>. Après les setters,
+l’adaptateur attend cette commande avant de copier et mettre en cache le
+canevas. Un ancien événement onRendered ne peut ainsi valider une nouvelle
+matière. La commande remplace la demande coalescée des setters. Le moteur
+externe conserve son contrat événementiel existant.
+
+
+## Roomvo core — revue du 16 octobre 2026
+
+Le parcours après le choix d’une pièce conserve le catalogue gauche (336 px),
+avec trois commandes photo permanentes : avant/après, comparer et options.
+Le choix Sols/Murs est dans les options. Personnaliser utilise un panneau droit
+320 px sans voile sur ordinateur et un panneau bas sur téléphone. La fiche
+produit et le favori sont accessibles dans la barre compacte ; le lien commercial
+est une icône sur mobile. Choisir un produit ferme le catalogue mobile et montre
+immédiatement la pièce. Changer de pièce conserve le produit sélectionné.
+
+`phaseProduit()` projette un cycle de vie unique sur `state.phase` et
+`body[data-scene-phase]`. La fin de rendu exige la clé de l’intention actuelle :
+un ancien canevas ne valide plus le nouveau choix. Les garde-fous de génération
+existants protègent les imports et les changements rapides. Les compteurs réseau
+vérifient qu’un changement de matière, d’angle ou une correction manuelle terminée
+ne relance pas l’analyse.
+
+Le profil HTTP `X-Analysis-Profile: visualizer` évite l’audit d’objectif coûteux
+pour l’aperçu interactif, tout en conservant les contrôles qualité. La valeur du
+timing de cet audit reste nulle. L’API sans ce profil conserve l’audit complet.
+Ce profil n’est pas encore un rendu progressif : segmentation, raffinage,
+géométrie et séparation des murs précèdent encore le premier parquet.
+
+Le raffinement des bords utilise un filtre guidé par la luminance de la photo,
+limité à une bande incertaine. Les ouvertures intérieures sont protégées. Cette
+correction remplace la classification par couleurs moyennes qui remontait sur le
+meuble TV dans le cas critique. L’échelle issue d’une seule fuite ou d’un a priori
+est désormais annoncée approximative. Les scores publiés indiquent leur origine :
+stabilité du masque et plausibilité de projection, pas précision mesurée en mètres.
+
+Les cartes de lumière résiduelle sont échantillonnées sur au plus 640 px de grand
+côté ; soleil, ombres et reflets gardent leurs contrôles synthétiques. Quatre
+matières visibles sont préchargées en temps mort. `?perf=1&prefetch=0` permet de
+mesurer une matière froide avec l’interface de production.
+
+Les exports OpenVINO fusionnés locaux ont été comparés au chemin GPU existant
+avec post-traitement CPU float32 sur trois photos. Les deux profils dépassent
+0,995 d’IoU de conformité sol. Cela mesure la concordance numérique de deux
+chemins de calcul, pas la qualité réelle de détection. Un manifeste de forme ou
+checkpoint incorrect, absent ou illisible empêche leur sélection.
+
+Les résolutions 512, 640, 768 et 896 ont été exécutées sur la photo critique,
+avec le même checkpoint PyTorch CPU. Les trois dernières donnent une IoU
+0,9898–0,9904 contre 512, pour davantage de calcul. Les timings de cette expérience
+CPU ne doivent pas être confondus avec ceux du chemin OpenVINO GPU.
+
+Preuves locales privées dans `review/roomvo-core/` (ignoré par Git) : matrice
+réelle de huit photos `verified/matrix.json`, treize captures numérotées,
+`core-measurements.json`, mesures de résolutions et conformité, logs de tests et
+`report.json`. Aucun fichier photo privé n’entre dans les assets ou dans Git.
+
+Validation : suite pytest complète de 475 tests avant les deux derniers ajouts,
+puis 49 tests backend ciblés sur le code final ; ruff et mypy app ; contrôles
+product-concept, scene-engine, room-library, rooms-render-flow, product-reliability,
+photo-pipeline, murs et mobile 320/360/375/390/430. Les erreurs simulées de fiabilité
+sont distinguées des huit vraies analyses. La personnalisation laisse environ
+54–55 % de la scène visible dans le contrôle tactile mobile.
+
+Verdict : `ROOMVO_CORE_NEEDS_WORK`. Les premiers rendus restent au-dessus de la
+cible 2–4 s sur ce poste et certaines portions de sol au fond des pièces ne sont
+pas détectées. La prochaine étape technique est un vrai premier passage suivi
+d’un raffinement indépendant, puis une nouvelle mesure sur la machine cible.
+La comparaison visuelle avec un résultat Roomvo fourni par le propriétaire reste
+à faire. Aucune équivalence de qualité universelle n’est revendiquée.

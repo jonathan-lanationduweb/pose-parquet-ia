@@ -1,0 +1,14 @@
+import fs from 'node:fs';import assert from 'node:assert/strict';import{createRequire}from'node:module';
+const{chromium}=createRequire(import.meta.url)(process.env.PPAI_PLAYWRIGHT_CORE);const browser=await chromium.launch({channel:'chrome',headless:true});
+try{
+ const p=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true});const errors=[];p.on('pageerror',e=>errors.push(e.message));
+ await p.goto('http://127.0.0.1:8000/tools/product-concept.html?prefetch=0');await p.waitForFunction(()=>window.__wallPaint&&window.__concept.adapter.connecte,null,{timeout:90000});
+ await p.setInputFiles('#file','web/assets/images/room-chambre-parisienne.jpg');await p.waitForFunction(()=>window.__concept.state.photoScene?.posee&&!window.__concept.state.applying&&window.__concept.state.applied.source==='live',null,{timeout:120000});
+ assert.ok(await p.evaluate(()=>window.__wallPaint.walls.every(w=>!w.prepared)),'An upload must not inherit prepared demo wall presets');
+ const sample=()=>p.evaluate(()=>{const n=document.getElementById('after'),ctx=n.getContext('2d');return [[.07,.35],[.15,.35],[.60,.90]].map(([x,y])=>Array.from(ctx.getImageData(Math.floor(x*n.width),Math.floor(y*n.height),1,1).data));});const before=await sample();
+ async function trace(button,points){await p.locator(button).click();const b=await p.locator('#wallOutline').boundingBox();for(const[x,y]of points)await p.touchscreen.tap(b.x+x*b.width,b.y+y*b.height);await p.locator('#wallConfirm').click();}
+ await p.locator('#photoMore').tap();await p.locator('#wallPaintOpen').tap();await trace('#wallNew',[[.04,.15],[.25,.15],[.25,.55],[.04,.55]]);await p.getByRole('button',{name:'Lin',exact:true}).tap();await p.waitForTimeout(150);
+ assert.notDeepEqual((await sample())[0],before[0]);await trace('#wallProtect',[[.10,.27],[.19,.27],[.19,.43],[.10,.43]]);await p.waitForTimeout(150);const protectedPixels=await sample();assert.notDeepEqual(protectedPixels[0],before[0]);assert.deepEqual(protectedPixels[1],before[1],'Protected region was repainted');assert.deepEqual(protectedPixels[2],before[2],'Painting changed the floor');
+ await p.locator('#wallUndo').tap();await p.waitForTimeout(150);assert.notDeepEqual((await sample())[1],before[1],'Undo did not remove the protected region');await p.locator('#wallReset').tap();await p.waitForTimeout(150);assert.deepEqual(await sample(),before,'Reset did not restore original pixels');
+ assert.deepEqual(errors,[]);await p.screenshot({path:'review/wall-paint/import-mobile.jpg',type:'jpeg',quality:90});console.log('PASS actual uploaded photo: no inherited presets, touch contour, paint, protected region, undo, exact reset; floor pixels intact');
+}finally{await browser.close();}

@@ -114,7 +114,7 @@ async function loadMaterials(base) {
   const reponse = await fetch(`${base}data/parquets.json`, { cache: 'no-cache' });
   if (!reponse.ok) throw new Error('Catalogue de matières indisponible');
   const brut = await reponse.json();
-  const liste = (brut.parquets || []).map(createMaterial);
+  const liste = (brut.parquets || []).map(entry => createMaterial(entry.atlas ? { ...entry, atlas: { ...entry.atlas, url: new URL(`${base}${entry.atlas.url}`, location.href).href } } : entry));
   if (!liste.length) throw new Error('Aucune matière dans le catalogue');
   return new Map(liste.map((m) => [m.id, m]));
 }
@@ -217,6 +217,7 @@ export async function createLocalRenderer({ base = '', prefer = 'auto' } = {}) {
     if (demande) return;
     demande = true;
     Promise.resolve().then(() => {
+      if (!demande) return;
       demande = false;
       enFile(async () => {
         if (!renderer.ready || !config.material) {
@@ -251,13 +252,34 @@ export async function createLocalRenderer({ base = '', prefer = 'auto' } = {}) {
     });
   }
 
+  function floorViewportFocus() {
+    const m = renderer.masks;
+    if (!m) return null;
+    const coverage = m.coverage, occlusion = m.occlusion;
+    let best = null;
+    for (const fy of [.72, .82, .92]) {
+      const y = Math.min(m.height - 1, Math.round(m.height * fy));
+      let start = -1;
+      for (let x = 0; x <= m.width; x++) {
+        const i = y * m.width + x;
+        const visible = x < m.width && coverage[i] > 127 && (!occlusion || occlusion[i] < 127);
+        if (visible && start < 0) start = x;
+        if (!visible && start >= 0) {
+          if (!best || x - start > best.length) best = { x: (start + x) / (2 * m.width), y: fy, length: x - start };
+          start = -1;
+        }
+      }
+    }
+    return best;
+  }
+
   return {
     apiVersion: API_VERSION,
     get canvas() { return canvas; },
     get scene() { return sceneId; },
     get backend() { return renderer.backend; },
     get ready() { return renderer.ready; },
-    visitSnapshot() { return renderer.ready ? { scene: structuredClone(renderer.scene), masks: renderer.masks, size: renderer.size, canvas } : null; },
+    visitSnapshot() { return renderer.ready ? { scene: structuredClone(renderer.scene), floorFocus: floorViewportFocus(), masks: renderer.masks, size: renderer.size, canvas } : null; },
     geometryDiagnostics(profile = null, angle = null) {
       const current = profile ? { ...config, material: materials.get(profile.materialFamily) || config.material,
         pattern: profile.pattern, width: profile.widthM, plankLength: profile.lengthM,
@@ -290,7 +312,7 @@ export async function createLocalRenderer({ base = '', prefer = 'auto' } = {}) {
           if (photosPieces.size >= 6) photosPieces.delete(photosPieces.keys().next().value);
           photosPieces.set(fichier, prete);
         }
-        return await renderer.precharger(scene, prete, `piece:${id}`);
+        return await renderer.precharger(scene, prete, `piece:${id}:${JSON.stringify(scene)}`);
       } catch {
         return false;
       }
@@ -319,7 +341,7 @@ export async function createLocalRenderer({ base = '', prefer = 'auto' } = {}) {
           photosPieces.set(fichier, prete);
         }
         marquer('B.photo', tPhoto);
-        { const tS = performance.now(); ouvertures += 1; try { await renderer.setScene(scene, prete, { cleCache: `piece:${id}` }); } finally { ouvertures -= 1; } marquer('D.setScene', tS); }
+        { const tS = performance.now(); ouvertures += 1; try { await renderer.setScene(scene, prete, { cleCache: `piece:${id}:${JSON.stringify(scene)}` }); } finally { ouvertures -= 1; } marquer('D.setScene', tS); }
         sceneId = id;
         return true;
       });
@@ -605,6 +627,8 @@ export async function createLocalRenderer({ base = '', prefer = 'auto' } = {}) {
 
     /** Rendu final, pleine qualité, texture fabriquée si nécessaire. */
     rendre() {
+      // Le rendu explicite remplace la demande coalescée des setters.
+      demande = false;
       return enFile(async () => {
         if (!renderer.ready || !config.material) return false;
         await renderer.preparer(config);

@@ -38,7 +38,7 @@ ok('une scène refusée n’est pas proposée',
 /* Le compte suit le manifeste : ajouter une scène suffit. */
 const plus = structuredClone(m);
 const base = scenesDe(plus, 'chambre').length;
-plus.scenes.push({ ...structuredClone(plus.scenes.find((s) => s.id === 'chambre')), id: 'chambre-test' });
+plus.scenes.push({ ...structuredClone(scenesDe(plus, 'chambre')[0]), id: 'chambre-test' });
 ok('ajouter une scène au manifeste augmente le compte', scenesDe(plus, 'chambre').length === base + 1,
   `${base} -> ${scenesDe(plus, 'chambre').length}`);
 

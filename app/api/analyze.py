@@ -77,7 +77,12 @@ async def analyze_room(
         async with request.app.state.analysis_slots:
             if await request.is_disconnected():
                 return Response(status_code=499)
-            analysis = await run_in_threadpool(analyse_room, data)
+            # Interactive previews do not wait for the optional lens audit.
+            # The regular API keeps its full diagnostic path.
+            if request.headers.get("X-Analysis-Profile") == "visualizer":
+                analysis = await run_in_threadpool(analyse_room, data, fast_preview=True)
+            else:
+                analysis = await run_in_threadpool(analyse_room, data)
     except ImageRejected as rejected:
         log.info("photo refusée", extra={"request_id": request_id, "reason": rejected.code})
         raise HTTPException(
