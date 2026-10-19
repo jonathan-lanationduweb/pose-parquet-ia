@@ -454,7 +454,8 @@ export async function createLocalRenderer({ base = '', prefer = 'auto' } = {}) {
     coverageOverlay() {
       const masks = renderer.masks;
       if (!masks) return null;
-      const { width, height, coverage } = masks;
+      const { width, height } = masks;
+      const coverage = masks.effectiveCoverage;
       if (!coveragePreview || coveragePreview.width !== width || coveragePreview.height !== height) {
         const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height;
         coveragePreview = { canvas, image: new ImageData(width, height), width, height };

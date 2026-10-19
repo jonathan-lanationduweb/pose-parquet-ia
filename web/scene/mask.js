@@ -43,6 +43,7 @@ export function createSceneMasks(scene, width, height) {
 
   const labels = new Uint8Array(width * height);
   const coverage = new Uint8ClampedArray(width * height);
+  const visibleCoverage = new Uint8ClampedArray(width * height);
   const occlusion = new Uint8ClampedArray(width * height);
   const baseOcclusion = new Uint8ClampedArray(width * height);
 
@@ -167,11 +168,9 @@ export function createSceneMasks(scene, width, height) {
         ctx.clearRect(0, 0, width, height);
         ctx.fillStyle = '#fff';
         scene.occluders.forEach((occluder) => {
-          // Un liseré adouci évite l'arête de découpe, qui trahit tout de suite
-          // un montage. Le flou est exprimé en fraction de largeur d'image.
-          const blur = Math.max(0, occluder.feather * width);
+          // Backend contours are image-refined. Canvas polygon AA provides a
+          // subpixel transition; outward blur would restore old floor around objects.
           ctx.save();
-          if (blur > 0.4) ctx.filter = `blur(${blur.toFixed(2)}px)`;
           ctx.beginPath();
           trace(ctx, occluder.polygon, width, height);
           (occluder.holes || []).forEach(hole => trace(ctx, hole, width, height));
@@ -217,6 +216,9 @@ export function createSceneMasks(scene, width, height) {
       }
     }
 
+    for (let i=0;i<coverage.length;i++) {
+      visibleCoverage[i] = Math.round(coverage[i] * (1-occlusion[i]/255));
+    }
     dirty = false;
   }
 
@@ -235,6 +237,10 @@ export function createSceneMasks(scene, width, height) {
     get coverage() {
       ensure();
       return coverage;
+    },
+    get effectiveCoverage() {
+      ensure();
+      return visibleCoverage;
     },
     get occlusion() {
       ensure();

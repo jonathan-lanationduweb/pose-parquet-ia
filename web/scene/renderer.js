@@ -107,8 +107,8 @@ export function createSceneRenderer({ prefer = 'auto' } = {}) {
    * ne dépendent pas du matériau. Avant, la carte de reflets n'existait que
    * pour une finition brillante, fabriquée au premier clic sur l'une d'elles. */
   function prepareLighting() {
-    shading = chrono('J.lumiere.shading', () => buildShadingMap(source, masks.coverage, scene.light));
-    residual = chrono('J.lumiere.residus', () => buildResidualMaps(source, masks.coverage, shading));
+    shading = chrono('J.lumiere.shading', () => buildShadingMap(source, masks.effectiveCoverage, scene.light));
+    residual = chrono('J.lumiere.residus', () => buildResidualMaps(source, masks.effectiveCoverage, shading));
     installerLumiere();
   }
 
@@ -143,15 +143,15 @@ export function createSceneRenderer({ prefer = 'auto' } = {}) {
       .getContext('2d', { willReadFrequently: true })
       .getImageData(0, 0, prepared.width, prepared.height);
     const msk = chrono('C.masques', () => createSceneMasks(sc, prepared.width, prepared.height));
-    const calcul = lumiereAsync(src, msk.coverage, sc.light);
+    const calcul = lumiereAsync(src, msk.effectiveCoverage, sc.light);
     const finir = (sh, re) => {
       const prep = { photo: prepared, source: src, masks: msk, shading: sh, residual: re, lightDir: lightDirection(sh) };
       retenirPreparation(cle, prep);
       return prep;
     };
     if (!calcul) {
-      const sh = chrono('J.lumiere.shading', () => buildShadingMap(src, msk.coverage, sc.light));
-      const re = chrono('J.lumiere.residus', () => buildResidualMaps(src, msk.coverage, sh));
+      const sh = chrono('J.lumiere.shading', () => buildShadingMap(src, msk.effectiveCoverage, sc.light));
+      const re = chrono('J.lumiere.residus', () => buildResidualMaps(src, msk.effectiveCoverage, sh));
       return finir(sh, re);
     }
     const t0 = performance.now();
@@ -160,8 +160,8 @@ export function createSceneRenderer({ prefer = 'auto' } = {}) {
       return finir(sh, re);
     }, () => {
       /* Worker en panne : le calcul se fait ici, comme avant. */
-      const sh = buildShadingMap(src, msk.coverage, sc.light);
-      return finir(sh, buildResidualMaps(src, msk.coverage, sh));
+      const sh = buildShadingMap(src, msk.effectiveCoverage, sc.light);
+      return finir(sh, buildResidualMaps(src, msk.effectiveCoverage, sh));
     }).finally(() => { if (cle && enPreparation.get(cle) === entree) enPreparation.delete(cle); });
     const entree = { photo: prepared, promesse };
     if (cle) enPreparation.set(cle, entree);
@@ -274,7 +274,7 @@ export function createSceneRenderer({ prefer = 'auto' } = {}) {
       if (cleCourante) preparees.delete(cleCourante);
       if (!masks) return false;
       const token = generationScene, editedMasks = masks;
-      const calcul = lumiereAsync(source, masks.coverage, scene.light);
+      const calcul = lumiereAsync(source, masks.effectiveCoverage, scene.light);
       if (!calcul) { prepareLighting(); return true; }
       try {
         const next = await calcul;

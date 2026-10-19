@@ -75,6 +75,7 @@ from app.services.camera_geometry import (
     focal_from_exif_35mm,
 )
 from app.services.floor_segmentation import ADE20K_RUG, clean_mask
+from app.services.foreground import build_foreground
 
 #: Focale **a priori**, en fraction de la largeur d'image, quand ni l'EXIF ni
 #: les droites de la photo ne la mesurent. 0,70 ≈ 71° de champ horizontal :
@@ -1025,10 +1026,17 @@ def build_experimental_scene(
     measured["mask_zones"] = round((time.perf_counter() - stage_start) * 1000, 3)
     stage_start = time.perf_counter()
     confiance = scene_confidence(persp, raffine)
-    rug_masks = rug_occluders(labels, floor_mask=raffine)
-    furniture_masks = furniture_occluders(labels, floor_mask=raffine)
-    occluders = rug_masks + furniture_masks
-    provenance["occluders"] = {"rugs": len(rug_masks), "furniture": len(furniture_masks)}
+    foreground = build_foreground(
+        labels, raffine, image_rgb, opening_polygons=[hole for _, holes in zones for hole in holes])
+    occluders = foreground.objects
+    rug_masks = [obj for obj in occluders if obj.kind == "rug"]
+    furniture_masks = [obj for obj in occluders if obj.kind == "furniture"]
+    measured.update(foreground.timings_ms)
+    provenance["occluders"] = {"rugs": len(rug_masks), "furniture": len(furniture_masks),
+                              "maskOpenings": sum(o.kind == "mask-opening" for o in occluders),
+                              "source": "existing semantic output + refined mask openings",
+                              "floorMask": "floorZones outer polygons",
+                              "occluderMask": "independent foreground polygons, minimal AA"}
     if labels is not None:
         part = float((labels == ADE20K_RUG).mean())
         rug.update({"present": bool(rug_masks), "areaRatio": round(part, 4)})
@@ -1047,9 +1055,9 @@ def build_experimental_scene(
             plane_ref="sol",
             order=n,
             confidence=confiance,
-            mask=Mask(polygon=ext, holes=trous),
+            mask=Mask(polygon=ext, holes=[]),
         )
-        for n, (ext, trous) in enumerate(zones)
+        for n, (ext, _trous) in enumerate(zones)
     ]
     selected = persp.camera.get("selectedPair")
     measured_points = persp.camera.get("vanishingPoints", [])
