@@ -406,3 +406,16 @@ Les clés RenderCache contiennent une révision de scène ; les ouvertures de sc
 Revue privée : `review/room-understanding-v2-1/index.html`. Reproduction hors inférence : `python -m scripts.benchmark_boundary_placement`, puis `node tools/boundary-refinement.check.mjs`. Compatibilité et isolation : `node tools/surface-product-compatibility.check.mjs`. Les tests nécessitant les photos privées ne constituent pas une dépendance de démarrage. Le jeu privé et les résultats restent ignorés par Git. La profondeur n’est pas intégrée au parcours normal.
 
 La branche inclut également les dépendances du visualiseur auparavant présentes dans l’arbre de travail (catalogue, import téléphone et murs), afin que le code publié soit reproductible. Les limites résiduelles sous les meubles et aux seuils demandent une revue humaine ; aucun rendu parfait ou pourcentage Roomvo n’est revendiqué.
+
+
+## Occlusions et compositing V2.2
+
+`foreground.py` réutilise les labels ADE20K déjà calculés : mobilier, tapis, radiateur et objets courants. Le masque sémantique complet est affiné dans le voisinage du sol sur la photo originale ; les branches fines sont conservées. Les ouvertures déjà extraites par `mask_zones` sont réutilisées comme exclusions indépendantes, sans nouveau passage de composantes connexes. Aucun modèle ni dépendance supplémentaire.
+
+La géométrie est calculée avant les occlusions et reste identique à la V2.1. Les trous des zones sont transférés dans `scene.occluders`, plutôt que de servir de géométrie de remplacement. Le masque de couverture du sol et le masque de foreground sont distincts. Leur produit (`effectiveCoverage`) sert aux cartes de lumière, aux résidus et à l’aperçu du pinceau. Les deux rasteriseurs composent le parquet éclairé avec la photo originale selon cette couverture ; les objets conservent ainsi leurs pixels et leur lumière.
+
+Le flou extérieur des polygones est supprimé : l’anticrénelage subpixel du tracé fournit la transition minimale. Cette suppression évite de recopier une bande de l’ancien sol autour du meuble. Les objets mal classés et les contours insuffisants restent corrigibles par Ajouter/Retirer ; Terminé régénère les masques et l’éclairage dans le worker, sans réanalyse IA. Les jetons de génération et les clés de scène de V2.1 restent en place.
+
+Revue privée : `review/room-occlusion-v2-2/index.html`. `scripts/benchmark_occlusion.py` rejoue les labels conservés ; `tools/occlusion-compositing.check.mjs` compare les vrais modules V2.1 et V2.2 et teste mobilier massif, pied fin, tapis, grille, retrait manuel et A/B/A, en WebGL et Canvas. `tools/occlusion-mobile.check.mjs` vérifie 390×844, pinceau, annulation, pinch à deux contacts et changement de produit sur une réponse locale conservée ; les imports réels sont couverts séparément par product-reliability.
+
+Les nombres de polygones ne sont pas des nombres de meubles, et les pixels préservés selon les classes ne sont pas une mesure de précision annotée. Les bords sombres, quelques pieds et les erreurs de classe restent à relire. Les captures restent privées, comme les labels et les poids du modèle existant. La profondeur demeure désactivée.
