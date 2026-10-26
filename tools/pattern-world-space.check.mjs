@@ -1,0 +1,11 @@
+/** Real pattern/material/angle changes must not recalibrate the camera. */
+import assert from'node:assert/strict';import fs from'node:fs';import{createRequire}from'node:module';
+const{chromium}=createRequire(import.meta.url)(process.env.PPAI_PLAYWRIGHT_CORE);const raw=JSON.parse(fs.readFileSync('web/data/scenes/chambre.json','utf8'));const base=process.env.PPAI_BASE||'http://127.0.0.1:8000';const browser=await chromium.launch({channel:'chrome',headless:true});const results=[];
+try{for(const width of[1440,390]){const p=await browser.newPage({viewport:{width,height:844}});const errors=[];p.on('pageerror',e=>errors.push(e.message));await p.goto(base+'/tools/product-concept.html?dev=1&renderer=v3&prefetch=0');await p.waitForFunction(()=>window.__concept?.adapter.connecte,null,{timeout:90000});
+ const data=await p.evaluate(async raw=>{const c=window.__concept;if(!await c.adapter.openPhotoScene(raw,location.origin+'/web/assets/images/'+raw.image.file))throw Error('fixture refused');const signature=()=>JSON.stringify(c.adapter.visitSnapshot().scene.floorZones.map(z=>z.plane.projection));const initial=signature(),measurements=[];
+ for(const id of['CHENF36014','POINF36005','BTRPF39009'])for(const widthM of[.09,.15]){const profile={...c.PREMIBEL_DEMO_PRODUCTS.find(x=>x.id===id).renderProfile,widthM};const hashes=[];
+ for(const angle of[0,90,359]){const frame=await c.adapter.applyProfile(profile,angle);if(!frame)throw Error('no actual pattern frame');if(signature()!==initial)throw Error('material/width/angle changed camera');const pixels=frame.getContext('2d').getImageData(0,0,frame.width,frame.height).data;let hash=0;for(let i=0;i<pixels.length;i+=123)hash=(hash*31+pixels[i])|0;hashes.push(hash);}
+ if(new Set(hashes).size<2)throw Error('orientation did not change actual rendering');measurements.push({id,widthM,hashes});}
+ return{signature:initial,measurements};},raw);results.push({width,...data});assert.deepEqual(errors,[]);await p.close();}
+ assert.equal(results[0].signature,results[1].signature);fs.writeFileSync('review/floor-projection-v3/pattern-matrix.json',JSON.stringify(results,null,2));console.log('PASS actual Lames / PDH / Baton: 90/150mm, 0/90/359deg; camera invariant; desktop/mobile calibration identical');
+}finally{await browser.close();}
