@@ -19,7 +19,9 @@ import { squareToQuad, invert } from './perspective.js';
  */
 export function zoneTransform(zone, width, height) {
   const quad = zone.plane.quad.map((p) => ({ x: p.x * width, y: p.y * height }));
-  const H = squareToQuad(quad);
+  const projection = zone.plane.projection;
+  if (projection?.status === 'NEEDS_MANUAL_GEOMETRY') return null;
+  const H = projection?.H?.map((v,i) => i < 3 ? v * width / projection.imageWidth : i < 6 ? v * height / projection.imageHeight : v) || squareToQuad(quad);
   if (!H) return null;
   const M = invert(H);
   if (!M) return null;

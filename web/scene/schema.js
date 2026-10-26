@@ -1,3 +1,4 @@
+import { installMetricProjection } from './floor-projection.js';
 /**
  * Schéma d'une scène.
  *
@@ -137,7 +138,7 @@ export function normalizeScene(raw) {
 
   const light = raw.light || {};
 
-  return {
+  return installMetricProjection({
     schema: SCHEMA,
     id: raw.id || raw.sceneId || 'scene',
     label: raw.label || 'Ma pièce',
@@ -153,6 +154,7 @@ export function normalizeScene(raw) {
     },
 
     camera: {
+      focalPx: num(raw.camera && raw.camera.focalPx, null),
       horizon: num(raw.camera && raw.camera.horizon, null),
       vanishingPoints: Array.isArray(raw.camera && raw.camera.vanishingPoints)
         ? clone(raw.camera.vanishingPoints)
@@ -337,7 +339,7 @@ export function normalizeScene(raw) {
     },
 
     warnings: Array.isArray(raw.warnings) ? raw.warnings.slice() : [],
-  };
+  });
 }
 
 /**

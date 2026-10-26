@@ -275,6 +275,7 @@ export async function createLocalRenderer({ base = '', prefer = 'auto' } = {}) {
 
   return {
     apiVersion: API_VERSION,
+    get geometryKey() { const s=renderer.scene; return s ? `${s.id}|${s.geometryVersion || 'legacy'}|${s.image.width}x${s.image.height}` : 'none'; },
     get canvas() { return canvas; },
     get scene() { return sceneId; },
     get backend() { return renderer.backend; },

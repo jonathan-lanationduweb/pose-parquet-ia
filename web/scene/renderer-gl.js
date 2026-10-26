@@ -1,3 +1,4 @@
+import { physicalPattern, PHYSICAL_PATTERN_GLSL } from './world-pattern.js';
 import { releve } from '../utils/perf.js';
 /**
  * Moteur de rendu — WebGL 2, sans bibliothèque.
@@ -114,6 +115,7 @@ vec4 lameBaton(vec2 p, vec2 wl) {
 // exposition CONSTANTE par tuile, qui posait une marche de luminance a chaque
 // raccord (la bande horizontale de la revue). Meme hachage que le moteur
 // Canvas : pas de sin(), dont la precision differe entre float32 et float64.
+${PHYSICAL_PATTERN_GLSL}
 float hacheSol(vec2 c) {
   float t = c.x * 0.7548776662 + c.y * 0.5698402910;
   return fract(t * t * 0.6180339887 + t);
@@ -154,6 +156,8 @@ void main() {
     floorM.x * uRot.y + floorM.y * uRot.x
   );
   vec2 uv = rotated / uTileMeters;
+  vec2 uvDerivative = uv;
+  uv = physicalPatternUV(uv);
 
   // Rupture de périodicité, rangée par rangée.
   //
@@ -206,9 +210,9 @@ void main() {
   // par rangée, mais il saute d'une rangée à l'autre. Laisser le GPU dériver
   // 'uvLu' lui ferait lire un saut à chaque changement de rangée et choisir un
   // mipmap absurde — une ligne floue apparaîtrait à chaque joint de lame.
-  vec3 albedo = textureGrad(uAlbedo, uvLu, dFdx(uv), dFdy(uv)).rgb;
+  vec3 albedo = textureGrad(uAlbedo, uvLu, dFdx(uvDerivative), dFdy(uvDerivative)).rgb;
   albedo *= varLame.x * vec3(1.0 + varLame.y, 1.0, 1.0 - varLame.y);
-  vec3 relief = textureGrad(uReliefMap, uvLu, dFdx(uv), dFdy(uv)).rgb;
+  vec3 relief = textureGrad(uReliefMap, uvLu, dFdx(uvDerivative), dFdy(uvDerivative)).rgb;
 
   // Taille du pixel au sol, en mètres : sert à estomper le relief au loin,
   // où un chanfrein de 2 mm ne peut plus être qu'un bruit.
@@ -419,7 +423,7 @@ export function createGlRenderer() {
     return map;
   };
   const u = uniforms(prog, [
-    'uQuad', 'uViewport', 'uInverse', 'uMeters', 'uOrigin', 'uRot', 'uTileMeters',
+    'uPhysical', 'uSourceBoard', 'uQuad', 'uViewport', 'uInverse', 'uMeters', 'uOrigin', 'uRot', 'uTileMeters',
     'uRowsPerTile', 'uJitter',
     'uLabel', 'uLight', 'uStrength', 'uAmbient', 'uTint', 'uReliefGain', 'uGlossGain',
     'uGamma', 'uExposure', 'uMicro', 'uAlbedoMean', 'uSaturation', 'uShadowFloor', 'uRepeatVar',

@@ -1,3 +1,4 @@
+import { physicalPattern, patternUV } from './world-pattern.js';
 /**
  * Moteur de rendu — Canvas 2D et tableaux typés.
  *
@@ -148,6 +149,8 @@ export function createCanvasRenderer() {
         const angle = ((config.angle || 0) + zone.plane.rotationDeg) * (Math.PI / 180);
         const cos = Math.cos(angle);
         const sin = Math.sin(angle);
+        const physical = zone.plane.projection ? physicalPattern(surface.material, config) : null;
+        const physicalUV = new Float64Array(2);
         const scaleMotif = config.scale || 1;
         const perMeter = TILE / (TILE_METERS * scaleMotif);
         const maxLevel = maps.albedo.length - 1;
@@ -232,18 +235,19 @@ export function createCanvasRenderer() {
             // Coordonnées dans le plan du sol, en mètres, motif compris.
             const fu = u * meters.width + origin.u;
             const fv = v * meters.depth + origin.v;
+            let txBrut = (fu * cos - fv * sin) * perMeter;
             let ty = (fu * sin + fv * cos) * perMeter;
+            if (physical) { patternUV(txBrut/TILE,ty/TILE,physical,physicalUV);txBrut=physicalUV[0]*TILE;ty=physicalUV[1]*TILE; }
             // Phase propre a chaque colonne de chevrons : cf. `uChevron`.
             if (periode) {
-              const colonne = Math.floor((fu * cos - fv * sin) * perMeter / (periode.colonne * TILE));
+              const colonne = Math.floor(txBrut / (periode.colonne * TILE));
               ty += Math.floor(fract(colonne * 0.6180339887) * periode.rangs) * periode.pas * TILE;
             }
             // Rupture de périodicité, rangée par rangée : même formule que le
             // shader, voir 'uJitter' dans renderer-gl.js. Le décalage est
             // calculé une fois pour le pixel, avant l'étalement anisotrope,
             // pour que tous ses échantillons restent dans la même rangée.
-            const txBrut = (fu * cos - fv * sin) * perMeter;
-            let tx = txBrut + decalageRangee(ty);
+            let tx = txBrut + (physical ? 0 : decalageRangee(ty));
             // Baton rompu : apparence propre a chaque lame (cf. `uBaton`).
             let varExpo = 1;
             let varChaleur = 0;

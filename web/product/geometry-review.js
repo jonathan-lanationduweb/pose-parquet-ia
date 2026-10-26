@@ -44,6 +44,8 @@ export function installGeometryReview(getConcept) {
     }
     if (snap && snap.scene) {
       for (const zone of snap.scene.floorZones) {
+        const projection = zone.plane.projection;
+        if (projection) text.push(`${projection.version} · ${projection.status} ${projection.reason || ''}`);
         const t = zoneTransform(zone, d.width, d.height);
         if (!t) continue;
         const mw = zone.plane.meters.width; const md = zone.plane.meters.depth;
@@ -56,8 +58,8 @@ export function installGeometryReview(getConcept) {
         ctx.closePath(); ctx.clip();
         for (let k = -12; k <= 12; k += 0.5) {
           for (let q = -12; q < 12; q += 0.1) {
-            if (Math.sign(w(k, q)) === signe && Math.sign(w(k, q + 0.1)) === signe) line(proj(k, q), proj(k, q + 0.1), 'rgba(101,227,211,0.85)');
-            if (Math.sign(w(q, k)) === signe && Math.sign(w(q + 0.1, k)) === signe) line(proj(q, k), proj(q + 0.1, k), 'rgba(255,255,255,0.5)');
+            if (Math.sign(w(k, q)) === signe && Math.sign(w(k, q + 0.1)) === signe) line(proj(k, q), proj(k, q + 0.1), Number.isInteger(k)?'rgba(101,227,211,0.95)':'rgba(101,227,211,0.45)');
+            if (Math.sign(w(q, k)) === signe && Math.sign(w(q + 0.1, k)) === signe) line(proj(q, k), proj(q + 0.1, k), Number.isInteger(k)?'rgba(255,255,255,0.9)':'rgba(255,255,255,0.4)');
           }
         }
         ctx.restore();
