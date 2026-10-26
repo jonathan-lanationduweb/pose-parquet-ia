@@ -1,4 +1,5 @@
-import { physicalPattern, patternUV } from './world-pattern.js';
+const DIAGNOSTIC_RENDER = typeof location!=='undefined' && new URLSearchParams(location.search).get('dev')==='1';
+import { metricJointShade, physicalPattern, patternUV, patternCellMeters } from './world-pattern.js';
 /**
  * Moteur de rendu — Canvas 2D et tableaux typés.
  *
@@ -151,6 +152,8 @@ export function createCanvasRenderer() {
         const sin = Math.sin(angle);
         const physical = zone.plane.projection ? physicalPattern(surface.material, config) : null;
         const physicalUV = new Float64Array(2);
+        const physicalCell = {};
+        const jointWidth = config.jointWidth ?? surface.material.jointWidthM ?? .0005;
         const scaleMotif = config.scale || 1;
         const perMeter = TILE / (TILE_METERS * scaleMotif);
         const maxLevel = maps.albedo.length - 1;
@@ -233,8 +236,8 @@ export function createCanvasRenderer() {
             const dvdy = (e * nw - h * ny) * invW2 * meters.depth;
 
             // Coordonnées dans le plan du sol, en mètres, motif compris.
-            const fu = u * meters.width + origin.u;
-            const fv = v * meters.depth + origin.v;
+            const fu = u * meters.width + origin.u + (config.patternOffset?.u || 0);
+            const fv = v * meters.depth + origin.v + (config.patternOffset?.v || 0);
             let txBrut = (fu * cos - fv * sin) * perMeter;
             let ty = (fu * sin + fv * cos) * perMeter;
             if (physical) { patternUV(txBrut/TILE,ty/TILE,physical,physicalUV);txBrut=physicalUV[0]*TILE;ty=physicalUV[1]*TILE; }
@@ -339,6 +342,14 @@ export function createCanvasRenderer() {
             // Relance du micro-contraste, avant tout calcul de lumiere et
             // dans les trois canaux a la fois : cf. `uMicro` dans
             // renderer-gl.js. `acc` est en 0..255, `albedoMean` aussi.
+            if (physical) {
+              const cell=patternCellMeters((fu*cos-fv*sin)/scaleMotif,(fu*sin+fv*cos)/scaleMotif,physical,physicalCell);
+              const footprint=Math.max(1e-7,Math.hypot(dudx,dvdx),Math.hypot(dudy,dvdy))/scaleMotif;
+              const gap=surface.material.surfaceFamily==='exterior_deck' ? Number(surface.material.spacingM)||0 : 0;
+              const seam=cell?metricJointShade(cell.jointDistance,footprint,Math.max(jointWidth,gap),physical):1;
+              varExpo=(1+(varExpo-1)*(config.variationStrength??1))*seam;
+              varChaleur*=config.variationStrength??1;
+            }
             const aBrut = 0.2126 * acc[0] + 0.7152 * acc[1] + 0.0722 * acc[2];
             const relance = 1 + micro * (aBrut - albedoMean) / Math.max(aBrut, 12.75);
             acc[0] = clampByte(acc[0] * relance * expoRep * varExpo * (1 + varChaleur));
@@ -401,6 +412,8 @@ export function createCanvasRenderer() {
               gg = clampByte(gris + (gg - gris) * saturation);
               bb = clampByte(gris + (bb - gris) * saturation);
             }
+
+            if(DIAGNOSTIC_RENDER && config.diagnosticUnlit===true){r=acc[0];gg=acc[1];bb=acc[2];}
 
             // Écriture : un bloc px × px en rendu allégé, chaque pixel gardant
             // sa propre couverture pour que les bords restent nets.

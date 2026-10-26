@@ -17,6 +17,7 @@ export function installComparisonView(c) {
     const after=document.getElementById('after'),compare=c.state.compare;
     const active=Boolean((compare||c.state.ba)&&after.width&&!c.photoSansScene());controls.hidden=!active;
     if(!active){mode='slider';signature=null;for(const p of panels)if(p.canvas.width){p.canvas.width=0;p.canvas.height=0;}}
+    const mobile=window.matchMedia('(max-width:700px)').matches;side.hidden=mobile;if(mobile&&mode==='side')mode='slider';
     const both=active&&mode==='side';views.hidden=!both;stage.classList.toggle('side-by-side',both);
     slider.setAttribute('aria-pressed',String(mode==='slider'));side.setAttribute('aria-pressed',String(mode==='side'));
     split.setAttribute('aria-valuenow',String(Math.round(c.state.split*100)));split.setAttribute('aria-valuetext',`${Math.round(c.state.split*100)} %`);if(both)split.classList.add('hidden');

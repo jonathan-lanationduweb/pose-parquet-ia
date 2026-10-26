@@ -1,17 +1,20 @@
 /** Development diagnostics. Projection is shared with the actual renderer. */
 import { zoneTransform } from './geometry.js';
 import { apply } from './perspective.js';
+import {patternProfile} from './texture.js';
 
 export function reviewGeometry(scene, masks, size, config) {
   if (!scene || !masks || !size) return null;
   const { width, height } = size;
   const theta = (Number(config.angle) || 0) * Math.PI / 180;
-  const nominalPlankM = Number(config.width) || 0.15;
+  const profile=config.material?patternProfile(config.material,config.pattern,config.width||null,config.plankLength||null):null;
+  const nominalPlankM = profile?.width || Number(config.width) || 0.15;
   const scale = Number(config.scale) || 1;
   const plankM = nominalPlankM * scale;
   return {
-    scene: scene.id, width, height, plankM, nominalPlankM, scale,
+    scene: scene.id, width, height, plankM, nominalPlankM, nominalLengthM:profile?.length||null, scale,
     zones: scene.floorZones.map((zone, index) => {
+      const theta = ((Number(config.angle)||0)+(zone.plane.rotationDeg||0))*Math.PI/180;
       const t = zoneTransform(zone, width, height);
       const box = masks.box(zone.id);
       if (!t || !box) return { id: zone.id, valid: false };

@@ -1,3 +1,4 @@
+import { projectionRuntime } from './metric-runtime.js';
 /**
  * Géométrie d'une zone de sol, partagée par les deux moteurs de rendu.
  *
@@ -21,7 +22,9 @@ export function zoneTransform(zone, width, height) {
   const quad = zone.plane.quad.map((p) => ({ x: p.x * width, y: p.y * height }));
   const projection = zone.plane.projection;
   if (projection?.status === 'NEEDS_MANUAL_GEOMETRY') return null;
-  const H = projection?.H?.map((v,i) => i < 3 ? v * width / projection.imageWidth : i < 6 ? v * height / projection.imageHeight : v) || squareToQuad(quad);
+  const runtime = projectionRuntime(zone.plane, width, height);
+  const metric = runtime?.camera.floorHomography(runtime.floor);
+  const H = metric ? metric.map((v,i) => i%3===0 ? v*zone.plane.meters.width : i%3===1 ? v*zone.plane.meters.depth : v) : squareToQuad(quad);
   if (!H) return null;
   const M = invert(H);
   if (!M) return null;

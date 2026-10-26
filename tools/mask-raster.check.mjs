@@ -1,0 +1,18 @@
+import assert from 'node:assert/strict';import{createRequire}from'node:module';
+const{chromium}=createRequire(import.meta.url)(process.env.PPAI_PLAYWRIGHT_CORE),b=await chromium.launch({channel:'chrome',headless:true});
+try{const p=await b.newPage({viewport:{width:1440,height:900}});await p.goto('http://127.0.0.1:8000/tools/product-concept.html?dev=1&renderer=metric&prefetch=0');await p.waitForFunction(()=>window.__concept?.adapter.connecte,null,{timeout:90000});
+const result=await p.evaluate(async()=>{
+ const c=window.__concept;await c.adapter.openRoom('chambre-parisienne');const s=c.adapter.visitSnapshot(),w=s.masks.width,h=s.masks.height;
+ const{projectionRuntime,floorQuad,METRIC_VERTEX_GLSL}=await import('../web/scene/metric-runtime.js');const rt=projectionRuntime(s.scene.floorZones[0].plane,w,h),cv=document.createElement('canvas');cv.width=w;cv.height=h;
+ const gl=cv.getContext('webgl2');if(!gl.getExtension('EXT_color_buffer_float'))throw Error('float target unavailable');
+ const compile=(type,source)=>{const sh=gl.createShader(type);gl.shaderSource(sh,source);gl.compileShader(sh);if(!gl.getShaderParameter(sh,gl.COMPILE_STATUS))throw Error(gl.getShaderInfoLog(sh));return sh;};
+ const prog=gl.createProgram();gl.attachShader(prog,compile(gl.VERTEX_SHADER,METRIC_VERTEX_GLSL));gl.attachShader(prog,compile(gl.FRAGMENT_SHADER,'#version 300 es\nprecision highp float;in vec2 vFloorMeters;out vec4 o;uniform vec2 uSize;uniform mat4 uSourceViewProj;uniform vec3 uFloorOrigin,uFloorAxisU,uFloorAxisV;void main(){vec3 world=uFloorOrigin+vFloorMeters.x*uFloorAxisU+vFloorMeters.y*uFloorAxisV;vec4 s=uSourceViewProj*vec4(world,1);o=vec4(vec2(s.x/s.w*.5+.5,.5-s.y/s.w*.5)*uSize,0,1);}'));gl.linkProgram(prog);if(!gl.getProgramParameter(prog,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(prog));gl.useProgram(prog);
+ const tex=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,tex);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA32F,w,h,0,gl.RGBA,gl.FLOAT,null);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
+ const fb=gl.createFramebuffer();gl.bindFramebuffer(gl.FRAMEBUFFER,fb);gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,tex,0);
+ const buffer=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,floorQuad(rt.source,rt.floor),gl.STATIC_DRAW);const a=gl.getAttribLocation(prog,'aFloorPosition');gl.enableVertexAttribArray(a);gl.vertexAttribPointer(a,2,gl.FLOAT,false,0,0);
+ const u=n=>gl.getUniformLocation(prog,n);gl.uniform1i(u('uMetric'),1);gl.uniform2f(u('uSize'),w,h);gl.uniformMatrix4fv(u('uViewProj'),false,rt.viewProjection);gl.uniformMatrix4fv(u('uSourceViewProj'),false,rt.sourceViewProjection);gl.uniform3fv(u('uFloorOrigin'),rt.floor.origin);gl.uniform3fv(u('uFloorAxisU'),rt.floor.axisU);gl.uniform3fv(u('uFloorAxisV'),rt.floor.axisV);
+ gl.viewport(0,0,w,h);gl.drawArrays(gl.TRIANGLE_STRIP,0,4);const data=new Float32Array(w*h*4);gl.readPixels(0,0,w,h,gl.RGBA,gl.FLOAT,data);
+ let max=0,count=0;for(let y=0;y<h;y+=7)for(let x=0;x<w;x+=7){const i=((h-y-1)*w+x)*4;if(data[i+3]){max=Math.max(max,Math.hypot(data[i]-x-.5,data[i+1]-y-.5));count++;}}
+ const i=((h-984)*w+97)*4;return{w,h,max,count,probe:Array.from(data.slice(i,i+4)),expected:[97.5,983.5]};
+});console.log(result);assert.ok(result.max<.25,'mask raster reprojection exceeds quarter pixel');
+}finally{await b.close();}

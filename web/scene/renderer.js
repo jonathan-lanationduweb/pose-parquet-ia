@@ -179,6 +179,7 @@ export function createSceneRenderer({ prefer = 'auto' } = {}) {
     backend,
     anisotropy: gl ? gl.anisotropy : 1,
 
+    get projectionStats() { return gl ? gl.geometryStats : { quadBuilds: 0, metricDraws: 0 }; },
     get scene() {
       return scene;
     },
@@ -312,7 +313,7 @@ export function createSceneRenderer({ prefer = 'auto' } = {}) {
      */
     async preparer(config, perSurface) {
       if (!this.ready || !config || !config.material) return false;
-      if (scene.floorZones.every(z => z.plane.projection?.status === 'NEEDS_MANUAL_GEOMETRY')) return false;
+      if (scene.geometryValidation?.status === 'failed' || scene.floorZones.every(z => z.plane.projection?.status === 'NEEDS_MANUAL_GEOMETRY')) return false;
       await Promise.all(scene.surfaces.map((surface) => {
         const entry = (perSurface && perSurface.get(surface.id)) || config;
         return entry && entry.material ? materialMapsAsync(entry.material, entry) : null;
@@ -344,7 +345,7 @@ export function createSceneRenderer({ prefer = 'auto' } = {}) {
      */
     paint(target, config, perSurface, step = 1) {
       if (!this.ready || !config || !config.material) return false;
-      if (scene.floorZones.every(z => z.plane.projection?.status === 'NEEDS_MANUAL_GEOMETRY')) return false;
+      if (scene.geometryValidation?.status === 'failed' || scene.floorZones.every(z => z.plane.projection?.status === 'NEEDS_MANUAL_GEOMETRY')) return false;
       mark('paint:debut');
       const { width, height } = photo;
       if (target.width !== width || target.height !== height) {

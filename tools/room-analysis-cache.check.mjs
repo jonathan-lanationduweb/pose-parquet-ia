@@ -15,9 +15,12 @@ try {
   for (let i=0;i<4;i++) await client.analyzeRoom(new File([`other${i}`],'photo.jpg'));
   const evicted = await client.analyzeRoom(file);
   assert.equal(evicted.cached,undefined); assert.equal(posts,7);
+  client.clearCache();
+  const afterReset=await client.analyzeRoom(file);
+  assert.equal(afterReset.cached,undefined);assert.equal(posts,8);
   const errors = createRoomAnalysisClient({base:'http://localhost'});
   globalThis.fetch = async()=>{posts++;return {ok:false,status:500,json:async()=>({})};};
   await errors.analyzeRoom(file); await errors.analyzeRoom(file);
-  assert.equal(posts,9);
-  console.log('PASS: identical bytes reused, changed bytes reanalysed, mutation isolated, four-result eviction, errors never cached');
+  assert.equal(posts,10);
+  console.log('PASS: identical bytes reused, changed bytes reanalysed, mutation isolated, four-result eviction, errors never cached, explicit reset clears cached analysis');
 } finally { globalThis.fetch=original; }

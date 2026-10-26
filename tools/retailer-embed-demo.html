@@ -1,0 +1,15 @@
+<!doctype html><html lang="fr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Démo intégration revendeur</title>
+<style>body{font:16px/1.5 system-ui;max-width:1000px;margin:auto;padding:16px;color:#292920}button{font:inherit;padding:12px 16px;min-height:44px}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f4f3ee;padding:12px}</style>
+<h1>Magasin démo · parquet</h1><p>Page de test du loader, sans nouvelle application ni compte.</p>
+<button id="open" disabled>Visualiser chez moi</button><button id="favorite" disabled>Synchroniser un favori</button><pre id="events" aria-live="polite">Préparation du widget…</pre>
+<script>
+window.addEventListener('pose-parquet-widget-ready',()=>{
+ const api=window.PoseParquetVisualizer,log=document.getElementById('events');
+ document.getElementById('open').disabled=false;document.getElementById('favorite').disabled=false;
+ document.getElementById('open').onclick=()=>api.open();
+ document.getElementById('favorite').onclick=()=>api.setFavorites(['CHENF39031']);
+ for(const event of ['READY','PRODUCT_SELECTED','FAVORITE_ADDED','FAVORITE_REMOVED','PRODUCT_PAGE_REQUESTED','COMMAND_RESULT'])api.on(event,p=>{log.textContent=event+' '+JSON.stringify(p)+'\n'+log.textContent.slice(0,2000);});
+});
+</script>
+<script src="../web/integration/widget.js" data-retailer-id="demo" data-catalog-id="default" data-product-id="CHENF39031" data-locale="fr-FR" data-mode="modal"></script>
+</html>

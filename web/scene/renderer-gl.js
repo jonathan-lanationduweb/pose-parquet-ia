@@ -1,4 +1,5 @@
-import { physicalPattern, PHYSICAL_PATTERN_GLSL } from './world-pattern.js';
+import { METRIC_VERTEX_GLSL, projectionRuntime, floorQuad } from './metric-runtime.js';
+import { physicalPattern, PHYSICAL_PATTERN_GLSL, METRIC_CELL_GLSL, METRIC_JOINT_GLSL } from './world-pattern.js';
 import { releve } from '../utils/perf.js';
 /**
  * Moteur de rendu — WebGL 2, sans bibliothèque.
@@ -31,19 +32,18 @@ import { zoneTransform, tileLight } from './geometry.js';
 import { albedoMeanLuma, exposureScale } from './shading.js';
 import { TILE_METERS, patternProfile, motifPeriode } from './texture.js';
 
-const VERTEX = `#version 300 es
-in vec2 aUnit;
-uniform mat3 uQuad;      // carré unité → pixels image
-uniform vec2 uViewport;
-void main() {
-  vec3 p = uQuad * vec3(aUnit, 1.0);
-  vec2 pix = p.xy / p.z;
-  gl_Position = vec4(pix.x / uViewport.x * 2.0 - 1.0, 1.0 - pix.y / uViewport.y * 2.0, 0.0, 1.0);
-}`;
+const DIAGNOSTIC_RENDER = typeof location!=='undefined' && new URLSearchParams(location.search).get('dev')==='1';
+const VERTEX = METRIC_VERTEX_GLSL;
 
 const FRAGMENT = `#version 300 es
 precision highp float;
 out vec4 outColor;
+in vec2 vFloorMeters;
+in vec3 vSourceProjection;
+uniform bool uMetric;
+${DIAGNOSTIC_RENDER ? 'uniform bool uDiagnosticUnlit;' : ''}
+uniform mat4 uSourceViewProj;
+uniform vec3 uFloorOrigin,uFloorAxisU,uFloorAxisV;
 
 uniform sampler2D uMask;      // R = zone, G = couverture, B = occlusion
 uniform sampler2D uAlbedo;    // tuile de bois, mipmaps + anisotrope
@@ -56,6 +56,16 @@ uniform mat3  uInverse;     // pixels image → carré unité
 uniform vec2  uMeters;      // largeur, profondeur réelles du plan
 uniform vec2  uOrigin;      // décalage de la trame, en mètres
 uniform vec2  uRot;         // cos, sin de l'orientation du motif
+uniform int uPatternType;
+uniform float uBoardWidth;
+uniform float uBoardLength;
+uniform float uBoardGap;
+uniform float uJointWidth;
+uniform float uFloorAngle;
+uniform float uChevronAngle;
+uniform vec2 uPatternOffset;
+uniform float uVariationStrength;
+#define uPhysical vec4((uBoardWidth+uBoardGap)/4.8,uBoardLength/4.8,uChevronAngle,float(uPatternType))
 uniform float uTileMeters;  // mètres couverts par une tuile
 uniform float uRowsPerTile; // rangées de lames dans une tuile
 uniform float uJitter;      // amplitude du décalage par rangée, 0 = aucun
@@ -115,7 +125,8 @@ vec4 lameBaton(vec2 p, vec2 wl) {
 // exposition CONSTANTE par tuile, qui posait une marche de luminance a chaque
 // raccord (la bande horizontale de la revue). Meme hachage que le moteur
 // Canvas : pas de sin(), dont la precision differe entre float32 et float64.
-${PHYSICAL_PATTERN_GLSL}
+${PHYSICAL_PATTERN_GLSL.replace(/uniform vec4 uPhysical;[^\n]*/, "")}
+${METRIC_CELL_GLSL}${METRIC_JOINT_GLSL}
 float hacheSol(vec2 c) {
   float t = c.x * 0.7548776662 + c.y * 0.5698402910;
   return fract(t * t * 0.6180339887 + t);
@@ -135,6 +146,11 @@ void main() {
   // gl_FragCoord a son origine en bas ; l'image, en haut.
   vec2 pix = vec2(gl_FragCoord.x, uViewport.y - gl_FragCoord.y);
   vec2 texel = pix / uViewport;
+  if(uMetric){
+    vec3 world=uFloorOrigin+vFloorMeters.x*uFloorAxisU+vFloorMeters.y*uFloorAxisV;
+    vec4 source=uSourceViewProj*vec4(world,1.0);
+    texel=vec2(source.x/source.w*.5+.5,.5-source.y/source.w*.5);
+  }
   vec4 mask = texture(uMask, texel);
 
   // Chaque zone ne peint que les pixels qui lui appartiennent : les
@@ -144,16 +160,19 @@ void main() {
   float cover = mask.g * (1.0 - mask.b);
   if (cover <= 0.004) discard;
 
-  vec3 n = uInverse * vec3(pix, 1.0);
-  if (abs(n.z) < 1e-8) discard;
-  vec2 floorM = (n.xy / n.z) * uMeters + uOrigin;
-
+  vec2 floorM;
+  if (uMetric) floorM = vFloorMeters + uPatternOffset;
+  else {
+    vec3 n = uInverse * vec3(pix, 1.0);
+    if (abs(n.z) < 1e-8) discard;
+    floorM = (n.xy / n.z) * uMeters + uOrigin;
+  }
   // L'orientation du motif est appliquée dans le plan du sol, jamais dans
   // l'image : les chevrons d'un Point de Hongrie appartiennent au sol et
   // fuient avec lui.
   vec2 rotated = vec2(
-    floorM.x * uRot.x - floorM.y * uRot.y,
-    floorM.x * uRot.y + floorM.y * uRot.x
+    floorM.x * cos(uFloorAngle) - floorM.y * sin(uFloorAngle),
+    floorM.x * sin(uFloorAngle) + floorM.y * cos(uFloorAngle)
   );
   vec2 uv = rotated / uTileMeters;
   vec2 uvDerivative = uv;
@@ -211,7 +230,13 @@ void main() {
   // 'uvLu' lui ferait lire un saut à chaque changement de rangée et choisir un
   // mipmap absurde — une ligne floue apparaîtrait à chaque joint de lame.
   vec3 albedo = textureGrad(uAlbedo, uvLu, dFdx(uvDerivative), dFdy(uvDerivative)).rgb;
-  albedo *= varLame.x * vec3(1.0 + varLame.y, 1.0, 1.0 - varLame.y);
+  albedo *= mix(1.0,varLame.x,uVariationStrength) * vec3(1.0+varLame.y*uVariationStrength,1.0,1.0-varLame.y*uVariationStrength);
+  if(uMetric){
+    MetricBoard cell=metricBoard(uvDerivative*4.8);
+    float footprint=max(length(dFdx(uvDerivative*4.8)),length(dFdy(uvDerivative*4.8)));
+    float seam=metricJointShade(cell.jointDistance,footprint,max(uJointWidth,uBoardGap));
+    albedo*=seam;
+  }
   vec3 relief = textureGrad(uReliefMap, uvLu, dFdx(uvDerivative), dFdy(uvDerivative)).rgb;
 
   // Taille du pixel au sol, en mètres : sert à estomper le relief au loin,
@@ -237,6 +262,7 @@ void main() {
   // Variation lente d'exposition, continue, sur des cellules de 1,6 m de sol.
   albedo *= 1.0 + uRepeatVar * (bruitSol(floorM / 1.6) - 0.5) * 2.0;
 
+  ${DIAGNOSTIC_RENDER ? 'if(uDiagnosticUnlit){outColor=vec4(clamp(albedo,0.0,1.0),cover);return;}' : ''}
   float aLum = dot(albedo, vec3(0.2126, 0.7152, 0.0722));
 
   vec4 lit = texture(uShading, texel);
@@ -423,7 +449,7 @@ export function createGlRenderer() {
     return map;
   };
   const u = uniforms(prog, [
-    'uPhysical', 'uSourceBoard', 'uQuad', 'uViewport', 'uInverse', 'uMeters', 'uOrigin', 'uRot', 'uTileMeters',
+    'uDiagnosticUnlit', 'uMetric', 'uViewProj', 'uSourceViewProj', 'uFloorOrigin', 'uFloorAxisU', 'uFloorAxisV', 'uPatternType','uBoardWidth','uBoardLength','uBoardGap','uJointWidth','uFloorAngle','uChevronAngle','uPatternOffset','uVariationStrength','uSourceBoard', 'uQuad', 'uViewport', 'uInverse', 'uMeters', 'uOrigin', 'uRot', 'uTileMeters',
     'uRowsPerTile', 'uJitter',
     'uLabel', 'uLight', 'uStrength', 'uAmbient', 'uTint', 'uReliefGain', 'uGlossGain',
     'uGamma', 'uExposure', 'uMicro', 'uAlbedoMean', 'uSaturation', 'uShadowFloor', 'uRepeatVar',
@@ -446,6 +472,25 @@ export function createGlRenderer() {
   };
   const vao = quadBuffer(prog, 'aUnit');
   const blitVao = quadBuffer(blit, 'aPos');
+  const metricQuads = new Map();
+  const geometryStats = { quadBuilds: 0, metricDraws: 0 };
+  const clearMetricQuads = () => {
+    for (const q of metricQuads.values()) { gl.deleteBuffer(q.buffer); gl.deleteVertexArray(q.vao); }
+    metricQuads.clear();
+  };
+  function metricQuadFor(zone, runtime) {
+    const cached = metricQuads.get(zone);
+    if (cached?.projection === zone.plane.projection) return cached;
+    if (cached) { gl.deleteBuffer(cached.buffer); gl.deleteVertexArray(cached.vao); }
+    const vao = gl.createVertexArray(), buffer = gl.createBuffer();
+    gl.bindVertexArray(vao);gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, floorQuad(runtime.source, runtime.floor), gl.STATIC_DRAW);
+    const attribute = gl.getAttribLocation(prog, 'aFloorPosition');
+    gl.enableVertexAttribArray(attribute);gl.vertexAttribPointer(attribute, 2, gl.FLOAT, false, 0, 0);
+    const result = { vao, buffer, projection: zone.plane.projection };
+    metricQuads.set(zone, result);geometryStats.quadBuilds++;
+    return result;
+  }
 
   const makeTexture = (unit, { filter = gl.NEAREST, wrap = gl.CLAMP_TO_EDGE, mips = false } = {}) => {
     const texture = gl.createTexture();
@@ -486,6 +531,7 @@ export function createGlRenderer() {
 
   shared = {
     backend: 'webgl2',
+    get geometryStats() { return { ...geometryStats }; },
     canvas,
     anisotropy,
 
@@ -500,6 +546,7 @@ export function createGlRenderer() {
     },
 
     setPhoto(imageData) {
+      clearMetricQuads();
       this.resize(imageData.width, imageData.height);
       upload(tex.photo, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, imageData.width, imageData.height, imageData.data);
     },
@@ -633,19 +680,29 @@ export function createGlRenderer() {
         const transform = zoneTransform(zone, width, height);
         if (!transform) return;
 
-        // On rastérise la **boîte du masque**, pas le quadrilatère du plan.
-        // Le plan est un repère : il donne la fuite et l'échelle, et il est
-        // fréquent que le sol visible le dépasse — un mur qui rentre, un
-        // angle qui déborde du cadre. Se limiter au quadrilatère laissait
-        // justement des bandes de sol d'origine sur les côtés.
+        // Legacy comparison uses the mask box. The metric path below uses
+        // the floor/frustum world quad, independent of the mask contour.
         const rect = rectMatrix(box);
 
         const config = surface.config;
+        if(DIAGNOSTIC_RENDER)gl.uniform1i(u.uDiagnosticUnlit,config.diagnosticUnlit===true?1:0);
         const angle = ((config.angle || 0) + zone.plane.rotationDeg) * (Math.PI / 180);
         const surf = surface.maps.surface;
         const light = tileLight(transform.jac, lightDir, angle);
         this.setMaterial(`${surface.material.id}|${config.pattern}|${config.width || 'auto'}|${config.plankLength || 'auto'}|${surface.maps.albedo[0].size}|${surface.material.atlas?.version || ''}`, surface.maps);
 
+        const runtime = projectionRuntime(zone.plane, width, height);
+        gl.uniform1i(u.uMetric, runtime ? 1 : 0);
+        if (runtime) {
+          const quad = metricQuadFor(zone, runtime);
+          gl.bindVertexArray(quad.vao);
+          gl.uniformMatrix4fv(u.uViewProj, false, runtime.viewProjection);
+          gl.uniformMatrix4fv(u.uSourceViewProj, false, runtime.sourceViewProjection);
+          gl.uniform3fv(u.uFloorOrigin, runtime.floor.origin);
+          gl.uniform3fv(u.uFloorAxisU, runtime.floor.axisU);
+          gl.uniform3fv(u.uFloorAxisV, runtime.floor.axisV);
+          geometryStats.metricDraws++;
+        } else gl.bindVertexArray(vao);
         gl.uniformMatrix3fv(u.uQuad, false, transpose(rect));
         gl.uniformMatrix3fv(u.uInverse, false, transpose(transform.M));
         gl.uniform2f(u.uMeters, zone.plane.meters.width, zone.plane.meters.depth);
@@ -656,7 +713,19 @@ export function createGlRenderer() {
         // de lames sont indépendantes. Un chevron traverse les rangées, un
         // décalage les briserait.
         const profil = patternProfile(surface.material, config.pattern, config.width || null, config.plankLength || null);
-        const droit = config.pattern === 'lames';
+        const physical = runtime ? physicalPattern(surface.material, config) : null;
+        const gap=surface.material.surfaceFamily==='exterior_deck' ? Number(surface.material.spacingM)||0 : 0;
+        gl.uniform1i(u.uPatternType,physical?.type||0);
+        gl.uniform1f(u.uBoardWidth,physical ? profil.width : 0);
+        gl.uniform1f(u.uBoardLength,physical ? profil.length : 0);
+        gl.uniform1f(u.uBoardGap,gap);
+        gl.uniform1f(u.uJointWidth,config.jointWidth ?? surface.material.jointWidthM ?? .0005);
+        gl.uniform1f(u.uFloorAngle,angle);
+        gl.uniform1f(u.uChevronAngle,physical?.angle||0);
+        gl.uniform2f(u.uPatternOffset,zone.plane.origin.u+(config.patternOffset?.u||0),zone.plane.origin.v+(config.patternOffset?.v||0));
+        gl.uniform1f(u.uVariationStrength,config.variationStrength??1);
+        gl.uniform2f(u.uSourceBoard, physical?.sourceW || 0, physical?.sourceL || 0);
+        const droit = config.pattern === 'lames' && !physical;
         gl.uniform1f(u.uRowsPerTile, droit ? Math.max(1, Math.round(TILE_METERS / profil.width)) : 1);
         gl.uniform1f(u.uJitter, droit ? 1 : 0);
         const periode = motifPeriode(surface.material, config.pattern, config.width || null, config.plankLength || null);

@@ -1,0 +1,21 @@
+import fs from'node:fs';import assert from'node:assert/strict';import{createRequire}from'node:module';
+const{chromium}=createRequire(import.meta.url)(process.env.PPAI_PLAYWRIGHT_CORE),b=await chromium.launch({channel:'chrome',headless:true}),base='http://127.0.0.1:8000',root='review/retailer-ux';
+try{
+const p=await b.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true}),errors=[];p.on('pageerror',e=>errors.push(e.message));
+const response=JSON.parse(fs.readFileSync('review/room-understanding-v2-1/owner/final-api-private.json','utf8'));response.experimental.floor.sceneData=JSON.parse(fs.readFileSync('review/room-occlusion-v2-2/owner-photo/scene-after.json','utf8'));
+await p.route('**/health',r=>r.fulfill({json:{status:'ok',experimentalFloor:'ready'}}));await p.route('**/v1/analyze-room',r=>r.fulfill({json:response}));
+await p.goto(base+'/tools/product-concept.html');await p.waitForFunction(()=>window.__retailerUX&&window.__concept.adapter.connecte,null,{timeout:90000});await p.setInputFiles('#file','C:/Users/jonat/Downloads/test salon parquet.png');await p.waitForFunction(()=>window.__concept.etatProduit()==='RENDER_READY',null,{timeout:90000});
+const correction=[];
+for(const width of[320,360,375,390,430]){
+ await p.setViewportSize({width,height:844});await p.evaluate(()=>window.__concept.floorEditStart());await p.waitForFunction(()=>window.__concept.floorEdit.actif);
+ const controls=await p.locator('#floorTools button:visible').evaluateAll(bs=>bs.map(b=>({text:b.textContent,w:b.getBoundingClientRect().width,h:b.getBoundingClientRect().height,x:b.getBoundingClientRect().left,right:b.getBoundingClientRect().right})));
+ assert.equal(controls.length,4,JSON.stringify({errors,dom:await p.locator('#floorTools').evaluate(e=>({className:e.className,display:getComputedStyle(e).display}))}));for(const button of controls){assert.ok(button.w>=44&&button.h>=44);assert.ok(button.x>=0&&button.right<=width+1);}
+ await p.screenshot({path:root+'/correction-'+width+'.png'});await p.locator('#floorDone').tap();await p.waitForFunction(()=>window.__concept.etatProduit()==='RENDER_READY'&&!window.__concept.state.applying,null,{timeout:90000});correction.push({width,controls});
+}
+await p.evaluate(()=>{const c=window.__concept;c.startCompare();c.select(c.state.productId==='CHENF39031'?'BTRPF39009':'CHENF39031');});await p.waitForFunction(()=>window.__concept.state.appliedB?.source==='live',null,{timeout:90000});assert.ok(await p.locator('#compareSlider').isVisible());assert.equal(await p.locator('#compareSideBySide').isVisible(),false);
+assert.equal(await p.evaluate(()=>window.__concept.state.applied.key.split('|')[2]===window.__concept.state.appliedB.key.split('|')[2]),true);
+await p.evaluate(()=>window.__concept.startCompare());await p.locator('#photoMore').tap();const download=p.waitForEvent('download');await p.getByRole('button',{name:'Télécharger le rendu',exact:true}).click();await (await download).saveAs(root+'/export-private.jpg');
+const exported=fs.statSync(root+'/export-private.jpg').size;assert.ok(exported>1000);await p.locator('#photoActions').getByText('Voir la matière',{exact:true}).tap();assert.ok(await p.locator('#materialZoom').isVisible());await p.locator('#materialZoom .pp-close').tap();assert.deepEqual(errors,[]);await p.close();
+const host=await b.newPage();await host.goto(base+'/tools/retailer-embed-demo.html');await host.locator('#open').click();const fallback=host.locator('dialog a[target="_blank"]');await fallback.waitFor({state:'visible',timeout:15000});assert.ok((await fallback.getAttribute('href')).includes('productId=CHENF39031'));await host.close();
+fs.writeFileSync(root+'/decision-correction-results.json',JSON.stringify({correction,compare:'same scene/angle, mobile slider',exportBytes:exported,materialZoom:true,liveDenyFallback:true,pageErrors:errors},null,2));console.log('PASS four correction actions at five mobile widths, same-angle A/B, export, material zoom, live DENY fallback');
+}finally{await b.close();}

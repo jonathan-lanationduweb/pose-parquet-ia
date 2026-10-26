@@ -1,9 +1,13 @@
+import { projectionRuntime } from './metric-runtime.js';
+import { validateGeometry } from './geometry-validation.js';
+import { CameraModel } from './camera-model.js';
+import { FloorPlane } from './floor-plane.js';
 /** One calibrated pinhole camera and an orthonormal metric ground plane.
  * The homography below is K [axisU axisV origin], not a second image warp.
  * Camera height is an explicit assumption, never a measured room dimension.
  */
 import { squareToQuad, invert, apply } from './perspective.js';
-export const GEOMETRY_VERSION = 'floor-projection-v3.1';
+export const GEOMETRY_VERSION = 'floor-projection-metric@1';
 const dot=(a,b)=>a.reduce((s,v,i)=>s+v*b[i],0);
 const mul=(a,s)=>a.map(v=>v*s);
 const sub=(a,b)=>a.map((v,i)=>v-b[i]);
@@ -36,17 +40,17 @@ export function metricFloor(plane,camera={},image={}) {
  u=mul(diagonal.map((x,i)=>x+anti[i]),Math.SQRT1_2);
  const v=mul(sub(diagonal,anti),Math.SQRT1_2);
  let normal=unit(cross(u,v));if(normal[1]<0)normal=mul(normal,-1);
- const heightM=camera.heightM>0?camera.heightM:1.5;
+ const heightM=Number.isFinite(camera.heightM)?camera.heightM:1.5;
+ if(heightM<=0)return fail('invalid-camera-height');
  const oldOrigin=unproject(column(old,2)),distance=dot(normal,oldOrigin);
  if(!(distance>1e-8))return fail('plane-behind-camera');
  const origin=mul(oldOrigin,heightM/distance);
- const projectRay=p=>[focal*p[0]+cx*p[2],focal*p[1]+cy*p[2],p[2]];
- const cu=projectRay(u),cv=projectRay(v),co=projectRay(origin);
- const metric=[cu[0],cv[0],co[0],cu[1],cv[1],co[1],cu[2],cv[2],co[2]];
- const inverse=invert(metric);if(!inverse)return fail('singular-projection');
- const horizon=[normal[0]/focal,normal[1]/focal,normal[2]-normal[0]*cx/focal-normal[1]*cy/focal];
- const horizonY=-(horizon[0]*cx+horizon[2])/horizon[1];
- if(!Number.isFinite(horizonY)||horizonY>height*.85||horizonY< -height*.25)return fail('implausible-horizon');
+ const centralCamera=new CameraModel({imageWidth:width,imageHeight:height,fx:focal,fy:focal,cx,cy,heightM:heightM});
+ const centralFloor=new FloorPlane({origin,axisU:u,axisV:v,normal,widthMeters:plane.meters.width,depthMeters:plane.meters.depth});
+ const metric=centralCamera.floorHomography(centralFloor),inverse=invert(metric);
+ if(!inverse)return fail('singular-projection');
+ const cu=centralCamera.homogeneousDirection(u),cv=centralCamera.homogeneousDirection(v);
+ const horizonY=centralCamera.horizonAt(cx,centralFloor); if(!Number.isFinite(horizonY)||horizonY>height*.85||horizonY< -height*.25)return fail('implausible-horizon');
  const project=(x,y)=>apply(metric,x,y);
  const atPixel=(x,y)=>apply(inverse,x,y);
  const widthAt=(x,y,plank=.09)=>{
@@ -67,13 +71,22 @@ export function metricFloor(plane,camera={},image={}) {
 /** No pattern, material, screen crop or rotation can change this calibration. */
 export function installMetricProjection(scene) {
  const query=typeof location!=='undefined'?new URLSearchParams(location.search):null;
- // V3 stays in DEV until its metric grid passes the owner's visual gate.
- const legacy=query ? !(query.get('dev')==='1'&&query.get('renderer')==='v3') : false;
+ // Metric projection is the product path. The historical renderer is an explicit DEV comparison only.
+ const legacy=Boolean(query?.get('dev')==='1'&&query.get('renderer')==='legacy');
  for(const z of scene.floorZones){
   if(legacy){z.plane.projection=null;continue;}
   const {project,atPixel,widthAt,...serializable}=metricFloor(z.plane,scene.camera,scene.image);
   z.plane.projection=serializable;
  }
+ if(!legacy){
+  for(const zone of scene.floorZones){
+   const runtime=projectionRuntime(zone.plane,scene.image.width,scene.image.height);
+   zone.geometryValidation=runtime?validateGeometry(runtime.source,runtime.floor,scene,zone):{status:'failed',reasons:[zone.plane.projection.reason]};
+  }
+  const validations=scene.floorZones.map(z=>z.geometryValidation);
+  scene.geometryValidation={status:validations.some(v=>v.status==='failed')?'failed':validations.some(v=>v.status==='degraded')?'degraded':'reliable',zones:validations,reasons:[...new Set(validations.flatMap(v=>v.reasons))]};
+ }
+ if(scene.geometryValidation)scene.geometryValidation.decision=scene.geometryValidation.status==='failed'?'MANUAL_REQUIRED':scene.geometryValidation.status==='degraded'?'APPROXIMATE':'AUTO_RENDER';
  scene.geometryVersion=legacy?'legacy':GEOMETRY_VERSION;
  return scene;
 }

@@ -29,7 +29,7 @@ export function installProductHome(getConcept) {
   };
   const back=document.createElement('button');back.id='homeReturn';back.className='home-return';back.type='button';back.textContent='‹ Pièces';back.setAttribute('aria-label','Retour à mes pièces');back.onclick=home;document.querySelector('header').insertBefore(back,document.getElementById('hSwap'));
   const download=document.createElement('button');download.type='button';download.textContent='Télécharger le rendu';download.title='Télécharger le rendu';download.setAttribute('aria-label','Télécharger le rendu');
-  download.onclick=()=>{if(c.state.applying)return;const canvas=document.getElementById('after');if(!canvas?.width||!c.state.applied.source)return;canvas.toBlob(blob=>{if(!blob)return;const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='mon-parquet.jpg';a.click();setTimeout(()=>URL.revokeObjectURL(url),5000);},'image/jpeg',.94);};
+  download.onclick=()=>{if(c.state.applying)return;const canvas=document.getElementById('after');if(!canvas?.width||!c.state.applied.source)return;canvas.toBlob(blob=>{if(!blob)return;const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='mon-parquet.jpg';a.click();window.dispatchEvent(new Event('pp:download'));setTimeout(()=>URL.revokeObjectURL(url),5000);},'image/jpeg',.94);};
   const tools=document.getElementById('tools');
   const actions=document.createElement('div');actions.id='photoActions';actions.hidden=true;
   const more=document.createElement('button');more.type='button';more.id='photoMore';more.textContent='⋯';more.setAttribute('aria-label','Options de la photo');more.setAttribute('aria-expanded','false');

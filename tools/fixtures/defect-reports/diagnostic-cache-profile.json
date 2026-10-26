@@ -1,0 +1,62 @@
+{
+  "schema": "pose-parquet/defect-report@1",
+  "id": "diagnostic-cache-profile",
+  "sceneId": "chambre",
+  "imageSize": {
+    "width": 1600,
+    "height": 1067
+  },
+  "defects": [
+    {
+      "code": "D4",
+      "severity": "MODERATE",
+      "region": "center",
+      "description": "Diagnostic et unlit lisent B alors que A est affiché depuis le cache.",
+      "suspectedModules": [
+        "board dimensions"
+      ],
+      "confirmationTest": "A 90 mm/17° → B 150 mm/90° → A, vérifier snapshot et uniforme unlit.",
+      "status": "RESOLVED",
+      "result": "Avant cache=true, largeur=0.15, angle=90 ; après largeur=0.09, angle=17, uniforme=0.09.",
+      "rootCause": "Configuration du dernier rendu GPU utilisée à la place du profil du frame actif.",
+      "fix": "Passage de activeProfile et activeAngle aux diagnostics.",
+      "regression": "tools/diagnostic-state.check.mjs",
+      "visualResult": "better"
+    },
+    {
+      "code": "D5",
+      "severity": "MODERATE",
+      "region": "center",
+      "description": "Diagnostic et unlit lisent B alors que A est affiché depuis le cache.",
+      "suspectedModules": [
+        "product options"
+      ],
+      "confirmationTest": "A 90 mm/17° → B 150 mm/90° → A, vérifier snapshot et uniforme unlit.",
+      "status": "RESOLVED",
+      "result": "Avant cache=true, largeur=0.15, angle=90 ; après largeur=0.09, angle=17, uniforme=0.09.",
+      "rootCause": "Configuration du dernier rendu GPU utilisée à la place du profil du frame actif.",
+      "fix": "Passage de activeProfile et activeAngle aux diagnostics.",
+      "regression": "tools/diagnostic-state.check.mjs",
+      "visualResult": "better"
+    }
+  ],
+  "confirmedCorrect": [
+    {
+      "code": "D3",
+      "status": "PASS",
+      "scope": "Calibration inchangée sur A/B/A et unlit ; pas de validation architecturale globale.",
+      "evidence": "cameraUnchanged dans tools/diagnostic-state.check.mjs."
+    },
+    {
+      "code": "D1",
+      "status": "PASS",
+      "scope": "Masque effectif inchangé sur A/B/A ; pas de validation sémantique du contour.",
+      "evidence": "maskUnchanged dans tools/diagnostic-state.check.mjs."
+    }
+  ],
+  "references": {
+    "original": true,
+    "roomvo": false
+  },
+  "reviewStatus": "RESOLVED_DIAGNOSTIC_ONLY"
+}

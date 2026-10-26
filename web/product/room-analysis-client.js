@@ -225,6 +225,7 @@ export function createRoomAnalysisClient({ base, timeoutMs = 120000 } = {}) {
   return {
     get base() { return base; },
     get generation() { return generation; },
+    clearCache() { recent.clear(); },
     analyzeRoom,
     health,
     cancel,

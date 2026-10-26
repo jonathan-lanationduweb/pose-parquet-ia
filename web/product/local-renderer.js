@@ -139,6 +139,11 @@ export async function createLocalRenderer({ base = '', prefer = 'auto' } = {}) {
 
   /** Le seul état de configuration. Pas d'état d'iframe, pas d'état de Studio. */
   let config = { material: null, pattern: 'lames', width: null, plankLength: null, angle: 0, scale: 1 };
+  const diagnosticConfig=(profile=null,angle=null)=>profile?{
+    ...config,material:materials.get(profile.materialFamily)||config.material,
+    pattern:profile.pattern,width:profile.widthM,plankLength:profile.lengthM,
+    scale:profile.scale||1,angle:angle||0
+  }:{...config};
   let sceneId = null;
   let coveragePreview = null;
   /** Photos décodées des pièces de démonstration, par fichier. */
@@ -275,12 +280,26 @@ export async function createLocalRenderer({ base = '', prefer = 'auto' } = {}) {
 
   return {
     apiVersion: API_VERSION,
+    get geometryValidation() { return renderer.scene?.geometryValidation || null; },
+    get projectionStats() { return renderer.projectionStats; },
     get geometryKey() { const s=renderer.scene; return s ? `${s.id}|${s.geometryVersion || 'legacy'}|${s.image.width}x${s.image.height}` : 'none'; },
     get canvas() { return canvas; },
     get scene() { return sceneId; },
     get backend() { return renderer.backend; },
     get ready() { return renderer.ready; },
     visitSnapshot() { return renderer.ready ? { scene: structuredClone(renderer.scene), floorFocus: floorViewportFocus(), masks: renderer.masks, size: renderer.size, canvas } : null; },
+    diagnosticSnapshot(profile=null,angle=null) {
+      if(typeof location==='undefined'||new URLSearchParams(location.search).get('dev')!=='1'||!renderer.ready)return null;
+      return {scene:structuredClone(renderer.scene),masks:renderer.masks,size:renderer.size,photo:renderer.photo,canvas,config:diagnosticConfig(profile,angle)};
+    },
+    diagnosticUnlitFrame(profile=null,angle=null) {
+      if(typeof location==='undefined'||new URLSearchParams(location.search).get('dev')!=='1')return Promise.resolve(null);
+      return enFile(async()=>{
+        const target=document.createElement('canvas'),diagnostic={...diagnosticConfig(profile,angle),diagnosticUnlit:true};
+        await renderer.preparer(diagnostic);
+        return renderer.paint(target,diagnostic)?target:null;
+      });
+    },
     geometryDiagnostics(profile = null, angle = null) {
       const current = profile ? { ...config, material: materials.get(profile.materialFamily) || config.material,
         pattern: profile.pattern, width: profile.widthM, plankLength: profile.lengthM,

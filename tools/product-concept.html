@@ -612,7 +612,7 @@
      c'est l'ordre qui tranche. Ce fichier redefinit volontairement des regles
      de la feuille ci-dessus. -->
 <link rel="stylesheet" href="visualizer.css" />
-</head>
+<link rel="stylesheet" href="../web/integration/retailer-ux.css"></head>
 <body>
 
 <!--
@@ -696,7 +696,7 @@
             </svg>
           </span>
           <b>Choisir une pièce</b>
-          <span>Des pièces calibrées, prêtes à essayer.</span>
+          <span>Des pièces prêtes à essayer, sans photo à importer.</span>
         </button>
       </div>
 
@@ -766,8 +766,8 @@
          ajouter au sol, retirer du sol, annuler, terminer. -->
     <div class="vp hidden" data-vp id="vpEdit"><canvas id="floorEdit" aria-label="Zone du sol : ajoutez ou retirez au pinceau"></canvas></div>
     <div id="floorTools" class="hidden" role="toolbar" aria-label="Ajuster le sol">
-      <button type="button" data-brush="add" aria-pressed="true">Ajouter au sol</button>
-      <button type="button" data-brush="remove" aria-pressed="false">Retirer du sol</button>
+      <button type="button" data-brush="add" aria-pressed="true">Ajouter</button>
+      <button type="button" data-brush="remove" aria-pressed="false">Retirer</button>
       <span class="size" role="group" aria-label="Taille de la brosse">
         <button type="button" data-size="6" aria-pressed="false" aria-label="Brosse fine">S</button>
         <button type="button" data-size="30" aria-pressed="true" aria-label="Brosse moyenne">M</button>
@@ -1011,6 +1011,7 @@
         const revue = c.DEV && new URLSearchParams(location.search).get('revue') === '1';
         const scenes = revue ? m.scenes.filter((x) => x.sceneData) : scenesProposees(m);
         c.setRoomLibrary({ categories: categoriesGalerie(m), scenes });
+        window.dispatchEvent(new Event('pp:library-ready'));
       })
       .catch(() => { const q = document.getElementById('quickRooms'); if (q) q.textContent = 'Les pièces de démonstration sont indisponibles.'; });
   });
@@ -1018,11 +1019,13 @@
   window.__createViewTransform = createViewTransform;
   import { installProductHome } from '../web/product/product-home.js';
   window.addEventListener('load', () => installProductHome(() => window.__concept));
+  import { installRetailerUX } from '../web/integration/embed.js';
+  window.addEventListener('load', () => installRetailerUX(window.__concept));
   // Wall UI and module are deliberately absent from the floor-only build.
   import { installVisit } from '../web/product/visit-mode.js';
   window.addEventListener('load', () => installVisit(() => window.__concept));
-  import { installGeometryReview } from '../web/product/geometry-review.js';
-  window.addEventListener('load', () => installGeometryReview(() => window.__concept));
+
+  window.addEventListener('load', () => { if(window.__concept?.DEV) import('../web/product/geometry-review.js').then(m=>m.installGeometryReview(()=>window.__concept)); });
   window.__localEngineFactory = createLocalRenderer;
   window.__roomAnalysis = { createRoomAnalysisClient, apiBase, resumerAnalyse, sceneExperimentale, RAISONS };
   window.dispatchEvent(new Event('local-engine-ready'));
@@ -1311,6 +1314,7 @@
   }
 
   function ecrireFavoris(ensemble) {
+    if(window.__retailerUX){window.__retailerUX.saveFavorites(ensemble);return;}
     /* Le stockage peut echouer : navigation privee, quota, site bloque. Ce
        n'est pas une raison pour que le coeur cesse de reagir a l'ecran. */
     try { localStorage.setItem(CLE_FAVORIS, JSON.stringify([...ensemble])); }
@@ -2165,7 +2169,10 @@
 
       get supportsScale() { return Boolean(studio && typeof studio.setScale === 'function'); },
       visitSnapshot() { const snapshot = studio && typeof studio.visitSnapshot === 'function' ? studio.visitSnapshot() : null; return snapshot ? { ...snapshot, canvas: activeFrame || snapshot.canvas } : null; },
+      diagnosticSnapshot() { if(!DEV)return null;const snap=studio?.diagnosticSnapshot(activeProfile,activeAngle);return snap?{...snap,canvas:activeFrame||snap.canvas,renderAvailable:Boolean(activeFrame)}:null; },
+      diagnosticUnlitFrame() { return DEV ? studio?.diagnosticUnlitFrame(activeProfile,activeAngle) : Promise.resolve(null); },
       geometryDiagnostics(profile = activeProfile, angle = activeAngle) { return studio && typeof studio.geometryDiagnostics === 'function' ? studio.geometryDiagnostics(profile, angle) : null; },
+      get geometryValidation() { return studio?.geometryValidation || null; },
       get canvas() { return activeFrame || (studio && studio.canvas); },
     };
   })();
@@ -2228,7 +2235,7 @@
 
   $('photo').addEventListener('load', () => {
     // Intrinsic dimensions may arrive after the first fit; preserve later user gestures.
-    if (!viewportUserMoved) { if (window.innerWidth <= 700) fitMobile(false); else fitToView(false); }
+    if (!viewportUserMoved) { if (compactViewport()) fitMobile(false); else fitToView(false); }
     else setVp(state.vp, false);
   });
 
@@ -2368,6 +2375,7 @@
   }
 
   /** Sur téléphone, remplir le cadre en privilégiant le bas de la pièce. */
+  const compactViewport = () => window.innerWidth <= 700 || (window.innerWidth <= 1000 && window.innerHeight <= 500);
   function fitMobile(animate) {
     pendingFit = false;
     const b = stageBox(), { w, h } = sceneSize(), sc = fitScale();
@@ -2393,7 +2401,7 @@
     /* Un timer, pas requestAnimationFrame : un onglet en arriere-plan ne
        peint pas, donc ses rAF ne se declenchent pas — et l'ajustement ne se
        ferait jamais. Le rAF sert a peindre, pas a porter de l'etat. */
-    setTimeout(() => { if (pendingFit) { if (window.innerWidth <= 700) fitMobile(false); else fitToView(false); } }, 0);
+    setTimeout(() => { if (pendingFit) { if (compactViewport()) fitMobile(false); else fitToView(false); } }, 0);
   }
 
   /** Zoome en gardant le point (px, py) du cadre sous le curseur. */
@@ -2559,7 +2567,7 @@
      11 px de vide, parce que rien n'avait reborne le viewport. */
   const reborner = () => {
     if (!state.source) return;
-    if (window.innerWidth <= 700 && !viewportUserMoved && state.vp.z === 1 && adapter.scene === room()?.id) fitMobile(false);
+    if (!viewportUserMoved && state.vp.z === 1) { if (compactViewport()) fitMobile(false); else fitToView(false); }
     else setVp(state.vp, false);
   };
   // Safari distingue la hauteur de mise en page de la zone réellement visible.
@@ -2719,7 +2727,7 @@
      changer la couleur sous les yeux — et c'était l'image « trop claire »
      signalée. Elles sont aussi faites à 0° et à l'échelle 1 seulement. */
   const statiqueExacte = () => state.orientationDeg === 0 && state.floorScale === 1
-    && adapter.mode !== 'live';
+    && adapter.mode !== 'live' && DEV && new URLSearchParams(location.search).get('renderer') === 'legacy';
 
   async function applyFloor() {
     const entry = room();
@@ -2795,6 +2803,7 @@
         const ouverte = await adapter.openRoom(entry.id);
         if (!ouverte) throw new Error('piece_non_ouverte');
       }
+      if (adapter.geometryValidation?.status === 'failed') { $('clipA').classList.add('hidden'); throw new Error('geometry_failed'); }
       return adapter.applyProfile({ ...product().renderProfile, scale: state.floorScale }, state.orientationDeg);
     })();
 
@@ -2806,7 +2815,7 @@
       beginFade();
       if (!paintLayer('after', canvas)) return false;
       state.applied = { key, source: 'live' };
-      if (window.innerWidth <= 700 && pendingSceneFocus === entry.id) { fitMobile(false); pendingSceneFocus = null; }
+      if (compactViewport() && pendingSceneFocus === entry.id) { fitMobile(false); pendingSceneFocus = null; }
       if (state.produitErreur && state.produitErreur.key === key) produitEchec(null);
       $('clipA').classList.remove('hidden');
       journal('produit_rendu', { ms: Math.round(performance.now() - t0) });
@@ -2907,7 +2916,7 @@
   /** Tout ce qui entoure la pièce : découpage, cartes, capsules. */
   function paintChrome() {
     const uploaded = state.source === 'uploaded';
-    const hasRender = Boolean($('after').width) && !photoSansScene();
+    const hasRender = Boolean($('after').width) && !photoSansScene() && adapter.geometryValidation?.status !== 'failed';
 
     /* Avant/après et comparaison partagent le même séparateur : un seul
        geste, jamais deux contrôles concurrents. Le découpage est posé sur
@@ -3081,6 +3090,7 @@
     const etat = etatApplication();
     if (etat === 'applying') return '<span class="busy" data-etat="applying"><i></i>Préparation du parquet…</span>';
     if (etat === 'error') {
+      if (adapter.geometryValidation?.status === 'failed') return '<span class="busy err">Perspective à vérifier <button type="button" data-open="floor">Ajuster le sol</button></span>';
       return '<span class="busy err" data-etat="error">Impossible d’appliquer ce parquet'
         + ' <button type="button" data-open="retryApply">Réessayer</button></span>';
     }
@@ -3100,7 +3110,7 @@
         ${side === 'A' ? '<button type="button" data-open="cat" aria-label="Choisir un parquet"><span class="desktop-label">Choisir un parquet</span><span class="mobile-label">Parquets</span></button>' : ''}
         <button type="button" data-open="cus">Personnaliser</button>
         ${side === 'A' && state.compare ? '<button type="button" data-open="cmpB">Parquet B</button>' : ''}
-        ${side === 'A' && state.photoScene && state.photoScene.posee
+        ${side === 'A' && ((state.photoScene && state.photoScene.posee) || (state.source === 'demo' && adapter.geometryValidation && adapter.geometryValidation.status !== 'reliable'))
           ? `<button type="button" data-open="floor" aria-label="Ajuster la zone du sol"><svg width="15" height="15"
               viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
               stroke-linejoin="round" aria-hidden="true"><path d="M14 4l6 6-9 9H5v-6z" /><path d="M12 6l6 6" /></svg><span
@@ -3158,7 +3168,8 @@
   }
 
   function paintStatus() {
-    const conf = ANALYSIS[state.analysis];
+    const geometry = adapter.geometryValidation;
+    const conf = geometry?.status === 'degraded' ? {kind:'doubt',text:'Sol détecté approximativement'} : geometry?.status === 'failed' ? {kind:'doubt',text:'Perspective à ajuster'} : ANALYSIS[state.analysis];
     const glyph = conf.kind === 'ok'
       ? '<path d="M20 6L9 17l-5-5" />'
       : '<path d="M12 8v5" /><path d="M12 16.4v.2" />';
@@ -3182,9 +3193,9 @@
          « approximativement » : elle dit ce qui est à l'écran. */
       const ps = state.photoScene;
       const corrige = ps && ps.posee && (ps.manuelle || ps.userAdjusted);
-      const texte = corrige ? (ps.manuelle ? 'Sol tracé à la main' : 'Sol ajusté')
+      const texte = ps?.geometryValidation?.status === 'failed' ? 'Perspective à ajuster' : ps?.geometryValidation?.status === 'degraded' ? 'Sol détecté approximativement' : corrige ? (ps.manuelle ? 'Sol tracé à la main' : 'Sol ajusté')
         : (a.texte || 'Analyse de la pièce bientôt disponible');
-      const ok = corrige || a.status === 'complete' || a.status === 'experimental_scene';
+      const ok = !ps?.geometryValidation || ps.geometryValidation.status === 'reliable' ? (corrige || a.status === 'complete' || a.status === 'experimental_scene') : false;
       const glyphe = ok
         ? '<path d="M20 6L9 17l-5-5" />'
         : '<path d="M12 8v5" /><path d="M12 16.4v.2" />';
@@ -3336,6 +3347,7 @@
     closeAll();
     enter(true);
     setDemo('success', true);
+    journal('piece:selection');
     if (DEV) toast(room().label);
   }
 
@@ -3385,6 +3397,8 @@
      fiabilité dans `window.__journal`. */
   const journalDev = [];
   function journal(evenement, champs = {}) {
+    if(typeof CustomEvent === 'function' && typeof window.dispatchEvent === 'function')
+      window.dispatchEvent(new CustomEvent('pp:journey',{detail:{name:evenement,productId:champs.productId||null}}));
     if (!DEV) return;
     const entree = { t: Math.round(performance.now()), evenement, generation: state.intent, etat: etatProduit(), ...champs };
     journalDev.push(entree);
@@ -3578,7 +3592,9 @@
     const t0 = performance.now();
     const ok = await adapter.openPhotoScene(ps.raw, state.uploaded.url);
     if (jeton !== state.photoGeneration || state.source !== 'uploaded') return false;
-    if (!ok) {
+    const validation = adapter.geometryValidation;
+    ps.geometryValidation = validation;
+    if (!ok || validation?.status === 'failed') {
       /* Le moteur a refusé la scène (données invalides) : RIEN ne se pose, et
          la photo passe en correction manuelle avec un message qui le dit. */
       ps.status = 'invalid';
@@ -3588,6 +3604,7 @@
       paintChrome();
       return false;
     }
+    if (validation?.status === 'degraded') ps.status = 'approximate_render';
     ps.posee = true;
     journal('scene:posee', { statut: ps.status });
     /* Les captures retenues decrivent d'autres etats : on repart de zero. */
@@ -3609,7 +3626,7 @@
     if (!ok || jeton !== state.photoGeneration || state.source !== 'uploaded') return false;
     const avant = state.photoScene;
     state.photoScene = {
-      raw: null, manuelle: true, status: 'manual', confidence: null,
+      raw: null, manuelle: true, status: 'manual', confidence: null, geometryValidation: adapter.geometryValidation,
       perspective: avant ? avant.perspective : {}, posee: true, firstRenderMs: null,
     };
     adapter.forget();
@@ -3653,14 +3670,14 @@
       const dejaPose = ps.status === 'approximate_render' && ps.posee;
       titre = dejaPose ? 'Rendu approximatif' : 'Sol détecté approximativement';
       texte = dejaPose ? 'Échelle estimée. Vous pouvez ajuster le sol.'
-        : 'Le contour ou la perspective du sol est incertain. Vérifiez la zone et la taille des lames.';
+        : 'Vérifiez la zone du sol. Vous pouvez ajouter ou retirer une zone.';
       const checks = ps.provenance?.decision?.checks || {};
       const safe = Object.keys(checks).length > 0 && !Object.values(checks).some(Boolean);
       actions = '<button type="button" data-open="floor" class="primary">Ajuster le sol</button>'
         + (!dejaPose && safe ? '<button type="button" data-open="poser">Poser quand même</button>' : '');
     } else if (ps && ps.status === 'invalid') {
-      titre = 'Sol à tracer';
-      texte = 'La zone proposée par l’analyse n’est pas exploitable. Tracez le sol au pinceau.';
+      titre = 'Ajustez la zone du sol';
+      texte = 'Ajoutez les zones de sol à recouvrir et retirez celles à conserver.';
       actions = tracer;
     } else if (ps && ps.status === 'no_floor') {
       titre = 'Sol non détecté';
@@ -3671,7 +3688,7 @@
       texte = a.texte || 'L’analyse a échoué.';
       actions = (a.status === 'rejected' ? '' : reessayer) + tracer;
     } else if (a.status === 'partial' || a.status === 'complete') {
-      titre = 'Sol à tracer';
+      titre = 'Ajustez la zone du sol';
       texte = 'La détection automatique du sol n’est pas active. Tracez le sol au pinceau pour poser le parquet.';
       actions = tracer;
     }
@@ -3702,6 +3719,7 @@
        son URL est liberee au lieu de fuir. */
     state.intent += 1;
     const intent = state.photoGeneration;
+    journal('photo:choisie');
     const probe = new Image();
     probe.onload = () => {
       if (state.photoGeneration !== intent) { URL.revokeObjectURL(url); return; }
@@ -3714,7 +3732,7 @@
       state.compare = null;
       state.ba = false;
       closeAll();
-      toast('Molette pour zoomer, glisser pour déplacer');
+      toast(window.innerWidth <= 700 ? 'Pincez pour zoomer, glissez pour déplacer' : 'Molette pour zoomer, glisser pour déplacer');
       /* Le temps que la personne a REELLEMENT attendu avant de voir sa
          photo : du choix du fichier a l'affichage. C'est le seul delai qui
          la concerne, et il ne depend pas de Python. */
@@ -3760,7 +3778,8 @@
     const mood = f.mood && MOODS.find((m) => m.id === f.mood);
     const query = state.catalogSearch.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
     return PREMIBEL_DEMO_PRODUCTS.filter((p) =>
-      (state.catalogCollection === 'all' || p.source === state.catalogCollection)
+      (!window.__retailerUX || window.__retailerUX.allowed(p.id))
+      && (state.catalogCollection === 'all' || p.source === state.catalogCollection)
       && (!query || `${p.name} ${PATTERNS[p.pattern]} ${TONES[p.tone]} ${p.ref}`.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().includes(query))
       && (!f.pattern || p.pattern === f.pattern)
       && (!f.tone || p.tone === f.tone)
@@ -4071,6 +4090,7 @@
     if (d === state.orientationDeg) return;
     state.intent += 1;
     state.orientationDeg = d;
+    journal('orientation:change');
     /* Le sol doit vraiment tourner : on invalide ce qui est dessiné. */
     state.applied = { key: null, source: null };
     state.appliedB = { key: null, source: null };
@@ -4131,7 +4151,7 @@
      ===================================================================== */
   function select(id, silent) {
     const entry = product(id);
-    if (!entry) return;
+    if (!entry || (window.__retailerUX && !window.__retailerUX.allowed(id))) return;
     if (entry.renderable === false) { ouvrirFicheLegere(entry); return; }
     if (window.PPSurfaceProducts.status(entry, room().surfaceType) === 'incompatible') {
       toast('Ce produit ne convient pas à cette surface'); return;
@@ -4145,6 +4165,7 @@
       }
       state.intent += 1;
       state.compare = { b: id };
+      journal('comparaison:ouverte');
       state.picking = false;
       $('catCount').textContent = comptesListe(visible());
       state.split = 0.5;
@@ -4155,6 +4176,7 @@
     }
     state.intent += 1;
     state.productId = id;
+    journal('produit:selection');
     if (!silent && window.innerWidth < 1024 && drawer.isOpen && ['catalog', 'favorites'].includes(drawer.mode)) closeAll();
     paint();
     /* Seule la carte sélectionnée change : reconstruire les 428 cartes à
@@ -4184,7 +4206,7 @@
     f.innerHTML = `${vignette ? `<img src="${vignette}" alt="" />` : ''}
       <div><b>${entry.name}</b><span>Aperçu 3D bientôt disponible</span>
       <p>Cette référence n’a pas encore de matière fidèle : nous ne la posons pas avec une matière inventée.</p>
-      <div class="fl-actions">${entry.productUrl ? `<a href="${entry.productUrl}" target="_blank" rel="noopener noreferrer">Voir la fiche produit</a>` : ''}
+      <div class="fl-actions">${entry.productUrl ? `<a data-sheet="${entry.ref}" href="${entry.productUrl}" target="_blank" rel="noopener noreferrer">Voir la fiche produit</a>` : ''}
       <button type="button" data-fermer>Fermer</button></div></div>`;
     f.hidden = false;
   }
@@ -4223,6 +4245,7 @@
     if (state.favourites.has(id)) state.favourites.delete(id);
     else state.favourites.add(id);
     ecrireFavoris(state.favourites);
+    journal(state.favourites.has(id)?'favori:ajout':'favori:retrait',{productId:id});
     paintFavCount();
     paint();
     paintCatalogue();
@@ -4604,7 +4627,7 @@
 
   function floorEditStart() {
     const ps = state.photoScene;
-    if (!state.uploaded) return;
+    if (!state.uploaded && state.source !== 'demo') return;
     if (!adapter.pinceau.disponible()) { toast('Correction indisponible sur ce moteur'); return; }
     closeAll();
     // Manual correction supersedes a pending automatic analysis.
@@ -4616,12 +4639,13 @@
          proposée (on la pose) ; il n'y a rien d'exploitable (on part d'une
          scène manuelle). Le troisième est le filet de sécurité : TOUTE photo
          affichée peut recevoir un parquet. */
-      let ok = Boolean(ps && ps.posee);
+      let ok = Boolean(ps && ps.posee) || (state.source === 'demo' && adapter.scene === room()?.id);
       if (!ok && ps && ps.raw && ps.status !== 'invalid') ok = await appliquerScenePhoto(jeton);
       if (!ok) ok = await ouvrirSceneManuelle(jeton);
       if (!ok || jeton !== state.photoGeneration) { if (jeton === state.photoGeneration) toast("Impossible d'ouvrir la scène"); return; }
       journal('correction:debut');
       floorEdit.actif = true;
+      document.getElementById('toast').classList.remove('on');
       document.body.classList.add('floor-editing');
       $('vpEdit').classList.remove('hidden');
       $('floorTools').classList.remove('hidden');
@@ -4797,6 +4821,7 @@
     appliquerMatieresExactes, ouvrirFicheLegere,
     photoSansScene, poserScenePhoto, appliquerScenePhoto, floorEditStart, floorEditStop, floorEdit,
     etatProduit, phaseProduit, relancerAnalyse, ouvrirSceneManuelle,
+    clearAnalysisCache: () => analysisClient?.clearCache?.(),
     getRenderStateKey: (profile, deg) => adapter.getRenderStateKey(profile, deg),
     ORIENTATIONS, ORIENT_PRESETS, normDeg, paintDial, setOrientation,
     ENGINE_URL, CAPABILITIES_NONE,

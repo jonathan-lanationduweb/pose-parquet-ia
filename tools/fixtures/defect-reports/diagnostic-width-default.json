@@ -1,0 +1,46 @@
+{
+  "schema": "pose-parquet/defect-report@1",
+  "id": "diagnostic-width-default",
+  "sceneId": "fixture",
+  "imageSize": {
+    "width": 100,
+    "height": 100
+  },
+  "defects": [
+    {
+      "code": "D4",
+      "severity": "MODERATE",
+      "region": "center",
+      "description": "Diagnostic 150 mm pour une lame déclarée 190 mm, sans override.",
+      "suspectedModules": [
+        "board dimensions"
+      ],
+      "confirmationTest": "reviewGeometry avec material.boardWidth=0.19, config.width absent.",
+      "status": "RESOLVED",
+      "result": "Avant 0.15 m ; après 0.19 m. Longueur 1.80 m et multiplicateur également vérifiés.",
+      "rootCause": "Repli constant 0.15 au lieu du profil effectif du matériau.",
+      "fix": "web/scene/geometry-review.js utilise patternProfile.",
+      "regression": "tools/defect-report.check.mjs",
+      "visualResult": "better"
+    }
+  ],
+  "confirmedCorrect": [
+    {
+      "code": "D1",
+      "status": "PASS",
+      "scope": "Buffers de masque inchangés par la mesure de largeur ; pas de jugement sur les contours.",
+      "evidence": "Assertions typed-array dans tools/defect-report.check.mjs."
+    },
+    {
+      "code": "D3",
+      "status": "PASS",
+      "scope": "Structure du plan/projection inchangée par la correction du diagnostic.",
+      "evidence": "Scène comparée avant/après dans tools/defect-report.check.mjs."
+    }
+  ],
+  "references": {
+    "original": false,
+    "roomvo": false
+  },
+  "reviewStatus": "RESOLVED_DIAGNOSTIC_ONLY"
+}
