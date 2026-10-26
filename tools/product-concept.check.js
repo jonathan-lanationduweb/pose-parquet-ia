@@ -308,6 +308,7 @@ global.window = {
    reclamp) : il doit s'executer. Les delais plus longs sont de l'UI temporisee
    (voile d'analyse, toast) et restent ignores, sinon les sequences testees
    sauteraient des etapes. */
+global.window.__createViewTransform = require('../web/product/view-transform.js').createViewTransform;
 global.setTimeout = (fn, ms) => { if (!ms) fn(); return 1; };
 global.clearTimeout = () => {};
 /* Pas d'animation dans la batterie : les rAF sont ignores, donc `setVp` est
@@ -1162,7 +1163,8 @@ ok('prefers-reduced-motion est respecte',
   const rafAvant = global.requestAnimationFrame;
   const stAvant = global.setTimeout;
   global.requestAnimationFrame = () => 0;          /* jamais appele */
-  global.setTimeout = () => 0;                      /* jamais appele non plus */
+  global.window.__createViewTransform = require('../web/product/view-transform.js').createViewTransform;
+global.setTimeout = () => 0;                      /* jamais appele non plus */
   api.fitToView();
   api.zoomAt(1.5, null, null, true);
   ok('un zoom anime commet son etat sans attendre une frame',
@@ -1173,7 +1175,8 @@ ok('prefers-reduced-motion est respecte',
   api.fitToView(true);
   ok('100 % anime commet son etat sans attendre une frame', api.state.vp.z === 1);
   global.requestAnimationFrame = rafAvant;
-  global.setTimeout = stAvant;
+  global.window.__createViewTransform = require('../web/product/view-transform.js').createViewTransform;
+global.setTimeout = stAvant;
   /* Meme classe de defaut : `.fading` restait collee au sol quand rAF ne se
      declenchait pas. */
   ok('le fondu du sol ne depend pas de rAF',

@@ -146,14 +146,15 @@ def _segmentation_experimentale(
 
         if scene_exp:
             resultat.timings.update(scene_exp.provenance.get("timingsMs", {}))
-        from app.services.wall_regions import wall_regions
+        walls = None
+        if get_settings().enable_walls:
+            from app.services.wall_regions import wall_regions
 
-        try:
-            walls = wall_regions(resultat.labels, rgb)
-            resultat.timings["wall_regions"] = walls.get("timingMs", 0.0)
-        except Exception:
-            log.exception("wall regions unavailable")
-            walls = None
+            try:
+                walls = wall_regions(resultat.labels, rgb)
+                resultat.timings["wall_regions"] = walls.get("timingMs", 0.0)
+            except Exception:
+                log.exception("wall regions unavailable")
         return ExperimentalOutputs(
             walls=walls,
             floor=ExperimentalFloor(

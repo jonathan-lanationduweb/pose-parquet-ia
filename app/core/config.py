@@ -67,6 +67,7 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     log_format: str = Field(default="text", pattern="^(text|json)$")
     cors_origins: str = ""
+    enable_walls: bool = False  # Floor-only by default; no wall post-processing.
     public_url: str = ""  # Public origin used by QR codes opened from localhost.
 
     # --- Développement -----------------------------------------------------

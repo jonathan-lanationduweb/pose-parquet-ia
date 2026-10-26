@@ -1014,10 +1014,11 @@
       })
       .catch(() => { const q = document.getElementById('quickRooms'); if (q) q.textContent = 'Les pièces de démonstration sont indisponibles.'; });
   });
+  import { createViewTransform } from '../web/product/view-transform.js';
+  window.__createViewTransform = createViewTransform;
   import { installProductHome } from '../web/product/product-home.js';
   window.addEventListener('load', () => installProductHome(() => window.__concept));
-  import { installWallPaint } from '../web/product/wall-paint.js';
-  window.addEventListener('load', () => installWallPaint(window.__concept));
+  // Wall UI and module are deliberately absent from the floor-only build.
   import { installVisit } from '../web/product/visit-mode.js';
   window.addEventListener('load', () => installVisit(() => window.__concept));
   import { installGeometryReview } from '../web/product/geometry-review.js';
@@ -1680,7 +1681,7 @@
      */
     function getRenderStateKey(profile, orientationDeg) {
       const width = Number.isFinite(profile.widthM) ? profile.widthM.toFixed(4) : 'auto';
-      return [`api${ENGINE_API_VERSION}`, engineScene || 'aucune', `scene-v${sceneRevision}`,
+      return [`api${ENGINE_API_VERSION}`, engineScene || 'aucune', `scene-v${sceneRevision}`, studio?.geometryKey || 'legacy',
         profile.materialFamily, profile.pattern, width,
         Number.isFinite(profile.lengthM) ? profile.lengthM.toFixed(4) : 'auto',
         Number(orientationDeg) || 0, profile.scale || 1].join('|');
@@ -2214,8 +2215,22 @@
     if (state.source === 'uploaded' && state.uploaded) {
       return { w: state.uploaded.w || 1200, h: state.uploaded.h || 800 };
     }
-    return { w: 1200, h: 800 };
+    const photo = $('photo');
+    const expected = originalUrl(room()?.id);
+    if (photo.complete && photo.naturalWidth && photo.getAttribute('src') === expected) {
+      return { w: photo.naturalWidth, h: photo.naturalHeight };
+    }
+    if (adapter.scene === room()?.id && adapter.canvas?.width) {
+      return { w: adapter.canvas.width, h: adapter.canvas.height };
+    }
+    return { w: 1200, h: 800 }; // Loading placeholder only, never the final aspect ratio.
   }
+
+  $('photo').addEventListener('load', () => {
+    // Intrinsic dimensions may arrive after the first fit; preserve later user gestures.
+    if (!viewportUserMoved) { if (window.innerWidth <= 700) fitMobile(false); else fitToView(false); }
+    else setVp(state.vp, false);
+  });
 
   const stageBox = () => $('stage').getBoundingClientRect();
 
@@ -2284,7 +2299,10 @@
     const { w, h } = sceneSize();
     const v = shown || state.vp;
     const s = fitScale() * v.z;
-    const t = `translate3d(${v.x.toFixed(2)}px, ${v.y.toFixed(2)}px, 0) scale(${s.toFixed(5)})`;
+    const b = stageBox();
+    const view = window.__createViewTransform({imageWidth:w,imageHeight:h,viewportWidth:b.width,viewportHeight:b.height,zoom:v.z,offsetX:v.x,offsetY:v.y});
+    const t = view.css;
+    window.__viewTransform = view;
     document.querySelectorAll('[data-vp]').forEach((el) => {
       el.style.width = `${w}px`;
       el.style.height = `${h}px`;
@@ -4664,9 +4682,11 @@
 
   /** Point du doigt → coordonnees normalisees de la scene. */
   function floorEditPoint(e) {
-    const r = $('floorEdit').getBoundingClientRect();
-    if (!r.width || !r.height) return null;
-    return { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height };
+    const view = window.__viewTransform;
+    if (!view) return null;
+    const stage = stageBox();
+    const point = view.toImage({x:e.clientX-stage.left,y:e.clientY-stage.top});
+    return {x:point.x/view.imageWidth,y:point.y/view.imageHeight};
   }
 
   /** Rayon de brosse : en pixels de MASQUE, depuis la taille a l'ecran. */
