@@ -153,7 +153,7 @@ Le cas privé ne devient pas PASS. Le couloir reste un témoin négatif.
 
 ## Vérifications et performance
 
-40 tests pytest ciblés ; couverture Python -> Canvas sur six masques ;
+40 tests pytest ciblés, suites synthétiques précision photo/caméra/depth également validées ; couverture Python -> Canvas sur six masques ;
 alpha mixte ; rapport strict ; sol neutre WebGL/Canvas ; diagnostics normaux
 inchangés ; 12 configurations d'occlusion DPR/resize ; retouches mobiles ;
 660 sondes GPU caméra et 4600 cellules/joints/AA ; 11 rapports complets.

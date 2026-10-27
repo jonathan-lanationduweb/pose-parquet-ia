@@ -3,6 +3,7 @@ const root='review/visual-quality-s1-s8';let scenes=0;
 for(const dir of fs.readdirSync(root,{withFileTypes:true}).filter(e=>e.isDirectory())){
  const file=root+'/'+dir.name+'/visual-report.json';if(!fs.existsSync(file))continue;
  const r=visualQualityReport(JSON.parse(fs.readFileSync(file))),before=JSON.parse(fs.readFileSync(root+'/'+dir.name+'/visual-report-before.json'));
+ assert.equal(r.recommendedDecision,r.reviewDecision,dir.name+' review gate mismatch');
  for(const key of before.confirmedCorrect)assert.equal(r.criteria[key].status,'PASS',dir.name+' regressed '+key);
  assert.ok(r.responsive.normalizedProjectionMaxSourcePixels<.5);assert.equal(r.criteria.S6.status,'NOT_EVALUABLE');
  fs.writeFileSync(file,JSON.stringify(r,null,2));fs.writeFileSync(root+'/'+dir.name+'/visual-report.txt',qualityReportText(r));

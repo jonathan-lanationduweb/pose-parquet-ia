@@ -34,7 +34,7 @@ def main():
    if report['criteria'][key]['status']=='PARTIAL':
     report['criteria'][key]['observation']+=' Cell coverage now preserved and mixed edge alpha retained; improvement is local, residual source segmentation remains visible.'
   report['observations']=['Assistant visual review, not independent human validation.','No paired Roomvo reference available; no pixel/algorithm comparison with Roomvo.']
-  report['recommendedDecision']='MANUAL_REQUIRED' if after['renderBlocked'] else 'APPROXIMATE' if any(report['criteria'][k]['status']!='PASS' for k in ['S1','S2','S4']) else 'HUMAN_REVIEW_REQUIRED'
+  report['recommendedDecision']='MANUAL_REQUIRED' if after['renderBlocked'] else 'APPROXIMATE' if after.get('geometryStatus')=='APPROXIMATE' or any(report['criteria'][k]['status']!='PASS' for k in ['S1','S2','S4']) or any(report['scores'].get(k) is not None and report['scores'][k]<4 for k in ['perspective','scale','occlusion']) else 'HUMAN_REVIEW_REQUIRED'
   for key in report['confirmedCorrect']:assert report['criteria'][key]['status']=='PASS',(scene,key)
   (dest/'visual-report.json').write_text(json.dumps(report,indent=2))
   (dest/'visual-report-mobile.json').write_text(json.dumps(dict(report,viewport=mob['viewportSize'],debugMetadata=mob,phase='after-mobile'),indent=2))
