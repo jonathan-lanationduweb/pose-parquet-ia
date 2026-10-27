@@ -20,7 +20,7 @@ export function refineOcclusion(coarse, image, width, height) {
   let changed=0;
   for(const i of seeds){
     const x=i%width,y=(i-x)/width,p=i*4;
-    let fg=Infinity,bg=Infinity;
+    let fg=Infinity,bg=Infinity,foreground=-1,background=-1;
     for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){
       const xx=x+dx,yy=y+dy,j=yy*width+xx,b=inside(xx,yy);
       // A seed must be interior, rather than a mixed/AA boundary pixel.
@@ -29,11 +29,25 @@ export function refineOcclusion(coarse, image, width, height) {
       const q=j*4;
       const color=(image[p]-image[q])**2+(image[p+1]-image[q+1])**2+(image[p+2]-image[q+2])**2;
       const score=color+36*(dx*dx+dy*dy);
-      if(b)fg=Math.min(fg,score);else bg=Math.min(bg,score);
+      if(b&&score<fg){fg=score;foreground=q;}else if(!b&&score<bg){bg=score;background=q;}
     }
-    if(!Number.isFinite(fg)||!Number.isFinite(bg)||Math.abs(fg-bg)<600)continue;
-    // Strong evidence only; no feather expansion or global dilation.
-    const value=fg<bg?255:0;
+    if(foreground<0||background<0)continue;
+    // Recover mixed-pixel coverage from the observed foreground/background
+    // colours. A binary nearest-class decision discards original edge alpha.
+    let numerator=0,contrast=0;
+    for(let k=0;k<3;k++){
+      const d=image[foreground+k]-image[background+k];
+      numerator+=(image[p+k]-image[background+k])*d;contrast+=d*d;
+    }
+    if(contrast<900)continue; // Ambiguous contact: keep polygon AA as prior.
+    let alpha=Math.max(0,Math.min(1,numerator/contrast)),residual=0;
+    for(let k=0;k<3;k++){
+      const predicted=image[background+k]+alpha*(image[foreground+k]-image[background+k]);
+      residual+=(image[p+k]-predicted)**2;
+    }
+    if(residual>Math.max(432,contrast*.04))continue;
+    if(alpha<.03)alpha=0;else if(alpha>.97)alpha=1;
+    const value=Math.round(alpha*255);
     if(value!==out[i]){out[i]=value;changed++;}
   }
 
