@@ -76,6 +76,7 @@ from app.services.camera_geometry import (
 )
 from app.services.floor_segmentation import ADE20K_RUG, clean_mask
 from app.services.foreground import build_foreground
+from app.services.mask_contours import cell_polygons
 
 #: Focale **a priori**, en fraction de la largeur d'image, quand ni l'EXIF ni
 #: les droites de la photo ne la mesurent. 0,70 ≈ 71° de champ horizontal :
@@ -669,36 +670,10 @@ def mask_zones(
     milieu, une porte ouverte. Elles partagent toutes le même plan : c'est le
     même sol, vu en plusieurs fois.
     """
-    hauteur, largeur = mask.shape[:2]
-    contours, hierarchie = cv2.findContours(
-        mask.astype(np.uint8), cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE
-    )
-    if hierarchie is None:
-        return []
-    eps = min(0.5, epsilon_ratio * max(largeur, hauteur))
-    hier = hierarchie[0]
-    exterieurs = [
-        (i, cv2.contourArea(c))
-        for i, c in enumerate(contours)
-        if hier[i][3] == -1 and cv2.contourArea(c) >= mask.size * 0.01
-    ]
-    exterieurs.sort(key=lambda t: -t[1])
-    zones: list[tuple[list[Point], list[list[Point]]]] = []
-    for i, _ in exterieurs[:max_zones]:
-        ext = _normaliser(cv2.approxPolyDP(contours[i], eps, True), largeur, hauteur)
-        if len(ext) < 3:
-            continue
-        trous: list[list[Point]] = []
-        enfant = hier[i][2]
-        while enfant != -1:
-            c = contours[enfant]
-            if cv2.contourArea(c) >= 4:
-                trou = _normaliser(cv2.approxPolyDP(c, min(eps, 0.5), True), largeur, hauteur)
-                if len(trou) >= 3:
-                    trous.append(trou)
-            enfant = hier[enfant][0]
-        zones.append((ext, trous))
-    return zones
+    # SceneData fractions address image edges (x/width), not pixel centres.
+    # Keep the existing component/zone limits without simplifying occupied cells.
+    return [(outer,holes) for outer,holes,area in cell_polygons(mask)
+            if area >= mask.size * .01][:max_zones]
 
 
 def rug_occluders(

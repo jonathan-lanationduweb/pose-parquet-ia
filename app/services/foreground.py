@@ -10,6 +10,7 @@ import numpy as np
 
 from app.schemas.scene_data import Occluder, Point
 from app.services.boundary_refiner import guided_boundary_seed
+from app.services.mask_contours import cell_polygons
 
 # Explicit ids from the installed ADE20K config. No new inference.
 OBJECT_CLASSES = {
@@ -35,56 +36,12 @@ class ForegroundResult:
 
 
 def polygons(mask: np.ndarray, *, kind: str, prefix: str) -> list[Occluder]:
-    """Keep disconnected slender components and openings without morphology."""
-    h, w = mask.shape
-    if not mask.any():
-        return []
-    contours, tree = cv2.findContours(
-        mask.astype(np.uint8), cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE
-    )
-    if tree is None:
-        return []
-
-    def points(contour: np.ndarray) -> list[Point]:
-        if cv2.contourArea(contour) < 1:
-            x, y, cw, ch = cv2.boundingRect(contour)
-            coords = [
-                (x - 0.5, y - 0.5),
-                (x + cw - 0.5, y - 0.5),
-                (x + cw - 0.5, y + ch - 0.5),
-                (x - 0.5, y + ch - 0.5),
-            ]
-        else:
-            coords = cv2.approxPolyDP(contour, 0.35, True)[:, 0].tolist()
-        normalized = np.clip(np.asarray(coords, float) / [w - 1, h - 1], 0, 1)
-        return [Point(x=float(x), y=float(y)) for x, y in normalized]
-
-    result = []
-    for i, contour in enumerate(contours):
-        if tree[0, i, 3] != -1:
-            continue
-        polygon = points(contour)
-        if len(polygon) < 3:
-            continue
-        holes = []
-        child = int(tree[0, i, 2])
-        while child != -1:
-            hole = points(contours[child])
-            if len(hole) >= 3:
-                holes.append(hole)
-            child = int(tree[0, child, 0])
-        result.append(
-            Occluder(
-                id=f"{prefix}-{i}",
-                label=f"{kind} (semantic proposal)",
-                kind=kind,
-                polygon=polygon,
-                holes=holes,
-                casts_shadow=False,
-                feather=0,
-            )
-        )
-    return result
+    """Preserve exact occupied pixel cells, holes and single-pixel supports."""
+    return [
+        Occluder(id=f"{prefix}-{i}",label=f"{kind} (semantic proposal)",
+                 kind=kind,polygon=outer,holes=holes,casts_shadow=False,feather=0)
+        for i,(outer,holes,_area) in enumerate(cell_polygons(mask))
+    ]
 
 
 def interior_openings(floor: np.ndarray) -> np.ndarray:
