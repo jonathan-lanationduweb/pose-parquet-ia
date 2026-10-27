@@ -73,3 +73,46 @@ Un PASS porte sur le périmètre indiqué, jamais sur tout le réalisme de la sc
   image locale, export refusé et overlay masqué jusqu'à la bonne scène.
 - Résultat visuel : better, plus d'ancien masque sur la nouvelle photo.
 - Statut : RESOLVED (instrumentation avant livraison).
+## CASE #005 — D2-A, classes de premier plan déjà disponibles mais ignorées
+
+- Date : 27 octobre 2026.
+- Cause confirmée : OBJECT_CLASSES omettait notamment cushion/pillow, ottoman,
+  box, pot et vase présents dans la configuration ADE20K locale et les sorties
+  enregistrées. Leur protection dépendait parfois de trous fortuits du sol.
+- Correction : réutiliser ces classes dans foreground.py, sans nouveau modèle.
+- Régression : test_existing_ade20k_floor_objects_do_not_depend_on_enclosed_holes,
+  test_ground_classes_never_become_objects, test_resized_labels_keep_rug_and_thin_objects.
+- La qualité d'occlusion reste non calibrée ; floor_scene.py expose cette limite
+  et préfère approximate_render pour une occupation significative.
+- Statut : RESOLVED pour la sélection des classes, pas une garantie de segmentation.
+
+## CASE #006 — D2-D, supports absents des masques de catalogue
+
+- Date : 27 octobre 2026.
+- Observation : DEBUG MASKS laisse verts les supports arrière des chaises et
+  une partie du pied du canapé. D3/D4/D6 configurés conservés.
+- Cause confirmée : anciens polygones incomplets ; les classes issues du modèle
+  déjà installé contiennent les supports. Aucun défaut de projection nécessaire.
+- Correction : actualisation additive des occluders par une commande générique,
+  idempotente, sans modifier camera/planes/floorZones/light. Deux scènes revues.
+- Régression : obstacle-scene.check.mjs : 260 + 1527 + 1883 pixels opaques
+  nouvellement protégés, erreur RGB face à la photo = 0.
+- Résultat visuel : better sur canapé et table/chaises ; petits contacts restent
+  candidats à la revue. Pas de modèle ajouté ou téléchargé.
+- Statut : RESOLVED pour les supports contrôlés.
+
+## CASE #007 — D2-C / D8, contours de contact approximatifs
+
+- Date : 27 octobre 2026.
+- Observation : marches et petites fuites sur les contours du lit, du tapis
+  et des consoles. La grille ne justifie aucun changement de perspective.
+- Correction bornée : photo-guided foreground matte, bande 2 px source,
+  graines fiables cherchées sur 4 px, conservation des branches fines.
+  Pas de dilation, flou global ou recalcul du plan. Masque raffiné mis en cache.
+- Régression : obstacle-occlusion.check.mjs, 12 configurations WebGL/Canvas,
+  DPR/resize, correction manuelle et A/B/A. Pièce dégagée/terrasse identiques
+  pixel par pixel dans les packs de revue.
+- Alpha audité : straight alpha, même formule CPU/GPU ; aucun D2-B/D2-E confirmé.
+- Résultat : better sur les bords contrôlés ; CASE #003 sous la console de
+  la photo privée reste PARTIAL/OPEN. Ne pas le présenter comme totalement corrigé.
+- Dossier de preuves privé : review/occlusion-obstacles/.
