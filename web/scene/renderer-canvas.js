@@ -200,7 +200,7 @@ export function createCanvasRenderer() {
         const saturation = light.saturation;
         const shadowFloor = light.shadowFloor;
         const repeatVar = light.repeatVar;
-        const albedoMean = albedoMeanLuma(maps) * 255;
+        const albedoMean = (DIAGNOSTIC_RENDER && config.diagnosticNeutral ? .55 : albedoMeanLuma(maps)) * 255;
         const exposure = shading
           ? exposureScale(shading, albedoMean / 255, light.exposure)
           : 1;
@@ -356,6 +356,7 @@ export function createCanvasRenderer() {
             acc[1] = clampByte(acc[1] * relance * expoRep * varExpo);
             acc[2] = clampByte(acc[2] * relance * expoRep * varExpo * (1 - varChaleur));
 
+            if(DIAGNOSTIC_RENDER && config.diagnosticNeutral){acc.fill(.55*255);accR[0]=accR[1]=127.5;accR[2]=255;}
             const aLum = (0.2126 * acc[0] + 0.7152 * acc[1] + 0.0722 * acc[2]) / 255;
             const lift = ambient * (1 - aLum);
             const shade = clamp(raw < 1 ? lift + (1 - lift) * raw : raw, shadowFloor, 1.9);
@@ -379,7 +380,7 @@ export function createCanvasRenderer() {
             // rendent la même image.
             const footprint = major / perMeter;
             const near = clamp(0.006 / (footprint + 0.003), 0, 1);
-            const bump = 1 + (nu * lightU + nv * lightV) * reliefGain * near;
+            const bump = DIAGNOSTIC_RENDER && config.diagnosticNeutral ? 1 : 1 + (nu * lightU + nv * lightV) * reliefGain * near;
 
             // Rugosité locale (canal 2 du relief) : une veine ouverte renvoie
             // moins la lumière qu'un nœud verni.

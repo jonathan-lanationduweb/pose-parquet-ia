@@ -116,3 +116,46 @@ Un PASS porte sur le périmètre indiqué, jamais sur tout le réalisme de la sc
 - Résultat : better sur les bords contrôlés ; CASE #003 sous la console de
   la photo privée reste PARTIAL/OPEN. Ne pas le présenter comme totalement corrigé.
 - Dossier de preuves privé : review/occlusion-obstacles/.
+
+## CASE #008 — S3/S4/S8, D1/D2/D8 : perte des cellules lors de la sérialisation
+
+- Date : 27 octobre 2026.
+- Observation : dégradation récurrente des bords dans les masques avant matière
+  ou éclairage. Grilles S1/S2 conservées.
+- Cause démontrée : contours OpenCV aux centres des pixels utilisés comme
+  sommets de surfaces Canvas ; couverture partielle perdue après normalisation.
+- Test avant : contour-roundtrip.check.mjs échoue : rectangle 66 pixels,
+  trou 165, diagonale 76, bord image 39 ; pied fin également non exact.
+- Correction : primitive commune mask_contours.cell_polygons, bords exacts
+  des cellules ; foreground.polygons et floor_scene.mask_zones la réutilisent.
+  Aucun changement de caméra ni de plan, pas de dilation ou exception par photo.
+- Tests après : 0 erreur sur rectangle, pied d'un pixel, trou, diagonale,
+  bord et masque aléatoire ; tests topologiques incluant îlot imbriqué.
+- Revue : 11 scènes rejouées après cette seule correction, avant correction alpha.
+  Gain local de couverture aux contacts, pas de résolution de tout contour source.
+- Statut : RESOLVED pour la sérialisation.
+
+## CASE #009 — S4/S8, D8 : alpha des pixels mixtes supprimé
+
+- Date : 27 octobre 2026.
+- Cause démontrée : refineOcclusion utilisait fg < bg ? 255 : 0 ;
+  la couverture photo partielle devenait une découpe binaire.
+- Test avant : attendu 64 / 191, obtenu 0 / 255.
+- Correction : alpha estimé entre graines couleur fiables, garde de contraste
+  et de résidu ; zones ambiguës conservent le prior, branches fines préservées.
+- Test après : 63 / 191, prior immuable et déterministe, pas de flou global.
+- Revue : contacts de chaise/canapé plus graduels ; les bosses grossières sous
+  le meuble TV privé demeurent PARTIAL. Pas d'unmixing complet du foreground.
+- Régression : 12 configurations WebGL/Canvas DPR1/2 resize, masques/scènes A/B/A,
+  Retirer/Terminé sans réanalyse ; caméra/motifs inchangés.
+- Statut : RESOLVED pour la quantification, segmentation source encore ouverte.
+
+## Revue produit S1–S8 associée
+
+- docs/visual-quality-spec.md ; rapports privés review/visual-quality-s1-s8/.
+- 11 scènes, original/avant/final, grilles, masques, neutre, sans lumière,
+  cellules, crops near/mid/far/objets/frontière ; captures 1440 et 390.
+- S6 NOT_EVALUABLE faute de référence fabricant. S7 reste PARTIAL.
+- Couloir FAILED : original conservé, aucune fausse frame présentée.
+- Notes assistant /5 et test qualitatif ne remplacent pas la validation humaine.
+- Aucune image privée versionnée, aucun nouveau modèle/recherche depth, aucun push.

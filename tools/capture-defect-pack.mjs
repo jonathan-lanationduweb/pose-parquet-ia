@@ -52,12 +52,12 @@ try{
   if(!c.state.source)pack.metadata.ViewTransform={available:false,reason:'Direct SceneData capture; source-image exports use exportTransform'};
   const png=c=>c.toDataURL('image/png').split(',')[1],images=Object.fromEntries(Object.entries(pack.images).map(([k,v])=>[k,png(v)]));
   const signature=JSON.stringify(c.adapter.diagnosticSnapshot().scene.floorZones.map(z=>z.plane.projection));
-  if(!failed){const unlit=await c.adapter.diagnosticUnlitFrame();if(!unlit)throw Error('Unlit diagnostic failed');images.unlit=png(unlit);}
+  if(!failed){const unlit=await c.adapter.diagnosticUnlitFrame();if(!unlit)throw Error('Unlit diagnostic failed');images.unlit=png(unlit);const neutral=await c.adapter.diagnosticNeutralFrame();if(!neutral)throw Error('Neutral diagnostic failed');images.neutral=png(neutral);}
   if(JSON.stringify(c.adapter.diagnosticSnapshot().scene.floorZones.map(z=>z.plane.projection))!==signature)throw Error('Diagnostic changed camera');
   return {images,metadata:pack.metadata};
  },{product:args.product||null,pattern:args.pattern||null,angle,patternIds:!args['no-pattern']});
  if(errors.length)throw Error(errors.join('\n'));
- const names={original:'01-original.png',render:'02-render.png',debugGrid:'03-debug-grid.png',debugMasks:'04-debug-masks.png',debugCamera:'05-debug-camera.png',debugScale:'06-debug-scale.png',debugFloorPlane:'07-debug-floor-plane.png',debugPattern:'08-debug-pattern.png',unlit:'09-unlit.png',floorMask:'10-floor-mask-raw.png',occluderMask:'11-occluder-mask-raw.png',floorSpacePattern:'13-pattern-floor-space.png'};
+ const names={original:'01-original.png',render:'02-render.png',debugGrid:'03-debug-grid.png',debugMasks:'04-debug-masks.png',debugCamera:'05-debug-camera.png',debugScale:'06-debug-scale.png',debugFloorPlane:'07-debug-floor-plane.png',debugPattern:'08-debug-pattern.png',unlit:'09-unlit.png',floorMask:'10-floor-mask-raw.png',occluderMask:'11-occluder-mask-raw.png',floorSpacePattern:'13-pattern-floor-space.png',neutral:'14-neutral.png'};
  for(const [key,data]of Object.entries(result.images))fs.writeFileSync(path.join(out,names[key]),Buffer.from(data,'base64'));
  let nativeOriginal=null;
  if(args.image){

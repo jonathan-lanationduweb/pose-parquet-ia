@@ -41,7 +41,7 @@ out vec4 outColor;
 in vec2 vFloorMeters;
 in vec3 vSourceProjection;
 uniform bool uMetric;
-${DIAGNOSTIC_RENDER ? 'uniform bool uDiagnosticUnlit;' : ''}
+${DIAGNOSTIC_RENDER ? 'uniform bool uDiagnosticUnlit; uniform bool uDiagnosticNeutral;' : ''}
 uniform mat4 uSourceViewProj;
 uniform vec3 uFloorOrigin,uFloorAxisU,uFloorAxisV;
 
@@ -262,7 +262,7 @@ void main() {
   // Variation lente d'exposition, continue, sur des cellules de 1,6 m de sol.
   albedo *= 1.0 + uRepeatVar * (bruitSol(floorM / 1.6) - 0.5) * 2.0;
 
-  ${DIAGNOSTIC_RENDER ? 'if(uDiagnosticUnlit){outColor=vec4(clamp(albedo,0.0,1.0),cover);return;}' : ''}
+  ${DIAGNOSTIC_RENDER ? 'if(uDiagnosticNeutral){albedo=vec3(0.55);relief=vec3(0.5,0.5,1.0);} if(uDiagnosticUnlit){outColor=vec4(clamp(albedo,0.0,1.0),cover);return;}' : ''}
   float aLum = dot(albedo, vec3(0.2126, 0.7152, 0.0722));
 
   vec4 lit = texture(uShading, texel);
@@ -449,7 +449,7 @@ export function createGlRenderer() {
     return map;
   };
   const u = uniforms(prog, [
-    'uDiagnosticUnlit', 'uMetric', 'uViewProj', 'uSourceViewProj', 'uFloorOrigin', 'uFloorAxisU', 'uFloorAxisV', 'uPatternType','uBoardWidth','uBoardLength','uBoardGap','uJointWidth','uFloorAngle','uChevronAngle','uPatternOffset','uVariationStrength','uSourceBoard', 'uQuad', 'uViewport', 'uInverse', 'uMeters', 'uOrigin', 'uRot', 'uTileMeters',
+    'uDiagnosticUnlit', 'uDiagnosticNeutral', 'uMetric', 'uViewProj', 'uSourceViewProj', 'uFloorOrigin', 'uFloorAxisU', 'uFloorAxisV', 'uPatternType','uBoardWidth','uBoardLength','uBoardGap','uJointWidth','uFloorAngle','uChevronAngle','uPatternOffset','uVariationStrength','uSourceBoard', 'uQuad', 'uViewport', 'uInverse', 'uMeters', 'uOrigin', 'uRot', 'uTileMeters',
     'uRowsPerTile', 'uJitter',
     'uLabel', 'uLight', 'uStrength', 'uAmbient', 'uTint', 'uReliefGain', 'uGlossGain',
     'uGamma', 'uExposure', 'uMicro', 'uAlbedoMean', 'uSaturation', 'uShadowFloor', 'uRepeatVar',
@@ -685,7 +685,7 @@ export function createGlRenderer() {
         const rect = rectMatrix(box);
 
         const config = surface.config;
-        if(DIAGNOSTIC_RENDER)gl.uniform1i(u.uDiagnosticUnlit,config.diagnosticUnlit===true?1:0);
+        if(DIAGNOSTIC_RENDER){gl.uniform1i(u.uDiagnosticUnlit,config.diagnosticUnlit===true?1:0);gl.uniform1i(u.uDiagnosticNeutral,config.diagnosticNeutral===true?1:0);}
         const angle = ((config.angle || 0) + zone.plane.rotationDeg) * (Math.PI / 180);
         const surf = surface.maps.surface;
         const light = tileLight(transform.jac, lightDir, angle);
@@ -738,7 +738,7 @@ export function createGlRenderer() {
         // Les deux valeurs qui dependent de la MATIERE, donc de la zone : la
         // moyenne de sa tuile, et l'ecart entre cette moyenne et la lumiere
         // reelle de la piece.
-        const moyenneTuile = albedoMeanLuma(surface.maps);
+        const moyenneTuile = DIAGNOSTIC_RENDER && config.diagnosticNeutral ? .55 : albedoMeanLuma(surface.maps);
         gl.uniform1f(u.uAlbedoMean, moyenneTuile);
         gl.uniform1f(
           u.uExposure,

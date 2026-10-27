@@ -21,7 +21,12 @@ export function installGeometryReview(getConcept){
   finally{unlit.disabled=false;}
  };
  const restore=document.createElement('button');restore.type='button';restore.textContent='Rétablir les overlays';restore.style.cssText='display:block;width:100%;min-height:44px;margin-top:6px;padding:6px;border:1px solid #aaa;border-radius:6px';restore.onclick=()=>draw();
- panel.append(unlit,restore);
+ const neutral=unlit.cloneNode(true);neutral.textContent='Sol neutre';
+  neutral.onclick=async()=>{const intent=c.state.intent,scene=c.adapter.scene;neutral.disabled=true;
+   try{const frame=await c.adapter.diagnosticNeutralFrame();if(frame&&scene===c.adapter.scene&&intent===c.state.intent){canvas.width=frame.width;canvas.height=frame.height;canvas.getContext('2d').drawImage(frame,0,0);group.style.display='';c.applyTransform();}}
+   finally{neutral.disabled=false;}
+  };
+  panel.append(unlit,neutral,restore);
  const legend=document.createElement('pre');legend.style.cssText='white-space:pre-wrap;max-width:300px;margin:8px 0 0';panel.append(legend);stage.append(panel);
  const snapshot=()=>{
   const snap=c.adapter.diagnosticSnapshot();if(!snap)throw Error('Ouvrez une scène dans le moteur');
