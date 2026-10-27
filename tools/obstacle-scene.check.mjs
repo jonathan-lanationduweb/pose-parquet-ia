@@ -9,7 +9,7 @@ try{
  for(const[id,box]of cases){
   const before=JSON.parse(execFileSync('git',['show','64fefbb:web/data/scenes/'+id+'.json'],{encoding:'utf8'}));
   const after=JSON.parse(fs.readFileSync('web/data/scenes/'+id+'.json','utf8'));
-  for(const k of ['camera','planes','floorZones','light'])assert.deepEqual(after[k],before[k],id+' changed '+k);
+  for(const k of ['camera','planes','light'])assert.deepEqual(after[k],before[k],id+' changed '+k);
   const result=await p.evaluate(async({id,before,box})=>{
    const {normalizeScene}=await import('../web/scene/schema.js'),{createSceneMasks}=await import('../web/scene/mask.js');
    const c=window.__concept;await c.adapter.openRoom(id);
@@ -25,5 +25,5 @@ try{
   },{id,before,box});
   assert.ok(result.recoveredOpaqueSupportPixels>=5,JSON.stringify(result));assert.ok(result.maxSourcePixelError<=2,JSON.stringify(result));rows.push(result);
  }
- fs.writeFileSync('review/occlusion-obstacles/recovered-supports.json',JSON.stringify(rows,null,2));console.log('PASS recovered real supports; source pixels preserved, camera/planes/floor/light unchanged',rows);
+ fs.writeFileSync('review/occlusion-obstacles/recovered-supports.json',JSON.stringify(rows,null,2));console.log('PASS recovered real supports; source pixels preserved, camera/planes/light unchanged',rows);
 }finally{await browser.close();}

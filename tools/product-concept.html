@@ -1081,6 +1081,8 @@
     'point-de-hongrie': 'Point de Hongrie',
     'baton-rompu': 'Bâton rompu',
   };
+  const patternLabel = p => PATTERNS[p?.pattern] || PATTERNS[p?.renderProfile?.pattern]
+    || (window.PPSurfaceProducts?.compatibility(p) === 'exterior' ? 'Lames de terrasse' : 'Motif non renseigné');
   const TONES = { clair: 'Clair', naturel: 'Naturel', chaud: 'Chaud', fonce: 'Foncé' };
   /* Le moteur tourne le motif dans le plan du sol (`config.angle`) : ces
      quatre valeurs ont donc un effet reel, verifie a l'ecran. */
@@ -3102,7 +3104,7 @@
     const on = state.favourites.has(entry.id);
     return `<span class="sw${swatchClass(entry)}" style="${swatchStyle(entry)}" ${previewAttrs(entry)}></span>
       <b>${entry.name}</b>
-      <span class="dim">${side === 'A' ? resumeConfig() : `${PATTERNS[entry.pattern]} · ${entry.widthMm} mm`}</span>
+      <span class="dim">${side === 'A' ? resumeConfig() : `${patternLabel(entry)} · ${entry.widthMm} mm`}</span>
       <span class="ref">${entry.source === 'inspiration' ? 'Inspiration' : `Réf. ${entry.ref}`}</span>
       ${side === 'A' ? pastilleApplication() : ''}
       <span class="row">
@@ -3226,7 +3228,7 @@
        approchant (« presque en diagonale ») serait pire que le chiffre. */
     const o = ORIENTATIONS.find(([d]) => d === state.orientationDeg);
     const sens = o ? o[1].toLowerCase() : `${state.orientationDeg}°`;
-    return `${PATTERNS[product().pattern]} · ${product().widthMm} mm`
+    return `${patternLabel(product())} · ${product().widthMm} mm`
       + (adapter.getCapabilities().orientation ? ` · ${sens}` : '');
   }
   function paintNav() { /* la navigation permanente n'existe plus */ }
@@ -3839,7 +3841,7 @@
         <span class="hh" data-fav="${p.id}" role="button" aria-pressed="${on}"
               aria-label="Favori">${heart(on, 13)}</span>
         <span class="nm">${p.name}</span>
-        <span class="ref">${PATTERNS[p.pattern] || 'Motif non renseigné'} · ${p.widthMm ? p.widthMm + ' mm' : 'Largeur non renseignée'} — ${p.source === 'inspiration' ? 'Inspiration' : `Réf. ${p.ref}`}</span>
+        <span class="ref">${patternLabel(p)} · ${p.widthMm ? p.widthMm + ' mm' : 'Largeur non renseignée'} — ${p.source === 'inspiration' ? 'Inspiration' : `Réf. ${p.ref}`}</span>
         ${p.materialFidelity === 'exact' ? '<span class="pd-badge exact" title="Matière construite sur la photo du produit">Exact</span>'
           : p.renderable === false ? '<span class="pd-badge bientot" title="Aperçu 3D bientôt disponible">Bientôt</span>' : ''}
       </button>`;
@@ -4186,7 +4188,7 @@
        ainsi 350 à 450 ms à s'afficher, pour 0 ms de moteur. */
     marquerSelection();
     paintCustom();
-    if (!silent && DEV) toast(`${entry.name} · ${PATTERNS[entry.pattern]}`);
+    if (!silent && DEV) toast(`${entry.name} · ${patternLabel(entry)}`);
   }
 
   /**

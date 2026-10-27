@@ -159,3 +159,33 @@ Un PASS porte sur le périmètre indiqué, jamais sur tout le réalisme de la sc
 - Couloir FAILED : original conservé, aucune fausse frame présentée.
 - Notes assistant /5 et test qualitatif ne remplacent pas la validation humaine.
 - Aucune image privée versionnée, aucun nouveau modèle/recherche depth, aucun push.
+
+## CASE #010 — Huit captures utilisateur : annotations du catalogue incomplètes
+
+- Reproduction : cuisine-ilot, cuisine-blanche, terrasse-mer, couloir-enfilade,
+  premibel-entree, salle-a-manger-meublee, bureau-meuble, premibel-chambre.
+- Cause : zones de sol trop courtes, exclusions de mobilier contenant du sol,
+  jonctions mur/fenêtre grossières. Le moteur respecte ces mauvaises annotations.
+- Correction : annotations en pixels de la photo originale dans
+  web/data/scene-mask-reviews.json ; application par un outil commun hors ligne.
+  Aucun coefficient par scène dans le renderer, aucune modification de caméra,
+  plan, dimensions produit, shader, matériau ou algorithme lumineux.
+- Le tapis sous le bureau et la grille de cuisine sont présents dans les
+  originaux : les préserver. Ne pas les traiter comme de l’ancien parquet.
+- L’outil échantillonne les centres des pixels. cv2.fillPoly sur les contours
+  des cellules aurait déplacé les autres limites d’un pixel ; ce chemin rejeté
+  n’est pas utilisé. Les fragments détachés de moins de neuf pixels ne deviennent
+  pas des zones de sol supplémentaires soumises à la validation de géométrie.
+- UI : le résumé produit et le catalogue utilisent le motif du profil de rendu
+  quand le champ commercial manque, puis un libellé de repli. Plus de undefined.
+- Validation : points photo inspectés (sol, pieds, plinthes, tapis), invariants
+  caméra/plans/lumière, rejeu stable des annotations ; huit scènes dans le vrai
+  moteur à 1440 et 390 px ; avant/après/neutre/grille dans review/defects/.
+- Comparaison privée et rapports S1–S8 : review/eight-scene-review/index.html,
+  générés par tools/build-reviewed-scenes.mjs. Aucune photo versionnée.
+- Limites : halos et petits fragments près des supports, franges, lit et pouf
+  restent PARTIAL. Pas de certification globale du photoréalisme, pas de gain
+  automatique sur les photos importées. Terrasse : libellé corrigé uniquement.
+- Trello : « Corriger les découpes des pièces du catalogue » ;
+  « Préserver pieds, tapis et plinthes » ; « Corriger le libellé terrasse » ;
+  « Vérifier les 8 scènes sur mobile ». Contours fins encore à reprendre.

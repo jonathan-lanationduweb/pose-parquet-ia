@@ -1,0 +1,528 @@
+{
+  "cuisine-ilot": {
+    "imageSize": [
+      1125,
+      750
+    ],
+    "source": "Original catalogue photo; review/defects/eight-before-cuisine-ilot",
+    "edits": [
+      {
+        "id": "cabinet-contact",
+        "action": "floor",
+        "polygon": [
+          [
+            722,
+            469
+          ],
+          [
+            765,
+            465
+          ],
+          [
+            810,
+            473
+          ],
+          [
+            829,
+            465
+          ],
+          [
+            849,
+            469
+          ],
+          [
+            851,
+            480
+          ],
+          [
+            719,
+            494
+          ]
+        ],
+        "observation": "The floor in front of the oven and cabinet plinth is visible, not furniture."
+      },
+      {
+        "id": "doorway-floor",
+        "action": "floor",
+        "polygon": [
+          [
+            850,
+            463
+          ],
+          [
+            901,
+            461
+          ],
+          [
+            902,
+            480
+          ],
+          [
+            848,
+            482
+          ]
+        ],
+        "observation": "Continue to the inner doorway threshold without covering the door frame."
+      }
+    ],
+    "geometryDigest": "9ddf345fd0e659dd962a063a8a0685aab070193965c242a444b65c82d98cd856"
+  },
+  "cuisine-blanche": {
+    "imageSize": [
+      1124,
+      750
+    ],
+    "source": "Original catalogue photo; review/defects/eight-before-cuisine-blanche",
+    "edits": [
+      {
+        "id": "right-plinth",
+        "action": "floor",
+        "polygon": [
+          [
+            984,
+            513
+          ],
+          [
+            1015,
+            519
+          ],
+          [
+            1054,
+            529
+          ],
+          [
+            1054,
+            535
+          ],
+          [
+            1079,
+            542
+          ],
+          [
+            1101,
+            540
+          ],
+          [
+            1124,
+            548
+          ],
+          [
+            1124,
+            565
+          ],
+          [
+            983,
+            560
+          ]
+        ],
+        "observation": "Replace the old floor strip below the right cabinet and stepped column base.",
+        "zone": 1
+      }
+    ],
+    "geometryDigest": "f1be245eb08e966eeaec2e1cf9087628f52292ac3b8d54f5dc2705fc8f47406e"
+  },
+  "couloir-enfilade": {
+    "imageSize": [
+      1600,
+      1067
+    ],
+    "source": "Original catalogue photo; review/defects/eight-before-couloir-enfilade",
+    "edits": [
+      {
+        "id": "side-opening",
+        "action": "floor",
+        "polygon": [
+          [
+            890,
+            718
+          ],
+          [
+            916,
+            737
+          ],
+          [
+            917,
+            760
+          ],
+          [
+            924,
+            778
+          ],
+          [
+            904,
+            757
+          ]
+        ],
+        "observation": "Visible floor at the right door opening; the upright wooden jamb remains protected."
+      },
+      {
+        "id": "left-contact",
+        "action": "floor",
+        "polygon": [
+          [
+            549,
+            1067
+          ],
+          [
+            545,
+            1067
+          ],
+          [
+            662,
+            724
+          ],
+          [
+            671,
+            719
+          ]
+        ],
+        "observation": "Narrow original-floor seam along the left plinth."
+      }
+    ],
+    "geometryDigest": "6fa217237f4dca1f72575b3dfc7dd99c37a71eef6a46486ba2a0448a0788ff1c"
+  },
+  "premibel-entree": {
+    "imageSize": [
+      800,
+      916
+    ],
+    "source": "Original catalogue photo; review/defects/eight-before-premibel-entree",
+    "edits": [
+      {
+        "id": "pot-contact",
+        "action": "restore-floor",
+        "polygon": [
+          [
+            181,
+            508
+          ],
+          [
+            198,
+            509
+          ],
+          [
+            219,
+            507
+          ],
+          [
+            231,
+            502
+          ],
+          [
+            232,
+            518
+          ],
+          [
+            179,
+            519
+          ]
+        ],
+        "observation": "Remove old wood fragments below the plant pot, preserving its rounded bottom."
+      },
+      {
+        "id": "wall-contact",
+        "action": "floor",
+        "polygon": [
+          [
+            252,
+            488
+          ],
+          [
+            504,
+            545
+          ],
+          [
+            505,
+            548
+          ],
+          [
+            252,
+            491
+          ]
+        ],
+        "observation": "Replace the thin old-floor strip beneath the baseboard."
+      }
+    ],
+    "geometryDigest": "02ca30dd6a9c188c58229aa28ac8378c90551867f29a7d4a3c0a94b7d8baff01"
+  },
+  "salle-a-manger-meublee": {
+    "imageSize": [
+      1125,
+      750
+    ],
+    "source": "Original catalogue photo; review/defects/eight-before-salle-a-manger-meublee",
+    "edits": [
+      {
+        "id": "between-supports",
+        "action": "restore-floor",
+        "polygon": [
+          [
+            503,
+            490
+          ],
+          [
+            548,
+            468
+          ],
+          [
+            548,
+            484
+          ],
+          [
+            563,
+            492
+          ],
+          [
+            555,
+            543
+          ],
+          [
+            559,
+            579
+          ],
+          [
+            568,
+            593
+          ],
+          [
+            575,
+            597
+          ],
+          [
+            575,
+            608
+          ],
+          [
+            508,
+            606
+          ]
+        ],
+        "observation": "This opening between chair supports is floor, including its bright reflection; it is not an opaque chair."
+      }
+    ],
+    "geometryDigest": "48c463c99cfad7d465e05e03a02f9c6d7a7bfe25604716684dae9f1ebbe4974a"
+  },
+  "bureau-meuble": {
+    "imageSize": [
+      1124,
+      750
+    ],
+    "source": "Original catalogue photo; review/defects/eight-before-bureau-meuble",
+    "edits": [
+      {
+        "id": "chair-floor",
+        "action": "floor",
+        "polygon": [
+          [
+            870,
+            583
+          ],
+          [
+            931,
+            585
+          ],
+          [
+            931,
+            640
+          ],
+          [
+            869,
+            640
+          ]
+        ],
+        "observation": "The open space below the chair seat is floor; the front leg is left outside this polygon."
+      },
+      {
+        "id": "desk-rug",
+        "action": "protect",
+        "polygon": [
+          [
+            266,
+            645
+          ],
+          [
+            329,
+            626
+          ],
+          [
+            343,
+            642
+          ],
+          [
+            354,
+            641
+          ],
+          [
+            371,
+            624
+          ],
+          [
+            403,
+            616
+          ],
+          [
+            423,
+            610
+          ],
+          [
+            471,
+            598
+          ],
+          [
+            509,
+            582
+          ],
+          [
+            544,
+            575
+          ],
+          [
+            594,
+            590
+          ],
+          [
+            266,
+            750
+          ]
+        ],
+        "observation": "The original contains a real rug beneath the desk and cables; preserve its lower edge.",
+        "kind": "rug"
+      }
+    ],
+    "geometryDigest": "6d24db74e174d429ab0ccea945d6c040881956812fc4aff4bad72fe292cdd512"
+  },
+  "premibel-chambre": {
+    "imageSize": [
+      900,
+      1029
+    ],
+    "source": "Original catalogue photo; review/defects/eight-before-premibel-chambre",
+    "edits": [
+      {
+        "id": "window-wall",
+        "action": "exclude-floor",
+        "polygon": [
+          [
+            118,
+            260
+          ],
+          [
+            337,
+            260
+          ],
+          [
+            337,
+            308
+          ],
+          [
+            221,
+            285
+          ],
+          [
+            120,
+            328
+          ]
+        ],
+        "observation": "Floor must stop at the actual slanted window/wall junction instead of a staircase."
+      },
+      {
+        "id": "window-floor",
+        "action": "floor",
+        "polygon": [
+          [
+            120,
+            328
+          ],
+          [
+            221,
+            286
+          ],
+          [
+            334,
+            310
+          ],
+          [
+            334,
+            323
+          ],
+          [
+            211,
+            371
+          ],
+          [
+            191,
+            410
+          ],
+          [
+            120,
+            443
+          ]
+        ],
+        "observation": "Recover visible wood beside the slanted window, keeping the existing plant and bed occluders."
+      },
+      {
+        "id": "right-wall",
+        "action": "exclude-floor",
+        "polygon": [
+          [
+            780,
+            350
+          ],
+          [
+            850,
+            350
+          ],
+          [
+            842,
+            412
+          ],
+          [
+            790,
+            406
+          ],
+          [
+            778,
+            437
+          ]
+        ],
+        "observation": "Keep the right wall and radiator above the true floor contact."
+      },
+      {
+        "id": "bedside-floor",
+        "action": "floor",
+        "polygon": [
+          [
+            779,
+            438
+          ],
+          [
+            790,
+            407
+          ],
+          [
+            842,
+            413
+          ],
+          [
+            838,
+            443
+          ],
+          [
+            850,
+            448
+          ],
+          [
+            850,
+            460
+          ],
+          [
+            775,
+            460
+          ]
+        ],
+        "observation": "The visible floor starts below the wall at y406-413 beside the bedside cabinet, not at its lower front corner."
+      }
+    ],
+    "geometryDigest": "16e376d4790d8d4d3254a7e16c8e126204d8b2661151879480dfa13fef9a4c41"
+  }
+}
