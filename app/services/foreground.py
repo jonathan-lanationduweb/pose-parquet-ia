@@ -12,7 +12,15 @@ from app.schemas.scene_data import Occluder, Point
 from app.services.boundary_refiner import guided_boundary_seed
 
 # Explicit ids from the installed ADE20K config. No new inference.
-OBJECT_CLASSES = {7, 10, 15, 17, 19, 23, 30, 33, 64, 75, 110, 146}
+OBJECT_CLASSES = {
+    7, 10, 12, 15, 17, 19, 23, 24, 30, 31, 33, 35, 36, 37,
+    39, 40, 41, 44, 45, 50, 55, 56, 57, 62, 64, 65, 69, 71,
+    73, 75, 89, 92, 97, 99, 107, 108, 110, 111, 112, 115, 117,
+    118, 119, 125, 126, 127, 129, 131, 132, 135, 138, 139, 146,
+}
+# Names verified against the installed ADE20K id2label. Ground, shadows,
+# walls and outdoor surfaces are intentionally absent. Previously omitted
+# cushions, poufs, boxes and pots must not depend on incidental floor holes.
 RUG = 28
 _CLASS_LOOKUP = np.zeros(256, bool)
 _CLASS_LOOKUP[[*OBJECT_CLASSES, RUG]] = True

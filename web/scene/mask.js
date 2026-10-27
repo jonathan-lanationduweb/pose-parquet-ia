@@ -22,6 +22,7 @@
  * lecture unique — lire un canevas est de loin l'opération la plus coûteuse.
  */
 import { zonePolygon } from './schema.js';
+import { refineOcclusion } from './occlusion-refiner.js';
 
 const MAX_HISTORY = 60;
 
@@ -35,7 +36,7 @@ const trace = (ctx, points, width, height) => {
   ctx.closePath();
 };
 
-export function createSceneMasks(scene, width, height) {
+export function createSceneMasks(scene, width, height, source = null) {
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
@@ -58,6 +59,7 @@ export function createSceneMasks(scene, width, height) {
   let hasOcclusion = false;
   let occlusionSignature = null;
   let dirty = true;
+  let refinement = {changed:0,boundaryPixels:0,ms:0};
 
   /* ---------------- Tracé ---------------- */
 
@@ -162,6 +164,7 @@ export function createSceneMasks(scene, width, height) {
     // Detect actual occluder edits so other editors still invalidate correctly.
     const nextOcclusionSignature = JSON.stringify(scene.occluders);
     if (nextOcclusionSignature !== occlusionSignature) {
+      refinement = {changed:0,boundaryPixels:0,ms:0};
       occlusion.fill(0);
       hasOcclusion = false;
       if (scene.occluders.length) {
@@ -184,6 +187,11 @@ export function createSceneMasks(scene, width, height) {
             hasOcclusion = true;
           }
         }
+      }
+      if (hasOcclusion && source && scene.occluders.some(o => ['furniture','rug','mask-opening'].includes(o.kind))) {
+        refinement = refineOcclusion(occlusion, source.data, width, height);
+        occlusion.set(refinement.alpha);
+        delete refinement.alpha;
       }
       baseOcclusion.set(occlusion);
       occlusionSignature = nextOcclusionSignature;
@@ -230,6 +238,7 @@ export function createSceneMasks(scene, width, height) {
     width,
     height,
 
+    get refinement() { ensure(); return {...refinement}; },
     get labels() {
       ensure();
       return labels;

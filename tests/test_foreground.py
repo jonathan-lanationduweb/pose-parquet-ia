@@ -64,3 +64,29 @@ def test_precomputed_openings_preserve_geometry_independent_exclusion():
     assert result.objects[0].kind == "mask-opening"
     assert result.objects[0].polygon == opening
     assert floor.all(), "Occlusion construction must not mutate the floor mask"
+
+
+def test_existing_ade20k_floor_objects_do_not_depend_on_enclosed_holes():
+    # These touch the boundary; interior_openings alone cannot protect them.
+    classes = [31, 35, 39, 41, 44, 57, 62, 69, 73, 97, 99, 108, 112, 115, 125, 135, 138]
+    for label in classes:
+        labels = np.full((80, 100), 3, np.uint8)
+        labels[45:, :12] = label
+        result = build_foreground(labels, np.ones(labels.shape, bool))
+        assert result.refined[60, 5], label
+        assert not result.refined[60, 50], label
+
+
+def test_ground_classes_never_become_objects():
+    for label in [0, 3, 6, 9, 11, 13, 21, 26, 46, 52, 94]:
+        labels = np.full((40, 60), label, np.uint8)
+        assert not build_foreground(labels, np.ones(labels.shape, bool)).refined.any()
+
+
+def test_resized_labels_keep_rug_and_thin_objects():
+    labels = np.full((40, 60), 3, np.uint8)
+    labels[20:35, 30] = 19
+    labels[30:38, 40:55] = 28
+    result = build_foreground(labels, np.ones((80, 120), bool))
+    assert result.refined[42:68, 60:62].all()
+    assert result.refined[65, 95]

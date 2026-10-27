@@ -1152,7 +1152,15 @@ def build_experimental_scene(
         "scaleQualitySource": ("projection plausibility with assumed camera height, "
                                "not measured meters"),
         "sceneDataValid": not any(checks.values()),
+        # No calibrated object confidence is produced by the semantic backend.
+        # Do not turn floor confidence into a false guarantee about foreground.
+        "occlusionQuality": None,
+        "occlusionQualitySource": "semantic classes and mask openings; confidence uncalibrated",
+        "occlusionAreaRatio": round(float(foreground.refined.mean()), 4),
     }
+    if status == STATUS_AUTO and float(foreground.refined.mean()) > 0.05:
+        status = "approximate_render"
+        raisons.append("occlusion_confidence_unmeasured")
     if floor_confidence is not None:
         if float(raffine.mean()) < 0.08:
             status = STATUS_ADJUST

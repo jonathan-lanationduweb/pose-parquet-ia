@@ -142,7 +142,7 @@ export function createSceneRenderer({ prefer = 'auto' } = {}) {
     const src = prepared.canvas
       .getContext('2d', { willReadFrequently: true })
       .getImageData(0, 0, prepared.width, prepared.height);
-    const msk = chrono('C.masques', () => createSceneMasks(sc, prepared.width, prepared.height));
+    const msk = chrono('C.masques', () => createSceneMasks(sc, prepared.width, prepared.height, src));
     const calcul = lumiereAsync(src, msk.effectiveCoverage, sc.light);
     const finir = (sh, re) => {
       const prep = { photo: prepared, source: src, masks: msk, shading: sh, residual: re, lightDir: lightDirection(sh) };
