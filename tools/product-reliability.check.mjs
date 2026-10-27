@@ -210,7 +210,9 @@ async function correctionManuelle(p) {
   // Un trait « ajouter au sol », vérifié, puis ANNULÉ : la preuve que l'outil
   // agit, sans laisser un trait arbitraire sur la photo de quelqu'un.
   await p.click('#floorTools [data-brush="add"]');
-  await p.click('#floorTools [data-size="60"]');
+  // Mobile intentionally keeps four brush actions; size controls are desktop-only.
+  const taille = p.locator('#floorTools [data-size="60"]');
+  if (await taille.isVisible()) await taille.click();
   await p.mouse.move(box.x + box.w * 0.3, box.y + box.h * 0.45);
   await p.mouse.down();
   for (let k = 1; k <= 8; k += 1) await p.mouse.move(box.x + box.w * (0.3 + k * 0.05), box.y + box.h * 0.45);
@@ -218,7 +220,8 @@ async function correctionManuelle(p) {
   const z1 = await zone();
   await p.click('#floorUndo');
   await p.click('#floorTools [data-brush="remove"]');
-  await p.click('#floorTools [data-size="6"]');
+  const tailleFine = p.locator('#floorTools [data-size="6"]');
+  if (await tailleFine.isVisible()) await tailleFine.click();
   await p.mouse.move(box.x + box.w * 0.5, box.y + box.h * 0.85); await p.mouse.down(); await p.mouse.move(box.x + box.w * 0.55, box.y + box.h * 0.85); await p.mouse.up();
   const z2 = await zone();
   await p.click('#floorUndo');
@@ -240,14 +243,17 @@ function sceneSimulee({ confiance = 0.8, statut = 'auto_render', quad = null } =
       candidate: 'simulation', maskPngBase64: '', maskWidth: 1600, maskHeight: 1067, coverage: 0.3, boundary: [], timingsMs: {}, metadata: {},
       sceneData: {
         schema: 'pose-parquet/scene@1', id: 'photo', label: 'Ma pièce', source: 'ai', confidence: confiance,
-        image: { width: 1600, height: 1067 }, camera: { horizon: 0.42 },
+        image: { width: 1600, height: 1067 }, // The quad's rails meet at y=0.327777..., not 0.42. An inconsistent
+        // camera is correctly refused by the metric renderer, so it cannot
+        // serve as the valid-scene fixture for lifecycle/product race tests.
+        camera: { horizon: 0.3277777778, fovDeg: 71.1, heightM: 1.5 },
         surfaces: [{ id: 'sol', label: 'Sol', continuous: true }],
         planes: { sol: { quad: q, meters: { width: 4.2, depth: 5 } } },
         floorZones: [{ id: 'sol-1', label: 'Sol', surfaceId: 'sol', planeRef: 'sol', order: 0,
           mask: { polygon: [{ x: 0.05, y: 0.6 }, { x: 0.95, y: 0.6 }, { x: 0.99, y: 0.99 }, { x: 0.01, y: 0.99 }], holes: [] } }],
         occluders: [], light: { kind: 'photo-luma', strength: 1, blurRadius: 0.045 }, warnings: ['experimental_scene'],
       },
-      sceneStatus: statut, sceneConfidence: confiance, perspective: { horizon: 0.42, marqueur: confiance }, rug: {}, sceneProvenance: {decision:{checks:{non_finite:false,degenerate_plane:false,geometry_implausible:false,non_positive_meters:false}}},
+      sceneStatus: statut, sceneConfidence: confiance, perspective: { horizon: 0.3277777778, marqueur: confiance }, rug: {}, sceneProvenance: {decision:{checks:{non_finite:false,degenerate_plane:false,geometry_implausible:false,non_positive_meters:false}}},
     } },
   };
 }

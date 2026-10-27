@@ -15,7 +15,9 @@ for(const dir of fs.readdirSync(OUT).filter(x=>fs.existsSync(`${OUT}/${x}/scene-
    const c=window.__concept;if(!await c.adapter.openPhotoScene(raw,`${location.origin}/rd-boundary/${dir}`))throw Error(c.adapter.refusScene);
    const reference=measurement.referenceProductId?(variant==='before'?measurement.beforeProductId:measurement.referenceProductId):'CHENF39031';
    const profile=c.PREMIBEL_DEMO_PRODUCTS.find(p=>p.id===reference).renderProfile;
-   const start=performance.now(),frame=await c.adapter.applyProfile(profile,0);if(!frame)throw Error('No frame');
+   const start=performance.now(),frame=await c.adapter.applyProfile(profile,0);
+   if(!frame&&c.adapter.geometryValidation?.status==='failed')return {blocked:true,decision:'MANUAL_REQUIRED',validation:c.adapter.geometryValidation};
+   if(!frame)throw Error('No frame without an explicit geometry refusal');
    if(c.adapter.lastHit)throw Error('stale frame');
    const render=frame.toDataURL('image/jpeg',.95),overlay=document.createElement('canvas');overlay.width=frame.width;overlay.height=frame.height;
    const ctx=overlay.getContext('2d');ctx.drawImage(frame,0,0);
@@ -27,6 +29,7 @@ for(const dir of fs.readdirSync(OUT).filter(x=>fs.existsSync(`${OUT}/${x}/scene-
    const text=['92 / 150 / 190 mm: near, mid, far (scale estimated)',...diagnostics.map(d=>`${Math.round(d.plankM*1000)}mm: `+d.zones.filter(z=>z.valid).flatMap(z=>z.samples.map(s=>`${s.position} ${s.valid?s.plankWidthPx.toFixed(1):'--'}px`)).join(' | ')),...(measurement.perspective?.plausibility?.geometryCandidates||[]).map(x=>`${x.chosen?'WINNER ':''}${x.id}: ${Number(x.score).toFixed(2)} ${x.reason}`)];text.slice(0,9).forEach((t,i)=>ctx.fillText(t,20,32+i*19));
    return{render,overlay:overlay.toDataURL('image/jpeg',.94),renderMs:performance.now()-start,diagnostics};
   },{raw,dir,measurement,variant});
+  if(result.blocked){runs.push({variant,...result});console.log('BLOCKED legacy fixture',dir,variant,result.validation.reasons);continue;}
   fs.writeFileSync(`${OUT}/${dir}/render-${variant}.jpg`,Buffer.from(result.render.split(',')[1],'base64'));
   if(variant==='after')fs.writeFileSync(`${OUT}/${dir}/geometry-overlay.jpg`,Buffer.from(result.overlay.split(',')[1],'base64'));
   runs.push({variant,renderMs:result.renderMs,diagnostics:result.diagnostics});

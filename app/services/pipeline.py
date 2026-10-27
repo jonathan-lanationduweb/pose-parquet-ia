@@ -86,7 +86,7 @@ def _decide_status(warnings: list[Warn], scene_present: bool) -> AnalysisStatus:
 
 
 def _segmentation_experimentale(
-    rgb: np.ndarray, focal_35mm: float | None = None
+    rgb: np.ndarray, focal_35mm: float | None = None, *, progressive: bool = False
 ) -> ExperimentalOutputs | None:
     """Segmentation exploratoire du sol — **hors contrat, sur demande**.
 
@@ -140,11 +140,13 @@ def _segmentation_experimentale(
                 image_rgb=rgb,
                 floor_confidence=resultat.metadata.get("floor_confidence"),
                 exif_focal_35mm=focal_35mm,
+                quality_pass=not progressive,
             )
         except Exception:
             log.exception("scene experimentale indisponible")
 
         if scene_exp:
+            scene_exp.provenance["modelWarmupMs"] = model_warmup.report()["timingsMs"]
             resultat.timings.update(scene_exp.provenance.get("timingsMs", {}))
         walls = None
         if get_settings().enable_walls:
@@ -155,7 +157,7 @@ def _segmentation_experimentale(
                 resultat.timings["wall_regions"] = walls.get("timingMs", 0.0)
             except Exception:
                 log.exception("wall regions unavailable")
-        return ExperimentalOutputs(
+        output = ExperimentalOutputs(
             walls=walls,
             floor=ExperimentalFloor(
                 candidate=resultat.candidate,
@@ -174,6 +176,36 @@ def _segmentation_experimentale(
                 scene_provenance=scene_exp.provenance if scene_exp else {},
             ),
         )
+        if progressive and scene_exp is not None and scene_exp.scene is not None:
+            from app.services import scene_refinement_jobs
+
+            # Capture arrays once; the worker never calls segment() again.
+            def refine() -> dict[str, Any]:
+                assert scene_exp is not None
+                final = build_experimental_scene(
+                    resultat.mask, largeur, hauteur, labels=resultat.labels,
+                    candidate=resultat.candidate, image_rgb=rgb,
+                    floor_confidence=resultat.metadata.get("floor_confidence"),
+                    exif_focal_35mm=focal_35mm, stable_perspective=scene_exp.geometry,
+                )
+                final.provenance["modelWarmupMs"] = model_warmup.report()["timingsMs"]
+                refined = output.model_copy(deep=True)
+                assert refined.floor is not None
+                refined.floor.scene_data = final.scene
+                refined.floor.scene_status = final.status
+                refined.floor.scene_confidence = final.confidence
+                refined.floor.scene_provenance = final.provenance
+                refined.floor.timings_ms.update(final.provenance.get("timingsMs", {}))
+                refined.floor.scene_provenance["refinement"] = {"status": "complete"}
+                return refined.model_dump(by_alias=True, exclude_none=False)
+
+            token = scene_refinement_jobs.submit(refine)
+            if output.floor is not None:
+                output.floor.scene_provenance["refinement"] = (
+                    {"status": "pending", "token": token} if token else
+                    {"status": "unavailable", "reason": "quality_worker_capacity"}
+                )
+        return output
     except Exception:
         # On ne dit rien de plus qu'ici : la sortie experimentale est absente,
         # l'analyse normale est intacte, et la trace reste dans les logs du
@@ -182,7 +214,7 @@ def _segmentation_experimentale(
         return None
 
 
-def analyse_room(data: bytes, *, fast_preview: bool = False) -> Analysis:
+def analyse_room(data: bytes, *, fast_preview: bool = False, progressive: bool = False) -> Analysis:
     """Analyse une photo de pièce, d'octets bruts à `AnalysisResult`.
 
     :raises ImageRejected: si la photo n'entre pas dans le pipeline. C'est la
@@ -221,13 +253,15 @@ def analyse_room(data: bytes, *, fast_preview: bool = False) -> Analysis:
     # L'etage experimental, et son defaut : RIEN. Sans le drapeau, le
     # pipeline se termine exactement comme avant le LOT C.0.
     experimental = None
-    if get_settings().experimental_floor:
+    if get_settings().experimental_floor and not blocked:
         # L'etage `segmentation` etait declare depuis le LOT 0 et jamais
         # execute : c'est exactement celui-ci. On ne cree pas un nom de plus
         # pour la meme chose, et une duree mesuree ici dit enfin quelque
         # chose. Ce qu'elle ne dit pas : que la segmentation soit livree.
         with timings.measure("segmentation"):
-            experimental = _segmentation_experimentale(image.rgb, image.focal_35mm)
+            experimental = _segmentation_experimentale(
+                image.rgb, image.focal_35mm, progressive=progressive
+            )
 
     status = _decide_status(warnings, scene is not None)
     result = AnalysisResult(

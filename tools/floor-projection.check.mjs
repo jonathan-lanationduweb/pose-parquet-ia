@@ -18,7 +18,7 @@ for(const canvas of[false,true])for(const variant of['legacy','v3']){
  const out=await p.evaluate(async({raw,image,id})=>{
   const c=window.__concept;if(!await c.adapter.openPhotoScene(raw,image))throw Error(c.adapter.refusScene);
   const product=c.PREMIBEL_DEMO_PRODUCTS.find(p=>p.id===(id==='terrasse-mer'?'VLAME16012':'BTRPF39009'))||c.PREMIBEL_DEMO_PRODUCTS.find(p=>p.id==='CHENF39031');const profile=product.renderProfile;
-  const t0=performance.now();const frame=await c.adapter.applyProfile(profile,0);const productMs=performance.now()-t0;if(!frame)throw Error('no frame');
+  const t0=performance.now();const frame=await c.adapter.applyProfile(profile,0);const productMs=performance.now()-t0;if(!frame&&c.adapter.geometryValidation?.status==='failed')return {blocked:true,decision:'MANUAL_REQUIRED',validation:c.adapter.geometryValidation};if(!frame)throw Error('no frame without geometry refusal');
   const snap=c.adapter.visitSnapshot(),scene=snap.scene;const {loadImage}=await import('../web/scene/image-loader.js');const photo=(await loadImage(image)).canvas;const rendered=frame.toDataURL('image/png').split(',')[1];const {zoneTransform}=await import('../web/scene/geometry.js');const {apply}=await import('../web/scene/perspective.js');
   const w=frame.width,h=frame.height;const grid=document.createElement('canvas');grid.width=w;grid.height=h;const g=grid.getContext('2d');
   for(const z of scene.floorZones){const t=zoneTransform(z,w,h);if(!t)continue;const mw=z.plane.meters.width,md=z.plane.meters.depth;const point=(u,v)=>apply(t.H,u/mw,v/md);const sign=(u,v)=>Math.sign(t.H[6]*u/mw+t.H[7]*v/md+t.H[8]);
@@ -32,6 +32,7 @@ for(const canvas of[false,true])for(const variant of['legacy','v3']){
   const cachedStart=performance.now();await c.adapter.applyProfile(profile,0);const cachedMs=performance.now()-cachedStart;if(!c.adapter.lastHit)throw Error('expected frame cache hit');
   const png=cv=>cv.toDataURL('image/png').split(',')[1];return {frame:rendered,grid:png(grid),original:png(photo),productMs,cachedMs,rotations,protectedProbes,projections:scene.floorZones.map(z=>{const p=z.plane.projection;if(!p)return null;return {status:p.status,reason:p.reason,shear:p.shear,legacyAxisScale:p.legacyAxisScale,camera:p.cameraModel,floorPlane:p.floorPlane,samples:p.samples};}),diagnostics:c.adapter.geometryDiagnostics(profile,0)};
  },{raw,image,id});
+ if(out.blocked){results.push({id,variant,canvas,...out});console.log('BLOCKED legacy fixture',id,variant,out.validation.reasons);continue;}
  fs.mkdirSync(`${root}/${id}`,{recursive:true});const suffix=canvas?'-canvas':'';
  for(const[k,n]of[['original','01-original'],['grid',variant==='legacy'?'02-grid-current':'03-grid-v3'],['frame',variant==='legacy'?'04-legacy-render':'05-v3-render']])fs.writeFileSync(`${root}/${id}/${n}${suffix}.png`,Buffer.from(out[k],'base64'));
  const {frame,grid,original,...measurement}=out;results.push({id,variant,canvas,...measurement});console.log('PASS capture',id,variant,canvas?'Canvas':'WebGL');

@@ -2172,6 +2172,7 @@
       get supportsScale() { return Boolean(studio && typeof studio.setScale === 'function'); },
       visitSnapshot() { const snapshot = studio && typeof studio.visitSnapshot === 'function' ? studio.visitSnapshot() : null; return snapshot ? { ...snapshot, canvas: activeFrame || snapshot.canvas } : null; },
       diagnosticSnapshot() { if(!DEV)return null;const snap=studio?.diagnosticSnapshot(activeProfile,activeAngle);return snap?{...snap,canvas:activeFrame||snap.canvas,renderAvailable:Boolean(activeFrame)}:null; },
+      diagnosticForegroundFrame() { return DEV ? studio?.diagnosticForegroundFrame(activeProfile,activeAngle) : Promise.resolve(null); },
       diagnosticNeutralFrame() { return DEV ? studio?.diagnosticNeutralFrame(activeProfile,activeAngle) : Promise.resolve(null); },
         diagnosticUnlitFrame() { return DEV ? studio?.diagnosticUnlitFrame(activeProfile,activeAngle) : Promise.resolve(null); },
       geometryDiagnostics(profile = activeProfile, angle = activeAngle) { return studio && typeof studio.geometryDiagnostics === 'function' ? studio.geometryDiagnostics(profile, angle) : null; },
@@ -3557,7 +3558,11 @@
     const xp = window.__roomAnalysis.sceneExperimentale
       ? window.__roomAnalysis.sceneExperimentale(r.analysis) : null;
     journal('analyse:fin', { statut: resume.etat, scene: xp ? xp.status : null, confiance: xp ? xp.confidence : null, ms: totalMs });
-    if (xp && xp.scene) await poserScenePhoto(xp, jeton, r.analysis);
+    if (xp && xp.scene) {
+      await poserScenePhoto(xp, jeton, r.analysis);
+      const refinement = xp.provenance?.refinement;
+      if (refinement?.status === 'pending') void suivreQualite(refinement.token, jeton, r.analysis);
+    }
     else if (xp) {
       /* Aucun sol : la photo reste, et la correction manuelle est offerte. */
       state.photoScene = { raw: null, status: 'no_floor', confidence: null, perspective: xp.perspective, posee: false, firstRenderMs: null };
@@ -3573,6 +3578,34 @@
      jamais l'analyse. C'est la regle de Roomvo, et c'est la seule qui rende
      le changement de parquet instantane.
      ===================================================================== */
+  async function suivreQualite(token, jeton, analysis) {
+    const client = analysisClient;
+    try {
+      const started = performance.now();
+      while (performance.now() - started < 120000) {
+        await new Promise(resolve => setTimeout(resolve, 350));
+        if (jeton !== state.photoGeneration || state.source !== 'uploaded') return;
+        const result = await client.refinement(token);
+        if (jeton !== state.photoGeneration || state.source !== 'uploaded') return;
+        if (result.status === 'pending') continue;
+        if (result.status !== 'ready') return;
+        const updated = {...analysis, experimental: result.experimental};
+        const final = window.__roomAnalysis.sceneExperimentale(updated);
+        if (!final) return;
+        poserAnalyse({analysis: updated});
+        const first = state.photoScene?.firstRenderMs;
+        await poserScenePhoto(final, jeton, updated);
+        if (state.photoScene) {
+          state.photoScene.firstRenderMs = first;
+          state.photoScene.qualityUpdateMs = Math.round(performance.now() - started);
+        }
+        journal('scene:quality-pass', {ms: Math.round(performance.now() - started)});
+        return;
+      }
+    } catch { /* The coarse result remains usable when refinement is unavailable. */ }
+    finally { void client.discardRefinement(token); }
+  }
+
   async function poserScenePhoto(xp, jeton, analysis) {
     if (jeton !== state.photoGeneration || state.source !== 'uploaded' || !state.uploaded) return;
     const timings = (analysis && analysis.timings) || {};
@@ -3584,7 +3617,11 @@
     /* Sous le seuil, la scene est une PROPOSITION : la photo reste nue, la
        barre dit que le sol est approximatif et propose d'ajuster. Rien ne se
        pose sans un geste. */
-    if (!['auto_render', 'approximate_render'].includes(xp.status)) { paintChrome(); return; }
+    if (!['auto_render', 'approximate_render'].includes(xp.status)) {
+      state.applied = {key: null, source: null};
+      state.appliedB = {key: null, source: null};
+      paintChrome(); return;
+    }
     await appliquerScenePhoto(jeton);
   }
 

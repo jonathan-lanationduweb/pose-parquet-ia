@@ -80,7 +80,12 @@ async def analyze_room(
             # Interactive previews do not wait for the optional lens audit.
             # The regular API keeps its full diagnostic path.
             if request.headers.get("X-Analysis-Profile") == "visualizer":
-                analysis = await run_in_threadpool(analyse_room, data, fast_preview=True)
+                analysis = await run_in_threadpool(
+                    analyse_room,
+                    data,
+                    fast_preview=True,
+                    progressive=request.headers.get("X-Scene-Passes") == "fast-quality",
+                )
             else:
                 analysis = await run_in_threadpool(analyse_room, data)
     except ImageRejected as rejected:
@@ -106,3 +111,26 @@ async def analyze_room(
         media_type="application/json",
         headers={"Server-Timing": f"serialization;dur={serialization_ms:.3f}"},
     )
+
+
+@router.get("/analyze-room/refinements/{token}")
+async def refinement_status(token: str) -> Response:
+    """Read one opaque, short-lived quality result; no photo persistence."""
+    from app.services.scene_refinement_jobs import snapshot
+
+    result = snapshot(token) if len(token) <= 64 else None
+    if result is None:
+        return Response(status_code=404, headers={"Cache-Control": "no-store"})
+    import json
+
+    return Response(
+        json.dumps(result), media_type="application/json", headers={"Cache-Control": "no-store"}
+    )
+
+
+@router.delete("/analyze-room/refinements/{token}", status_code=204)
+async def discard_refinement(token: str) -> Response:
+    from app.services.scene_refinement_jobs import discard
+
+    discard(token)
+    return Response(status_code=204)

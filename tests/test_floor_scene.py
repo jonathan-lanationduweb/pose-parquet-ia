@@ -151,7 +151,7 @@ def test_le_tapis_devient_un_occulteur_marque_experimental() -> None:
 
 def test_une_scene_valide_est_produite_et_se_relit() -> None:
     s = build_experimental_scene(_sol_trapeze(), W, H, candidate="test", min_confidence=0.5)
-    assert s.status == STATUS_AUTO
+    assert s.status == "approximate_render"  # No measured scale/foreground confidence.
     assert s.scene is not None
     #: Elle doit repasser par le modèle : c'est ce que le front fera.
     relue = SceneData.model_validate(s.scene.model_dump(by_alias=True))
@@ -211,8 +211,9 @@ def test_l_exposition_des_scenes_photo_est_moderee() -> None:
 def test_la_decision_est_expliquee_et_auto_quand_tout_passe() -> None:
     s = build_experimental_scene(_sol_trapeze(), W, H, min_confidence=0.5)
     d = s.provenance["decision"]
-    assert s.status == STATUS_AUTO
-    assert d["status"] == STATUS_AUTO and d["reasons"] == []
+    assert s.status == "approximate_render"  # No measured scale/foreground confidence.
+    assert d["status"] == "approximate_render"
+    assert "foregroundQuality_unverified" in d["reasons"]
     assert not any(d["checks"].values())
 
 

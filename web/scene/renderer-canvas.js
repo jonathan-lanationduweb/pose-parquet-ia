@@ -143,6 +143,7 @@ export function createCanvasRenderer() {
         const origin = zone.plane.origin;
         const maps = surface.maps;
         const config = surface.config;
+        const ignoreForeground = DIAGNOSTIC_RENDER && config.diagnosticForegroundOff;
         const surf = maps.surface;
 
         // Rotation du motif : orientation choisie par l'utilisateur, plus la
@@ -219,7 +220,7 @@ export function createCanvasRenderer() {
             const index0 = y * width + x;
             if (labels[index0] !== label || nw === 0) continue;
             let cover = coverage[index0] / 255;
-            if (occlusion) cover *= 1 - occlusion[index0] / 255;
+            if (occlusion && !ignoreForeground) cover *= 1 - occlusion[index0] / 255;
             if (cover <= 0.004) continue;
 
             const invW = 1 / nw;
@@ -424,7 +425,7 @@ export function createCanvasRenderer() {
                 const j = row + x + ox;
                 if (labels[j] !== label) continue;
                 let localCover = coverage[j] / 255;
-                if (occlusion) localCover *= 1 - occlusion[j] / 255;
+                if (occlusion && !ignoreForeground) localCover *= 1 - occlusion[j] / 255;
                 if (localCover <= 0.004) continue;
                 const q = j * 4;
                 out[q] = src[q] + (r - src[q]) * localCover;

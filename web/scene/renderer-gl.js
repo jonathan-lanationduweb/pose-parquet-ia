@@ -41,7 +41,7 @@ out vec4 outColor;
 in vec2 vFloorMeters;
 in vec3 vSourceProjection;
 uniform bool uMetric;
-${DIAGNOSTIC_RENDER ? 'uniform bool uDiagnosticUnlit; uniform bool uDiagnosticNeutral;' : ''}
+${DIAGNOSTIC_RENDER ? 'uniform bool uDiagnosticUnlit; uniform bool uDiagnosticNeutral; uniform bool uDiagnosticForegroundOff;' : ''}
 uniform mat4 uSourceViewProj;
 uniform vec3 uFloorOrigin,uFloorAxisU,uFloorAxisV;
 
@@ -157,7 +157,7 @@ void main() {
   // quadrilatères de perspective peuvent donc se recouvrir librement sans que
   // les zones se repeignent l'une l'autre.
   if (abs(mask.r * 255.0 - uLabel) > 0.5) discard;
-  float cover = mask.g * (1.0 - mask.b);
+  float cover = mask.g * (1.0 - ${DIAGNOSTIC_RENDER ? '(uDiagnosticForegroundOff ? 0.0 : mask.b)' : 'mask.b'});
   if (cover <= 0.004) discard;
 
   vec2 floorM;
@@ -449,7 +449,7 @@ export function createGlRenderer() {
     return map;
   };
   const u = uniforms(prog, [
-    'uDiagnosticUnlit', 'uDiagnosticNeutral', 'uMetric', 'uViewProj', 'uSourceViewProj', 'uFloorOrigin', 'uFloorAxisU', 'uFloorAxisV', 'uPatternType','uBoardWidth','uBoardLength','uBoardGap','uJointWidth','uFloorAngle','uChevronAngle','uPatternOffset','uVariationStrength','uSourceBoard', 'uQuad', 'uViewport', 'uInverse', 'uMeters', 'uOrigin', 'uRot', 'uTileMeters',
+    'uDiagnosticUnlit', 'uDiagnosticNeutral', 'uDiagnosticForegroundOff', 'uMetric', 'uViewProj', 'uSourceViewProj', 'uFloorOrigin', 'uFloorAxisU', 'uFloorAxisV', 'uPatternType','uBoardWidth','uBoardLength','uBoardGap','uJointWidth','uFloorAngle','uChevronAngle','uPatternOffset','uVariationStrength','uSourceBoard', 'uQuad', 'uViewport', 'uInverse', 'uMeters', 'uOrigin', 'uRot', 'uTileMeters',
     'uRowsPerTile', 'uJitter',
     'uLabel', 'uLight', 'uStrength', 'uAmbient', 'uTint', 'uReliefGain', 'uGlossGain',
     'uGamma', 'uExposure', 'uMicro', 'uAlbedoMean', 'uSaturation', 'uShadowFloor', 'uRepeatVar',
@@ -685,7 +685,7 @@ export function createGlRenderer() {
         const rect = rectMatrix(box);
 
         const config = surface.config;
-        if(DIAGNOSTIC_RENDER){gl.uniform1i(u.uDiagnosticUnlit,config.diagnosticUnlit===true?1:0);gl.uniform1i(u.uDiagnosticNeutral,config.diagnosticNeutral===true?1:0);}
+        if(DIAGNOSTIC_RENDER){gl.uniform1i(u.uDiagnosticForegroundOff,config.diagnosticForegroundOff===true?1:0);gl.uniform1i(u.uDiagnosticUnlit,config.diagnosticUnlit===true?1:0);gl.uniform1i(u.uDiagnosticNeutral,config.diagnosticNeutral===true?1:0);}
         const angle = ((config.angle || 0) + zone.plane.rotationDeg) * (Math.PI / 180);
         const surf = surface.maps.surface;
         const light = tileLight(transform.jac, lightDir, angle);

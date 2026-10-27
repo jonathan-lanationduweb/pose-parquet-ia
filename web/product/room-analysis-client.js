@@ -95,11 +95,14 @@ const MESSAGES = {
 export function createRoomAnalysisClient({ base, timeoutMs = 120000 } = {}) {
   let generation = 0;
   let enCours = null;
+  const refinementRequests = new Set();
   // Résultats uniquement, en mémoire de cette page ; aucun octet photo conservé.
   const recent = new Map();
 
   /** Annule l'analyse en cours, s'il y en a une. */
   function cancel() {
+    for (const controller of refinementRequests) controller.abort();
+    refinementRequests.clear();
     if (enCours) {
       enCours.abort();
       enCours = null;
@@ -146,7 +149,7 @@ export function createRoomAnalysisClient({ base, timeoutMs = 120000 } = {}) {
       }
       const reponse = await fetch(`${base}/v1/analyze-room`, {
         method: 'POST',
-        headers: { 'X-Analysis-Profile': 'visualizer' },
+        headers: { 'X-Analysis-Profile': 'visualizer', 'X-Scene-Passes': 'fast-quality' },
         body: corps,
         signal: controleur.signal,
       });
@@ -176,7 +179,7 @@ export function createRoomAnalysisClient({ base, timeoutMs = 120000 } = {}) {
           message: 'Réponse d’analyse inattendue.',
         };
       }
-      if (digest && !perime) {
+      if (digest && !perime && analysis.experimental?.floor?.sceneProvenance?.refinement?.status !== 'pending') {
         recent.set(digest, structuredClone(analysis));
         if (recent.size > 4) recent.delete(recent.keys().next().value);
       }
@@ -223,6 +226,26 @@ export function createRoomAnalysisClient({ base, timeoutMs = 120000 } = {}) {
   }
 
   return {
+    async refinement(token) {
+      const controller = new AbortController();
+      refinementRequests.add(controller);
+      const timer = setTimeout(() => controller.abort(), 15000);
+      try {
+        const response = await fetch(`${base}/v1/analyze-room/refinements/${encodeURIComponent(token)}`, {
+          cache: 'no-store', signal: controller.signal,
+        });
+        return response.ok ? await response.json() : {status: 'unavailable'};
+      } finally {
+        clearTimeout(timer); refinementRequests.delete(controller);
+      }
+    },
+    async discardRefinement(token) {
+      try {
+        await fetch(`${base}/v1/analyze-room/refinements/${encodeURIComponent(token)}`, {
+          method: 'DELETE', signal: AbortSignal.timeout(5000),
+        });
+      } catch { /* Expiry also releases results if the network is unavailable. */ }
+    },
     get base() { return base; },
     get generation() { return generation; },
     clearCache() { recent.clear(); },

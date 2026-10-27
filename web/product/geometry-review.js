@@ -26,7 +26,12 @@ export function installGeometryReview(getConcept){
    try{const frame=await c.adapter.diagnosticNeutralFrame();if(frame&&scene===c.adapter.scene&&intent===c.state.intent){canvas.width=frame.width;canvas.height=frame.height;canvas.getContext('2d').drawImage(frame,0,0);group.style.display='';c.applyTransform();}}
    finally{neutral.disabled=false;}
   };
-  panel.append(unlit,neutral,restore);
+  const foreground=unlit.cloneNode(true);foreground.textContent='Comparer sans objets';
+  foreground.onclick=async()=>{const intent=c.state.intent,scene=c.adapter.scene;foreground.disabled=true;
+   try{const frame=await c.adapter.diagnosticForegroundFrame();if(frame&&scene===c.adapter.scene&&intent===c.state.intent){canvas.width=frame.width;canvas.height=frame.height;canvas.getContext('2d').drawImage(frame,0,0);group.style.display='';c.applyTransform();}}
+   finally{foreground.disabled=false;}
+  };
+  panel.append(unlit,neutral,foreground,restore);
  const legend=document.createElement('pre');legend.style.cssText='white-space:pre-wrap;max-width:300px;margin:8px 0 0';panel.append(legend);stage.append(panel);
  const snapshot=()=>{
   const snap=c.adapter.diagnosticSnapshot();if(!snap)throw Error('Ouvrez une scène dans le moteur');

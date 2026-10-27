@@ -1,46 +1,10 @@
-"""Scène EXPÉRIMENTALE depuis un masque de sol — LOT PHOTO.1.
+"""Scene Understanding V3 from existing semantic floor/foreground labels.
 
-    EXPERIMENTAL PRODUCT PIPELINE · AUCUN MODÈLE RETENU · PAS UNE VÉRITÉ TERRAIN
-
-Ce module fait ce que le LOT C.0 refusait de faire, et il le dit : il
-transforme un masque de sol en une **scène** que le moteur de rendu sait
-poser. Le refus d'alors tenait à une raison précise — ne pas laisser un masque
-exploratoire se faire passer pour une détection — et cette raison n'a pas
-disparu. Elle est portée autrement : la scène produite ici voyage dans le bloc
-`experimental`, jamais dans `sceneData`, avec une confiance, un statut et une
-provenance qui disent d'où elle vient et ce qu'elle vaut.
-
-## La chaîne, et ce que chaque maillon sait vraiment
-
-    masque brut ─► refine_mask ─► polygones (contour + trous)
-                          │
-                          └─► estimate_perspective ─► plan du sol (quad, mètres)
-                                                            │
-    classes sémantiques ─► rug_occluders ──────────────────┤
-                                                            ▼
-                                                    SceneData @1
-
-* **Le raffineur** retire les miettes de prédiction et bouche les trous
-  minuscules et compacts. Il ne bouche pas un trou allongé : un pied de chaise
-  est un trou allongé, et le boucher repeindrait la chaise.
-* **La perspective** est estimée depuis le masque seul. Le sol d'une pièce
-  rectangulaire a deux bords qui fuient vers le même point : quand le masque
-  les montre, leur intersection est le point de fuite et donne l'horizon sans
-  rien supposer. Quand il ne les montre pas — mur de fond seul, cadrage serré,
-  meubles qui mangent les bords — on **suppose** l'horizon un peu au-dessus du
-  mur du fond, et la confiance le dit.
-* **L'échelle** est une hypothèse de sténopé : focale ≈ 0,85 × largeur
-  d'image (environ 61° de champ, un téléphone ordinaire), caméra à 1,50 m.
-  Une photo seule ne porte pas sa propre échelle ; celle-ci est plausible,
-  pas mesurée, et le rapport l'écrit en toutes lettres.
-
-## Ce que ce module ne fait pas
-
-Il ne choisit pas de modèle. Il utilise les classes meubles du même modèle
-comme protection additive ; leur justesse demeure expérimentale. Les ouvertures
-du masque sont conservées. Il ne valide pas les tapis : la classe `rug` d'ADE20K
-est utilisée comme signal, marqué non validé, parce que le corpus officiel n'en
-contient aucun.
+One physical floor envelope, independent visibility/foreground masks, original
+photo refinement, existing multi-candidate camera solver and conservative gate.
+A quality pass reuses the fast pass camera; material changes run in the browser.
+Metric scale remains assumed. The API retains its experimental envelope for
+backwards compatibility; confidence here is not segmentation ground truth.
 """
 
 from __future__ import annotations
@@ -75,8 +39,11 @@ from app.services.camera_geometry import (
     focal_from_exif_35mm,
 )
 from app.services.floor_segmentation import ADE20K_RUG, clean_mask
-from app.services.foreground import build_foreground
+from app.services.foreground import build_foreground, polygons
 from app.services.mask_contours import cell_polygons
+from app.services.photo_mask_refiner import refine_photo_mask
+from app.services.room_layout import estimate_room_layout
+from app.services.scene_quality import scene_quality_gate
 
 #: Focale **a priori**, en fraction de la largeur d'image, quand ni l'EXIF ni
 #: les droites de la photo ne la mesurent. 0,70 ≈ 71° de champ horizontal :
@@ -489,8 +456,14 @@ def estimate_perspective(
     y_farq = max(far_edge_px - 0.004 * hauteur, horizon_px + 0.05 * hauteur)
     xnl, xnr = -0.08 * largeur, 1.08 * largeur
 
+    # A single off-axis rail VP does not determine two orthogonal floor axes.
+    # With a horizontal reference U axis, V must meet the horizon at cx;
+    # otherwise the declared pinhole camera yields a sheared, rejected plane.
+    # Measured rail evidence remains in the report, not a false rectangular basis.
+    reference_vx = largeur / 2
+
     def rail(xn: float, y: float) -> float:
-        return float(vx_px + (xn - vx_px) * (y - horizon_px) / (y_near - horizon_px))
+        return float(reference_vx + (xn - reference_vx) * (y - horizon_px) / (y_near - horizon_px))
 
     quad_px = [
         (rail(xnl, y_farq), y_farq),
@@ -670,6 +643,7 @@ def mask_zones(
     milieu, une porte ouverte. Elles partagent toutes le même plan : c'est le
     même sol, vu en plusieurs fois.
     """
+    del epsilon_ratio  # Pixel cells are exact; retained for API compatibility.
     # SceneData fractions address image edges (x/width), not pixel centres.
     # Keep the existing component/zone limits without simplifying occupied cells.
     return [(outer,holes) for outer,holes,area in cell_polygons(mask)
@@ -924,6 +898,7 @@ class ExperimentalScene:
     perspective: dict[str, Any]
     rug: dict[str, Any]
     provenance: dict[str, Any]
+    geometry: PerspectiveEstimate | None = None
 
 
 def build_experimental_scene(
@@ -937,6 +912,8 @@ def build_experimental_scene(
     image_rgb: np.ndarray | None = None,
     exif_focal_35mm: float | None = None,
     floor_confidence: float | None = None,
+    quality_pass: bool = True,
+    stable_perspective: PerspectiveEstimate | None = None,
 ) -> ExperimentalScene:
     """Masque → scène expérimentale, statut et confiance.
 
@@ -955,11 +932,11 @@ def build_experimental_scene(
     photo le porte : c'est la seule focale réellement mesurée dont on dispose.
     """
     provenance: dict[str, Any] = {
-        "pipeline": "EXPERIMENTAL PRODUCT PIPELINE — LOT PHOTO.2",
+        "pipeline": "Scene Understanding V3 — semantic layout / foreground / metric floor",
         "candidate": candidate,
         "modelSelected": False,
         "refiner": "BoundaryRefiner: local edges + lines + floor-side color + protected holes",
-        "finalFloorBoundary": "scene.floorZones[].mask (refined; raw mask retained separately)",
+        "finalFloorBoundary": "physical floorZones envelope minus independent occluder matte",
         "perspective": None,
         "horizonSources": "droites de l'image (points de fuite) > rails du masque > mur du fond",
         "focalSources": f"EXIF 35 mm > deux points de fuite > a priori {FOCAL_RATIO} × largeur",
@@ -978,14 +955,23 @@ def build_experimental_scene(
     stage_start = time.perf_counter()
     measured: dict[str, float] = {}
     provenance["timingsMs"] = measured
-    raffine = refine_mask(mask, image_rgb=image_rgb)
+    provenance["sceneQuality"] = {
+        "decision": "MANUAL_REQUIRED", "imageQuality": None, "floorQuality": floor_confidence,
+        "boundaryQuality": None, "layoutQuality": None, "cameraQuality": None,
+        "scaleQuality": None, "foregroundQuality": None, "illuminationQuality": None,
+    }
+    raffine = refine_mask(mask, image_rgb=image_rgb if quality_pass else None)
     measured["FloorMaskRefiner"] = round((time.perf_counter() - stage_start) * 1000, 3)
     stage_start = time.perf_counter()
     if raffine.mean() < MIN_COVERAGE:
         return ExperimentalScene(None, STATUS_NONE, None, {"method": None}, rug, provenance)
 
-    persp = estimate_perspective(
-        raffine,
+    layout = estimate_room_layout(raffine, labels)
+    measured["RoomLayoutEstimator"] = round((time.perf_counter() - stage_start) * 1000, 3)
+    provenance["roomLayout"] = layout.report
+    stage_start = time.perf_counter()
+    persp = stable_perspective or estimate_perspective(
+        layout.support,
         image_rgb=image_rgb,
         exif_focal_px=focal_from_exif_35mm(exif_focal_35mm, width, height),
     )
@@ -1001,8 +987,29 @@ def build_experimental_scene(
     measured["mask_zones"] = round((time.perf_counter() - stage_start) * 1000, 3)
     stage_start = time.perf_counter()
     confiance = scene_confidence(persp, raffine)
-    foreground = build_foreground(
-        labels, raffine, image_rgb, opening_polygons=[hole for _, holes in zones for hole in holes])
+    foreground = build_foreground(labels, raffine, None, serialize=False)
+    visible = layout.support & ~foreground.refined
+    if quality_pass and image_rgb is not None:
+        refinement = refine_photo_mask(image_rgb, layout.support, foreground.refined)
+        visible = refinement.visible_floor
+        provenance["foregroundRefinement"] = {
+            "radiusPx": refinement.radius_px, "changedPixels": refinement.changed_pixels,
+            "instancesRefined": refinement.instances_refined,
+            "inputResolution": [width, height], "newInference": False,
+        }
+    # A single physical plane continues behind objects; precise visibility
+    # lives in a separate matte, including unknown structural exclusions.
+    rug_pixels = (labels == ADE20K_RUG) if labels is not None else np.zeros_like(visible)
+    blocked = ~visible
+    foreground.objects = (
+        polygons(blocked & ~layout.support, kind="fixture", prefix="structural")
+        + polygons(blocked & rug_pixels & layout.support, kind="rug", prefix="rug")
+        + polygons(blocked & ~rug_pixels & layout.support,
+                   kind="furniture", prefix="foreground")
+    )
+    foreground.refined = blocked & layout.support
+    zones = [(outer, []) for outer, _holes, _area in cell_polygons(layout.envelope)]
+    measured["highResolutionForeground"] = round((time.perf_counter() - stage_start) * 1000, 3)
     occluders = foreground.objects
     rug_masks = [obj for obj in occluders if obj.kind == "rug"]
     furniture_masks = [obj for obj in occluders if obj.kind == "furniture"]
@@ -1112,6 +1119,7 @@ def build_experimental_scene(
     measured["SceneData"] = round((time.perf_counter() - stage_start) * 1000, 3)
     stage_start = time.perf_counter()
     checks = validate_scene(scene, persp, mask.astype(bool), raffine)
+    checks["low_visible_floor_coverage"] = image_rgb is not None and float(raffine.mean()) < .08
     status, raisons = decide(confiance, min_confidence, checks)
     measured["scene_validation"] = round((time.perf_counter() - stage_start) * 1000, 3)
     change_ratio = float(np.logical_xor(mask.astype(bool), raffine).sum()) / max(1, int(mask.sum()))
@@ -1145,9 +1153,34 @@ def build_experimental_scene(
             raisons.append("low_floor_confidence")
         elif not any(checks.values()) and (floor_confidence < 0.55 or confiance < min_confidence):
             status = "approximate_render"
-    if image_rgb is not None and status == STATUS_AUTO and persp.metric_scale_confidence == "low":
+    if (image_rgb is not None and status in (STATUS_AUTO, "approximate_render")
+            and persp.metric_scale_confidence == "low"):
         status = "approximate_render"
         raisons.append("metric_scale_estimated")
+    scene_quality = {
+        "imageQuality": None,
+        "floorQuality": floor_confidence,
+        "boundaryQuality": quality["boundaryQuality"],
+        "layoutQuality": layout.report["layoutConfidence"],
+        "cameraQuality": persp.confidence,
+        "scaleQuality": quality["scaleQuality"],
+        "foregroundQuality": None,
+        "illuminationQuality": None,
+    }
+    gate = scene_quality_gate(scene_quality, checks=checks)
+    # Existing manual decisions cannot be promoted by an incomplete score.
+    if (status == STATUS_ADJUST
+            and (any(checks.values()) or (floor_confidence is None and confiance < min_confidence))
+            and gate.decision != "FAILED_GRACEFULLY"):
+        gate.decision = "MANUAL_REQUIRED"
+    status = {"AUTO_RENDER": STATUS_AUTO, "APPROXIMATE_RENDER": "approximate_render",
+              "MANUAL_REQUIRED": STATUS_ADJUST, "FAILED_GRACEFULLY": STATUS_NONE}[gate.decision]
+    raisons.extend(gate.reasons)
+    provenance["sceneQuality"] = {"decision": gate.decision, **scene_quality}
+    provenance["pass"] = "quality" if quality_pass else "fast"
+    layout.report.update({"horizon": persp.horizon,
+                          "vanishingDirections": persp.camera.get("vanishingPoints", []),
+                          "cameraCandidates": persp.plausibility.get("geometryCandidates", [])})
     provenance["stageTrace"] = [
         {"stage": name, "ms": duration, "dimensions": [width, height],
          "confidence": quality.get("geometryQuality") if name == "camera_geometry" else None,
@@ -1168,4 +1201,6 @@ def build_experimental_scene(
         return ExperimentalScene(None, STATUS_NONE, None, perspective, rug, provenance)
     if status == STATUS_ADJUST and "low_confidence" not in (scene.warnings or []):
         scene.warnings = [*(scene.warnings or []), "needs_manual_adjustment"]
-    return ExperimentalScene(scene, status, round(confiance, 3), perspective, rug, provenance)
+    return ExperimentalScene(
+        scene, status, round(confiance, 3), perspective, rug, provenance, persp
+    )

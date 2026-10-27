@@ -316,7 +316,11 @@ export function buildShadingMap(source, coverage, light) {
     rgba[p + 2] = gain;
     // `contact` vaut 1 en pleine zone et décroît vers les bords ; on ne garde
     // que l'assombrissement, dosé par la scène.
-    rgba[p + 3] = 1 - light.contact * (1 - Math.min(1, contact[i]));
+    // A silhouette alone is not evidence of a dark contact shadow.
+    // Modulate the boundary only where the PHOTO also contains a deficit.
+    // Fine observed shadows remain a distinct residual.shadow layer below.
+    const observedDarkness = Math.min(1, Math.max(0, 1 - gain) / 0.4);
+    rgba[p + 3] = 1 - light.contact * (1 - Math.min(1, contact[i])) * observedDarkness;
   }
 
   /* ---- Dominante globale de la lumière ----

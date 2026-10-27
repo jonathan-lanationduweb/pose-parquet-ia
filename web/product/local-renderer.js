@@ -300,6 +300,14 @@ export async function createLocalRenderer({ base = '', prefer = 'auto' } = {}) {
         return renderer.paint(target,diagnostic)?target:null;
       });
     },
+    diagnosticForegroundFrame(profile=null,angle=null) {
+      if(typeof location==='undefined'||new URLSearchParams(location.search).get('dev')!=='1')return Promise.resolve(null);
+      return enFile(async()=>{
+        const target=document.createElement('canvas'),diagnostic={...diagnosticConfig(profile,angle),diagnosticForegroundOff:true};
+        await renderer.preparer(diagnostic);
+        return renderer.paint(target,diagnostic)?target:null;
+      });
+    },
     diagnosticNeutralFrame(profile=null,angle=null) {
       if(typeof location==='undefined'||new URLSearchParams(location.search).get('dev')!=='1')return Promise.resolve(null);
       return enFile(async()=>{

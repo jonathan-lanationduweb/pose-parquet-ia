@@ -14,10 +14,59 @@ from app.services.mask_contours import cell_polygons
 
 # Explicit ids from the installed ADE20K config. No new inference.
 OBJECT_CLASSES = {
-    7, 10, 12, 15, 17, 19, 23, 24, 30, 31, 33, 35, 36, 37,
-    39, 40, 41, 44, 45, 50, 55, 56, 57, 62, 64, 65, 69, 71,
-    73, 75, 89, 92, 97, 99, 107, 108, 110, 111, 112, 115, 117,
-    118, 119, 125, 126, 127, 129, 131, 132, 135, 138, 139, 146,
+    7,
+    10,
+    12,
+    15,
+    17,
+    19,
+    23,
+    24,
+    30,
+    31,
+    33,
+    35,
+    36,
+    37,
+    39,
+    40,
+    41,
+    44,
+    45,
+    50,
+    55,
+    56,
+    57,
+    62,
+    64,
+    65,
+    69,
+    71,
+    73,
+    75,
+    89,
+    92,
+    97,
+    99,
+    107,
+    108,
+    110,
+    111,
+    112,
+    115,
+    117,
+    118,
+    119,
+    125,
+    126,
+    127,
+    129,
+    131,
+    132,
+    135,
+    138,
+    139,
+    146,
 }
 # Names verified against the installed ADE20K id2label. Ground, shadows,
 # walls and outdoor surfaces are intentionally absent. Previously omitted
@@ -38,9 +87,16 @@ class ForegroundResult:
 def polygons(mask: np.ndarray, *, kind: str, prefix: str) -> list[Occluder]:
     """Preserve exact occupied pixel cells, holes and single-pixel supports."""
     return [
-        Occluder(id=f"{prefix}-{i}",label=f"{kind} (semantic proposal)",
-                 kind=kind,polygon=outer,holes=holes,casts_shadow=False,feather=0)
-        for i,(outer,holes,_area) in enumerate(cell_polygons(mask))
+        Occluder(
+            id=f"{prefix}-{i}",
+            label=f"{kind} (semantic proposal)",
+            kind=kind,
+            polygon=outer,
+            holes=holes,
+            casts_shadow=False,
+            feather=0,
+        )
+        for i, (outer, holes, _area) in enumerate(cell_polygons(mask))
     ]
 
 
@@ -62,6 +118,7 @@ def build_foreground(
     image_rgb: np.ndarray | None = None,
     *,
     opening_polygons: list[list[Point]] | None = None,
+    serialize: bool = True,
 ) -> ForegroundResult:
     started = time.perf_counter()
     shape = raw_floor.shape
@@ -102,9 +159,11 @@ def build_foreground(
     started = time.perf_counter()
     # A refined rug retains its own kind; the full union is authoritative for coverage.
     rugs = refined & (labels == RUG) if labels is not None else np.zeros(shape, bool)
-    objects = polygons(refined & ~rugs, kind="furniture", prefix="foreground")
-    objects += polygons(rugs, kind="rug", prefix="rug")
-    if opening_polygons is None:
+    objects = polygons(refined & ~rugs, kind="furniture", prefix="foreground") if serialize else []
+    objects += polygons(rugs, kind="rug", prefix="rug") if serialize else []
+    if not serialize:
+        pass
+    elif opening_polygons is None:
         objects += polygons(holes & ~refined, kind="mask-opening", prefix="opening")
     else:
         objects += [
