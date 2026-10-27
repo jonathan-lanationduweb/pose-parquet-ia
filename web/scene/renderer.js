@@ -83,6 +83,7 @@ export function createSceneRenderer({ prefer = 'auto' } = {}) {
   let scene = null;
   let photo = null; // { canvas, width, height }
   let source = null; // ImageData
+  let gpuPhotoSource = null;
   let masks = null;
   let shading = null;
   let residual = null; // { gloss, shadow }
@@ -119,6 +120,8 @@ export function createSceneRenderer({ prefer = 'auto' } = {}) {
       chrono('I.gpu.cartes', () => {
         gl.setShading(shading);
         gl.setResidual(residual);
+        const plate = masks.compositeSource || source;
+        if (plate !== gpuPhotoSource) { gl.setPhoto(plate); gpuPhotoSource = plate; }
         gl.setMasks(masks);
       });
     }
@@ -171,7 +174,7 @@ export function createSceneRenderer({ prefer = 'auto' } = {}) {
   /** Installe une préparation sur le moteur (cartes GPU comprises). */
   function installer(prep) {
     ({ source, masks, shading, residual } = prep);
-    if (gl) gl.setPhoto(source);
+    if (gl) { gpuPhotoSource = masks.compositeSource || source; gl.setPhoto(gpuPhotoSource); }
     installerLumiere();
   }
 
@@ -359,6 +362,8 @@ export function createSceneRenderer({ prefer = 'auto' } = {}) {
       // Le masque a pu changer depuis le dernier rendu (poignée déplacée,
       // pinceau) : on relit les cartes avant de peindre.
       if (gl) {
+        const plate = masks.compositeSource || source;
+        if (plate !== gpuPhotoSource) { gl.setPhoto(plate); gpuPhotoSource = plate; }
         gl.setMasks(masks);
         gl.draw({ scene, masks, surfaces, lightDir, shading });
         const ctx = target.getContext('2d');
@@ -376,7 +381,7 @@ export function createSceneRenderer({ prefer = 'auto' } = {}) {
       // une fois, plutôt que de la calculer pour tout le monde.
       surfaces.forEach((entry) => { if (entry.maps.completer) entry.maps.completer(); });
       const ok = cpu.paint({
-        source, target: buffer, scene, masks, shading,
+        source: masks.compositeSource || source, target: buffer, scene, masks, shading,
         gloss: residual && residual.fullRes().gloss, shadow: residual && residual.fullRes().shadow,
         light: residual && residual.fullRes().light,
         mid: residual && residual.fullRes().mid, mid: residual && residual.fullRes().mid, surfaces, step,
@@ -403,7 +408,7 @@ export function createSceneRenderer({ prefer = 'auto' } = {}) {
       // Même raison que dans paint() : le moteur logiciel lit tous les niveaux.
       surfaces.forEach((entry) => { if (entry.maps.completer) entry.maps.completer(); });
       const ok = cpu.paint({
-        source,
+        source: masks.compositeSource || source,
         target: buffer,
         scene,
         masks,

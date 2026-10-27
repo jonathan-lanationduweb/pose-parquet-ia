@@ -48,6 +48,8 @@ def apply_review(scene, review):
         action = edit['action']
         if action in ('floor', 'restore-floor'):
             target = edit.get('zone', 0)
+            if target >= len(floors):
+                raise ValueError('Review requires the original zone layout before foreground compilation')
             floors[target] |= region
             changed_floors.add(target)
         if action == 'exclude-floor':

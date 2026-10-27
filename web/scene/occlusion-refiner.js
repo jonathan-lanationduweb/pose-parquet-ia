@@ -6,7 +6,7 @@ export function refineOcclusion(coarse, image, width, height) {
   const start=performance.now(), out=new Uint8ClampedArray(coarse);
   if(!image || image.length!==width*height*4 || !coarse.some(v=>v>0))
     return {alpha:out,changed:0,boundaryPixels:0,ms:performance.now()-start};
-  const r=4, seeds=[];
+  const r=4, seeds=[], backgrounds=[];
   // Confident seeds have the same class on four sides, 2px away.
   const inside=(x,y)=>coarse[y*width+x]>=128;
   for(let y=r;y<height-r;y++)for(let x=r;x<width-r;x++){
@@ -48,9 +48,42 @@ export function refineOcclusion(coarse, image, width, height) {
     if(residual>Math.max(432,contrast*.04))continue;
     if(alpha<.03)alpha=0;else if(alpha>.97)alpha=1;
     const value=Math.round(alpha*255);
+    // Original C already contains alpha*F + (1-alpha)*oldFloor. Reusing C
+    // as straight foreground colour applies alpha twice and retains old wood.
+    // Keep reliable background samples for the compositor's inverse blend.
+    if(alpha>.03&&alpha<.97)backgrounds.push(i,image[background],image[background+1],image[background+2]);
     if(value!==out[i]){out[i]=value;changed++;}
   }
 
-  return {alpha:out,changed,boundaryPixels:seeds.length,ms:performance.now()-start};
+  return {alpha:out,backgrounds,changed,boundaryPixels:seeds.length,ms:performance.now()-start};
 }
 
+
+/** Build the straight-colour backing plate for the existing SRC_ALPHA blend.
+ * This is not lighting input and never replaces the original photograph.
+ * Works for partial floor coverage too: P=(C-t*oldFloor)/(1-t), where t is
+ * actual replacement coverage. Ambiguous mattes and manual overrides keep C.
+ */
+export function foregroundCompositeSource(source, coverage, occlusion, prior, backgrounds) {
+  if(!source||!backgrounds?.length)return source;
+  let data=null,changed=0;
+  for(let j=0;j<backgrounds.length;j+=4){
+    const i=backgrounds[j];
+    if(occlusion[i]!==prior[i]||!coverage[i])continue;
+    const t=coverage[i]/255*(1-occlusion[i]/255),retained=1-t;
+    if(t<.001||retained<.03)continue;
+    const p=i*4,values=[];
+    let valid=true;
+    for(let k=0;k<3;k++){
+      const value=(source.data[p+k]-t*backgrounds[j+1+k])/retained;
+      // Large clipping would amplify a bad colour/matte hypothesis.
+      if(value< -3||value>258){valid=false;break;}
+      values.push(Math.max(0,Math.min(255,Math.round(value))));
+    }
+    if(!valid||values.every((v,k)=>v===source.data[p+k]))continue;
+    if(!data)data=new Uint8ClampedArray(source.data);
+    for(let k=0;k<3;k++)data[p+k]=values[k];
+    changed++;
+  }
+  return changed?{data,width:source.width,height:source.height}:source;
+}

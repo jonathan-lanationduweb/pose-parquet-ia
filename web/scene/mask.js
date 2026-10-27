@@ -22,7 +22,7 @@
  * lecture unique — lire un canevas est de loin l'opération la plus coûteuse.
  */
 import { zonePolygon } from './schema.js';
-import { refineOcclusion } from './occlusion-refiner.js';
+import { refineOcclusion, foregroundCompositeSource } from './occlusion-refiner.js';
 
 const MAX_HISTORY = 60;
 
@@ -59,6 +59,7 @@ export function createSceneMasks(scene, width, height, source = null) {
   let hasOcclusion = false;
   let occlusionSignature = null;
   let dirty = true;
+  let backgroundSamples = [], compositeSource = source;
   let refinement = {changed:0,boundaryPixels:0,ms:0};
 
   /* ---------------- Tracé ---------------- */
@@ -165,6 +166,7 @@ export function createSceneMasks(scene, width, height, source = null) {
     const nextOcclusionSignature = JSON.stringify(scene.occluders);
     if (nextOcclusionSignature !== occlusionSignature) {
       refinement = {changed:0,boundaryPixels:0,ms:0};
+      backgroundSamples = [];
       occlusion.fill(0);
       hasOcclusion = false;
       if (scene.occluders.length) {
@@ -191,6 +193,8 @@ export function createSceneMasks(scene, width, height, source = null) {
       if (hasOcclusion && source && scene.occluders.some(o => ['furniture','rug','mask-opening'].includes(o.kind))) {
         refinement = refineOcclusion(occlusion, source.data, width, height);
         occlusion.set(refinement.alpha);
+        backgroundSamples = refinement.backgrounds || [];
+        delete refinement.backgrounds;
         delete refinement.alpha;
       }
       baseOcclusion.set(occlusion);
@@ -227,6 +231,7 @@ export function createSceneMasks(scene, width, height, source = null) {
     for (let i=0;i<coverage.length;i++) {
       visibleCoverage[i] = Math.round(coverage[i] * (1-occlusion[i]/255));
     }
+    compositeSource = foregroundCompositeSource(source, coverage, occlusion, baseOcclusion, backgroundSamples);
     dirty = false;
   }
 
@@ -238,6 +243,7 @@ export function createSceneMasks(scene, width, height, source = null) {
     width,
     height,
 
+    get compositeSource() { ensure(); return compositeSource; },
     get refinement() { ensure(); return {...refinement}; },
     get labels() {
       ensure();

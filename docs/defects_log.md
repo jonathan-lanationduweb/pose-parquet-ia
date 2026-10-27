@@ -189,3 +189,44 @@ Un PASS porte sur le périmètre indiqué, jamais sur tout le réalisme de la sc
 - Trello : « Corriger les découpes des pièces du catalogue » ;
   « Préserver pieds, tapis et plinthes » ; « Corriger le libellé terrasse » ;
   « Vérifier les 8 scènes sur mobile ». Contours fins encore à reprendre.
+
+## CASE #011 — Rejet utilisateur de CASE #010 : corrections trop ponctuelles
+
+- L’utilisateur constate encore le défaut dans toutes les pièces. Le serveur
+  renvoie bien les fichiers locaux modifiés avec Cache-Control no-store ;
+  l’inspection des onglets ne justifie pas d’attribuer le retour au seul cache.
+- Cause commune confirmée : silhouettes déjà soustraites de floorZones puis
+  répétées dans occluders. Affiner le deuxième masque ne peut pas récupérer
+  les pixels dont le premier masque interdit déjà la pose.
+- Compilation catalogue : reconstituer le support derrière le foreground dans
+  l’enveloppe du plan existant ; une zone géométrique par plan, avec les découpes
+  précises dans le matte. Ne pas valider chaque îlot de quelques pixels comme
+  s’il constituait une nouvelle pièce. Caméra, plans, dimensions et lumière
+  déclarée restent identiques.
+- Affinage commun hors ligne, objet par objet : un GMM global apprend le brun
+  des meubles et conserve ensuite du sol brun autour du pouf clair. Le traitement
+  local conserve des graines fiables et les supports fins. Les grilles fixes
+  restent protégées. Aucun traitement dans le chemin du changement de produit.
+- Six scènes meublées ont reçu les masques relus. Le couloir et la terrasse
+  n’ont aucun objet à affiner et leurs masques ne sont pas modifiés par ce lot.
+- Les labels manquants ont été produits avec le OneFormer/OpenVINO déjà installé,
+  en mode hors ligne, une seule session de chargement ; pas de nouveau modèle,
+  pas de téléchargement, pas de recherche depth, pas de nouvelle caméra.
+- Deuxième cause commune : une photo C contient déjà aF+(1-a)Bancien. L’utiliser
+  comme couleur foreground puis appliquer a à nouveau conserve de l’ancien bois.
+  La plaque de compositing utilise P=(C-tBancien)/(1-t), t étant la couverture
+  réellement remplacée. Uniquement les bords à estimation fiable sont corrigés ;
+  pixels opaques, photo originale, entrée lumière et retouches explicites restent
+  préservés. WebGL et Canvas utilisent cette même plaque, calculée avec les masques
+  et réutilisée entre les produits ; aucune nouvelle branche du shader.
+- Tests : inverse blend connu (a=.25/.5/.75, couverture .5/1), source immuable,
+  alpha mixte, suppression/annulation/validation mobile sans réanalyse, 12 cas
+  WebGL/Canvas DPR1/2, supports réels préservés, huit pièces à 1440/390, huit tests
+  Python ciblés. Captures : review/defects/common-after-*.
+- Revue dans l’interface normale et onglet DEV existant rechargé sur la salle
+  à manger. Comparatif depuis CASE #010 : review/common-foreground-review/.
+- Limite visuelle explicite : des contours grossiers demeurent sous le lit,
+  autour du pouf et de certains petits objets. Une réussite de test n’est pas
+  une validation globale S1–S8. Le résultat global reste NEEDS_WORK.
+- Trello : « Affiner les contours des objets » ; « Supprimer les halos d’ancien
+  parquet » ; « Vérifier ordinateur et mobile ». Ne pas cocher « rendu final validé ».

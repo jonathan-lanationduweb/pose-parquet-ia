@@ -195,7 +195,7 @@ registerAnalyzer('precalibrated', async ({ sceneId, base = '' }) => {
   if (!cache.has(key)) {
     cache.set(
       key,
-      fetch(`${base}data/scenes/${sceneId}.json`).then(async (response) => {
+      fetch(`${base}data/scenes/${sceneId}.json`, { cache: 'no-cache' }).then(async (response) => {
         if (!response.ok) throw new Error(`Pièce « ${sceneId} » introuvable`);
         return normalizeScene({ ...(await response.json()), source: 'precalibrated' });
       })
