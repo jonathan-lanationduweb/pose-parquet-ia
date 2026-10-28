@@ -194,10 +194,23 @@ class DepthInfo(_Model):
     far: float | None = None
 
 
+class LightLayer(_Model):
+    """V4 achromatic multiplicative texture in original image coordinates."""
+
+    width: int = Field(ge=1)
+    height: int = Field(ge=1)
+    encoding: Literal["png-rg-u16"] = "png-rg-u16"
+    scale: float = 10000.0
+    data: str
+    gain: float
+    color_stats: dict[str, list[float]] = Field(default_factory=dict)
+
+
 class Light(_Model):
     """Éclairement relu dans la photo. Les défauts sont ceux du front."""
 
     kind: Literal["photo-luma", "estimated"] = "photo-luma"
+    light_layer: LightLayer | None = None
     strength: float = 1.0
     #: En fraction de la largeur d'image. Sépare l'éclairement du détail :
     #: c'est ce qui empêche les lames de l'ancien sol de réapparaître en

@@ -40,6 +40,7 @@ from app.services.camera_geometry import (
 )
 from app.services.floor_segmentation import ADE20K_RUG, clean_mask
 from app.services.foreground import build_foreground, polygons
+from app.services.lighting_layers import build_lighting_layers, encode_lighting_layers
 from app.services.mask_contours import cell_polygons
 from app.services.photo_mask_refiner import refine_photo_mask
 from app.services.room_layout import estimate_room_layout
@@ -1096,6 +1097,15 @@ def build_experimental_scene(
         ),
         warnings=warnings,
     )
+    if image_rgb is not None:
+        lighting_started = time.perf_counter()
+        lighting_mask = layout.envelope.astype(np.float32)
+        layers = build_lighting_layers(
+            np.ascontiguousarray(image_rgb[:, :, ::-1]), lighting_mask,
+            blocked.astype(np.float32),
+        )
+        scene.light.light_layer = encode_lighting_layers(layers, lighting_mask)
+        measured["lightingLayerV4"] = round((time.perf_counter() - lighting_started) * 1000, 3)
     provenance["perspective"] = persp.method
     provenance["focalSource"] = persp.focal_source
     perspective = {
