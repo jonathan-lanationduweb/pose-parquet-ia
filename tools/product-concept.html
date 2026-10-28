@@ -2172,6 +2172,7 @@
       get supportsScale() { return Boolean(studio && typeof studio.setScale === 'function'); },
       visitSnapshot() { const snapshot = studio && typeof studio.visitSnapshot === 'function' ? studio.visitSnapshot() : null; return snapshot ? { ...snapshot, canvas: activeFrame || snapshot.canvas } : null; },
       diagnosticSnapshot() { if(!DEV)return null;const snap=studio?.diagnosticSnapshot(activeProfile,activeAngle);return snap?{...snap,canvas:activeFrame||snap.canvas,renderAvailable:Boolean(activeFrame)}:null; },
+      diagnosticForegroundOverlayFrame() { return DEV ? studio?.diagnosticForegroundOverlayFrame() : null; },
       diagnosticCompositeFrame(mode=0) { return DEV ? studio?.diagnosticCompositeFrame(mode,activeProfile,activeAngle) : Promise.resolve(null); },
       diagnosticForegroundFrame() { return DEV ? studio?.diagnosticForegroundFrame(activeProfile,activeAngle) : Promise.resolve(null); },
       diagnosticNeutralFrame() { return DEV ? studio?.diagnosticNeutralFrame(activeProfile,activeAngle) : Promise.resolve(null); },

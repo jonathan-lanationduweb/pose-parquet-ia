@@ -1,3 +1,4 @@
+import { foregroundOverlay } from './foreground-review.js';
 /**
  * Moteur de rendu LOCAL du visualiseur.
  *
@@ -292,6 +293,11 @@ export async function createLocalRenderer({ base = '', prefer = 'auto' } = {}) {
       if(typeof location==='undefined'||new URLSearchParams(location.search).get('dev')!=='1'||!renderer.ready)return null;
       return {scene:structuredClone(renderer.scene),masks:renderer.masks,size:renderer.size,photo:renderer.photo,canvas,config:diagnosticConfig(profile,angle)};
     },
+    diagnosticForegroundOverlayFrame() {
+      if(typeof location==='undefined'||new URLSearchParams(location.search).get('dev')!=='1'||!renderer.ready)return null;
+      return foregroundOverlay({scene:renderer.scene,size:renderer.size,photo:renderer.photo});
+    },
+
     diagnosticCompositeFrame(mode=0,profile=null,angle=null) {
       if(typeof location==='undefined'||new URLSearchParams(location.search).get('dev')!=='1'||!renderer.ready)return Promise.resolve(null);
       return enFile(async()=>{

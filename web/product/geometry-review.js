@@ -32,6 +32,10 @@ export function installGeometryReview(getConcept){
    finally{foreground.disabled=false;}
   };
   panel.append(unlit,neutral,foreground,restore);
+  const red=unlit.cloneNode(true);red.textContent='Masque auto rouge · photo seule';
+  red.onclick=()=>{const frame=c.adapter.diagnosticForegroundOverlayFrame();if(frame){canvas.width=frame.width;canvas.height=frame.height;canvas.getContext('2d').drawImage(frame,0,0);group.style.display='';c.applyTransform();}};
+  panel.append(red);
+
   for(const [mode,label]of [[1,'V4 · sol'],[2,'V4 · objets'],[3,'V4 · lumière'],[4,'V4 · parquet sans lumière'],[5,'V4 · parquet éclairé'],[6,'V4 · contact'],[0,'V4 · composite final']]){
     const button=unlit.cloneNode(true);button.textContent=label;
     button.onclick=async()=>{const intent=c.state.intent,scene=c.adapter.scene;button.disabled=true;
