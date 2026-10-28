@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 import {ViewTransform} from '../web/product/view-transform.js';
 const {chromium}=createRequire(import.meta.url)(process.env.PPAI_PLAYWRIGHT_CORE);
-const root='review/foreground-mask-v5',cases=JSON.parse(fs.readFileSync(root+'/matrix.json')).map(r=>r.scene);
+const root=process.env.PPAI_FOREGROUND_REVIEW_ROOT||'review/foreground-mask-v5',cases=JSON.parse(fs.readFileSync(root+'/matrix.json')).map(r=>r.scene);
 for(const dpr of [1,2])for(const width of [1440,390]){
  const t=new ViewTransform({imageWidth:1536,imageHeight:1024,viewportWidth:width,viewportHeight:844,zoom:1.8,offsetX:-91,offsetY:17});
  const p={x:953,y:712},v=t.imageToViewport(p),q=t.viewportToImage({x:v.x*dpr/dpr,y:v.y*dpr/dpr});assert.ok(Math.hypot(p.x-q.x,p.y-q.y)<.01);

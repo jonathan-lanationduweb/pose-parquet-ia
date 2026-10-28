@@ -2,7 +2,7 @@
 import fs from 'node:fs';
 import {createRequire} from 'node:module';
 const {chromium}=createRequire(import.meta.url)(process.env.PPAI_PLAYWRIGHT_CORE);
-const root='review/foreground-mask-v5',browser=await chromium.launch({channel:'chrome',headless:true});
+const root=process.env.PPAI_FOREGROUND_REVIEW_ROOT||'review/foreground-mask-v5',browser=await chromium.launch({channel:'chrome',headless:true});
 try{
  const page=await browser.newPage();await page.goto('http://127.0.0.1:8000/tools/product-concept.html?prefetch=0');
  const rows=[];
