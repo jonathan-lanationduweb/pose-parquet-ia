@@ -9,9 +9,17 @@ export function refineOcclusion(coarse, image, width, height) {
   const r=4, seeds=[], backgrounds=[];
   // Confident seeds have the same class on four sides, 2px away.
   const inside=(x,y)=>coarse[y*width+x]>=128;
+  // The same immutable coarse predicate was previously evaluated for every
+  // neighbour of every edge pixel (81 times). Cache it once per photo matte.
+  const interior=new Uint8Array(width*height);
+  for(let y=2;y<height-2;y++)for(let x=2;x<width-2;x++){
+    const i=y*width+x,b=coarse[i]>=128;
+    interior[i]=((coarse[i-2]>=128)===b&&(coarse[i+2]>=128)===b&&
+      (coarse[i-2*width]>=128)===b&&(coarse[i+2*width]>=128)===b)?1:0;
+  }
   for(let y=r;y<height-r;y++)for(let x=r;x<width-r;x++){
     const i=y*width+x, b=inside(x,y);
-    const solid=inside(x-2,y)===b&&inside(x+2,y)===b&&inside(x,y-2)===b&&inside(x,y+2)===b;
+    const solid=interior[i];
     if(solid)continue;
     // Keep slender foreground branches; never erase a few-pixel leg.
     if(b&&((!inside(x-2,y)&&!inside(x+2,y))||(!inside(x,y-2)&&!inside(x,y+2))))continue;
@@ -24,8 +32,7 @@ export function refineOcclusion(coarse, image, width, height) {
     for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){
       const xx=x+dx,yy=y+dy,j=yy*width+xx,b=inside(xx,yy);
       // A seed must be interior, rather than a mixed/AA boundary pixel.
-      if(xx<2||yy<2||xx>=width-2||yy>=height-2)continue;
-      if(inside(xx-2,yy)!==b||inside(xx+2,yy)!==b||inside(xx,yy-2)!==b||inside(xx,yy+2)!==b)continue;
+      if(!interior[j])continue;
       const q=j*4;
       const color=(image[p]-image[q])**2+(image[p+1]-image[q+1])**2+(image[p+2]-image[q+2])**2;
       const score=color+36*(dx*dx+dy*dy);

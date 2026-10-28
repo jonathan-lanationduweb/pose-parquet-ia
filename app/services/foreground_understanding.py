@@ -15,13 +15,15 @@ class ForegroundUnderstanding:
     report: dict[str, Any]
 
 
-def _nearest_colors(seeds: np.ndarray, image: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+def _nearest_colors(
+    seeds: np.ndarray, image: np.ndarray
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     distance, labels = cv2.distanceTransformWithLabels(
         (~seeds).astype(np.uint8), cv2.DIST_L2, 5, labelType=cv2.DIST_LABEL_PIXEL
     )
     colors = np.zeros((int(labels.max()) + 1, 3), np.float32)
     colors[labels[seeds]] = image[seeds]
-    return colors[labels], distance
+    return labels, colors, distance
 
 
 def understand_foreground(
@@ -67,8 +69,8 @@ def understand_foreground(
         guide = cv2.cvtColor(cv2.bilateralFilter(image_rgb, 5, 20, 2), cv2.COLOR_RGB2LAB).astype(
             np.float32
         )
-        foreground, fd = _nearest_colors(foreground_seeds, guide)
-        background, bd = _nearest_colors(background_seeds, guide)
+        foreground, foreground_colors, fd = _nearest_colors(foreground_seeds, guide)
+        background, background_colors, bd = _nearest_colors(background_seeds, guide)
         band = domain & (inside + outside <= radius)
         yy, xx = np.nonzero(band)
         pixels = guide[yy, xx]
@@ -76,14 +78,16 @@ def understand_foreground(
         # A single spatial nearest seed may be a different part of the same
         # multicolour object (green stem beside a grey pot). Compare nearby
         # seed regions too, within the same bounded source-image neighbourhood.
-        def best_seed(colors: np.ndarray, distances: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        def best_seed(
+            nearest: np.ndarray, colors: np.ndarray, distances: np.ndarray
+        ) -> tuple[np.ndarray, np.ndarray]:
             best = np.full(len(xx), np.inf, np.float32)
             chosen = np.zeros((len(xx), 3), np.float32)
             for dy in [-radius, 0, radius]:
                 for dx in [-radius, 0, radius]:
                     sy = (yy + dy).clip(0, prior.shape[0] - 1)
                     sx = (xx + dx).clip(0, prior.shape[1] - 1)
-                    candidate = colors[sy, sx]
+                    candidate = colors[nearest[sy, sx]]
                     error = np.sum((pixels - candidate) ** 2, axis=1)
                     error[distances[sy, sx] + np.hypot(dx, dy) > radius * 3] = np.inf
                     take = error < best
@@ -91,8 +95,8 @@ def understand_foreground(
                     best[take] = error[take]
             return chosen, best
 
-        fg_color, df = best_seed(foreground, fd)
-        bg_color, db = best_seed(background, bd)
+        fg_color, df = best_seed(foreground, foreground_colors, fd)
+        bg_color, db = best_seed(background, background_colors, bd)
         separation = np.sum((fg_color - bg_color) ** 2, axis=1)
         clear = (separation > 400) & np.isfinite(df) & np.isfinite(db)
         verified_fraction = float(clear.mean()) if len(clear) else 0.0
@@ -126,11 +130,12 @@ def understand_foreground(
     output[ridge] = True
     edge_ms = (perf_counter() - t) * 1000
     t = perf_counter()
-    bridges = _thin_bridges(image_rgb, domain, prior, ridge, radius)
+    bridges = _thin_bridges(image_rgb, domain, prior, ridge, radius, outside)
     output |= bridges
     bridge_ms = (perf_counter() - t) * 1000
     report = {
         "method": "V5 local Lab seeds / bounded original-photo edge evidence",
+        "implementationVersion": "5.1",
         "sourceSize": list(prior.shape[::-1]),
         "radiusPx": radius,
         "thinSeedPixels": int(ridge.sum()),
@@ -154,7 +159,12 @@ def understand_foreground(
 
 
 def _thin_bridges(
-    image: np.ndarray, domain: np.ndarray, prior: np.ndarray, ridge: np.ndarray, radius: int
+    image: np.ndarray,
+    domain: np.ndarray,
+    prior: np.ndarray,
+    ridge: np.ndarray,
+    radius: int,
+    outside: np.ndarray,
 ) -> np.ndarray:
     """Recover short photo-supported line gaps attached to an existing thin seed.
 
@@ -171,11 +181,24 @@ def _thin_bridges(
     detected = cv2.createLineSegmentDetector().detect(gray)
     if detected[0] is None:
         return recovered.astype(bool)
-    distance = cv2.distanceTransform((~prior).astype(np.uint8), cv2.DIST_L2, 5)
+    distance = outside
     thin_distance = cv2.distanceTransform((~ridge).astype(np.uint8), cv2.DIST_L2, 5)
     lab = cv2.cvtColor(image, cv2.COLOR_RGB2LAB).astype(np.float32)
+    # Reject most floor-grain lines before allocating per-segment sample arrays.
+    # This is the same endpoint/length predicate as V5, evaluated in one batch.
+    segments = detected[0].reshape(-1, 4)
     widths = detected[1].reshape(-1)
-    for segment, width in zip(detected[0].reshape(-1, 4), widths, strict=True):
+    lengths = np.hypot(segments[:, 2] - segments[:, 0], segments[:, 3] - segments[:, 1])
+    ends_x = np.rint(segments[:, [0, 2]]).astype(int).clip(0, w - 1)
+    ends_y = np.rint(segments[:, [1, 3]] + y0).astype(int).clip(0, h - 1)
+    keep = (
+        (widths <= 5)
+        & (lengths >= 6)
+        & (lengths <= radius * 8)
+        & (distance[ends_y, ends_x].max(axis=1) <= radius / 2)
+        & (thin_distance[ends_y, ends_x].min(axis=1) <= 3)
+    )
+    for segment, width in zip(segments[keep], widths[keep], strict=True):
         x1, sy1, x2, sy2 = segment
         y1, y2 = sy1 + y0, sy2 + y0
         length = float(np.hypot(x2 - x1, y2 - y1))
