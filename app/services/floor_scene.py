@@ -40,6 +40,7 @@ from app.services.camera_geometry import (
 )
 from app.services.floor_segmentation import ADE20K_RUG, clean_mask
 from app.services.foreground import build_foreground, polygons
+from app.services.foreground_understanding import understand_foreground
 from app.services.lighting_layers import build_lighting_layers, encode_lighting_layers
 from app.services.mask_contours import cell_polygons
 from app.services.photo_mask_refiner import refine_photo_mask
@@ -989,6 +990,8 @@ def build_experimental_scene(
     stage_start = time.perf_counter()
     confiance = scene_confidence(persp, raffine)
     foreground = build_foreground(labels, raffine, None, serialize=False)
+    source_foreground = foreground.refined.copy()
+    foreground_quality = None
     visible = layout.support & ~foreground.refined
     if quality_pass and image_rgb is not None:
         refinement = refine_photo_mask(image_rgb, layout.support, foreground.refined)
@@ -998,14 +1001,23 @@ def build_experimental_scene(
             "instancesRefined": refinement.instances_refined,
             "inputResolution": [width, height], "newInference": False,
         }
+    if quality_pass and image_rgb is not None:
+        source_foreground[layout.support] = ~visible[layout.support]
+        understanding = understand_foreground(image_rgb, layout.support, source_foreground)
+        source_foreground = understanding.mask
+        visible = layout.support & ~source_foreground
+        foreground_quality = understanding.report["foregroundQuality"]
+        provenance["foregroundUnderstanding"] = understanding.report
+        measured.update({"foregroundV5_" + key: value
+                         for key, value in understanding.report["timingsMs"].items()})
     # A single physical plane continues behind objects; precise visibility
     # lives in a separate matte, including unknown structural exclusions.
     rug_pixels = (labels == ADE20K_RUG) if labels is not None else np.zeros_like(visible)
     blocked = ~visible
     foreground.objects = (
         polygons(blocked & ~layout.support, kind="fixture", prefix="structural")
-        + polygons(blocked & rug_pixels & layout.support, kind="rug", prefix="rug")
-        + polygons(blocked & ~rug_pixels & layout.support,
+        + polygons(source_foreground & rug_pixels, kind="rug", prefix="rug")
+        + polygons(source_foreground & ~rug_pixels,
                    kind="furniture", prefix="foreground")
     )
     foreground.refined = blocked & layout.support
@@ -1147,8 +1159,8 @@ def build_experimental_scene(
         "sceneDataValid": not any(checks.values()),
         # No calibrated object confidence is produced by the semantic backend.
         # Do not turn floor confidence into a false guarantee about foreground.
-        "occlusionQuality": None,
-        "occlusionQualitySource": "semantic classes and mask openings; confidence uncalibrated",
+        "occlusionQuality": foreground_quality,
+        "occlusionQualitySource": "V5 local boundary evidence; confidence uncalibrated",
         "occlusionAreaRatio": round(float(foreground.refined.mean()), 4),
     }
     if status == STATUS_AUTO and float(foreground.refined.mean()) > 0.05:
@@ -1174,7 +1186,7 @@ def build_experimental_scene(
         "layoutQuality": layout.report["layoutConfidence"],
         "cameraQuality": persp.confidence,
         "scaleQuality": quality["scaleQuality"],
-        "foregroundQuality": None,
+        "foregroundQuality": foreground_quality,
         "illuminationQuality": None,
     }
     gate = scene_quality_gate(scene_quality, checks=checks)

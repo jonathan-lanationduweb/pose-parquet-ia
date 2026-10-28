@@ -224,6 +224,13 @@ def test_progressive_http_contract_runs_one_inference_and_reuses_geometry(monkey
         assert fast["sceneData"]["camera"] == final["sceneData"]["camera"]
         assert fast["sceneData"]["planes"] == final["sceneData"]["planes"]
         assert final["sceneProvenance"]["pass"] == "quality"
+        foreground = final["sceneProvenance"]["foregroundUnderstanding"]
+        assert foreground["confidenceCalibrated"] is False
+        assert 0 < foreground["foregroundQuality"] < .8
+        assert (final["sceneProvenance"]["sceneQuality"]["foregroundQuality"]
+                == foreground["foregroundQuality"])
+        assert final["sceneProvenance"]["sceneQuality"]["decision"] != "AUTO_RENDER"
+
         for floor in [fast, final]:
             layer = floor["sceneData"]["light"]["lightLayer"]
             assert layer["encoding"] == "png-rg-u16"
