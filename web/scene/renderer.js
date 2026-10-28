@@ -1,3 +1,4 @@
+import { decodeLightLayer } from './contact-compositor.js';
 /**
  * Rendu d'une scène — API unique, deux moteurs derrière.
  *
@@ -86,6 +87,7 @@ export function createSceneRenderer({ prefer = 'auto' } = {}) {
   let gpuPhotoSource = null;
   let masks = null;
   let shading = null;
+  let lightLayer = null;
   let residual = null; // { gloss, shadow }
   let lightDir = null;
   const buffers = new Map(); // canevas cible → ImageData réutilisée
@@ -118,6 +120,7 @@ export function createSceneRenderer({ prefer = 'auto' } = {}) {
     lightDir = lightDirection(shading);
     if (gl) {
       chrono('I.gpu.cartes', () => {
+        gl.setLightLayer(lightLayer);
         gl.setShading(shading);
         gl.setResidual(residual);
         const plate = masks.compositeSource || source;
@@ -141,14 +144,15 @@ export function createSceneRenderer({ prefer = 'auto' } = {}) {
    * Calcule pixels, masques et éclairement d'une scène. Rend l'objet tout de
    * suite sans worker, une promesse avec. N'installe rien.
    */
-  function preparer(sc, prepared, cle) {
+  function preparer(sc, prepared, cle, layer=null) {
+    if(sc.light.lightLayer&&!layer)return decodeLightLayer(sc.light.lightLayer).then(decoded=>preparer(sc,prepared,cle,decoded));
     const src = prepared.canvas
       .getContext('2d', { willReadFrequently: true })
       .getImageData(0, 0, prepared.width, prepared.height);
     const msk = chrono('C.masques', () => createSceneMasks(sc, prepared.width, prepared.height, src));
     const calcul = lumiereAsync(src, msk.effectiveCoverage, sc.light);
     const finir = (sh, re) => {
-      const prep = { photo: prepared, source: src, masks: msk, shading: sh, residual: re, lightDir: lightDirection(sh) };
+      const prep = { photo: prepared, source: src, masks: msk, shading: sh, residual: re, lightLayer:layer, lightDir: lightDirection(sh) };
       retenirPreparation(cle, prep);
       return prep;
     };
@@ -173,7 +177,7 @@ export function createSceneRenderer({ prefer = 'auto' } = {}) {
 
   /** Installe une préparation sur le moteur (cartes GPU comprises). */
   function installer(prep) {
-    ({ source, masks, shading, residual } = prep);
+    ({ source, masks, shading, residual, lightLayer } = prep);
     if (gl) { gpuPhotoSource = masks.compositeSource || source; gl.setPhoto(gpuPhotoSource); }
     installerLumiere();
   }
@@ -381,10 +385,10 @@ export function createSceneRenderer({ prefer = 'auto' } = {}) {
       // une fois, plutôt que de la calculer pour tout le monde.
       surfaces.forEach((entry) => { if (entry.maps.completer) entry.maps.completer(); });
       const ok = cpu.paint({
-        source: masks.compositeSource || source, target: buffer, scene, masks, shading,
+        source: masks.compositeSource || source, target: buffer, scene, masks, shading, lightLayer,
         gloss: residual && residual.fullRes().gloss, shadow: residual && residual.fullRes().shadow,
         light: residual && residual.fullRes().light,
-        mid: residual && residual.fullRes().mid, mid: residual && residual.fullRes().mid, surfaces, step,
+        mid: residual && residual.fullRes().mid, surfaces, step,
       });
       if (!ok) return false;
       ctx.putImageData(buffer, 0, 0);
@@ -413,6 +417,7 @@ export function createSceneRenderer({ prefer = 'auto' } = {}) {
         scene,
         masks,
         shading,
+        lightLayer,
         gloss: residual && residual.fullRes().gloss,
         shadow: residual && residual.fullRes().shadow,
         light: residual && residual.fullRes().light,

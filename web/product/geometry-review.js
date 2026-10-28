@@ -32,6 +32,14 @@ export function installGeometryReview(getConcept){
    finally{foreground.disabled=false;}
   };
   panel.append(unlit,neutral,foreground,restore);
+  for(const [mode,label]of [[1,'V4 · sol'],[2,'V4 · objets'],[3,'V4 · lumière'],[4,'V4 · parquet sans lumière'],[5,'V4 · parquet éclairé'],[6,'V4 · contact'],[0,'V4 · composite final']]){
+    const button=unlit.cloneNode(true);button.textContent=label;
+    button.onclick=async()=>{const intent=c.state.intent,scene=c.adapter.scene;button.disabled=true;
+      try{const frame=await c.adapter.diagnosticCompositeFrame(mode);if(frame&&scene===c.adapter.scene&&intent===c.state.intent){canvas.width=frame.width;canvas.height=frame.height;canvas.getContext('2d').drawImage(frame,0,0);group.style.display='';c.applyTransform();}}
+      finally{button.disabled=false;}
+    };panel.append(button);
+  }
+
  const legend=document.createElement('pre');legend.style.cssText='white-space:pre-wrap;max-width:300px;margin:8px 0 0';panel.append(legend);stage.append(panel);
  const snapshot=()=>{
   const snap=c.adapter.diagnosticSnapshot();if(!snap)throw Error('Ouvrez une scène dans le moteur');

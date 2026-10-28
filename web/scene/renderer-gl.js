@@ -1,3 +1,4 @@
+import { COMPOSITE_FRAGMENT, CONTACT_DEFAULTS } from './contact-compositor.js';
 import { METRIC_VERTEX_GLSL, projectionRuntime, floorQuad } from './metric-runtime.js';
 import { physicalPattern, PHYSICAL_PATTERN_GLSL, METRIC_CELL_GLSL, METRIC_JOINT_GLSL } from './world-pattern.js';
 import { releve } from '../utils/perf.js';
@@ -41,6 +42,7 @@ out vec4 outColor;
 in vec2 vFloorMeters;
 in vec3 vSourceProjection;
 uniform bool uMetric;
+uniform bool uHasLightLayer;
 ${DIAGNOSTIC_RENDER ? 'uniform bool uDiagnosticUnlit; uniform bool uDiagnosticNeutral; uniform bool uDiagnosticForegroundOff;' : ''}
 uniform mat4 uSourceViewProj;
 uniform vec3 uFloorOrigin,uFloorAxisU,uFloorAxisV;
@@ -157,7 +159,7 @@ void main() {
   // quadrilatères de perspective peuvent donc se recouvrir librement sans que
   // les zones se repeignent l'une l'autre.
   if (abs(mask.r * 255.0 - uLabel) > 0.5) discard;
-  float cover = mask.g * (1.0 - ${DIAGNOSTIC_RENDER ? '(uDiagnosticForegroundOff ? 0.0 : mask.b)' : 'mask.b'});
+  float cover = 1.0; // Independent floor layer; exclusion/feather belongs to final compositor.
   if (cover <= 0.004) discard;
 
   vec2 floorM;
@@ -301,6 +303,7 @@ void main() {
   // en LUMINANCE, bornees ensemble : le bois doit rester visible dessous.
   gain *= min(uLightMax, (1.0 + uHighlight * residu.b) * (1.0 + uMidLight * residu.a));
 
+  if(uHasLightLayer)gain=vec3(uExposure)*mix(vec3(1.0),uLightTint,uTint); // Preserve global exposure/tint, replace spatial gain.
   vec3 lightOver = max(gain - 1.0, vec3(0.0));
   float lightHeadroom = clamp(0.86 / max(uAlbedoMean, 0.05) - 1.0, 0.08, 0.55);
   gain = min(gain, vec3(1.0)) + lightHeadroom * lightOver / (vec3(lightHeadroom) + lightOver);
@@ -309,7 +312,7 @@ void main() {
   float bump = clamp(1.0 + dot(slope, uLight) * uReliefGain * near, 0.55, 1.6);
 
   float specular = 0.0;
-  if (uGlossGain > 0.0) {
+  if (uGlossGain > 0.0 && !uHasLightLayer) {
     specular = residu.r * uGlossGain * (1.0 - relief.b) * near;
   }
 
@@ -320,7 +323,7 @@ void main() {
   // ne fait pas briller le bois, il le delave. Mesure : la saturation du sol
   // rendu tombait a 0,25 la ou la photo d'origine tenait 0,63.
   vec3 teinteReflet = mix(albedo, vec3(0.82, 0.80, 0.76), 0.30);
-  vec3 color = albedo * gain * (bump * lit.a) + teinteReflet * specular * (0.35 + 0.65 * aLum);
+  vec3 color = albedo * gain * (bump * (uHasLightLayer?1.0:lit.a)) + teinteReflet * specular * (0.35 + 0.65 * aLum);
 
   // Genou doux sur les hautes lumières. Dans une tache de soleil, un simple
   // écrêtage à 1 efface le bois : la zone devient un aplat blanc. Ici les
@@ -341,10 +344,6 @@ void main() {
 const BLIT_VERTEX = `#version 300 es
 in vec2 aPos; out vec2 vUv;
 void main() { vUv = vec2(aPos.x, 1.0 - aPos.y); gl_Position = vec4(aPos * 2.0 - 1.0, 0.0, 1.0); }`;
-
-const BLIT_FRAGMENT = `#version 300 es
-precision highp float; in vec2 vUv; out vec4 o; uniform sampler2D uTex;
-void main() { o = vec4(texture(uTex, vUv).rgb, 1.0); }`;
 
 function compile(gl, type, source) {
   const shader = gl.createShader(type);
@@ -428,10 +427,10 @@ export function createGlRenderer() {
   }
 
   let prog;
-  let blit;
+  let composite;
   try {
     prog = link(gl, VERTEX, FRAGMENT);
-    blit = link(gl, BLIT_VERTEX, BLIT_FRAGMENT);
+    composite = link(gl, BLIT_VERTEX, COMPOSITE_FRAGMENT);
   } catch (error) {
     console.warn('[visualiseur] WebGL refusé, retour au moteur Canvas.', error);
     shared = false;
@@ -454,9 +453,9 @@ export function createGlRenderer() {
     'uLabel', 'uLight', 'uStrength', 'uAmbient', 'uTint', 'uReliefGain', 'uGlossGain',
     'uGamma', 'uExposure', 'uMicro', 'uAlbedoMean', 'uSaturation', 'uShadowFloor', 'uRepeatVar',
     'uLightTint', 'uShadowGain', 'uHighlight', 'uChevron', 'uBaton', 'uMidLight', 'uLightMax',
-    'uMask', 'uAlbedo', 'uReliefMap', 'uShading', 'uGloss',
+    'uHasLightLayer', 'uMask', 'uAlbedo', 'uReliefMap', 'uShading', 'uGloss',
   ]);
-  const uBlit = uniforms(blit, ['uTex']);
+  const uComposite=uniforms(composite,['uPhoto','uFloorRender','uFloorMask','uOccluderMask','uLightLayer','uImageSize','uTexel','uFeatherPx','uContactShadowStrength','uContactShadowSpread','uDebug','uForegroundOff']);
 
   const quadBuffer = (program, attribute) => {
     const vao = gl.createVertexArray();
@@ -471,7 +470,8 @@ export function createGlRenderer() {
     return vao;
   };
   const vao = quadBuffer(prog, 'aUnit');
-  const blitVao = quadBuffer(blit, 'aPos');
+  const compositeVao=quadBuffer(composite,'aPos');
+  const floorFramebuffer=gl.createFramebuffer();
   const metricQuads = new Map();
   const geometryStats = { quadBuilds: 0, metricDraws: 0 };
   const clearMetricQuads = () => {
@@ -511,6 +511,10 @@ export function createGlRenderer() {
     relief: makeTexture(3, { wrap: gl.REPEAT, mips: true }),
     shading: makeTexture(4, { filter: gl.LINEAR }),
     gloss: makeTexture(5, { filter: gl.LINEAR }),
+    floorRender: makeTexture(6),
+    floorMask: makeTexture(7),
+    occluderMask: makeTexture(8),
+    lightLayer: makeTexture(9,{filter:gl.LINEAR}),
   };
 
   gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
@@ -521,6 +525,7 @@ export function createGlRenderer() {
     if (slot.mips) gl.generateMipmap(gl.TEXTURE_2D);
   };
 
+  let hasLightLayer=false;
   let size = { width: 0, height: 0 };
   let maskBytes = null;
   let residualBytes = null;
@@ -543,6 +548,11 @@ export function createGlRenderer() {
       maskBytes = new Uint8Array(width * height * 4);
       residualBytes = new Uint8Array(width * height * 4);
       currentMaterial = null;
+      upload(tex.floorRender,gl.RGBA8,gl.RGBA,gl.UNSIGNED_BYTE,width,height,null);
+      gl.bindFramebuffer(gl.FRAMEBUFFER,floorFramebuffer);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,tex.floorRender.texture,0);
+      if(gl.checkFramebufferStatus(gl.FRAMEBUFFER)!==gl.FRAMEBUFFER_COMPLETE)throw Error('Floor render target incomplete');
+      gl.bindFramebuffer(gl.FRAMEBUFFER,null);
     },
 
     setPhoto(imageData) {
@@ -563,6 +573,14 @@ export function createGlRenderer() {
         maskBytes[p + 3] = 255;
       }
       upload(tex.mask, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, size.width, size.height, maskBytes);
+      upload(tex.floorMask,gl.R8,gl.RED,gl.UNSIGNED_BYTE,size.width,size.height,new Uint8Array(coverage));
+      upload(tex.occluderMask,gl.R8,gl.RED,gl.UNSIGNED_BYTE,size.width,size.height,occlusion?new Uint8Array(occlusion):new Uint8Array(labels.length));
+    },
+
+    setLightLayer(layer) {
+      hasLightLayer=Boolean(layer);
+      const rgba=layer?.rgba||new Float32Array([1,1,1,1]);
+      upload(tex.lightLayer,gl.RGBA16F,gl.RGBA,gl.HALF_FLOAT,layer?.width||1,layer?.height||1,toHalf(rgba));
     },
 
     setShading(shading) {
@@ -641,18 +659,14 @@ export function createGlRenderer() {
       gl.viewport(0, 0, width, height);
       gl.disable(gl.DEPTH_TEST);
 
-      // Fond : la photo, à l'identique.
+      // Material pass in the source image domain, separate from final compositing.
+      gl.bindFramebuffer(gl.FRAMEBUFFER,floorFramebuffer);
       gl.disable(gl.BLEND);
-      gl.useProgram(blit);
-      gl.bindVertexArray(blitVao);
-      gl.uniform1i(uBlit.uTex, tex.photo.unit);
-      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-
-      gl.enable(gl.BLEND);
-      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+      gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT);
       gl.useProgram(prog);
       gl.bindVertexArray(vao);
       gl.uniform2f(u.uViewport, width, height);
+      gl.uniform1i(u.uHasLightLayer,hasLightLayer?1:0);
       gl.uniform1i(u.uMask, tex.mask.unit);
       gl.uniform1i(u.uAlbedo, tex.albedo.unit);
       gl.uniform1i(u.uReliefMap, tex.relief.unit);
@@ -752,6 +766,23 @@ export function createGlRenderer() {
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       });
 
+      gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+      const compositeStart=performance.now();
+      gl.disable(gl.BLEND);gl.useProgram(composite);gl.bindVertexArray(compositeVao);
+      for(const [name,slot]of [['uPhoto','photo'],['uFloorRender','floorRender'],['uFloorMask','floorMask'],['uOccluderMask','occluderMask'],['uLightLayer','lightLayer']]) {
+        gl.activeTexture(gl.TEXTURE0+tex[slot].unit);gl.bindTexture(gl.TEXTURE_2D,tex[slot].texture);
+        gl.uniform1i(uComposite[name],tex[slot].unit);
+      }
+      gl.uniform2f(uComposite.uImageSize,width,height);
+      gl.uniform1f(uComposite.uTexel,1/Math.max(width,height));
+      gl.uniform1f(uComposite.uFeatherPx,CONTACT_DEFAULTS.featherPx);
+      gl.uniform1f(uComposite.uContactShadowStrength,CONTACT_DEFAULTS.strength);
+      gl.uniform1f(uComposite.uContactShadowSpread,CONTACT_DEFAULTS.spread);
+      const diagnostic=surfaces.values().next().value?.config||{};
+      gl.uniform1i(uComposite.uDebug,DIAGNOSTIC_RENDER?(diagnostic.diagnosticCompositeMode||(diagnostic.diagnosticUnlit?4:0)):0);
+      gl.uniform1i(uComposite.uForegroundOff,DIAGNOSTIC_RENDER&&diagnostic.diagnosticForegroundOff?1:0);
+      gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
+      releve('GPU.composite.submit',performance.now()-compositeStart);
       gl.bindVertexArray(null);
       gl.disable(gl.BLEND);
       return canvas;

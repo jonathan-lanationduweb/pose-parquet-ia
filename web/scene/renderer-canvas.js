@@ -1,3 +1,4 @@
+import { buildContactMaps, sampleLight } from './contact-compositor.js';
 const DIAGNOSTIC_RENDER = typeof location!=='undefined' && new URLSearchParams(location.search).get('dev')==='1';
 import { metricJointShade, physicalPattern, patternUV, patternCellMeters } from './world-pattern.js';
 /**
@@ -114,7 +115,7 @@ export function createCanvasRenderer() {
      * @param {Map} o.surfaces            surfaceId → { material, maps, config }
      * @param {number} [o.step]           1 = pleine résolution, 2 = allégé
      */
-    paint({ source, target, scene, masks, shading, gloss, shadow, light: lumiere, mid, surfaces, step = 1 }) {
+    paint({ source, target, scene, masks, shading, lightLayer=null, gloss, shadow, light: lumiere, mid, surfaces, step = 1 }) {
       const width = source.width;
       const height = source.height;
       const src = source.data;
@@ -122,9 +123,10 @@ export function createCanvasRenderer() {
       out.set(src);
 
       const labels = masks.labels;
-      const coverage = masks.coverage;
       const occlusion = masks.occlusion;
       const light = scene.light;
+      const coverage=masks.coverage;
+      const contactMaps=buildContactMaps(masks,width,height);
       const dir = lightDirection(shading);
       const px = Math.max(1, Math.round(step));
 
@@ -365,9 +367,9 @@ export function createCanvasRenderer() {
             const ombre = (shadowGain ? 1 - shadowGain * shadow[index0] : 1)
               * Math.min(light.lightMax, (highlightGain ? 1 + highlightGain * lumiere[index0] : 1)
                 * (midGain ? 1 + midGain * mid[index0] : 1));
-            const gainR = softenGain(shade * tintR * exposure * ombre, albedoMean / 255);
-            const gainG = softenGain(shade * tintG * exposure * ombre, albedoMean / 255);
-            const gainB = softenGain(shade * tintB * exposure * ombre, albedoMean / 255);
+            const gainR = lightLayer?exposure*tintR:softenGain(shade * tintR * exposure * ombre, albedoMean / 255);
+            const gainG = lightLayer?exposure*tintG:softenGain(shade * tintG * exposure * ombre, albedoMean / 255);
+            const gainB = lightLayer?exposure*tintB:softenGain(shade * tintB * exposure * ombre, albedoMean / 255);
 
             // Relief : le gradient de la tuile fait office de normale. Les
             // joints et les chanfreins prennent la lumière, ce qui suffit à
@@ -386,12 +388,12 @@ export function createCanvasRenderer() {
             // Rugosité locale (canal 2 du relief) : une veine ouverte renvoie
             // moins la lumière qu'un nœud verni.
             let specular = 0;
-            if (glossGain > 0) {
+            if (glossGain > 0 && !lightLayer) {
               const rough = accR[2] / 255;
               specular = gloss[index0] * glossGain * (1 - rough) * near;
             }
 
-            const factor = clamp(bump, 0.55, 1.6) * lit[3];
+            const factor = clamp(bump, 0.55, 1.6) * (lightLayer?1:lit[3]);
             // Genou doux sur les hautes lumières : dans une tache de soleil,
             // un simple écrêtage à 255 efface le bois et laisse un aplat
             // blanc. Au-delà de 219, on comprime au lieu de couper.
@@ -424,19 +426,29 @@ export function createCanvasRenderer() {
               for (let ox = 0; ox < px && x + ox < box.x1; ox += 1) {
                 const j = row + x + ox;
                 if (labels[j] !== label) continue;
-                let localCover = coverage[j] / 255;
-                if (occlusion && !ignoreForeground) localCover *= 1 - occlusion[j] / 255;
+                const sharp=ignoreForeground?0:(occlusion?.[j]||0)/255;
+                let localCover=contactMaps.soft[j]*(1-sharp);
                 if (localCover <= 0.004) continue;
                 const q = j * 4;
-                out[q] = src[q] + (r - src[q]) * localCover;
-                out[q + 1] = src[q + 1] + (gg - src[q + 1]) * localCover;
-                out[q + 2] = src[q + 2] + (bb - src[q + 2]) * localCover;
+                const mode=DIAGNOSTIC_RENDER?(config.diagnosticCompositeMode||(config.diagnosticUnlit?4:0)):0;
+                const layer=mode===4?1:sampleLight(lightLayer,x+ox,y+oy,width,height);
+                const contact=ignoreForeground?0:contactMaps.contact[j];
+                const shadowFactor=mode===4||mode===5?1:1-.45*contact*.45;
+                out[q] = src[q] + (r*layer*shadowFactor - src[q]) * localCover;
+                out[q + 1] = src[q + 1] + (gg*layer*shadowFactor - src[q + 1]) * localCover;
+                out[q + 2] = src[q + 2] + (bb*layer*shadowFactor - src[q + 2]) * localCover;
               }
             }
           }
         }
       });
 
+      const mode=DIAGNOSTIC_RENDER?surfaces.values().next().value?.config?.diagnosticCompositeMode||0:0;
+      if([1,2,3,6].includes(mode))for(let j=0;j<width*height;j++){
+        const x=j%width,y=Math.floor(j/width);
+        const v=mode===1?masks.coverage[j]/255:mode===2?(occlusion?.[j]||0)/255:mode===3?sampleLight(lightLayer,x,y,width,height)/1.8:contactMaps.contact[j];
+        out[j*4]=out[j*4+1]=out[j*4+2]=v*255;out[j*4+3]=255;
+      }
       return true;
     },
   };

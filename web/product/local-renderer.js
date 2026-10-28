@@ -292,6 +292,16 @@ export async function createLocalRenderer({ base = '', prefer = 'auto' } = {}) {
       if(typeof location==='undefined'||new URLSearchParams(location.search).get('dev')!=='1'||!renderer.ready)return null;
       return {scene:structuredClone(renderer.scene),masks:renderer.masks,size:renderer.size,photo:renderer.photo,canvas,config:diagnosticConfig(profile,angle)};
     },
+    diagnosticCompositeFrame(mode=0,profile=null,angle=null) {
+      if(typeof location==='undefined'||new URLSearchParams(location.search).get('dev')!=='1'||!renderer.ready)return Promise.resolve(null);
+      return enFile(async()=>{
+        const target=document.createElement('canvas');
+        const diagnostic={...diagnosticConfig(profile,angle),diagnosticCompositeMode:mode};
+        await renderer.preparer(diagnostic);
+        return renderer.paint(target,diagnostic)?target:null;
+      });
+    },
+
     diagnosticUnlitFrame(profile=null,angle=null) {
       if(typeof location==='undefined'||new URLSearchParams(location.search).get('dev')!=='1')return Promise.resolve(null);
       return enFile(async()=>{

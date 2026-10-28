@@ -336,6 +336,7 @@ export function normalizeScene(raw) {
        */
       midLight: num(light.midLight, 1.2),
       lightMax: num(light.lightMax, 1.4),
+      lightLayer: light.lightLayer || null,
     },
 
     warnings: Array.isArray(raw.warnings) ? raw.warnings.slice() : [],
