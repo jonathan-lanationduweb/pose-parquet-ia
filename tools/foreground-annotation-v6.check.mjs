@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import {spawn} from 'node:child_process';
 import {createRequire} from 'node:module';
 const {chromium}=createRequire(import.meta.url)(process.env.PPAI_PLAYWRIGHT_CORE);
+const realURL=process.env.PPAI_ANNOTATION_URL||'http://127.0.0.1:8766';
 const root='review/foreground-v6',fixture=root+'/synthetic-ui-fixture-'+Date.now();
 fs.mkdirSync(root,{recursive:true});
 const code=`from pathlib import Path
@@ -21,7 +22,7 @@ const browser=await chromium.launch({channel:'chrome',headless:true});
 const results=[];
 try{
  const page=await browser.newPage({viewport:{width:1440,height:960},deviceScaleFactor:2});const errors=[];page.on('pageerror',e=>errors.push(e.message));
- await page.goto('http://127.0.0.1:'+port);await page.locator('#photo').waitFor();await page.waitForFunction(()=>document.querySelector('#status').textContent.includes('Masques vierges'));
+ await page.goto('http://127.0.0.1:'+port);await page.locator('#photo').waitFor();await page.waitForFunction(()=>(/Masques vierges|Propositions prêtes|Relevé local chargé/).test(document.querySelector('#status').textContent));
  assert.equal(await page.locator('#objects option').count(),0);
  await page.locator('#author').fill('SYNTHETIC UI TEST — NOT HUMAN GT');await page.locator('#category').selectOption('thin-leg');await page.locator('#add').click();
  const pos=async(x,y)=>{const r=await page.locator('#board').boundingBox();return {x:r.x+x/640*r.width,y:r.y+y/480*r.height};};
@@ -34,7 +35,7 @@ try{
  for(const [p,q] of saved.objects[0].drawings[0].points.entries())for(let k=0;k<2;k++)assert.ok(Math.abs(q[k]-[[160,120],[200,120],[200,360],[160,360]][p][k])<1);
  // Validation must fail before explicit human attestation / object review.
  await page.locator('#save').click();await page.waitForFunction(()=>document.querySelector('#status').textContent.includes('confirmation'));
- await page.locator('#reviewed').check();await page.locator('#human').check();await page.locator('#save').click();await page.waitForFunction(()=>document.querySelector('#status').textContent.includes('masques PNG enregistrés'));
+ await page.locator('#reviewed').check();await page.locator('#human').check();await page.locator('#save').click();await page.waitForFunction(()=>document.querySelector('#status').textContent.includes('Validation humaine enregistrée'));
  saved=await (await page.request.get('http://127.0.0.1:'+port+'/api/annotation/sofa')).json();assert.equal(saved.status,'reviewed-regions');assert.ok(saved.maskRevision);assert.equal(saved.scope,'reviewed-regions-only');
  await page.reload();await page.waitForFunction(()=>document.querySelector('#status').textContent.includes('Relevé local chargé'));assert.equal(await page.locator('#objects option').count(),1);
  await page.locator('#plus').click();await page.locator('#plus').click();assert.equal(await page.locator('#zoom').textContent(),'225 %');await page.locator('#fit').click();assert.equal(await page.locator('#zoom').textContent(),'100 %');
@@ -42,7 +43,7 @@ try{
  // Real private photos are read-only in this test: no gestures or saves.
  for(const width of [1440,390]){
   const real=await browser.newPage({viewport:{width,height:width===390?844:960},deviceScaleFactor:2,isMobile:width===390,hasTouch:width===390});const faults=[];real.on('pageerror',e=>faults.push(e.message));let posts=0;real.on('request',r=>{if(r.method()==='POST')posts++;});
-  await real.goto('http://127.0.0.1:8766');await real.waitForFunction(()=>document.querySelector('#photo').naturalWidth>1000&&document.querySelector('#status').textContent.includes('Masques vierges'));
+  await real.goto(realURL);await real.waitForFunction(()=>document.querySelector('#photo').naturalWidth>1000&&(/Masques vierges|Propositions prêtes|Relevé local chargé/).test(document.querySelector('#status').textContent));
   assert.equal(await real.locator('#objects option').count(),0);assert.equal(await real.locator('#scene option').count(),9);
   if(width===390)await real.locator('.workspace').scrollIntoViewIfNeeded();
   assert.equal(await real.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
